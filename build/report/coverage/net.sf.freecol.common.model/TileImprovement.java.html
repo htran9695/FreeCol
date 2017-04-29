@@ -1,0 +1,693 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TileImprovement.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.model</a> &gt; <span class="el_source">TileImprovement.java</span></div><h1>TileImprovement.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.model;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Logger;
+
+import javax.xml.stream.XMLStreamException;
+
+import net.sf.freecol.common.io.FreeColXMLReader;
+import net.sf.freecol.common.io.FreeColXMLWriter;
+import net.sf.freecol.common.model.Direction;
+
+
+/**
+ * Represents a tile improvement, such as a river or road.
+ */
+public class TileImprovement extends TileItem implements Named {
+
+<span class="fc" id="L41">    private static final Logger logger = Logger.getLogger(TileImprovement.class.getName());</span>
+
+    /** River magnitudes */
+    public static final int NO_RIVER = 0;
+    public static final int SMALL_RIVER = 1;
+    public static final int LARGE_RIVER = 2;
+    public static final int FJORD_RIVER = 3;
+
+    /** The type of this improvement. */
+    private TileImprovementType type;
+
+    /** Turns remaining until the improvement is complete, if any. */
+    private int turnsToComplete;
+
+    /**
+     * The improvement magnitude.  Default is type.getMagnitude(), but
+     * this will override.
+     */
+    private int magnitude;
+
+    /** Image and overlay style information for the improvement. */
+    private TileImprovementStyle style;
+
+    /**
+     * Whether this is a virtual improvement granted by some structure
+     * on the tile (a Colony, for example).  Virtual improvements will
+     * be removed along with the structure that granted them.
+     */
+    private boolean virtual;
+
+    /** Cached bitmap of connections by direction, derived from style. */
+<span class="fc" id="L72">    private long connected = 0L;</span>
+
+
+    /**
+     * Creates a standard &lt;code&gt;TileImprovement&lt;/code&gt;-instance.
+     *
+     * This constructor asserts that the game, tile and type are valid.
+     * Does not set the style.
+     *
+     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
+     * @param tile The &lt;code&gt;Tile&lt;/code&gt; on which this object sits.
+     * @param type The &lt;code&gt;TileImprovementType&lt;/code&gt; of this TileImprovement.
+     */
+    public TileImprovement(Game game, Tile tile, TileImprovementType type) {
+<span class="fc" id="L86">        super(game, tile);</span>
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L88">            throw new IllegalArgumentException(&quot;Parameter 'type' must not be 'null'.&quot;);</span>
+        }
+<span class="fc" id="L90">        this.type = type;</span>
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        if (!type.isNatural()) {</span>
+<span class="fc" id="L92">            this.turnsToComplete = tile.getType().getBasicWorkTurns()</span>
+<span class="fc" id="L93">                + type.getAddWorkTurns();</span>
+        }
+<span class="fc" id="L95">        this.magnitude = type.getMagnitude();</span>
+<span class="fc" id="L96">        this.style = null;</span>
+<span class="fc" id="L97">        this.connected = 0L;</span>
+<span class="fc" id="L98">    }</span>
+
+    /**
+     * Create an new TileImprovement from an existing one.
+     *
+     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
+     * @param tile The &lt;code&gt;Tile&lt;/code&gt; where the improvement resides.
+     * @param template The &lt;code&gt;TileImprovement&lt;/code&gt; to copy.
+     */
+    public TileImprovement(Game game, Tile tile, TileImprovement template) {
+<span class="fc" id="L108">        super(game, tile);</span>
+
+<span class="fc" id="L110">        this.type = template.type;</span>
+<span class="fc" id="L111">        this.turnsToComplete = template.turnsToComplete;</span>
+<span class="fc" id="L112">        this.magnitude = template.magnitude;</span>
+<span class="fc" id="L113">        this.style = template.style;</span>
+<span class="fc" id="L114">        this.virtual = template.virtual;</span>
+<span class="fc" id="L115">        this.connected = getConnectionsFromStyle();</span>
+<span class="fc" id="L116">    }</span>
+
+    /**
+     * Create a new &lt;code&gt;TileImprovement&lt;/code&gt; with the given
+     * identifier.  The object should later be initialized by calling either
+     * {@link #readFromXML(FreeColXMLReader)} or
+     * {@link #readFromXMLElement(Element)}.
+     *
+     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
+     * @param id The object identifier.
+     */
+    public TileImprovement(Game game, String id) {
+<span class="fc" id="L128">        super(game, id);</span>
+<span class="fc" id="L129">    }</span>
+
+
+    /**
+     * Gets the type of this tile improvement.
+     *
+     * @return The type of this improvement.
+     */
+    public TileImprovementType getType() {
+<span class="fc" id="L138">        return type;</span>
+    }
+
+    /**
+     * Is this tile improvement a river?
+     *
+     * @return True if this is a river improvement.
+     */
+    public boolean isRiver() {
+<span class="fc" id="L147">        return &quot;model.improvement.river&quot;.equals(type.getId());</span>
+    }
+
+    /**
+     * Is this tile improvement a road?
+     *
+     * @return True if this is a road improvement.
+     */
+    public boolean isRoad() {
+<span class="fc" id="L156">        return &quot;model.improvement.road&quot;.equals(type.getId());</span>
+    }
+
+    /**
+     * Gets the directions that a connection can form across for this
+     * this type of improvement.
+     *
+     * - For rivers, it is just the longSided directions.
+     * - For roads, it is all directions.
+     * - In other cases, no directions are relevant.
+     *
+     * @return An array of relevant directions, or null if none.
+     */
+    public List&lt;Direction&gt; getConnectionDirections() {
+<span class="fc bfc" id="L170" title="All 2 branches covered.">        return (isRoad()) ? Direction.allDirections</span>
+<span class="fc bfc" id="L171" title="All 2 branches covered.">            : (isRiver()) ? Direction.longSides</span>
+            : null;
+    }
+
+    /**
+     * How many turns remain until this improvement is complete?
+     *
+     * @return The current turns to completion.
+     */
+    public int getTurnsToComplete() {
+<span class="fc" id="L181">        return turnsToComplete;</span>
+    }
+
+    /**
+     * Sets the turns required to complete the improvement.
+     *
+     * @param turns The new turns to completion.
+     */
+    public void setTurnsToComplete(int turns) {
+<span class="fc" id="L190">        turnsToComplete = turns;</span>
+<span class="fc" id="L191">    }</span>
+
+    /**
+     * Gets the magnitude of this improvement.
+     *
+     * @return The magnitude of this immprovement.
+     */
+    public int getMagnitude() {
+<span class="fc" id="L199">        return magnitude;</span>
+    }
+
+    /**
+     * Sets the magnitude of this improvement.
+     *
+     * @param magnitude The new magnitude.
+     */
+    public void setMagnitude(int magnitude) {
+<span class="fc" id="L208">        this.magnitude = magnitude;</span>
+<span class="fc" id="L209">    }</span>
+
+    /**
+     * Gets the style of this improvement.
+     *
+     * @return The style
+     */
+    public TileImprovementStyle getStyle() {
+<span class="fc" id="L217">        return style;</span>
+    }
+
+    /**
+     * Is this a virtual improvement?
+     *
+     * @return True if this is a virtual improvement.
+     */
+    public final boolean isVirtual() {
+<span class="fc" id="L226">        return virtual;</span>
+    }
+
+    /**
+     * Set the virtual status of this improvement.
+     * Used for the roads in a colony center tile.
+     *
+     * @param virtual The new virtual value.
+     */
+    public final void setVirtual(final boolean virtual) {
+<span class="fc" id="L236">        this.virtual = virtual;</span>
+<span class="fc" id="L237">    }</span>
+
+    /**
+     * Is this tile improvement connected to a similar improvement on
+     * a neighbouring tile?
+     *
+     * @param direction The &lt;code&gt;Direction&lt;/code&gt; to check.
+     * @return True if this improvement is connected.
+     */
+    public boolean isConnectedTo(Direction direction) {
+<span class="fc bfc" id="L247" title="All 2 branches covered.">        return (connected &amp; (1 &lt;&lt; direction.ordinal())) != 0;</span>
+    }
+
+    /**
+     * Sets the connection status in a given direction.
+     *
+     * @param direction The &lt;code&gt;Direction&lt;/code&gt; to set.
+     * @param value The new status for the connection.
+     */
+    public void setConnected(Direction direction, boolean value) {
+<span class="fc" id="L257">        boolean now = isConnectedTo(direction);</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">        if (now != value) {</span>
+<span class="fc bfc" id="L259" title="All 2 branches covered.">            if (value) {</span>
+<span class="fc" id="L260">                connected |= 1 &lt;&lt; direction.ordinal();</span>
+            } else {
+<span class="fc" id="L262">                connected &amp;= ~(1 &lt;&lt; direction.ordinal());</span>
+            }
+<span class="fc" id="L264">            style = TileImprovementStyle.getInstance(encodeConnections());</span>
+        }
+<span class="fc" id="L266">    }</span>
+
+    /**
+     * Encode a style string suitable for TileImprovementStyle.getInstance.
+     *
+     * @return A style string (may be null).
+     */
+    private String encodeConnections() {
+<span class="fc" id="L274">        List&lt;Direction&gt; dirns = getConnectionDirections();</span>
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">        if (dirns == null) return null;</span>
+<span class="fc" id="L276">        StringBuilder sb = new StringBuilder();</span>
+<span class="fc bfc" id="L277" title="All 2 branches covered.">        for (Direction d : dirns) {</span>
+<span class="fc bfc" id="L278" title="All 2 branches covered.">            sb.append((isConnectedTo(d)) ? Integer.toString(magnitude) : &quot;0&quot;);</span>
+<span class="fc" id="L279">        }</span>
+<span class="fc" id="L280">        return sb.toString();</span>
+    }
+
+    /**
+     * Gets a map of connection-direction to magnitude.
+     *
+     * @return A map of the connections.
+     */
+    public Map&lt;Direction, Integer&gt; getConnections() {
+<span class="nc" id="L289">        List&lt;Direction&gt; dirns = getConnectionDirections();</span>
+<span class="nc bnc" id="L290" title="All 2 branches missed.">        if (dirns == null) return Collections.&lt;Direction, Integer&gt;emptyMap();</span>
+<span class="nc" id="L291">        Map&lt;Direction, Integer&gt; result = new EnumMap&lt;&gt;(Direction.class);</span>
+<span class="nc bnc" id="L292" title="All 2 branches missed.">        for (Direction d : dirns) {</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">            if (isConnectedTo(d)) result.put(d, magnitude);</span>
+<span class="nc" id="L294">        }</span>
+<span class="nc" id="L295">        return result;</span>
+    }
+
+    /**
+     * Gets a Modifier for the production bonus this improvement provides
+     * for a given type of goods.
+     *
+     * @param goodsType The &lt;code&gt;GoodsType&lt;/code&gt; to test.
+     * @return A production &lt;code&gt;Modifier&lt;/code&gt;, or null if none applicable.
+     */
+    public Modifier getProductionModifier(GoodsType goodsType) {
+<span class="fc bfc" id="L306" title="All 2 branches covered.">        return (isComplete()) ? type.getProductionModifier(goodsType) : null;</span>
+    }
+
+    /**
+     * Calculates the movement cost on the basis of connected tile
+     * improvements.
+     *
+     * @param direction The &lt;code&gt;Direction&lt;/code&gt; to move.
+     * @param moveCost The original movement cost.
+     * @return The movement cost with this improvement.
+     */
+    public int getMoveCost(Direction direction, int moveCost) {
+<span class="pc bpc" id="L318" title="1 of 4 branches missed.">        return (isComplete() &amp;&amp; isConnectedTo(direction))</span>
+<span class="fc" id="L319">            ? type.getMoveCost(moveCost)</span>
+            : moveCost;
+    }
+
+    /**
+     * What type of tile does this improvement change a given type to?
+     *
+     * @param tileType The original &lt;code&gt;TileType&lt;/code&gt;.
+     * @return The &lt;code&gt;TileType&lt;/code&gt; that results from completing this
+     *     improvement, or null if nothing changes.
+     */
+    public TileType getChange(TileType tileType) {
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">        return (isComplete()) ? type.getChange(tileType) : null;</span>
+    }
+
+    /**
+     * Can a unit build this improvement?
+     *
+     * @param unit A &lt;code&gt;Unit&lt;/code&gt; to do the building.
+     * @return True if the supplied unit can build this improvement.
+     */
+    public boolean isWorkerAllowed(Unit unit) {
+<span class="nc bnc" id="L341" title="All 4 branches missed.">        return (unit == null || isComplete()) ? false</span>
+<span class="nc" id="L342">            : type.isWorkerAllowed(unit);</span>
+    }
+
+    /**
+     * Updates the connections from the current style.
+     *
+     * Public for the test suite.
+     *
+     * @return The connections implied by the current style.
+     */
+    public final long getConnectionsFromStyle() {
+<span class="fc" id="L353">        long conn = 0L;</span>
+<span class="fc bfc" id="L354" title="All 2 branches covered.">        if (style != null) {</span>
+<span class="fc" id="L355">            List&lt;Direction&gt; directions = getConnectionDirections();</span>
+<span class="pc bpc" id="L356" title="1 of 2 branches missed.">            if (directions != null) {</span>
+<span class="fc" id="L357">                String mask = style.getMask();</span>
+<span class="fc bfc" id="L358" title="All 2 branches covered.">                for (int i = 0; i &lt; directions.size(); i++) {</span>
+<span class="fc bfc" id="L359" title="All 2 branches covered.">                    if (mask.charAt(i) != '0') {</span>
+<span class="fc" id="L360">                        conn |= 1L &lt;&lt; directions.get(i).ordinal();</span>
+                    }
+                }
+            }
+        }
+<span class="fc" id="L365">        return conn;</span>
+    }
+
+    /**
+     * Updates the connections from/to this river improvement on the basis
+     * of the expected encoded river style.
+     *
+     * @param conns The encoded river connections, or null to disconnect.
+     * @return The actual encoded connections found.
+     */
+    public String updateRiverConnections(String conns) {
+<span class="pc bpc" id="L376" title="1 of 2 branches missed.">        if (!isRiver()) return null;</span>
+<span class="fc" id="L377">        final Tile tile = getTile();</span>
+<span class="fc" id="L378">        int i = 0;</span>
+<span class="fc" id="L379">        String ret = &quot;&quot;;</span>
+<span class="fc bfc" id="L380" title="All 2 branches covered.">        for (Direction d : Direction.longSides) {</span>
+<span class="fc" id="L381">            Direction dReverse = d.getReverseDirection();</span>
+<span class="fc" id="L382">            Tile t = tile.getNeighbourOrNull(d);</span>
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">            TileImprovement river = (t == null) ? null : t.getRiver();</span>
+<span class="pc bpc" id="L384" title="1 of 2 branches missed.">            String c = (conns == null) ? &quot;0&quot; : conns.substring(i, i+1);</span>
+
+<span class="fc bfc" id="L386" title="All 2 branches covered.">            if (&quot;0&quot;.equals(c)) {</span>
+<span class="fc bfc" id="L387" title="All 4 branches covered.">                if (river != null &amp;&amp; river.isConnectedTo(dReverse)) {</span>
+<span class="fc" id="L388">                    river.setConnected(dReverse, false);</span>
+                }
+<span class="fc" id="L390">                setConnected(d, false);</span>
+            } else {
+<span class="fc bfc" id="L392" title="All 2 branches covered.">                if (river != null) river.setConnected(dReverse, true);</span>
+<span class="fc" id="L393">                setConnected(d, true);</span>
+            }
+<span class="fc" id="L395">            ret += c;</span>
+<span class="fc" id="L396">            i++;</span>
+<span class="fc" id="L397">        }</span>
+<span class="pc bpc" id="L398" title="1 of 2 branches missed.">        return (style == null) ? null : style.getString();</span>
+    }
+
+    /**
+     * Updates the connections from/to this road improvement.
+     *
+     * @param connect If true, add connections, otherwise remove them.
+     * @return A string encoding of the correct connections for this
+     *     improvement.
+     */
+    public String updateRoadConnections(boolean connect) {
+<span class="pc bpc" id="L409" title="2 of 4 branches missed.">        if (!isRoad() || !isComplete()) return null;</span>
+<span class="fc" id="L410">        final Tile tile = getTile();</span>
+<span class="fc" id="L411">        String ret = &quot;&quot;;</span>
+<span class="fc bfc" id="L412" title="All 2 branches covered.">        for (Direction d : Direction.values()) {</span>
+<span class="fc" id="L413">            Tile t = tile.getNeighbourOrNull(d);</span>
+<span class="fc bfc" id="L414" title="All 2 branches covered.">            TileImprovement road = (t == null) ? null : t.getRoad();</span>
+<span class="pc bpc" id="L415" title="1 of 4 branches missed.">            if (road != null &amp;&amp; road.isComplete()) {</span>
+<span class="fc" id="L416">                road.setConnected(d.getReverseDirection(), connect);</span>
+<span class="fc" id="L417">                this.setConnected(d, connect);</span>
+            }
+        }
+<span class="fc bfc" id="L420" title="All 2 branches covered.">        return (style == null) ? null : style.getString();</span>
+    }
+
+
+    // Interface Named
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String getNameKey() {
+<span class="nc bnc" id="L431" title="All 2 branches missed.">        return (type == null) ? null : type.getNameKey();</span>
+    }
+
+
+    // Interface TileItem
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public final int getZIndex() {
+<span class="fc" id="L442">        return type.getZIndex();</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isTileTypeAllowed(TileType tileType) {
+<span class="fc" id="L450">        return type.isTileTypeAllowed(tileType);</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int applyBonus(GoodsType goodsType, UnitType unitType,
+                          int potential) {
+        // Applies the production bonuses of this tile improvement to
+        // the given base potential.  Currently, the unit type
+        // argument is ignored and is only provided for the sake of
+        // consistency.  The bonuses of future improvements might
+        // depend on the unit type, however.
+
+<span class="fc" id="L465">        int result = potential;</span>
+        // do not apply any bonuses if the base tile does not produce
+        // any goods, and don't apply bonuses for incomplete
+        // improvements (such as roads)
+<span class="pc bpc" id="L469" title="1 of 4 branches missed.">        if (potential &gt; 0 &amp;&amp; isComplete()) {</span>
+<span class="fc" id="L470">            result += type.getBonus(goodsType);</span>
+        }
+<span class="fc" id="L472">        return result;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean canProduce(GoodsType goodsType, UnitType unitType) {
+        // TileImprovements provide bonuses, but do *not* allow a tile
+        // that can not produce some goods to produce due to the bonus.
+<span class="fc" id="L482">        return false;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List&lt;Modifier&gt; getProductionModifiers(GoodsType goodsType,
+                                                 UnitType unitType) {
+<span class="pc bpc" id="L491" title="1 of 2 branches missed.">        if (goodsType != null) {</span>
+<span class="fc bfc" id="L492" title="All 4 branches covered.">            boolean disableUnattended = !isNatural()</span>
+                &amp;&amp; unitType == null                
+<span class="fc bfc" id="L494" title="All 2 branches covered.">                &amp;&amp; !goodsType.isFoodType()</span>
+<span class="pc bpc" id="L495" title="1 of 2 branches missed.">                &amp;&amp; getSpecification().getBoolean(GameOptions.ONLY_NATURAL_IMPROVEMENTS);</span>
+<span class="fc bfc" id="L496" title="All 2 branches covered.">            Modifier modifier = (disableUnattended) ? null</span>
+<span class="fc" id="L497">                : getProductionModifier(goodsType);</span>
+<span class="pc bpc" id="L498" title="1 of 4 branches missed.">            if (modifier != null &amp;&amp; isComplete()) {</span>
+<span class="fc" id="L499">                List&lt;Modifier&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L500">                result.add(modifier);</span>
+<span class="fc" id="L501">                return result;</span>
+            }
+        }
+<span class="fc" id="L504">        return Collections.&lt;Modifier&gt;emptyList();</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isNatural() {
+<span class="fc" id="L512">        return type.isNatural();</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isComplete() {
+<span class="fc bfc" id="L520" title="All 2 branches covered.">        return turnsToComplete &lt;= 0;</span>
+    }
+
+
+    // Override FreeColGameObject
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int checkIntegrity(boolean fix) {
+<span class="fc" id="L531">        int result = super.checkIntegrity(fix);</span>
+        // @compat 0.10.x
+        // We check only if this improvement is not connected to a
+        // neighbour that *is* connected to this one, and connect this
+        // one.
+        //
+        // FIXME: drop this one day when we never have style
+        // discontinuities.  This alas is not the case in 0.10.x.
+<span class="fc bfc" id="L539" title="All 2 branches covered.">        String curr = (style == null) ? null : style.getString();</span>
+<span class="fc bfc" id="L540" title="All 2 branches covered.">        String found = (isRiver()) ? updateRiverConnections(curr)</span>
+<span class="pc bpc" id="L541" title="1 of 4 branches missed.">            : (isRoad() &amp;&amp; isComplete()) ? updateRoadConnections(true)</span>
+            : null;
+<span class="pc bpc" id="L543" title="3 of 8 branches missed.">        if ((found == null &amp;&amp; curr == null)</span>
+<span class="pc bpc" id="L544" title="1 of 2 branches missed.">            || (found != null &amp;&amp; curr != null &amp;&amp; found.equals(curr))) {</span>
+<span class="fc" id="L545">            result = Math.min(1, result);</span>
+<span class="nc bnc" id="L546" title="All 2 branches missed.">        } else if (fix) {</span>
+<span class="nc" id="L547">            this.style = TileImprovementStyle.getInstance(found);</span>
+<span class="nc bnc" id="L548" title="All 2 branches missed.">            if ((this.style != null)</span>
+<span class="nc bnc" id="L549" title="All 8 branches missed.">                != (isRiver() || (isRoad() &amp;&amp; isComplete()))) {</span>
+<span class="nc" id="L550">                logger.warning(&quot;Bad style for improvement: &quot; + this);</span>
+<span class="nc" id="L551">                result = -1;</span>
+            } else {
+<span class="nc" id="L553">                logger.warning(&quot;Fixing improvement style from &quot;</span>
+                    + curr + &quot; to &quot; + found + &quot; at &quot; + tile);
+<span class="nc" id="L555">                result = Math.min(0, result);</span>
+            }
+        } else {
+<span class="nc" id="L558">            logger.warning(&quot;Broken improvement style &quot; + curr</span>
+                + &quot; should be &quot; + found + &quot; at &quot; + tile);
+<span class="nc" id="L560">            result = -1;</span>
+        }
+        // end @compat 0.10.x
+<span class="fc" id="L563">        return result;</span>
+    }
+
+
+    // Serialization
+
+    private static final String MAGNITUDE_TAG = &quot;magnitude&quot;;
+    private static final String STYLE_TAG = &quot;style&quot;;
+    private static final String TILE_TAG = &quot;tile&quot;;
+    private static final String TURNS_TAG = &quot;turns&quot;;
+    private static final String TYPE_TAG = &quot;type&quot;;
+    private static final String VIRTUAL_TAG = &quot;virtual&quot;;
+
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L582">        super.writeAttributes(xw);</span>
+
+<span class="fc" id="L584">        xw.writeAttribute(TILE_TAG, getTile());</span>
+
+<span class="fc" id="L586">        xw.writeAttribute(TYPE_TAG, getType());</span>
+
+<span class="fc" id="L588">        xw.writeAttribute(TURNS_TAG, turnsToComplete);</span>
+
+<span class="fc" id="L590">        xw.writeAttribute(MAGNITUDE_TAG, magnitude);</span>
+
+<span class="fc bfc" id="L592" title="All 2 branches covered.">        if (style != null) xw.writeAttribute(STYLE_TAG, style);</span>
+
+<span class="fc bfc" id="L594" title="All 2 branches covered.">        if (virtual) xw.writeAttribute(VIRTUAL_TAG, virtual);</span>
+<span class="fc" id="L595">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L602">        super.readAttributes(xr);</span>
+
+<span class="fc" id="L604">        final Specification spec = getSpecification();</span>
+<span class="fc" id="L605">        final Game game = getGame();</span>
+
+<span class="fc" id="L607">        tile = xr.findFreeColGameObject(game, TILE_TAG,</span>
+                                        Tile.class, (Tile)null,
+            // @compat 0.10.x
+            // There was a bug in 0.10.x that did not clear tile
+            // improvements after they were complete, leading to units
+            // that still had a tile improvement after they had moved
+            // away.  Consequently when reading such bogus
+            // improvements, there is no guarantee that the tile is
+            // defined.  So we need to accept null tiles for now.
+            // When 0.10.x compatibility goes away, replace with &quot;true&quot;.
+                                        false
+            // end @compat 0.10.x
+                                        );
+
+<span class="fc" id="L621">        type = xr.getType(spec, TYPE_TAG, TileImprovementType.class,</span>
+                          (TileImprovementType)null);
+
+<span class="fc" id="L624">        turnsToComplete = xr.getAttribute(TURNS_TAG, 0);</span>
+
+<span class="fc" id="L626">        magnitude = xr.getAttribute(MAGNITUDE_TAG, 0);</span>
+
+<span class="fc" id="L628">        virtual = xr.getAttribute(VIRTUAL_TAG, false);</span>
+
+<span class="fc" id="L630">        String str = xr.getAttribute(STYLE_TAG, (String)null);</span>
+<span class="fc" id="L631">        List&lt;Direction&gt; dirns = getConnectionDirections();</span>
+<span class="pc bpc" id="L632" title="1 of 6 branches missed.">        if (dirns == null || str == null || str.isEmpty()) {</span>
+<span class="fc" id="L633">            style = null;</span>
+        // @compat 0.10.5
+<span class="fc bfc" id="L635" title="All 2 branches covered.">        } else if (str.length() &lt; 4) {</span>
+<span class="fc" id="L636">            String old = TileImprovementStyle.decodeOldStyle(str, dirns.size());</span>
+<span class="pc bpc" id="L637" title="1 of 2 branches missed.">            style = (old == null) ? null</span>
+<span class="fc" id="L638">                : TileImprovementStyle.getInstance(old);</span>
+        // end @compat
+<span class="fc" id="L640">        } else {</span>
+<span class="fc" id="L641">            style = TileImprovementStyle.getInstance(str);</span>
+<span class="pc bpc" id="L642" title="1 of 2 branches missed.">            if (style == null) {</span>
+<span class="nc" id="L643">                logger.warning(&quot;At &quot; + tile</span>
+                    + &quot; ignored bogus TileImprovementStyle: &quot; + str);
+            }
+        }
+<span class="pc bpc" id="L647" title="1 of 4 branches missed.">        if (style != null &amp;&amp; style.toString().length() != dirns.size()) {</span>
+            // @compat 0.10.5
+<span class="nc bnc" id="L649" title="All 2 branches missed.">            if (&quot;0000&quot;.equals(style.getString())) {</span>
+                // Old virtual roads and fish bonuses have this style!?!
+<span class="nc" id="L651">                style = null;</span>
+            } else {
+            // end @compat
+
+<span class="nc" id="L655">                throw new XMLStreamException(&quot;For &quot; + type </span>
+                    + &quot;, bogus style: &quot; + str + &quot; -&gt; /&quot; + style
+                    + &quot;/ at &quot; + tile);
+            }
+        }
+<span class="fc" id="L660">        connected = getConnectionsFromStyle();</span>
+<span class="fc" id="L661">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString() {
+<span class="nc" id="L668">        StringBuilder sb = new StringBuilder(64);</span>
+<span class="nc" id="L669">        sb.append(&quot;[&quot;).append(getType().getId());</span>
+<span class="nc bnc" id="L670" title="All 2 branches missed.">        if (turnsToComplete &gt; 0) {</span>
+<span class="nc" id="L671">            sb.append(&quot; (&quot;).append(turnsToComplete).append(&quot; turns left)&quot;);</span>
+        }
+<span class="nc bnc" id="L673" title="All 2 branches missed.">        if (style != null) sb.append(&quot; &quot;).append(style.getString());</span>
+<span class="nc" id="L674">        sb.append(&quot;]&quot;);</span>
+<span class="nc" id="L675">        return sb.toString();</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+<span class="fc" id="L682">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
+
+    /**
+     * Gets the tag name of the root element representing this object.
+     *
+     * @return &quot;tileImprovement&quot;.
+     */
+    public static String getXMLElementTagName() {
+<span class="fc" id="L690">        return &quot;tileImprovement&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

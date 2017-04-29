@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Server.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.networking</a> &gt; <span class="el_source">Server.java</span></div><h1>Server.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.networking;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import net.sf.freecol.FreeCol;
+import net.sf.freecol.common.networking.Connection;
+import net.sf.freecol.common.networking.MessageHandler;
+import net.sf.freecol.server.FreeColServer;
+
+import org.w3c.dom.Element;
+
+
+/**
+ * The networking server in which new clients can connect and methods
+ * like &lt;code&gt;sendToAll&lt;/code&gt; are kept.
+ *
+ * &lt;br&gt;&lt;br&gt;
+ *
+ * When a new client connects to the server a new {@link Connection}
+ * is made, with {@link net.sf.freecol.server.control.UserConnectionHandler}
+ * as the control object.
+ *
+ * @see net.sf.freecol.common.networking
+ */
+public final class Server extends Thread {
+
+<span class="fc" id="L53">    private static final Logger logger = Logger.getLogger(Server.class.getName());</span>
+
+    /** Backlog for socket. */
+    private static final int BACKLOG_DEFAULT = 10;
+
+    /** The public &quot;well-known&quot; socket to which clients may connect. */
+    private final ServerSocket serverSocket;
+
+    /** A hash of Connection objects, keyed by the Socket they relate to. */
+<span class="fc" id="L62">    private final HashMap&lt;Socket, Connection&gt; connections = new HashMap&lt;&gt;();</span>
+
+    /**
+     * Whether to keep running the main loop that is awaiting new
+     * client connections.
+     */
+<span class="fc" id="L68">    private boolean running = true;</span>
+
+    /** The owner of this &lt;code&gt;Server&lt;/code&gt;. */
+    private final FreeColServer freeColServer;
+
+    /** The name of the host for the public socket. */
+    private final String host;
+
+    /** The TCP port that is beeing used for the public socket. */
+    private final int port;
+
+    /** For information about this variable see the run method. */
+<span class="fc" id="L80">    private final Object shutdownLock = new Object();</span>
+
+
+    /**
+     * Creates a new network server. Use {@link #run server.start()} to start
+     * listening for new connections.
+     *
+     * @param freeColServer The owner of this &lt;code&gt;Server&lt;/code&gt;.
+     * @param host The name of the host for the public socket.
+     * @param port The TCP port to use for the public socket.
+     * @throws IOException if the public socket cannot be created.
+     */
+    public Server(FreeColServer freeColServer, String host,
+                  int port) throws IOException {
+<span class="fc" id="L94">        super(FreeCol.SERVER_THREAD + &quot;Server&quot;);</span>
+
+<span class="fc" id="L96">        this.freeColServer = freeColServer;</span>
+<span class="fc" id="L97">        this.host = host;</span>
+<span class="fc" id="L98">        this.port = port;</span>
+<span class="fc" id="L99">        this.serverSocket = new ServerSocket(port, BACKLOG_DEFAULT,</span>
+<span class="fc" id="L100">                                             InetAddress.getByName(host));</span>
+<span class="fc" id="L101">        this.serverSocket.setReuseAddress(true);</span>
+<span class="fc" id="L102">    }</span>
+
+
+    /**
+     * Gets the host that is being used for the public socket.
+     *
+     * @return The name of the host.
+     */
+    public String getHost() {
+<span class="nc" id="L111">        return this.host;</span>
+    }
+
+    /**
+     * Gets the TCP port that is being used for the public socket.
+     *
+     * @return The TCP port.
+     */
+    public int getPort() {
+<span class="nc" id="L120">        return this.port;</span>
+    }
+
+    /**
+     * Gets a &lt;code&gt;Connection&lt;/code&gt; identified by a &lt;code&gt;Socket&lt;/code&gt;.
+     *
+     * @param socket The &lt;code&gt;Socket&lt;/code&gt; that identifies the
+     *               &lt;code&gt;Connection&lt;/code&gt;
+     * @return The &lt;code&gt;Connection&lt;/code&gt;.
+     */
+    public Connection getConnection(Socket socket) {
+<span class="nc" id="L131">        return connections.get(socket);</span>
+    }
+
+    /**
+     * Adds a (usually Dummy)Connection into the hashmap.
+     *
+     * @param connection The connection to add.
+     */
+    public void addDummyConnection(Connection connection) {
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">        if (!running) return;</span>
+<span class="fc" id="L141">        connections.put(new Socket(), connection);</span>
+<span class="fc" id="L142">    }</span>
+
+    /**
+     * Adds a Connection into the hashmap.
+     *
+     * @param connection The connection to add.
+     */
+    public void addConnection(Connection connection) {
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if (!running) return;</span>
+<span class="nc" id="L151">        connections.put(connection.getSocket(), connection);</span>
+<span class="nc" id="L152">    }</span>
+
+    /**
+     * Removes the given connection.
+     *
+     * @param connection The connection that should be removed.
+     */
+    public void removeConnection(Connection connection) {
+<span class="fc" id="L160">        connections.remove(connection.getSocket());</span>
+<span class="fc" id="L161">    }</span>
+
+    /**
+     * Sets the specified &lt;code&gt;MessageHandler&lt;/code&gt; to all connections.
+     *
+     * @param mh The &lt;code&gt;MessageHandler&lt;/code&gt; to use.
+     */
+    public void setMessageHandlerToAllConnections(MessageHandler mh) {
+<span class="fc bfc" id="L169" title="All 2 branches covered.">        for (Connection c : connections.values()) {</span>
+<span class="fc" id="L170">            c.setMessageHandler(mh);</span>
+<span class="fc" id="L171">        }</span>
+<span class="fc" id="L172">    }</span>
+
+    /**
+     * Sends a network message to all connections with an optional exception.
+     *
+     * @param element The root &lt;code&gt;Element&lt;/code&gt; of the message to send.
+     * @param exceptConnection An optional &lt;code&gt;Connection&lt;/code&gt; not
+     *     to send to.
+     */
+    public void sendToAll(Element element, Connection exceptConnection) {
+<span class="fc bfc" id="L182" title="All 2 branches covered.">        for (Connection c : new ArrayList&lt;&gt;(connections.values())) {</span>
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">            if (c == exceptConnection) continue;</span>
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">            if (c.isAlive()) {</span>
+                try {
+<span class="nc" id="L186">                    c.sendAndWait(element);</span>
+<span class="nc" id="L187">                } catch (IOException e) {</span>
+<span class="nc" id="L188">                    logger.log(Level.WARNING, &quot;Unable to send to: &quot; + c, e);</span>
+<span class="nc" id="L189">                }</span>
+            } else {
+<span class="fc" id="L191">                logger.log(Level.INFO, &quot;Reap dead connection: &quot; + c);</span>
+<span class="fc" id="L192">                removeConnection(c);</span>
+            }
+<span class="fc" id="L194">        }</span>
+<span class="fc" id="L195">    }</span>
+
+    /**
+     * Sends a network message to all connections.
+     *
+     * @param element The root element of the message to send.
+     */
+    public void sendToAll(Element element) {
+<span class="fc" id="L203">        sendToAll(element, null);</span>
+<span class="fc" id="L204">    }</span>
+
+    /**
+     * Start the thread processing.  Contains the loop that is waiting
+     * for new connections to the public socket.  When a new client
+     * connects to the server a new {@link Connection} is made, with
+     * {@link net.sf.freecol.server.control.UserConnectionHandler} as
+     * the control object.
+     */
+    @Override
+    public void run() {
+        // This method's entire body is synchronized to shutdownLock.
+        // The reason why this is done is to prevent the shutdown
+        // method from finishing before this thread is finished
+        // working.  We have to do this because the
+        // ServerSocket::close method keeps the server alive for
+        // several milliseconds *even after the close method is
+        // finished*.  Because of this a new server can't be created
+        // on the same port as this server right after closing this
+        // server.
+        //
+        // Now that the shutdown method 'hangs' until the entire
+        // server thread is finished you can be certain that the
+        // ServerSocket is REALLY closed after execution of shutdown.
+<span class="fc" id="L228">        synchronized (shutdownLock) {</span>
+<span class="fc bfc" id="L229" title="All 2 branches covered.">            while (running) {</span>
+<span class="fc" id="L230">                Socket clientSocket = null;</span>
+                try {
+<span class="nc" id="L232">                    clientSocket = serverSocket.accept();</span>
+
+<span class="nc" id="L234">                    logger.info(&quot;Got client connection from &quot;</span>
+<span class="nc" id="L235">                        + clientSocket.getInetAddress()</span>
+<span class="nc" id="L236">                        + &quot;:&quot; + clientSocket.getPort());</span>
+<span class="nc" id="L237">                    Connection connection =</span>
+                        new Connection(clientSocket,
+<span class="nc" id="L239">                            freeColServer.getUserConnectionHandler(),</span>
+                            FreeCol.SERVER_THREAD);
+<span class="nc" id="L241">                    addConnection(connection);</span>
+<span class="fc" id="L242">                } catch (IOException e) {</span>
+<span class="pc bpc" id="L243" title="1 of 2 branches missed.">                    if (running) {</span>
+<span class="nc" id="L244">                        logger.log(Level.WARNING, &quot;Connection failed: &quot;, e);</span>
+                    }
+<span class="nc" id="L246">                }</span>
+<span class="fc" id="L247">            }</span>
+<span class="pc" id="L248">        }</span>
+<span class="fc" id="L249">    }</span>
+
+    /**
+     * Shuts down the server thread.
+     */
+    public void shutdown() {
+<span class="fc" id="L255">        this.running = false;</span>
+ 
+        try {
+<span class="fc" id="L258">            serverSocket.close();</span>
+<span class="fc" id="L259">            logger.fine(&quot;Closed server socket.&quot;);</span>
+<span class="nc" id="L260">        } catch (IOException e) {</span>
+<span class="nc" id="L261">            logger.log(Level.WARNING, &quot;Could not close the server socket!&quot;, e);</span>
+<span class="fc" id="L262">        }</span>
+
+<span class="fc" id="L264">        synchronized (shutdownLock) {</span>
+            // See run() above.
+<span class="fc" id="L266">            logger.fine(&quot;Wait for Server.run to complete.&quot;);</span>
+<span class="pc" id="L267">        }</span>
+
+<span class="fc bfc" id="L269" title="All 2 branches covered.">        for (Connection c : connections.values()) {</span>
+<span class="pc bpc" id="L270" title="1 of 2 branches missed.">            if (c.isAlive()) c.close();</span>
+<span class="fc" id="L271">        }</span>
+<span class="fc" id="L272">        connections.clear();</span>
+
+<span class="fc" id="L274">        freeColServer.removeFromMetaServer();</span>
+<span class="fc" id="L275">        logger.fine(&quot;Server shutdown.&quot;);</span>
+<span class="fc" id="L276">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

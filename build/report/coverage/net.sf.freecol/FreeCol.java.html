@@ -1,0 +1,1404 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FreeCol.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol</a> &gt; <span class="el_source">FreeCol.java</span></div><h1>FreeCol.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol;
+
+import java.awt.Dimension;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.URL;
+import java.net.JarURLConnection;
+import java.util.Arrays;
+import java.util.Locale;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+
+import net.sf.freecol.client.ClientOptions;
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.common.FreeColException;
+import net.sf.freecol.common.FreeColSeed;
+import net.sf.freecol.common.debug.FreeColDebugger;
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.io.FreeColDirectories;
+import net.sf.freecol.common.io.FreeColSavegameFile;
+import net.sf.freecol.common.io.FreeColTcFile;
+import net.sf.freecol.common.io.Mods;
+import net.sf.freecol.common.logging.DefaultHandler;
+import net.sf.freecol.common.model.NationOptions.Advantages;
+import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.StringTemplate;
+import net.sf.freecol.common.option.OptionGroup;
+import static net.sf.freecol.common.util.CollectionUtils.*;
+import net.sf.freecol.server.FreeColServer;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.OptionBuilder;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.PosixParser;
+
+
+/**
+ * This class is responsible for handling the command-line arguments
+ * and starting either the stand-alone server or the client-GUI.
+ *
+ * @see net.sf.freecol.client.FreeColClient FreeColClient
+ * @see net.sf.freecol.server.FreeColServer FreeColServer
+ */
+public final class FreeCol {
+
+<span class="fc" id="L77">    private static final Logger logger = Logger.getLogger(FreeCol.class.getName());</span>
+
+    /** The FreeCol release version number. */
+    private static final String FREECOL_VERSION = &quot;0.11.6&quot;;
+
+    /** The difficulty levels. */
+<span class="fc" id="L83">    public static final String[] DIFFICULTIES = {</span>
+        &quot;veryEasy&quot;, &quot;easy&quot;, &quot;medium&quot;, &quot;hard&quot;, &quot;veryHard&quot;
+    };
+
+    /** The extension for FreeCol saved games. */
+    public static final String  FREECOL_SAVE_EXTENSION = &quot;fsg&quot;;
+
+    /** The Java version. */
+<span class="fc" id="L91">    private static final String JAVA_VERSION</span>
+<span class="fc" id="L92">        = System.getProperty(&quot;java.version&quot;);</span>
+
+    /** The maximum available memory. */
+<span class="fc" id="L95">    private static final long MEMORY_MAX = Runtime.getRuntime().maxMemory();</span>
+
+    public static final String  CLIENT_THREAD = &quot;FreeColClient:&quot;;
+    public static final String  SERVER_THREAD = &quot;FreeColServer:&quot;;
+    public static final String  METASERVER_THREAD = &quot;FreeColMetaServer:&quot;;
+
+    public static final String  META_SERVER_ADDRESS = &quot;meta.freecol.org&quot;;
+    public static final int     META_SERVER_PORT = 3540;
+
+    /** Specific revision number (currently the git tag of trunk at release) */
+<span class="fc" id="L105">    private static String       freeColRevision = null;</span>
+
+    /** The locale, either default or command-line specified. */
+<span class="fc" id="L108">    private static Locale       locale = null;</span>
+
+
+    // Cli defaults.
+<span class="fc" id="L112">    private static final Advantages ADVANTAGES_DEFAULT = Advantages.SELECTABLE;</span>
+    private static final String DIFFICULTY_DEFAULT = &quot;model.difficulty.medium&quot;;
+    private static final int    EUROPEANS_DEFAULT = 4;
+    private static final int    EUROPEANS_MIN = 1;
+<span class="fc" id="L116">    private static final Level  LOGLEVEL_DEFAULT = Level.INFO;</span>
+    private static final String JAVA_VERSION_MIN = &quot;1.8&quot;;
+    private static final int    MEMORY_MIN = 128; // Mbytes
+    private static final int    PORT_DEFAULT = 3541;
+    private static final String SPLASH_DEFAULT = &quot;splash.jpg&quot;;
+    private static final String TC_DEFAULT = &quot;freecol&quot;;
+    public static final int     TIMEOUT_DEFAULT = 60; // 1 minute
+    public static final int     TIMEOUT_MIN = 10; // 10s
+    private static final int GUI_SCALE_MIN_PCT = 100;
+    private static final int GUI_SCALE_MAX_PCT = 200;
+    private static final int GUI_SCALE_STEP_PCT = 25;
+    public static final float GUI_SCALE_MIN = GUI_SCALE_MIN_PCT / 100.0f;
+    public static final float GUI_SCALE_MAX = GUI_SCALE_MAX_PCT / 100.0f;
+    public static final float GUI_SCALE_STEP = GUI_SCALE_STEP_PCT / 100.0f;
+    public static final float GUI_SCALE_DEFAULT = 1.0f;
+
+
+    // Cli values.  Often set to null so the default can be applied in
+    // the accessor function.
+<span class="fc" id="L135">    private static boolean checkIntegrity = false,</span>
+<span class="fc" id="L136">                           consoleLogging = false,</span>
+<span class="fc" id="L137">                           debugStart = false,</span>
+<span class="fc" id="L138">                           fastStart = false,</span>
+<span class="fc" id="L139">                           headless = false,</span>
+<span class="fc" id="L140">                           introVideo = true,</span>
+<span class="fc" id="L141">                           javaCheck = true,</span>
+<span class="fc" id="L142">                           memoryCheck = true,</span>
+<span class="fc" id="L143">                           publicServer = true,</span>
+<span class="fc" id="L144">                           sound = true,</span>
+<span class="fc" id="L145">                           standAloneServer = false;</span>
+
+    /** The type of advantages. */
+<span class="fc" id="L148">    private static Advantages advantages = null;</span>
+
+    /** The difficulty level id. */
+<span class="fc" id="L151">    private static String difficulty = null;</span>
+
+    /** The number of European nations to enable by default. */
+<span class="fc" id="L154">    private static int europeanCount = EUROPEANS_DEFAULT;</span>
+
+    /** A font override. */
+<span class="fc" id="L157">    private static String fontName = null;</span>
+
+    /** The level of logging in this game. */
+<span class="fc" id="L160">    private static Level logLevel = LOGLEVEL_DEFAULT;</span>
+
+    /** The client player name. */
+<span class="fc" id="L163">    private static String name = null;</span>
+
+    /** How to name and configure the server. */
+<span class="fc" id="L166">    private static int serverPort = -1;</span>
+<span class="fc" id="L167">    private static String serverName = null;</span>
+
+    /** A stream to get the splash image from. */
+    private static InputStream splashStream;
+
+    /** The TotalConversion / ruleset in play, defaults to &quot;freecol&quot;. */
+<span class="fc" id="L173">    private static String tc = null;</span>
+
+    /** The time out (seconds) for otherwise blocking commands. */
+<span class="fc" id="L176">    private static int timeout = -1;</span>
+
+    /**
+     * The size of window to create, defaults to impossible dimensions
+     * to require windowed mode with best determined screen size.
+     */
+<span class="fc" id="L182">    private static Dimension windowSize = new Dimension(-1, -1);</span>
+
+    /** How much gui elements get scaled. */
+<span class="fc" id="L185">    private static float guiScale = GUI_SCALE_DEFAULT;</span>
+
+   
+<span class="nc" id="L188">    private FreeCol() {} // Hide constructor</span>
+
+    /**
+     * The entrypoint.
+     *
+     * @param args The command-line arguments.
+     */
+    public static void main(String[] args) {
+<span class="nc" id="L196">        freeColRevision = FREECOL_VERSION;</span>
+        JarURLConnection juc;
+        try {
+<span class="nc" id="L199">            juc = getJarURLConnection(FreeCol.class);</span>
+<span class="nc" id="L200">        } catch (IOException ioe) {</span>
+<span class="nc" id="L201">            juc = null;</span>
+<span class="nc" id="L202">            System.err.println(&quot;Unable to open class jar: &quot;</span>
+<span class="nc" id="L203">                + ioe.getMessage());</span>
+<span class="nc" id="L204">        }</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">        if (juc != null) {</span>
+            try {
+<span class="nc" id="L207">                String revision = readVersion(juc);</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">                if (revision != null) {</span>
+<span class="nc" id="L209">                    freeColRevision += &quot; (Revision: &quot; + revision + &quot;)&quot;;</span>
+                }
+<span class="nc" id="L211">            } catch (Exception e) {</span>
+<span class="nc" id="L212">                System.err.println(&quot;Unable to load Manifest: &quot;</span>
+<span class="nc" id="L213">                    + e.getMessage());</span>
+<span class="nc" id="L214">            }</span>
+            try {
+<span class="nc" id="L216">                splashStream = getDefaultSplashStream(juc);</span>
+<span class="nc" id="L217">            } catch (Exception e) {</span>
+<span class="nc" id="L218">                System.err.println(&quot;Unable to open default splash: &quot;</span>
+<span class="nc" id="L219">                    + e.getMessage());</span>
+<span class="nc" id="L220">            }</span>
+        }
+
+        // Java bug #7075600 causes BR#2554.  The workaround is to set
+        // the following property.  Remove if/when they fix Java.
+<span class="nc" id="L225">        System.setProperty(&quot;java.util.Arrays.useLegacyMergeSort&quot;, &quot;true&quot;);</span>
+
+        // We can not even emit localized error messages until we find
+        // the data directory, which might have been specified on the
+        // command line.
+<span class="nc" id="L230">        String dataDirectoryArg = findArg(&quot;--freecol-data&quot;, args);</span>
+<span class="nc" id="L231">        String err = FreeColDirectories.setDataDirectory(dataDirectoryArg);</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">        if (err != null) fatal(err); // This must not fail.</span>
+
+        // Now we have the data directory, establish the base locale.
+        // Beware, the locale may change!
+<span class="nc" id="L236">        String localeArg = findArg(&quot;--default-locale&quot;, args);</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">        if (localeArg == null) {</span>
+<span class="nc" id="L238">            locale = Locale.getDefault();</span>
+        } else {
+<span class="nc" id="L240">            int index = localeArg.indexOf('.'); // Strip encoding if present</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">            if (index &gt; 0) localeArg = localeArg.substring(0, index);</span>
+<span class="nc" id="L242">            locale = Messages.getLocale(localeArg);</span>
+        }
+<span class="nc" id="L244">        Messages.loadMessageBundle(locale);</span>
+
+        // Now that we can emit error messages, parse the other
+        // command line arguments.
+<span class="nc" id="L248">        handleArgs(args);</span>
+
+        // Do the potentially fatal system checks as early as possible.
+<span class="nc bnc" id="L251" title="All 4 branches missed.">        if (javaCheck &amp;&amp; JAVA_VERSION_MIN.compareTo(JAVA_VERSION) &gt; 0) {</span>
+<span class="nc" id="L252">            fatal(StringTemplate.template(&quot;main.javaVersion&quot;)</span>
+<span class="nc" id="L253">                .addName(&quot;%version%&quot;, JAVA_VERSION)</span>
+<span class="nc" id="L254">                .addName(&quot;%minVersion%&quot;, JAVA_VERSION_MIN));</span>
+        }
+<span class="nc bnc" id="L256" title="All 4 branches missed.">        if (memoryCheck &amp;&amp; MEMORY_MAX &lt; MEMORY_MIN * 1000000) {</span>
+<span class="nc" id="L257">            fatal(StringTemplate.template(&quot;main.memory&quot;)</span>
+<span class="nc" id="L258">                .addAmount(&quot;%memory%&quot;, MEMORY_MAX)</span>
+<span class="nc" id="L259">                .addAmount(&quot;%minMemory%&quot;, MEMORY_MIN));</span>
+        }
+
+        // Having parsed the command line args, we know where the user
+        // directories should be, so we can set up the rest of the
+        // file/directory structure.
+<span class="nc" id="L265">        String userMsg = FreeColDirectories.setUserDirectories();</span>
+
+        // Now we have the log file path, start logging.
+<span class="nc" id="L268">        final Logger baseLogger = Logger.getLogger(&quot;&quot;);</span>
+<span class="nc" id="L269">        final Handler[] handlers = baseLogger.getHandlers();</span>
+<span class="nc bnc" id="L270" title="All 2 branches missed.">        for (Handler handler : handlers) {</span>
+<span class="nc" id="L271">            baseLogger.removeHandler(handler);</span>
+        }
+<span class="nc" id="L273">        String logFile = FreeColDirectories.getLogFilePath();</span>
+        try {
+<span class="nc" id="L275">            baseLogger.addHandler(new DefaultHandler(consoleLogging, logFile));</span>
+<span class="nc" id="L276">            Logger freecolLogger = Logger.getLogger(&quot;net.sf.freecol&quot;);</span>
+<span class="nc" id="L277">            freecolLogger.setLevel(logLevel);</span>
+<span class="nc" id="L278">        } catch (FreeColException e) {</span>
+<span class="nc" id="L279">            System.err.println(&quot;Logging initialization failure: &quot;</span>
+<span class="nc" id="L280">                + e.getMessage());</span>
+<span class="nc" id="L281">            e.printStackTrace();</span>
+<span class="nc" id="L282">        }</span>
+<span class="nc" id="L283">        Thread.setDefaultUncaughtExceptionHandler((Thread thread, Throwable e) -&gt; {</span>
+<span class="nc" id="L284">                baseLogger.log(Level.WARNING, &quot;Uncaught exception from thread: &quot; + thread, e);</span>
+<span class="nc" id="L285">            });</span>
+
+        // Now we can find the client options, allow the options
+        // setting to override the locale, if no command line option
+        // had been specified.
+        // We have users whose machines default to Finnish but play
+        // FreeCol in English.
+        // If the user has selected automatic language selection, do
+        // nothing, since we have already set up the default locale.
+<span class="nc bnc" id="L294" title="All 2 branches missed.">        if (localeArg == null) {</span>
+<span class="nc" id="L295">            String clientLanguage = ClientOptions.getLanguageOption();</span>
+            Locale clientLocale;
+<span class="nc bnc" id="L297" title="All 2 branches missed.">            if (clientLanguage != null</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">                &amp;&amp; !Messages.AUTOMATIC.equalsIgnoreCase(clientLanguage)</span>
+<span class="nc bnc" id="L299" title="All 2 branches missed.">                &amp;&amp; (clientLocale = Messages.getLocale(clientLanguage)) != locale) {</span>
+<span class="nc" id="L300">                locale = clientLocale;</span>
+<span class="nc" id="L301">                Messages.loadMessageBundle(locale);</span>
+<span class="nc" id="L302">                logger.info(&quot;Loaded messages for &quot; + locale);</span>
+            }
+        }
+
+        // Now we have the user mods directory and the locale is now
+        // stable, load the mods and their messages.
+<span class="nc" id="L308">        Mods.loadMods();</span>
+<span class="nc" id="L309">        Messages.loadModMessageBundle(locale);</span>
+
+        // Report on where we are.
+<span class="nc bnc" id="L312" title="All 2 branches missed.">        if (userMsg != null) logger.info(Messages.message(userMsg));</span>
+<span class="nc" id="L313">        logger.info(getConfiguration().toString());</span>
+
+        // Ready to specialize into client or server.
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        if (standAloneServer) {</span>
+<span class="nc" id="L317">            startServer();</span>
+        } else {
+<span class="nc" id="L319">            startClient(userMsg);</span>
+        }
+<span class="nc" id="L321">    }</span>
+
+
+    /**
+     * Get the JarURLConnection from a class.
+     *
+     * @return The &lt;code&gt;JarURLConnection&lt;/code&gt;.
+     */
+    private static JarURLConnection getJarURLConnection(Class c) throws IOException {
+<span class="nc" id="L330">        String resourceName = &quot;/&quot; + c.getName().replace('.', '/') + &quot;.class&quot;;</span>
+<span class="nc" id="L331">        URL url = c.getResource(resourceName);</span>
+<span class="nc" id="L332">        return (JarURLConnection)url.openConnection();</span>
+    }
+        
+    /**
+     * Extract the package version from the class.
+     *
+     * @param juc The &lt;code&gt;JarURLConnection&lt;/code&gt; to extract from.
+     * @return A value of the package version attribute.
+     */
+    private static String readVersion(JarURLConnection juc) throws IOException {
+<span class="nc" id="L342">        Manifest mf = juc.getManifest();</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        return (mf == null) ? null</span>
+<span class="nc" id="L344">            : mf.getMainAttributes().getValue(&quot;Package-Version&quot;);</span>
+    }
+
+    /**
+     * Get a stream for the default splash file.
+     *
+     * Note: Not bothering to check for nulls as this is called in try
+     * block that ignores all exceptions.
+     *
+     * @param juc The &lt;code&gt;JarURLConnection&lt;/code&gt; to extract from.
+     * @return A suitable &lt;code&gt;InputStream&lt;/code&gt;, or null on error.
+     */
+    private static InputStream getDefaultSplashStream(JarURLConnection juc) throws IOException {
+<span class="nc" id="L357">        JarFile jf = juc.getJarFile();</span>
+<span class="nc" id="L358">        ZipEntry ze = jf.getEntry(SPLASH_DEFAULT);</span>
+<span class="nc" id="L359">        return jf.getInputStream(ze);</span>
+    }
+            
+    /**
+     * Exit printing fatal error message.
+     *
+     * @param template A &lt;code&gt;StringTemplate&lt;/code&gt; to print.
+     */
+    public static void fatal(StringTemplate template) {
+<span class="nc" id="L368">        fatal(Messages.message(template));</span>
+<span class="nc" id="L369">    }</span>
+
+    /**
+     * Exit printing fatal error message.
+     *
+     * @param err The error message to print.
+     */
+    public static void fatal(String err) {
+<span class="nc bnc" id="L377" title="All 4 branches missed.">        if (err == null || err.isEmpty()) {</span>
+<span class="nc" id="L378">            err = &quot;Bogus null fatal error message&quot;;</span>
+<span class="nc" id="L379">            Thread.dumpStack();</span>
+        }
+<span class="nc" id="L381">        System.err.println(err);</span>
+<span class="nc" id="L382">        System.exit(1);</span>
+<span class="nc" id="L383">    }</span>
+
+    /**
+     * Just gripe to System.err.
+     *
+     * @param template A &lt;code&gt;StringTemplate&lt;/code&gt; to print.
+     */
+    public static void gripe(StringTemplate template) {
+<span class="nc" id="L391">        System.err.println(Messages.message(template));</span>
+<span class="nc" id="L392">    }</span>
+
+    /**
+     * Just gripe to System.err.
+     *
+     * @param key A message key.
+     */
+    public static void gripe(String key) {
+<span class="nc" id="L400">        System.err.println(Messages.message(key));</span>
+<span class="nc" id="L401">    }</span>
+
+    /**
+     * Find an option before the real option handling can get started.
+     * Takes care to use the *last* instance.
+     *
+     * @param option The option to find.
+     * @param args The  command-line arguments.
+     * @return The option's parameter.
+     */
+    private static String findArg(String option, String[] args) {
+<span class="nc bnc" id="L412" title="All 2 branches missed.">        for (int i = args.length - 2; i &gt;= 0; i--) {</span>
+<span class="nc bnc" id="L413" title="All 2 branches missed.">            if (option.equals(args[i])) {</span>
+<span class="nc" id="L414">                return args[i+1];</span>
+            }
+        }
+<span class="nc" id="L417">        return null;</span>
+    }
+
+    /**
+     * Processes the command-line arguments and takes appropriate
+     * actions for each of them.
+     *
+     * @param args The command-line arguments.
+     */
+    private static void handleArgs(String[] args) {
+<span class="nc" id="L427">        Options options = new Options();</span>
+<span class="nc" id="L428">        final String help = Messages.message(&quot;cli.help&quot;);</span>
+<span class="nc" id="L429">        final File dummy = new File(&quot;dummy&quot;);</span>
+<span class="nc" id="L430">        final String argDirectory = Messages.message(&quot;cli.arg.directory&quot;);</span>
+
+        // Help options.
+<span class="nc" id="L433">        options.addOption(OptionBuilder.withLongOpt(&quot;usage&quot;)</span>
+<span class="nc" id="L434">                          .withDescription(help)</span>
+<span class="nc" id="L435">                          .create());</span>
+<span class="nc" id="L436">        options.addOption(OptionBuilder.withLongOpt(&quot;help&quot;)</span>
+<span class="nc" id="L437">                          .withDescription(help)</span>
+<span class="nc" id="L438">                          .create());</span>
+
+        // Special options handled early.
+<span class="nc" id="L441">        options.addOption(OptionBuilder.withLongOpt(&quot;freecol-data&quot;)</span>
+<span class="nc" id="L442">                          .withDescription(Messages.message(&quot;cli.freecol-data&quot;))</span>
+<span class="nc" id="L443">                          .withArgName(argDirectory)</span>
+<span class="nc" id="L444">                          .hasArg()</span>
+<span class="nc" id="L445">                          .create());</span>
+<span class="nc" id="L446">        options.addOption(OptionBuilder.withLongOpt(&quot;default-locale&quot;)</span>
+<span class="nc" id="L447">                          .withDescription(Messages.message(&quot;cli.default-locale&quot;))</span>
+<span class="nc" id="L448">                          .withArgName(Messages.message(&quot;cli.arg.locale&quot;))</span>
+<span class="nc" id="L449">                          .hasArg()</span>
+<span class="nc" id="L450">                          .create());</span>
+
+        // Ordinary options, handled here.
+<span class="nc" id="L453">        options.addOption(OptionBuilder.withLongOpt(&quot;advantages&quot;)</span>
+<span class="nc" id="L454">                          .withDescription(Messages.message(StringTemplate</span>
+<span class="nc" id="L455">                                  .template(&quot;cli.advantages&quot;)</span>
+<span class="nc" id="L456">                                  .addName(&quot;%advantages%&quot;, getValidAdvantages())))</span>
+<span class="nc" id="L457">                          .withArgName(Messages.message(&quot;cli.arg.advantages&quot;))</span>
+<span class="nc" id="L458">                          .hasArg()</span>
+<span class="nc" id="L459">                          .create());</span>
+<span class="nc" id="L460">        options.addOption(OptionBuilder.withLongOpt(&quot;check-savegame&quot;)</span>
+<span class="nc" id="L461">                          .withDescription(Messages.message(&quot;cli.check-savegame&quot;))</span>
+<span class="nc" id="L462">                          .withArgName(Messages.message(&quot;cli.arg.file&quot;))</span>
+<span class="nc" id="L463">                          .hasArg()</span>
+<span class="nc" id="L464">                          .create());</span>
+<span class="nc" id="L465">        options.addOption(OptionBuilder.withLongOpt(&quot;clientOptions&quot;)</span>
+<span class="nc" id="L466">                          .withDescription(Messages.message(&quot;cli.clientOptions&quot;))</span>
+<span class="nc" id="L467">                          .withArgName(Messages.message(&quot;cli.arg.clientOptions&quot;))</span>
+<span class="nc" id="L468">                          .hasArg()</span>
+<span class="nc" id="L469">                          .create());</span>
+<span class="nc" id="L470">        options.addOption(OptionBuilder.withLongOpt(&quot;debug&quot;)</span>
+<span class="nc" id="L471">                          .withDescription(Messages.message(StringTemplate</span>
+<span class="nc" id="L472">                                  .template(&quot;cli.debug&quot;)</span>
+<span class="nc" id="L473">                                  .addName(&quot;%modes%&quot;, FreeColDebugger.getDebugModes())))</span>
+<span class="nc" id="L474">                          .withArgName(Messages.message(&quot;cli.arg.debug&quot;))</span>
+<span class="nc" id="L475">                          .hasOptionalArg()</span>
+<span class="nc" id="L476">                          .create());</span>
+<span class="nc" id="L477">        options.addOption(OptionBuilder.withLongOpt(&quot;debug-run&quot;)</span>
+<span class="nc" id="L478">                          .withDescription(Messages.message(&quot;cli.debug-run&quot;))</span>
+<span class="nc" id="L479">                          .withArgName(Messages.message(&quot;cli.arg.debugRun&quot;))</span>
+<span class="nc" id="L480">                          .hasOptionalArg()</span>
+<span class="nc" id="L481">                          .create());</span>
+<span class="nc" id="L482">        options.addOption(OptionBuilder.withLongOpt(&quot;debug-start&quot;)</span>
+<span class="nc" id="L483">                          .withDescription(Messages.message(&quot;cli.debug-start&quot;))</span>
+<span class="nc" id="L484">                          .create());</span>
+<span class="nc" id="L485">        options.addOption(OptionBuilder.withLongOpt(&quot;difficulty&quot;)</span>
+<span class="nc" id="L486">                          .withDescription(Messages.message(&quot;cli.difficulty&quot;))</span>
+<span class="nc" id="L487">                          .withArgName(Messages.message(&quot;cli.arg.difficulty&quot;))</span>
+<span class="nc" id="L488">                          .hasArg()</span>
+<span class="nc" id="L489">                          .create());</span>
+<span class="nc" id="L490">        options.addOption(OptionBuilder.withLongOpt(&quot;europeans&quot;)</span>
+<span class="nc" id="L491">                          .withDescription(Messages.message(&quot;cli.european-count&quot;))</span>
+<span class="nc" id="L492">                          .withArgName(Messages.message(&quot;cli.arg.europeans&quot;))</span>
+<span class="nc" id="L493">                          .hasArg()</span>
+<span class="nc" id="L494">                          .create());</span>
+<span class="nc" id="L495">        options.addOption(OptionBuilder.withLongOpt(&quot;fast&quot;)</span>
+<span class="nc" id="L496">                          .withDescription(Messages.message(&quot;cli.fast&quot;))</span>
+<span class="nc" id="L497">                          .create());</span>
+<span class="nc" id="L498">        options.addOption(OptionBuilder.withLongOpt(&quot;font&quot;)</span>
+<span class="nc" id="L499">                          .withDescription(Messages.message(&quot;cli.font&quot;))</span>
+<span class="nc" id="L500">                          .withArgName(Messages.message(&quot;cli.arg.font&quot;))</span>
+<span class="nc" id="L501">                          .hasArg()</span>
+<span class="nc" id="L502">                          .create());</span>
+<span class="nc" id="L503">        options.addOption(OptionBuilder.withLongOpt(&quot;full-screen&quot;)</span>
+<span class="nc" id="L504">                          .withDescription(Messages.message(&quot;cli.full-screen&quot;))</span>
+<span class="nc" id="L505">                          .create());</span>
+<span class="nc" id="L506">        options.addOption(OptionBuilder.withLongOpt(&quot;gui-scale&quot;)</span>
+<span class="nc" id="L507">                          .withDescription(Messages.message(StringTemplate</span>
+<span class="nc" id="L508">                                  .template(&quot;cli.gui-scale&quot;)</span>
+<span class="nc" id="L509">                                  .addName(&quot;%scales%&quot;, getValidGUIScales())))</span>
+<span class="nc" id="L510">                          .withArgName(Messages.message(&quot;cli.arg.gui-scale&quot;))</span>
+<span class="nc" id="L511">                          .hasOptionalArg()</span>
+<span class="nc" id="L512">                          .create());</span>
+<span class="nc" id="L513">        options.addOption(OptionBuilder.withLongOpt(&quot;headless&quot;)</span>
+<span class="nc" id="L514">                          .withDescription(Messages.message(&quot;cli.headless&quot;))</span>
+<span class="nc" id="L515">                          .create());</span>
+<span class="nc" id="L516">        options.addOption(OptionBuilder.withLongOpt(&quot;load-savegame&quot;)</span>
+<span class="nc" id="L517">                          .withDescription(Messages.message(&quot;cli.load-savegame&quot;))</span>
+<span class="nc" id="L518">                          .withArgName(Messages.message(&quot;cli.arg.file&quot;))</span>
+<span class="nc" id="L519">                          .hasArg()</span>
+<span class="nc" id="L520">                          .create());</span>
+<span class="nc" id="L521">        options.addOption(OptionBuilder.withLongOpt(&quot;log-console&quot;)</span>
+<span class="nc" id="L522">                          .withDescription(Messages.message(&quot;cli.log-console&quot;))</span>
+<span class="nc" id="L523">                          .create());</span>
+<span class="nc" id="L524">        options.addOption(OptionBuilder.withLongOpt(&quot;log-file&quot;)</span>
+<span class="nc" id="L525">                          .withDescription(Messages.message(&quot;cli.log-file&quot;))</span>
+<span class="nc" id="L526">                          .withArgName(Messages.message(&quot;cli.arg.name&quot;))</span>
+<span class="nc" id="L527">                          .hasArg()</span>
+<span class="nc" id="L528">                          .create());</span>
+<span class="nc" id="L529">        options.addOption(OptionBuilder.withLongOpt(&quot;log-level&quot;)</span>
+<span class="nc" id="L530">                          .withDescription(Messages.message(&quot;cli.log-level&quot;))</span>
+<span class="nc" id="L531">                          .withArgName(Messages.message(&quot;cli.arg.loglevel&quot;))</span>
+<span class="nc" id="L532">                          .hasArg()</span>
+<span class="nc" id="L533">                          .create());</span>
+<span class="nc" id="L534">        options.addOption(OptionBuilder.withLongOpt(&quot;name&quot;)</span>
+<span class="nc" id="L535">                          .withDescription(Messages.message(&quot;cli.name&quot;))</span>
+<span class="nc" id="L536">                          .withArgName(Messages.message(&quot;cli.arg.name&quot;))</span>
+<span class="nc" id="L537">                          .hasArg()</span>
+<span class="nc" id="L538">                          .create());</span>
+<span class="nc" id="L539">        options.addOption(OptionBuilder.withLongOpt(&quot;no-intro&quot;)</span>
+<span class="nc" id="L540">                          .withDescription(Messages.message(&quot;cli.no-intro&quot;))</span>
+<span class="nc" id="L541">                          .create());</span>
+<span class="nc" id="L542">        options.addOption(OptionBuilder.withLongOpt(&quot;no-java-check&quot;)</span>
+<span class="nc" id="L543">                          .withDescription(Messages.message(&quot;cli.no-java-check&quot;))</span>
+<span class="nc" id="L544">                          .create());</span>
+<span class="nc" id="L545">        options.addOption(OptionBuilder.withLongOpt(&quot;no-memory-check&quot;)</span>
+<span class="nc" id="L546">                          .withDescription(Messages.message(&quot;cli.no-memory-check&quot;))</span>
+<span class="nc" id="L547">                          .create());</span>
+<span class="nc" id="L548">        options.addOption(OptionBuilder.withLongOpt(&quot;no-sound&quot;)</span>
+<span class="nc" id="L549">                          .withDescription(Messages.message(&quot;cli.no-sound&quot;))</span>
+<span class="nc" id="L550">                          .create());</span>
+<span class="nc" id="L551">        options.addOption(OptionBuilder.withLongOpt(&quot;no-splash&quot;)</span>
+<span class="nc" id="L552">                          .withDescription(Messages.message(&quot;cli.no-splash&quot;))</span>
+<span class="nc" id="L553">                          .create());</span>
+<span class="nc" id="L554">        options.addOption(OptionBuilder.withLongOpt(&quot;private&quot;)</span>
+<span class="nc" id="L555">                          .withDescription(Messages.message(&quot;cli.private&quot;))</span>
+<span class="nc" id="L556">                          .create());</span>
+<span class="nc" id="L557">        options.addOption(OptionBuilder.withLongOpt(&quot;seed&quot;)</span>
+<span class="nc" id="L558">                          .withDescription(Messages.message(&quot;cli.seed&quot;))</span>
+<span class="nc" id="L559">                          .withArgName(Messages.message(&quot;cli.arg.seed&quot;))</span>
+<span class="nc" id="L560">                          .hasArg()</span>
+<span class="nc" id="L561">                          .create());</span>
+<span class="nc" id="L562">        options.addOption(OptionBuilder.withLongOpt(&quot;server&quot;)</span>
+<span class="nc" id="L563">                          .withDescription(Messages.message(&quot;cli.server&quot;))</span>
+<span class="nc" id="L564">                          .create());</span>
+<span class="nc" id="L565">        options.addOption(OptionBuilder.withLongOpt(&quot;server-name&quot;)</span>
+<span class="nc" id="L566">                          .withDescription(Messages.message(&quot;cli.server-name&quot;))</span>
+<span class="nc" id="L567">                          .withArgName(Messages.message(&quot;cli.arg.name&quot;))</span>
+<span class="nc" id="L568">                          .hasArg()</span>
+<span class="nc" id="L569">                          .create());</span>
+<span class="nc" id="L570">        options.addOption(OptionBuilder.withLongOpt(&quot;server-port&quot;)</span>
+<span class="nc" id="L571">                          .withDescription(Messages.message(&quot;cli.server-port&quot;))</span>
+<span class="nc" id="L572">                          .withArgName(Messages.message(&quot;cli.arg.port&quot;))</span>
+<span class="nc" id="L573">                          .hasArg()</span>
+<span class="nc" id="L574">                          .create());</span>
+<span class="nc" id="L575">        options.addOption(OptionBuilder.withLongOpt(&quot;splash&quot;)</span>
+<span class="nc" id="L576">                          .withDescription(Messages.message(&quot;cli.splash&quot;))</span>
+<span class="nc" id="L577">                          .withArgName(Messages.message(&quot;cli.arg.file&quot;))</span>
+<span class="nc" id="L578">                          .hasOptionalArg()</span>
+<span class="nc" id="L579">                          .create());</span>
+<span class="nc" id="L580">        options.addOption(OptionBuilder.withLongOpt(&quot;tc&quot;)</span>
+<span class="nc" id="L581">                          .withDescription(Messages.message(&quot;cli.tc&quot;))</span>
+<span class="nc" id="L582">                          .withArgName(Messages.message(&quot;cli.arg.name&quot;))</span>
+<span class="nc" id="L583">                          .hasArg()</span>
+<span class="nc" id="L584">                          .create());</span>
+<span class="nc" id="L585">        options.addOption(OptionBuilder.withLongOpt(&quot;timeout&quot;)</span>
+<span class="nc" id="L586">                          .withDescription(Messages.message(&quot;cli.timeout&quot;))</span>
+<span class="nc" id="L587">                          .withArgName(Messages.message(&quot;cli.arg.timeout&quot;))</span>
+<span class="nc" id="L588">                          .hasArg()</span>
+<span class="nc" id="L589">                          .create());</span>
+<span class="nc" id="L590">        options.addOption(OptionBuilder.withLongOpt(&quot;user-cache-directory&quot;)</span>
+<span class="nc" id="L591">                          .withDescription(Messages.message(&quot;cli.user-cache-directory&quot;))</span>
+<span class="nc" id="L592">                          .withArgName(argDirectory)</span>
+<span class="nc" id="L593">                          .withType(dummy)</span>
+<span class="nc" id="L594">                          .hasArg()</span>
+<span class="nc" id="L595">                          .create());</span>
+<span class="nc" id="L596">        options.addOption(OptionBuilder.withLongOpt(&quot;user-config-directory&quot;)</span>
+<span class="nc" id="L597">                          .withDescription(Messages.message(&quot;cli.user-config-directory&quot;))</span>
+<span class="nc" id="L598">                          .withArgName(argDirectory)</span>
+<span class="nc" id="L599">                          .withType(dummy)</span>
+<span class="nc" id="L600">                          .hasArg()</span>
+<span class="nc" id="L601">                          .create());</span>
+<span class="nc" id="L602">        options.addOption(OptionBuilder.withLongOpt(&quot;user-data-directory&quot;)</span>
+<span class="nc" id="L603">                          .withDescription(Messages.message(&quot;cli.user-data-directory&quot;))</span>
+<span class="nc" id="L604">                          .withArgName(argDirectory)</span>
+<span class="nc" id="L605">                          .withType(dummy)</span>
+<span class="nc" id="L606">                          .hasArg()</span>
+<span class="nc" id="L607">                          .create());</span>
+<span class="nc" id="L608">        options.addOption(OptionBuilder.withLongOpt(&quot;version&quot;)</span>
+<span class="nc" id="L609">                          .withDescription(Messages.message(&quot;cli.version&quot;))</span>
+<span class="nc" id="L610">                          .create());</span>
+<span class="nc" id="L611">        options.addOption(OptionBuilder.withLongOpt(&quot;windowed&quot;)</span>
+<span class="nc" id="L612">                          .withDescription(Messages.message(&quot;cli.windowed&quot;))</span>
+<span class="nc" id="L613">                          .withArgName(Messages.message(&quot;cli.arg.dimensions&quot;))</span>
+<span class="nc" id="L614">                          .hasOptionalArg()</span>
+<span class="nc" id="L615">                          .create());</span>
+
+<span class="nc" id="L617">        CommandLineParser parser = new PosixParser();</span>
+<span class="nc" id="L618">        boolean usageError = false;</span>
+        try {
+<span class="nc" id="L620">            CommandLine line = parser.parse(options, args);</span>
+<span class="nc bnc" id="L621" title="All 4 branches missed.">            if (line.hasOption(&quot;help&quot;) || line.hasOption(&quot;usage&quot;)) {</span>
+<span class="nc" id="L622">                printUsage(options, 0);</span>
+            }
+
+<span class="nc bnc" id="L625" title="All 2 branches missed.">            if (line.hasOption(&quot;default-locale&quot;)) {</span>
+                ; // Do nothing, already handled in main().
+            }
+<span class="nc bnc" id="L628" title="All 2 branches missed.">            if (line.hasOption(&quot;freecol-data&quot;)) {</span>
+                ; // Do nothing, already handled in main().
+            }
+
+<span class="nc bnc" id="L632" title="All 2 branches missed.">            if (line.hasOption(&quot;advantages&quot;)) {</span>
+<span class="nc" id="L633">                String arg = line.getOptionValue(&quot;advantages&quot;);</span>
+<span class="nc" id="L634">                Advantages a = selectAdvantages(arg);</span>
+<span class="nc bnc" id="L635" title="All 2 branches missed.">                if (a == null) {</span>
+<span class="nc" id="L636">                    fatal(StringTemplate.template(&quot;cli.error.advantages&quot;)</span>
+<span class="nc" id="L637">                        .addName(&quot;%advantages%&quot;, getValidAdvantages())</span>
+<span class="nc" id="L638">                        .addName(&quot;%arg%&quot;, arg));</span>
+                }
+            }
+
+<span class="nc bnc" id="L642" title="All 2 branches missed.">            if (line.hasOption(&quot;check-savegame&quot;)) {</span>
+<span class="nc" id="L643">                String arg = line.getOptionValue(&quot;check-savegame&quot;);</span>
+<span class="nc bnc" id="L644" title="All 2 branches missed.">                if (!FreeColDirectories.setSavegameFile(arg)) {</span>
+<span class="nc" id="L645">                    fatal(StringTemplate.template(&quot;cli.err.save&quot;)</span>
+<span class="nc" id="L646">                        .addName(&quot;%string%&quot;, arg));</span>
+                }
+<span class="nc" id="L648">                checkIntegrity = true;</span>
+<span class="nc" id="L649">                standAloneServer = true;</span>
+            }
+
+<span class="nc bnc" id="L652" title="All 2 branches missed.">            if (line.hasOption(&quot;clientOptions&quot;)) {</span>
+<span class="nc" id="L653">                String fileName = line.getOptionValue(&quot;clientOptions&quot;);</span>
+<span class="nc bnc" id="L654" title="All 2 branches missed.">                if (!FreeColDirectories.setClientOptionsFile(fileName)) {</span>
+                    // Not fatal.
+<span class="nc" id="L656">                    gripe(StringTemplate.template(&quot;cli.error.clientOptions&quot;)</span>
+<span class="nc" id="L657">                        .addName(&quot;%string%&quot;, fileName));</span>
+                }
+            }
+
+<span class="nc bnc" id="L661" title="All 2 branches missed.">            if (line.hasOption(&quot;debug&quot;)) {</span>
+                // If the optional argument is supplied use limited mode.
+<span class="nc" id="L663">                String arg = line.getOptionValue(&quot;debug&quot;);</span>
+<span class="nc bnc" id="L664" title="All 4 branches missed.">                if (arg == null || arg.isEmpty()) {</span>
+                    // Let empty argument default to menus functionality.
+<span class="nc" id="L666">                    arg = FreeColDebugger.DebugMode.MENUS.toString();</span>
+                }
+<span class="nc bnc" id="L668" title="All 2 branches missed.">                if (!FreeColDebugger.setDebugModes(arg)) { // Not fatal.</span>
+<span class="nc" id="L669">                    gripe(StringTemplate.template(&quot;cli.error.debug&quot;)</span>
+<span class="nc" id="L670">                        .addName(&quot;%modes%&quot;, FreeColDebugger.getDebugModes()));</span>
+                }
+                // user set log level has precedence
+<span class="nc bnc" id="L673" title="All 2 branches missed.">                if (!line.hasOption(&quot;log-level&quot;)) logLevel = Level.FINEST;</span>
+            }
+<span class="nc bnc" id="L675" title="All 2 branches missed.">            if (line.hasOption(&quot;debug-run&quot;)) {</span>
+<span class="nc" id="L676">                FreeColDebugger.enableDebugMode(FreeColDebugger.DebugMode.MENUS);</span>
+<span class="nc" id="L677">                FreeColDebugger.configureDebugRun(line.getOptionValue(&quot;debug-run&quot;));</span>
+            }
+<span class="nc bnc" id="L679" title="All 2 branches missed.">            if (line.hasOption(&quot;debug-start&quot;)) {</span>
+<span class="nc" id="L680">                debugStart = true;</span>
+<span class="nc" id="L681">                FreeColDebugger.enableDebugMode(FreeColDebugger.DebugMode.MENUS);</span>
+            }
+
+<span class="nc bnc" id="L684" title="All 2 branches missed.">            if (line.hasOption(&quot;difficulty&quot;)) {</span>
+<span class="nc" id="L685">                String arg = line.getOptionValue(&quot;difficulty&quot;);</span>
+<span class="nc" id="L686">                String difficulty = selectDifficulty(arg);</span>
+<span class="nc bnc" id="L687" title="All 2 branches missed.">                if (difficulty == null) {</span>
+<span class="nc" id="L688">                    fatal(StringTemplate.template(&quot;cli.error.difficulties&quot;)</span>
+<span class="nc" id="L689">                        .addName(&quot;%difficulties%&quot;, getValidDifficulties())</span>
+<span class="nc" id="L690">                        .addName(&quot;%arg%&quot;, arg));</span>
+                }
+            }
+
+<span class="nc bnc" id="L694" title="All 2 branches missed.">            if (line.hasOption(&quot;europeans&quot;)) {</span>
+<span class="nc" id="L695">                int e = selectEuropeanCount(line.getOptionValue(&quot;europeans&quot;));</span>
+<span class="nc bnc" id="L696" title="All 2 branches missed.">                if (e &lt; 0) {</span>
+<span class="nc" id="L697">                    gripe(StringTemplate.template(&quot;cli.error.europeans&quot;)</span>
+<span class="nc" id="L698">                        .addAmount(&quot;%min%&quot;, EUROPEANS_MIN));</span>
+                }
+            }
+
+<span class="nc bnc" id="L702" title="All 2 branches missed.">            if (line.hasOption(&quot;fast&quot;)) {</span>
+<span class="nc" id="L703">                fastStart = true;</span>
+<span class="nc" id="L704">                introVideo = false;</span>
+            }
+
+<span class="nc bnc" id="L707" title="All 2 branches missed.">            if (line.hasOption(&quot;font&quot;)) {</span>
+<span class="nc" id="L708">                fontName = line.getOptionValue(&quot;font&quot;);</span>
+            }
+
+<span class="nc bnc" id="L711" title="All 2 branches missed.">            if (line.hasOption(&quot;full-screen&quot;)) {</span>
+<span class="nc" id="L712">                windowSize = null;</span>
+            }
+
+<span class="nc bnc" id="L715" title="All 2 branches missed.">            if (line.hasOption(&quot;gui-scale&quot;)) {</span>
+<span class="nc" id="L716">                String arg = line.getOptionValue(&quot;gui-scale&quot;);</span>
+<span class="nc bnc" id="L717" title="All 2 branches missed.">                if(!setGUIScale(arg)) {</span>
+<span class="nc" id="L718">                    gripe(StringTemplate.template(&quot;cli.error.gui-scale&quot;)</span>
+<span class="nc" id="L719">                        .addName(&quot;%scales%&quot;, getValidGUIScales())</span>
+<span class="nc" id="L720">                        .addName(&quot;%arg%&quot;, arg));</span>
+                }
+            }
+
+<span class="nc bnc" id="L724" title="All 2 branches missed.">            if (line.hasOption(&quot;headless&quot;)) {</span>
+<span class="nc" id="L725">                headless = true;</span>
+            }
+
+<span class="nc bnc" id="L728" title="All 2 branches missed.">            if (line.hasOption(&quot;load-savegame&quot;)) {</span>
+<span class="nc" id="L729">                String arg = line.getOptionValue(&quot;load-savegame&quot;);</span>
+<span class="nc bnc" id="L730" title="All 2 branches missed.">                if (!FreeColDirectories.setSavegameFile(arg)) {</span>
+<span class="nc" id="L731">                    fatal(StringTemplate.template(&quot;cli.error.save&quot;)</span>
+<span class="nc" id="L732">                        .addName(&quot;%string%&quot;, arg));</span>
+                }
+            }
+
+<span class="nc bnc" id="L736" title="All 2 branches missed.">            if (line.hasOption(&quot;log-console&quot;)) {</span>
+<span class="nc" id="L737">                consoleLogging = true;</span>
+            }
+<span class="nc bnc" id="L739" title="All 2 branches missed.">            if (line.hasOption(&quot;log-file&quot;)) {</span>
+<span class="nc" id="L740">                FreeColDirectories.setLogFilePath(line.getOptionValue(&quot;log-file&quot;));</span>
+            }
+<span class="nc bnc" id="L742" title="All 2 branches missed.">            if (line.hasOption(&quot;log-level&quot;)) {</span>
+<span class="nc" id="L743">                setLogLevel(line.getOptionValue(&quot;log-level&quot;));</span>
+            }
+
+<span class="nc bnc" id="L746" title="All 2 branches missed.">            if (line.hasOption(&quot;name&quot;)) {</span>
+<span class="nc" id="L747">                setName(line.getOptionValue(&quot;name&quot;));</span>
+            }
+
+<span class="nc bnc" id="L750" title="All 2 branches missed.">            if (line.hasOption(&quot;no-intro&quot;)) {</span>
+<span class="nc" id="L751">                introVideo = false;</span>
+            }
+<span class="nc bnc" id="L753" title="All 2 branches missed.">            if (line.hasOption(&quot;no-java-check&quot;)) {</span>
+<span class="nc" id="L754">                javaCheck = false;</span>
+            }
+<span class="nc bnc" id="L756" title="All 2 branches missed.">            if (line.hasOption(&quot;no-memory-check&quot;)) {</span>
+<span class="nc" id="L757">                memoryCheck = false;</span>
+            }
+<span class="nc bnc" id="L759" title="All 2 branches missed.">            if (line.hasOption(&quot;no-sound&quot;)) {</span>
+<span class="nc" id="L760">                sound = false;</span>
+            }
+<span class="nc bnc" id="L762" title="All 2 branches missed.">            if (line.hasOption(&quot;no-splash&quot;)) {</span>
+<span class="nc" id="L763">                splashStream = null;</span>
+            }
+
+<span class="nc bnc" id="L766" title="All 2 branches missed.">            if (line.hasOption(&quot;private&quot;)) {</span>
+<span class="nc" id="L767">                publicServer = false;</span>
+            }
+
+<span class="nc bnc" id="L770" title="All 2 branches missed.">            if (line.hasOption(&quot;server&quot;)) {</span>
+<span class="nc" id="L771">                standAloneServer = true;</span>
+            }
+<span class="nc bnc" id="L773" title="All 2 branches missed.">            if (line.hasOption(&quot;server-name&quot;)) {</span>
+<span class="nc" id="L774">                serverName = line.getOptionValue(&quot;server-name&quot;);</span>
+            }
+<span class="nc bnc" id="L776" title="All 2 branches missed.">            if (line.hasOption(&quot;server-port&quot;)) {</span>
+<span class="nc" id="L777">                String arg = line.getOptionValue(&quot;server-port&quot;);</span>
+<span class="nc bnc" id="L778" title="All 2 branches missed.">                if (!setServerPort(arg)) {</span>
+<span class="nc" id="L779">                    fatal(StringTemplate.template(&quot;cli.error.serverPort&quot;)</span>
+<span class="nc" id="L780">                        .addName(&quot;%string%&quot;, arg));</span>
+                }
+            }
+
+<span class="nc bnc" id="L784" title="All 2 branches missed.">            if (line.hasOption(&quot;seed&quot;)) {</span>
+<span class="nc" id="L785">                FreeColSeed.setFreeColSeed(line.getOptionValue(&quot;seed&quot;));</span>
+            }
+
+<span class="nc bnc" id="L788" title="All 2 branches missed.">            if (line.hasOption(&quot;splash&quot;)) {</span>
+<span class="nc" id="L789">                String splash = line.getOptionValue(&quot;splash&quot;);</span>
+                try {
+<span class="nc" id="L791">                    FileInputStream fis = new FileInputStream(splash);</span>
+<span class="nc" id="L792">                    splashStream = fis;</span>
+<span class="nc" id="L793">                } catch (FileNotFoundException fnfe) {</span>
+<span class="nc" id="L794">                    gripe(StringTemplate.template(&quot;cli.error.splash&quot;)</span>
+<span class="nc" id="L795">                        .addName(&quot;%name%&quot;, splash));</span>
+<span class="nc" id="L796">                }</span>
+            }
+
+<span class="nc bnc" id="L799" title="All 2 branches missed.">            if (line.hasOption(&quot;tc&quot;)) {</span>
+<span class="nc" id="L800">                setTC(line.getOptionValue(&quot;tc&quot;)); // Failure is deferred.</span>
+            }
+
+<span class="nc bnc" id="L803" title="All 2 branches missed.">            if (line.hasOption(&quot;timeout&quot;)) {</span>
+<span class="nc" id="L804">                String arg = line.getOptionValue(&quot;timeout&quot;);</span>
+<span class="nc bnc" id="L805" title="All 2 branches missed.">                if (!setTimeout(arg)) { // Not fatal</span>
+<span class="nc" id="L806">                    gripe(StringTemplate.template(&quot;cli.error.timeout&quot;)</span>
+<span class="nc" id="L807">                        .addName(&quot;%string%&quot;, arg)</span>
+<span class="nc" id="L808">                        .addName(&quot;%minimum%&quot;, Integer.toString(TIMEOUT_MIN)));</span>
+                }
+            }
+
+<span class="nc bnc" id="L812" title="All 2 branches missed.">            if (line.hasOption(&quot;user-cache-directory&quot;)) {</span>
+<span class="nc" id="L813">                String arg = line.getOptionValue(&quot;user-cache-directory&quot;);</span>
+<span class="nc" id="L814">                String errMsg = FreeColDirectories.setUserCacheDirectory(arg);</span>
+<span class="nc bnc" id="L815" title="All 2 branches missed.">                if (errMsg != null) { // Not fatal.</span>
+<span class="nc" id="L816">                    gripe(StringTemplate.template(errMsg)</span>
+<span class="nc" id="L817">                        .addName(&quot;%string%&quot;, arg));</span>
+                }
+            }
+
+<span class="nc bnc" id="L821" title="All 2 branches missed.">            if (line.hasOption(&quot;user-config-directory&quot;)) {</span>
+<span class="nc" id="L822">                String arg = line.getOptionValue(&quot;user-config-directory&quot;);</span>
+<span class="nc" id="L823">                String errMsg = FreeColDirectories.setUserConfigDirectory(arg);</span>
+<span class="nc bnc" id="L824" title="All 2 branches missed.">                if (errMsg != null) { // Not fatal.</span>
+<span class="nc" id="L825">                    gripe(StringTemplate.template(errMsg)</span>
+<span class="nc" id="L826">                        .addName(&quot;%string%&quot;, arg));</span>
+                }
+            }
+
+<span class="nc bnc" id="L830" title="All 2 branches missed.">            if (line.hasOption(&quot;user-data-directory&quot;)) {</span>
+<span class="nc" id="L831">                String arg = line.getOptionValue(&quot;user-data-directory&quot;);</span>
+<span class="nc" id="L832">                String errMsg = FreeColDirectories.setUserDataDirectory(arg);</span>
+<span class="nc bnc" id="L833" title="All 2 branches missed.">                if (errMsg != null) { // Fatal, unable to save.</span>
+<span class="nc" id="L834">                    fatal(StringTemplate.template(errMsg)</span>
+<span class="nc" id="L835">                        .addName(&quot;%string%&quot;, arg));</span>
+                }
+            }
+
+<span class="nc bnc" id="L839" title="All 2 branches missed.">            if (line.hasOption(&quot;version&quot;)) {</span>
+<span class="nc" id="L840">                System.out.println(&quot;FreeCol &quot; + getVersion());</span>
+<span class="nc" id="L841">                System.exit(0);</span>
+            }
+
+<span class="nc bnc" id="L844" title="All 2 branches missed.">            if (line.hasOption(&quot;windowed&quot;)) {</span>
+<span class="nc" id="L845">                String arg = line.getOptionValue(&quot;windowed&quot;);</span>
+<span class="nc" id="L846">                setWindowSize(arg); // Does not fail</span>
+            }
+
+<span class="nc" id="L849">        } catch (ParseException e) {</span>
+<span class="nc" id="L850">            System.err.println(&quot;\n&quot; + e.getMessage() + &quot;\n&quot;);</span>
+<span class="nc" id="L851">            usageError = true;</span>
+<span class="nc" id="L852">        }</span>
+<span class="nc bnc" id="L853" title="All 2 branches missed.">        if (usageError) printUsage(options, 1);</span>
+<span class="nc" id="L854">    }</span>
+
+    /**
+     * Prints the usage message and exits.
+     *
+     * @param options The command line &lt;code&gt;Options&lt;/code&gt;.
+     * @param status The status to exit with.
+     */
+    private static void printUsage(Options options, int status) {
+<span class="nc" id="L863">        HelpFormatter formatter = new HelpFormatter();</span>
+<span class="nc" id="L864">        formatter.printHelp(&quot;java -Xmx 256M -jar freecol.jar [OPTIONS]&quot;,</span>
+                            options);
+<span class="nc" id="L866">        System.exit(status);</span>
+<span class="nc" id="L867">    }</span>
+
+    /**
+     * Get the specification from a given TC file.
+     *
+     * @param tcf The &lt;code&gt;FreeColTcFile&lt;/code&gt; to load.
+     * @param advantages An optional &lt;code&gt;Advantages&lt;/code&gt; setting.
+     * @param difficulty An optional difficulty level.
+     * @return A &lt;code&gt;Specification&lt;/code&gt;.
+     */
+    public static Specification loadSpecification(FreeColTcFile tcf,
+                                                  Advantages advantages,
+                                                  String difficulty) {
+<span class="fc" id="L880">        Specification spec = null;</span>
+        try {
+<span class="pc bpc" id="L882" title="1 of 2 branches missed.">            if (tcf != null) spec = tcf.getSpecification();</span>
+<span class="nc" id="L883">        } catch (IOException ioe) {</span>
+<span class="nc" id="L884">            System.err.println(&quot;Spec read failed in &quot; + tcf.getId()</span>
+<span class="nc" id="L885">                + &quot;: &quot; + ioe.getMessage() + &quot;\n&quot;);</span>
+<span class="fc" id="L886">        }</span>
+<span class="pc bpc" id="L887" title="1 of 2 branches missed.">        if (spec != null) spec.prepare(advantages, difficulty);</span>
+<span class="fc" id="L888">        return spec;</span>
+    }
+
+    /**
+     * Get the specification from the specified TC.
+     *
+     * @return A &lt;code&gt;Specification&lt;/code&gt;, quits on error.
+     */
+    private static Specification getTCSpecification() {
+<span class="nc" id="L897">        Specification spec = loadSpecification(getTCFile(), getAdvantages(),</span>
+<span class="nc" id="L898">                                               getDifficulty());</span>
+<span class="nc bnc" id="L899" title="All 2 branches missed.">        if (spec == null) {</span>
+<span class="nc" id="L900">            fatal(StringTemplate.template(&quot;cli.error.badTC&quot;)</span>
+<span class="nc" id="L901">                .addName(&quot;%tc%&quot;, getTC()));</span>
+        }
+<span class="nc" id="L903">        return spec;</span>
+    }
+
+    // Accessors, mutators and support for the cli variables.
+
+    /**
+     * Gets the default advantages type.
+     *
+     * @return Usually Advantages.SELECTABLE, but can be overridden at the
+     *     command line.
+     */
+    public static Advantages getAdvantages() {
+<span class="pc bpc" id="L915" title="1 of 2 branches missed.">        return (advantages == null) ? ADVANTAGES_DEFAULT</span>
+            : advantages;
+    }
+
+    /**
+     * Sets the advantages type.
+     *
+     * Called from NewPanel when a selection is made.
+     *
+     * @param advantages The name of the new advantages type.
+     * @return The type of advantages set, or null if none.
+     */
+    private static Advantages selectAdvantages(String advantages) {
+<span class="nc" id="L928">        Advantages adv = find(Advantages.values(),</span>
+<span class="nc" id="L929">            a -&gt; Messages.getName(a).equals(advantages), null);</span>
+<span class="nc bnc" id="L930" title="All 2 branches missed.">        if (adv != null) setAdvantages(adv);</span>
+<span class="nc" id="L931">        return adv;</span>
+    }
+
+    /**
+     * Sets the advantages type.
+     *
+     * @param advantages The new &lt;code&gt;Advantages&lt;/code&gt; type.
+     */
+    public static void setAdvantages(Advantages advantages) {
+<span class="nc" id="L940">        FreeCol.advantages = advantages;</span>
+<span class="nc" id="L941">    }</span>
+
+    /**
+     * Gets a comma separated list of localized advantage type names.
+     *
+     * @return A list of advantage types.
+     */
+    private static String getValidAdvantages() {
+<span class="nc" id="L949">        return Arrays.stream(Advantages.values())</span>
+<span class="nc" id="L950">            .map(a -&gt; Messages.getName(a)).collect(Collectors.joining(&quot;,&quot;));</span>
+    }
+
+    /**
+     * Gets the difficulty level.
+     *
+     * @return The name of a difficulty level.
+     */
+    public static String getDifficulty() {
+<span class="nc bnc" id="L959" title="All 2 branches missed.">        return (difficulty == null) ? DIFFICULTY_DEFAULT : difficulty;</span>
+    }
+
+    /**
+     * Selects a difficulty level.
+     *
+     * @param arg The supplied difficulty argument.
+     * @return The name of the selected difficulty, or null if none.
+     */
+    public static String selectDifficulty(String arg) {
+<span class="nc" id="L969">        String difficulty = find(map(DIFFICULTIES, d -&gt; &quot;model.difficulty.&quot;+d),</span>
+<span class="nc" id="L970">            k -&gt; Messages.getName(k).equals(arg), null);</span>
+<span class="nc bnc" id="L971" title="All 2 branches missed.">        if (difficulty != null) setDifficulty(difficulty);</span>
+<span class="nc" id="L972">        return difficulty;</span>
+    }
+
+    /**
+     * Sets the difficulty level.
+     *
+     * @param difficulty The actual &lt;code&gt;OptionGroup&lt;/code&gt;
+     *     containing the difficulty level.
+     */
+    public static void setDifficulty(OptionGroup difficulty) {
+<span class="nc" id="L982">        setDifficulty(difficulty.getId());</span>
+<span class="nc" id="L983">    }</span>
+
+    /**
+     * Sets the difficulty level.
+     *
+     * @param difficulty The new difficulty.
+     */
+    public static void setDifficulty(String difficulty) {
+<span class="nc" id="L991">        FreeCol.difficulty = difficulty;</span>
+<span class="nc" id="L992">    }</span>
+
+    /**
+     * Gets the names of the valid difficulty levels.
+     *
+     * @return The valid difficulty levels, comma separated.
+     */
+    public static String getValidDifficulties() {
+<span class="nc" id="L1000">        return Arrays.stream(DIFFICULTIES)</span>
+<span class="nc" id="L1001">            .map(d -&gt; Messages.getName(&quot;model.difficulty.&quot; + d))</span>
+<span class="nc" id="L1002">            .collect(Collectors.joining(&quot;,&quot;));</span>
+    }
+
+    /**
+     * Get the number of European nations to enable by default.
+     */
+    public static int getEuropeanCount() {
+<span class="fc" id="L1009">        return europeanCount;</span>
+    }
+
+    /**
+     * Sets the number of enabled European nations.
+     *
+     * @param n The number of nations to enable.
+     */
+    public static void setEuropeanCount(int n) {
+<span class="nc" id="L1018">        europeanCount = n;</span>
+<span class="nc" id="L1019">    }</span>
+
+    /**
+     * Sets the scale for GUI elements.
+     * 
+     * @param arg The optional command line argument to be parsed.
+     * @return If the argument was correctly formatted.
+     */
+    public static boolean setGUIScale(String arg) {
+<span class="nc" id="L1028">        boolean valid = true;</span>
+<span class="nc bnc" id="L1029" title="All 2 branches missed.">        if(arg == null) {</span>
+<span class="nc" id="L1030">            guiScale = GUI_SCALE_MAX;</span>
+        } else {
+            try {
+<span class="nc" id="L1033">                int n = Integer.parseInt(arg);</span>
+<span class="nc bnc" id="L1034" title="All 2 branches missed.">                if (n &lt; GUI_SCALE_MIN_PCT) {</span>
+<span class="nc" id="L1035">                    valid = false;</span>
+<span class="nc" id="L1036">                    n = GUI_SCALE_MIN_PCT;</span>
+<span class="nc bnc" id="L1037" title="All 2 branches missed.">                } else if(n &gt; GUI_SCALE_MAX_PCT) {</span>
+<span class="nc" id="L1038">                    valid = false;</span>
+<span class="nc" id="L1039">                    n = GUI_SCALE_MAX_PCT;</span>
+<span class="nc bnc" id="L1040" title="All 2 branches missed.">                } else if(n % GUI_SCALE_STEP_PCT != 0) {</span>
+<span class="nc" id="L1041">                    valid = false;</span>
+                }
+<span class="nc" id="L1043">                guiScale = ((float)(n / GUI_SCALE_STEP_PCT)) * GUI_SCALE_STEP;</span>
+<span class="nc" id="L1044">            } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L1045">                valid = false;</span>
+<span class="nc" id="L1046">                guiScale = GUI_SCALE_MAX;</span>
+<span class="nc" id="L1047">            }</span>
+        }
+<span class="nc" id="L1049">        return valid;</span>
+    }
+
+    /**
+     * Gets the valid scale factors for the GUI.
+     * 
+     * @return A string containing these.
+     */
+    public static String getValidGUIScales() {
+<span class="nc" id="L1058">        String result = &quot;&quot;;</span>
+<span class="nc bnc" id="L1059" title="All 2 branches missed.">        for(int i=GUI_SCALE_MIN_PCT; i&lt;GUI_SCALE_MAX_PCT; i+=GUI_SCALE_STEP_PCT)</span>
+<span class="nc" id="L1060">            result += i + &quot;,&quot;;</span>
+<span class="nc" id="L1061">        result += GUI_SCALE_MAX_PCT;</span>
+<span class="nc" id="L1062">        return result;</span>
+    }
+
+    /**
+     * Selects a European nation count.
+     *
+     * @param arg The supplied count argument.
+     * @return A valid nation number, or negative on error.
+     */
+    public static int selectEuropeanCount(String arg) {
+        try {
+<span class="nc" id="L1073">            int n = Integer.parseInt(arg);</span>
+<span class="nc bnc" id="L1074" title="All 2 branches missed.">            if (n &gt;= EUROPEANS_MIN) {</span>
+<span class="nc" id="L1075">                setEuropeanCount(n);</span>
+<span class="nc" id="L1076">                return n;</span>
+            }
+<span class="nc" id="L1078">        } catch (NumberFormatException nfe) {}</span>
+<span class="nc" id="L1079">        return -1;</span>
+    }
+
+    /**
+     * Sets the log level.
+     *
+     * @param arg The log level to set.
+     */
+    private static void setLogLevel(String arg) {
+<span class="nc" id="L1088">        logLevel = Level.parse(arg.toUpperCase());</span>
+<span class="nc" id="L1089">    }</span>
+
+    /**
+     * Gets the user name.
+     *
+     * @return The user name, defaults to the user.name property, then to
+     *     the &quot;main.defaultPlayerName&quot; message value.
+     */
+    public static String getName() {
+<span class="pc bpc" id="L1098" title="1 of 2 branches missed.">        return (name != null) ? name</span>
+<span class="fc" id="L1099">            : System.getProperty(&quot;user.name&quot;,</span>
+<span class="fc" id="L1100">                                 Messages.message(&quot;main.defaultPlayerName&quot;));</span>
+    }
+
+    /**
+     * Sets the user name.
+     *
+     * @param name The new user name.
+     */
+    public static void setName(String name) {
+<span class="nc" id="L1109">        FreeCol.name = name;</span>
+<span class="nc" id="L1110">        logger.info(&quot;Set FreeCol.name = &quot; + name);</span>
+<span class="nc" id="L1111">    }</span>
+
+    /**
+     * Get the selected locale.
+     *
+     * @return The &lt;code&gt;Locale&lt;/code&gt; currently in use.
+     */
+    public static Locale getLocale() {
+<span class="nc" id="L1119">        return FreeCol.locale;</span>
+    }
+    
+    /**
+     * Gets the current revision of game.
+     *
+     * @return The current version and SVN Revision of the game.
+     */
+    public static String getRevision() {
+<span class="fc" id="L1128">        return freeColRevision;</span>
+    }
+
+    /**
+     * Get the default server host name.
+     *
+     * @return The host name.
+     */
+    public static String getServerHost() {
+<span class="nc" id="L1137">        return InetAddress.getLoopbackAddress().getHostAddress();</span>
+    }
+
+    /**
+     * Gets the server network port.
+     *
+     * @return The port number.
+     */
+    public static int getServerPort() {
+<span class="pc bpc" id="L1146" title="1 of 2 branches missed.">        return (serverPort &lt; 0) ? PORT_DEFAULT : serverPort;</span>
+    }
+
+    /**
+     * Sets the server port.
+     *
+     * @param arg The server port number.
+     * @return True if the port was set.
+     */
+    public static boolean setServerPort(String arg) {
+<span class="nc bnc" id="L1156" title="All 2 branches missed.">        if (arg == null) return false;</span>
+        try {
+<span class="nc" id="L1158">            serverPort = Integer.parseInt(arg);</span>
+<span class="nc" id="L1159">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L1160">            return false;</span>
+<span class="nc" id="L1161">        }</span>
+<span class="nc" id="L1162">        return true;</span>
+    }
+
+    /**
+     * Gets the current Total-Conversion.
+     *
+     * @return Usually TC_DEFAULT, but can be overridden at the command line.
+     */
+    public static String getTC() {
+<span class="pc bpc" id="L1171" title="1 of 2 branches missed.">        return (tc == null) ? TC_DEFAULT : tc;</span>
+    }
+
+    /**
+     * Sets the Total-Conversion.
+     *
+     * Called from NewPanel when a selection is made.
+     *
+     * @param tc The name of the new total conversion.
+     */
+    public static void setTC(String tc) {
+<span class="nc" id="L1182">        FreeCol.tc = tc;</span>
+<span class="nc" id="L1183">    }</span>
+
+    /**
+     * Gets the FreeColTcFile for the current TC.
+     *
+     * @return The &lt;code&gt;FreeColTcFile&lt;/code&gt;.
+     */
+    public static FreeColTcFile getTCFile() {
+        try {
+<span class="nc" id="L1192">            return new FreeColTcFile(getTC());</span>
+<span class="nc" id="L1193">        } catch (IOException ioe) {}</span>
+<span class="nc" id="L1194">        return null;</span>
+    }
+
+    /**
+     * Gets the timeout.
+     * Use the command line specified one if any, otherwise default
+     * to `infinite' in single player and the TIMEOUT_DEFAULT for
+     * multiplayer.
+     *
+     * @param singlePlayer True if this is a single player game.
+     * @return A suitable timeout value.
+     */
+    public static int getTimeout(boolean singlePlayer) {
+<span class="nc bnc" id="L1207" title="All 4 branches missed.">        return (timeout &gt;= TIMEOUT_MIN) ? timeout</span>
+            : (singlePlayer) ? Integer.MAX_VALUE
+            : TIMEOUT_DEFAULT;
+    }
+
+    /**
+     * Sets the timeout.
+     *
+     * @param timeout A string containing the new timeout.
+     * @return True if the timeout was set.
+     */
+    public static boolean setTimeout(String timeout) {
+        try {
+<span class="nc" id="L1220">            int result = Integer.parseInt(timeout);</span>
+<span class="nc bnc" id="L1221" title="All 2 branches missed.">            if (result &gt;= TIMEOUT_MIN) {</span>
+<span class="nc" id="L1222">                FreeCol.timeout = result;</span>
+<span class="nc" id="L1223">                return true;</span>
+            }
+<span class="nc" id="L1225">        } catch (NumberFormatException nfe) {}</span>
+<span class="nc" id="L1226">        return false;</span>
+    }
+
+    /**
+     * Gets the current version of game.
+     *
+     * @return The current version of the game using the format &quot;x.y.z&quot;,
+     *         where &quot;x&quot; is major, &quot;y&quot; is minor and &quot;z&quot; is revision.
+     */
+    public static String getVersion() {
+<span class="nc" id="L1236">        return FREECOL_VERSION;</span>
+    }
+
+    /**
+     * Sets the window size.
+     *
+     * Does not fail because any empty or invalid value is interpreted as
+     * `windowed but use as much screen as possible'.
+     *
+     * @param arg The window size specification.
+     */
+    private static void setWindowSize(String arg) {
+        String[] xy;
+<span class="nc bnc" id="L1249" title="All 2 branches missed.">        if (arg != null</span>
+<span class="nc bnc" id="L1250" title="All 4 branches missed.">            &amp;&amp; (xy = arg.split(&quot;[^0-9]&quot;)) != null</span>
+            &amp;&amp; xy.length == 2) {
+            try {
+<span class="nc" id="L1253">                windowSize = new Dimension(Integer.parseInt(xy[0]),</span>
+<span class="nc" id="L1254">                                           Integer.parseInt(xy[1]));</span>
+<span class="nc" id="L1255">            } catch (NumberFormatException nfe) {}</span>
+        }
+<span class="nc bnc" id="L1257" title="All 2 branches missed.">        if (windowSize == null) windowSize = new Dimension(-1, -1);</span>
+<span class="nc" id="L1258">    }</span>
+
+
+    /**
+     * Utility to make a load failure message.
+     *
+     * @param file The &lt;code&gt;File&lt;/code&gt; that failed to load.
+     * @return A &lt;code&gt;StringTemplate&lt;/code&gt; with the error message.
+     */
+    public static StringTemplate badLoad(File file) {
+<span class="nc" id="L1268">        return StringTemplate.template(&quot;error.couldNotLoad&quot;)</span>
+<span class="nc" id="L1269">            .addName(&quot;%name%&quot;, file.getPath());</span>
+    }
+
+    /**
+     * Utility to make a save failure message.
+     *
+     * @param file The &lt;code&gt;File&lt;/code&gt; that failed to save.
+     * @return A &lt;code&gt;StringTemplate&lt;/code&gt; with the error message.
+     */
+    public static StringTemplate badSave(File file) {
+<span class="nc" id="L1279">        return StringTemplate.template(&quot;error.couldNotSave&quot;)</span>
+<span class="nc" id="L1280">            .addName(&quot;%name%&quot;, file.getPath());</span>
+    }
+
+    /**
+     * We get a lot of lame bug reports with insufficient configuration
+     * information.  Get a buffer containing as much information as we can
+     * to embed in the log file and saved games.
+     *
+     * @return A &lt;code&gt;StringBuilder&lt;/code&gt; full of configuration information.
+     */
+    public static StringBuilder getConfiguration() {
+<span class="fc" id="L1291">        File autosave = FreeColDirectories.getAutosaveDirectory();</span>
+<span class="fc" id="L1292">        File clientOptionsFile = FreeColDirectories.getClientOptionsFile();</span>
+<span class="fc" id="L1293">        File save = FreeColDirectories.getSaveDirectory();</span>
+<span class="fc" id="L1294">        File userConfig = FreeColDirectories.getUserConfigDirectory();</span>
+<span class="fc" id="L1295">        File userData = FreeColDirectories.getUserDataDirectory();</span>
+<span class="fc" id="L1296">        File userMods = FreeColDirectories.getUserModsDirectory();</span>
+<span class="fc" id="L1297">        StringBuilder sb = new StringBuilder(256);</span>
+<span class="fc" id="L1298">        sb.append(&quot;Configuration:&quot;)</span>
+<span class="fc" id="L1299">            .append(&quot;\n  version     &quot;).append(getRevision())</span>
+<span class="fc" id="L1300">            .append(&quot;\n  java:       &quot;).append(JAVA_VERSION)</span>
+<span class="fc" id="L1301">            .append(&quot;\n  memory:     &quot;).append(MEMORY_MAX)</span>
+<span class="fc" id="L1302">            .append(&quot;\n  locale:     &quot;).append(locale)</span>
+<span class="fc" id="L1303">            .append(&quot;\n  data:       &quot;)</span>
+<span class="fc" id="L1304">            .append(FreeColDirectories.getDataDirectory().getPath())</span>
+<span class="pc bpc" id="L1305" title="1 of 2 branches missed.">            .append(&quot;\n  userConfig: &quot;)</span>
+<span class="pc" id="L1306">            .append((userConfig == null) ? &quot;NONE&quot; : userConfig.getPath())</span>
+<span class="pc bpc" id="L1307" title="1 of 2 branches missed.">            .append(&quot;\n  userData:   &quot;)</span>
+<span class="pc" id="L1308">            .append((userData == null) ? &quot;NONE&quot; : userData.getPath())</span>
+<span class="pc bpc" id="L1309" title="1 of 2 branches missed.">            .append(&quot;\n  autosave:   &quot;)</span>
+<span class="pc" id="L1310">            .append((autosave == null) ? &quot;NONE&quot; : autosave.getPath())</span>
+<span class="fc" id="L1311">            .append(&quot;\n  logFile:    &quot;)</span>
+<span class="fc" id="L1312">            .append(FreeColDirectories.getLogFilePath())</span>
+<span class="pc bpc" id="L1313" title="1 of 2 branches missed.">            .append(&quot;\n  options:    &quot;)</span>
+<span class="fc" id="L1314">            .append((clientOptionsFile == null) ? &quot;NONE&quot;</span>
+<span class="fc" id="L1315">                : clientOptionsFile.getPath())</span>
+<span class="pc bpc" id="L1316" title="1 of 2 branches missed.">            .append(&quot;\n  save:       &quot;)</span>
+<span class="pc" id="L1317">            .append((save == null) ? &quot;NONE&quot; : save.getPath())</span>
+<span class="pc bpc" id="L1318" title="1 of 2 branches missed.">            .append(&quot;\n  userMods:   &quot;)</span>
+<span class="pc" id="L1319">            .append((userMods == null) ? &quot;NONE&quot; : userMods.getPath());</span>
+<span class="fc" id="L1320">        return sb;</span>
+    }
+
+
+    // The major final actions.
+
+    /**
+     * Start a client.
+     *
+     * @param userMsg An optional user message key.
+     */
+    private static void startClient(String userMsg) {
+<span class="nc" id="L1332">        Specification spec = null;</span>
+<span class="nc" id="L1333">        File savegame = FreeColDirectories.getSavegameFile();</span>
+<span class="nc bnc" id="L1334" title="All 2 branches missed.">        if (debugStart) {</span>
+<span class="nc" id="L1335">            spec = FreeCol.getTCSpecification();</span>
+<span class="nc bnc" id="L1336" title="All 2 branches missed.">        } else if (fastStart) {</span>
+<span class="nc bnc" id="L1337" title="All 2 branches missed.">            if (savegame == null) {</span>
+                // continue last saved game if possible,
+                // otherwise start a new one
+<span class="nc" id="L1340">                savegame = FreeColDirectories.getLastSaveGameFile();</span>
+<span class="nc bnc" id="L1341" title="All 2 branches missed.">                if (savegame == null) {</span>
+<span class="nc" id="L1342">                    spec = FreeCol.getTCSpecification();</span>
+                }
+            }
+            // savegame was specified on command line
+        }
+<span class="nc" id="L1347">        final FreeColClient freeColClient</span>
+            = new FreeColClient(splashStream, fontName, guiScale, headless);
+<span class="nc" id="L1349">        freeColClient.startClient(windowSize, userMsg, sound, introVideo,</span>
+                                  savegame, spec);
+<span class="nc" id="L1351">    }</span>
+
+    /**
+     * Start the server.
+     */
+    private static void startServer() {
+<span class="nc" id="L1357">        logger.info(&quot;Starting stand-alone server.&quot;);</span>
+        final FreeColServer freeColServer;
+<span class="nc" id="L1359">        File saveGame = FreeColDirectories.getSavegameFile();</span>
+<span class="nc bnc" id="L1360" title="All 2 branches missed.">        if (saveGame != null) {</span>
+            try {
+<span class="nc" id="L1362">                final FreeColSavegameFile fis</span>
+                    = new FreeColSavegameFile(saveGame);
+<span class="nc" id="L1364">                freeColServer = new FreeColServer(fis, (Specification)null,</span>
+                                                  serverPort, serverName);
+<span class="nc bnc" id="L1366" title="All 2 branches missed.">                if (checkIntegrity) {</span>
+<span class="nc bnc" id="L1367" title="All 2 branches missed.">                    boolean integrityOK = freeColServer.getIntegrity() &gt; 0;</span>
+<span class="nc bnc" id="L1368" title="All 2 branches missed.">                    gripe((integrityOK)</span>
+                        ? &quot;cli.check-savegame.success&quot;
+                        : &quot;cli.check-savegame.failure&quot;);
+<span class="nc bnc" id="L1371" title="All 2 branches missed.">                    System.exit((integrityOK) ? 0 : 2);</span>
+                }
+<span class="nc" id="L1373">            } catch (Exception e) {</span>
+<span class="nc bnc" id="L1374" title="All 2 branches missed.">                if (checkIntegrity) gripe(&quot;cli.check-savegame.failure&quot;);</span>
+<span class="nc" id="L1375">                fatal(Messages.message(badLoad(saveGame))</span>
+<span class="nc" id="L1376">                    + &quot;: &quot; + e.getMessage());</span>
+<span class="nc" id="L1377">                return;</span>
+<span class="nc" id="L1378">            }</span>
+        } else {
+<span class="nc" id="L1380">            Specification spec = FreeCol.getTCSpecification();</span>
+            try {
+<span class="nc" id="L1382">                freeColServer = new FreeColServer(publicServer, false, spec,</span>
+                                                  serverPort, serverName);
+<span class="nc" id="L1384">            } catch (Exception e) {</span>
+<span class="nc" id="L1385">                fatal(Messages.message(&quot;server.initialize&quot;)</span>
+<span class="nc" id="L1386">                    + &quot;: &quot; + e.getMessage());</span>
+<span class="nc" id="L1387">                return;</span>
+<span class="nc" id="L1388">            }</span>
+<span class="nc bnc" id="L1389" title="All 4 branches missed.">            if (publicServer &amp;&amp; freeColServer != null</span>
+<span class="nc bnc" id="L1390" title="All 2 branches missed.">                &amp;&amp; !freeColServer.getPublicServer()) {</span>
+<span class="nc" id="L1391">                gripe(Messages.message(&quot;server.noRouteToServer&quot;));</span>
+            }
+        }
+
+<span class="nc" id="L1395">        String quit = FreeCol.SERVER_THREAD + &quot;Quit Game&quot;;</span>
+<span class="nc" id="L1396">        Runtime.getRuntime().addShutdownHook(new Thread(quit) {</span>
+                @Override
+                public void run() {
+<span class="nc" id="L1399">                    freeColServer.getController().shutdown();</span>
+<span class="nc" id="L1400">                }</span>
+            });
+<span class="nc" id="L1402">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

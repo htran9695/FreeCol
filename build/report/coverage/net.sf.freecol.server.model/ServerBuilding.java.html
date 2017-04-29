@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ServerBuilding.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.model</a> &gt; <span class="el_source">ServerBuilding.java</span></div><h1>ServerBuilding.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.model;
+
+import java.util.List;
+import java.util.Random;
+import java.util.logging.Logger;
+
+import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.AbstractGoods;
+import net.sf.freecol.common.model.Building;
+import net.sf.freecol.common.model.BuildingType;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.ModelMessage;
+import net.sf.freecol.common.model.ProductionInfo;
+import net.sf.freecol.common.model.StringTemplate;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.UnitType;
+import net.sf.freecol.common.util.LogBuilder;
+import net.sf.freecol.server.control.ChangeSet;
+import net.sf.freecol.server.control.ChangeSet.See;
+
+
+/**
+ * The server version of a building.
+ */
+public class ServerBuilding extends Building implements ServerModelObject {
+
+<span class="fc" id="L47">    private static final Logger logger = Logger.getLogger(ServerBuilding.class.getName());</span>
+
+
+    /**
+     * Trivial constructor required for all ServerModelObjects.
+     */
+    public ServerBuilding(Game game, String id) {
+<span class="nc" id="L54">        super(game, id);</span>
+<span class="nc" id="L55">    }</span>
+
+    /**
+     * Creates a new ServerBuilding.
+     *
+     * @param game The &lt;code&gt;Game&lt;/code&gt; this object belongs to.
+     * @param colony The &lt;code&gt;Colony&lt;/code&gt; in which this building is located.
+     * @param type The &lt;code&gt;BuildingType&lt;/code&gt; of building.
+     */
+    public ServerBuilding(Game game, Colony colony, BuildingType type) {
+<span class="fc" id="L65">        super(game, colony, type);</span>
+<span class="fc" id="L66">    }</span>
+
+
+    /**
+     * New turn for this building.
+     *
+     * @param random A &lt;code&gt;Random&lt;/code&gt; number source.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     */
+    @Override
+    public void csNewTurn(Random random, LogBuilder lb, ChangeSet cs) {
+<span class="fc" id="L78">        BuildingType type = getType();</span>
+
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        if (canTeach()) csTeach(cs);</span>
+
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">        if (type.hasAbility(Ability.REPAIR_UNITS)) {</span>
+<span class="nc" id="L83">            csRepairUnits(cs);</span>
+        }
+<span class="fc" id="L85">    }</span>
+
+    /**
+     * Teach all the units in this school.
+     *
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     */
+    private void csTeach(ChangeSet cs) {
+<span class="fc" id="L93">        final ServerPlayer owner = (ServerPlayer)getColony().getOwner();</span>
+        
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        for (Unit teacher : getUnitList()) {</span>
+<span class="fc" id="L96">            Unit student = teacher.getStudent();</span>
+
+<span class="pc bpc" id="L98" title="1 of 4 branches missed.">            if (student != null &amp;&amp; student.getTeacher() != teacher) {</span>
+                // Sanitation, make sure we have the proper
+                // teacher/student relation.
+<span class="nc" id="L101">                logger.warning(&quot;Bogus teacher/student assignment.&quot;);</span>
+<span class="nc" id="L102">                teacher.setStudent(null);</span>
+<span class="nc" id="L103">                student = null;</span>
+            }
+
+            // Student may have changed
+<span class="fc bfc" id="L107" title="All 4 branches covered.">            if (student == null &amp;&amp; csAssignStudent(teacher, cs)) {</span>
+<span class="fc" id="L108">                student = teacher.getStudent();</span>
+            }
+
+            // Update teaching amount.
+<span class="fc bfc" id="L112" title="All 2 branches covered.">            teacher.setTurnsOfTraining((student == null) ? 0</span>
+<span class="fc" id="L113">                : teacher.getTurnsOfTraining() + 1);</span>
+<span class="fc" id="L114">            cs.add(See.only(owner), teacher);</span>
+
+            // Do not check for completed training, see csCheckTeach below.
+<span class="fc" id="L117">        }</span>
+<span class="fc" id="L118">    }</span>
+
+    /**
+     * Check and complete teaching if possible.
+     *
+     * This needs to be separate and public because of the recheck of
+     * teaching required if the colony production bonus rises at end
+     * of new turn calculations.
+     *
+     * @param teacher The teaching &lt;code&gt;Unit&lt;/code&gt;.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     * @return True if teaching occurred.
+     */
+    public boolean csCheckTeach(Unit teacher, ChangeSet cs) {
+<span class="fc" id="L132">        final ServerPlayer owner = (ServerPlayer)getColony().getOwner();</span>
+
+<span class="fc" id="L134">        Unit student = teacher.getStudent();</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">        if (student != null</span>
+<span class="fc" id="L136">            &amp;&amp; teacher.getTurnsOfTraining()</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">                &gt;= teacher.getNeededTurnsOfTraining()) {</span>
+<span class="fc" id="L138">            csTrainStudent(teacher, student, cs);</span>
+            // Student will have changed, teacher already added in csTeach
+<span class="fc" id="L140">            cs.add(See.only(owner), student);</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">            if (teacher.getStudent() == null) csAssignStudent(teacher, cs);</span>
+<span class="fc" id="L142">            return true;</span>
+        }
+<span class="fc" id="L144">        return false;</span>
+    }
+        
+    /**
+     * Train a student.
+     *
+     * @param teacher The teacher &lt;code&gt;Unit&lt;/code&gt;.
+     * @param student The student &lt;code&gt;Unit&lt;/code&gt; to train.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     * @return True if teaching occurred.
+     */
+    private boolean csTrainStudent(Unit teacher, Unit student, ChangeSet cs) {
+<span class="fc" id="L156">        final ServerPlayer owner = (ServerPlayer)getColony().getOwner();</span>
+<span class="fc" id="L157">        StringTemplate oldName = student.getLabel();</span>
+<span class="fc" id="L158">        UnitType teach = teacher.getType().getSkillTaught();</span>
+<span class="fc" id="L159">        UnitType skill = Unit.getUnitTypeTeaching(teach, student.getType());</span>
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">        boolean ret = skill != null;</span>
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">        if (skill == null) {</span>
+<span class="nc" id="L162">            logger.warning(&quot;Student &quot; + student.getId()</span>
+<span class="nc" id="L163">                           + &quot; can not learn from &quot; + teacher.getId());</span>
+        } else {
+<span class="fc" id="L165">            student.changeType(skill);//-vis: safe within colony</span>
+<span class="fc" id="L166">            StringTemplate newName = student.getLabel();</span>
+<span class="fc" id="L167">            cs.addMessage(See.only(owner),</span>
+                new ModelMessage(ModelMessage.MessageType.UNIT_IMPROVED,
+                                 &quot;model.building.unitEducated&quot;,
+<span class="fc" id="L170">                                 getColony(), this)</span>
+<span class="fc" id="L171">                    .addStringTemplate(&quot;%oldName%&quot;, oldName)</span>
+<span class="fc" id="L172">                    .addStringTemplate(&quot;%unit%&quot;, newName)</span>
+<span class="fc" id="L173">                    .addName(&quot;%colony%&quot;, getColony().getName()));</span>
+        }
+<span class="fc" id="L175">        student.setTurnsOfTraining(0);</span>
+<span class="fc" id="L176">        student.setMovesLeft(0);</span>
+<span class="fc" id="L177">        teacher.setTurnsOfTraining(0);</span>
+<span class="fc" id="L178">        teacher.setMovesLeft(0);</span>
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        if (!student.canBeStudent(teacher)) {</span>
+<span class="fc" id="L180">            student.setTeacher(null);</span>
+<span class="fc" id="L181">            teacher.setStudent(null);</span>
+        }
+<span class="fc" id="L183">        return ret;</span>
+    }
+
+    /**
+     * Assigns a student to a teacher within a building.
+     *
+     * @param teacher The &lt;code&gt;Unit&lt;/code&gt; that is teaching.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     * @return True if a student was assigned.
+     */
+    private boolean csAssignStudent(Unit teacher, ChangeSet cs) {
+<span class="fc" id="L194">        final Colony colony = getColony();</span>
+<span class="fc" id="L195">        final ServerPlayer owner = (ServerPlayer)colony.getOwner();</span>
+<span class="fc" id="L196">        final Unit student = colony.findStudent(teacher);</span>
+<span class="fc bfc" id="L197" title="All 2 branches covered.">        if (student == null) {</span>
+<span class="fc" id="L198">            cs.addMessage(See.only(owner),</span>
+                new ModelMessage(ModelMessage.MessageType.WARNING,
+                                 &quot;model.building.noStudent&quot;,
+                                 colony, teacher)
+<span class="fc" id="L202">                          .addStringTemplate(&quot;%teacher%&quot;, teacher.getLabel())</span>
+<span class="fc" id="L203">                          .addName(&quot;%colony%&quot;, colony.getName()));</span>
+<span class="fc" id="L204">            return false;</span>
+        }
+<span class="fc" id="L206">        teacher.setStudent(student);</span>
+<span class="fc" id="L207">        teacher.changeWorkType(null);</span>
+<span class="fc" id="L208">        student.setTeacher(teacher);</span>
+<span class="fc" id="L209">        cs.add(See.only(owner), student);</span>
+<span class="fc" id="L210">        return true;</span>
+    }
+
+    /**
+     * Repair the units in this building.
+     *
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     */
+    private void csRepairUnits(ChangeSet cs) {
+<span class="nc bnc" id="L219" title="All 2 branches missed.">        for (Unit unit : getTile().getUnitList()) {</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">            if (unit.isDamaged()</span>
+<span class="nc bnc" id="L221" title="All 2 branches missed.">                &amp;&amp; getType().hasAbility(Ability.REPAIR_UNITS,</span>
+<span class="nc" id="L222">                                        unit.getType())) {</span>
+<span class="nc" id="L223">                ((ServerUnit) unit).csRepairUnit(cs);</span>
+            }
+<span class="nc" id="L225">        }</span>
+<span class="nc" id="L226">    }</span>
+
+    /**
+     * Check a building to see if it is missing input.
+     *
+     * The building must need input, have a person working there, and have
+     * no production occurring.
+     *
+     * @param pi The &lt;code&gt;ProductionInfo&lt;/code&gt; for the building.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     */
+    public void csCheckMissingInput(ProductionInfo pi, ChangeSet cs) {
+<span class="fc" id="L238">        List&lt;AbstractGoods&gt; inputs = getInputs();</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">        if (!(inputs.isEmpty()</span>
+<span class="pc bpc" id="L240" title="1 of 2 branches missed.">              || isEmpty()</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">              || canAutoProduce())</span>
+<span class="nc bnc" id="L242" title="All 2 branches missed.">            &amp;&amp; pi.getProduction().isEmpty()) {</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">            for (AbstractGoods goods : inputs) {</span>
+<span class="nc" id="L244">                cs.addMessage(See.only((ServerPlayer)getOwner()),</span>
+                    new ModelMessage(ModelMessage.MessageType.MISSING_GOODS,
+                                     &quot;model.building.notEnoughInput&quot;,
+<span class="nc" id="L247">                                     this, goods.getType())</span>
+<span class="nc" id="L248">                        .addNamed(&quot;%inputGoods%&quot;, goods.getType())</span>
+<span class="nc" id="L249">                        .addNamed(&quot;%building%&quot;, this)</span>
+<span class="nc" id="L250">                        .addName(&quot;%colony%&quot;, getColony().getName()));</span>
+<span class="nc" id="L251">            }</span>
+        }
+<span class="fc" id="L253">    }</span>
+
+    /**
+     * Returns the tag name of the root element representing this object.
+     *
+     * @return &quot;serverBuilding&quot;
+     */
+    @Override
+    public String getServerXMLElementTagName() {
+<span class="nc" id="L262">        return &quot;serverBuilding&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

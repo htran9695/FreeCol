@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CanvasMapEditorMouseListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.client.gui</a> &gt; <span class="el_source">CanvasMapEditorMouseListener.java</span></div><h1>CanvasMapEditorMouseListener.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.client.gui;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.Point;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.swing.JComponent;
+
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.control.MapEditorController;
+import net.sf.freecol.client.gui.panel.MapEditorTransformPanel.TileTypeTransform;
+import net.sf.freecol.client.gui.panel.RiverStyleDialog;
+import net.sf.freecol.common.model.Map;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TileImprovement;
+import net.sf.freecol.server.generator.TerrainGenerator;
+
+
+/**
+ * Listens to the mouse being moved at the level of the Canvas.
+ */
+public final class CanvasMapEditorMouseListener extends AbstractCanvasListener
+    implements MouseListener, MouseMotionListener {
+
+<span class="nc" id="L49">    private static final Logger logger = Logger.getLogger(CanvasMapEditorMouseListener.class.getName());</span>
+
+    private Point endPoint;
+    private Point startPoint;
+
+
+    /**
+     * The constructor to use.
+     *
+     * @param canvas The component this object gets created for.
+     */
+    public CanvasMapEditorMouseListener(FreeColClient freeColClient, Canvas canvas) {
+<span class="nc" id="L61">        super(freeColClient, canvas);</span>
+<span class="nc" id="L62">    }</span>
+
+
+    /**
+     * Get the GUI.
+     *
+     * @return The GUI.
+     */
+    private GUI getGUI() {
+<span class="nc" id="L71">        return freeColClient.getGUI();</span>
+    }
+
+    /**
+     * This method can be called to make sure the map is loaded
+     * There is no point executing mouse events if the map is not loaded
+     */
+    private Map getMap() {
+<span class="nc bnc" id="L79" title="All 2 branches missed.">        return (freeColClient.getGame() == null) ? null</span>
+<span class="nc" id="L80">            : freeColClient.getGame().getMap();</span>
+    }
+
+    /**
+     * Draw a box on screen.
+     *
+     * @param component The &lt;code&gt;JComponent&lt;/code&gt; to draw on.
+     * @param startPoint The starting &lt;code&gt;Point&lt;/code&gt;.
+     * @param endPoint The end &lt;code&gt;Point&lt;/code&gt;.
+     */
+    private void drawBox(JComponent component,
+                         Point startPoint, Point endPoint) {
+<span class="nc bnc" id="L92" title="All 4 branches missed.">        if (startPoint == null || endPoint == null</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">            || startPoint.distance(endPoint) == 0</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">            || freeColClient.getMapEditorController() == null)</span>
+<span class="nc" id="L95">            return;</span>
+
+<span class="nc" id="L97">        Graphics2D graphics = (Graphics2D)component.getGraphics();</span>
+<span class="nc" id="L98">        graphics.setColor(Color.WHITE);</span>
+<span class="nc" id="L99">        int x = Math.min(startPoint.x, endPoint.x);</span>
+<span class="nc" id="L100">        int y = Math.min(startPoint.y, endPoint.y);</span>
+<span class="nc" id="L101">        int width = Math.abs(startPoint.x - endPoint.x);</span>
+<span class="nc" id="L102">        int height = Math.abs(startPoint.y - endPoint.y);</span>
+<span class="nc" id="L103">        graphics.drawRect(x, y, width, height);</span>
+<span class="nc" id="L104">    }</span>
+
+
+    // Implement MouseListener
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void mouseClicked(MouseEvent e) {
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        if (getMap() == null) return;</span>
+
+        try {
+<span class="nc bnc" id="L117" title="All 2 branches missed.">            if (e.getClickCount() &gt; 1) {</span>
+<span class="nc" id="L118">                canvas.convertToMapTile(e.getX(), e.getY());</span>
+            } else {
+<span class="nc" id="L120">                canvas.requestFocus();</span>
+            }
+<span class="nc" id="L122">        } catch (Exception ex) {</span>
+<span class="nc" id="L123">            logger.log(Level.WARNING, &quot;Error in mouseClicked!&quot;, ex);</span>
+<span class="nc" id="L124">        }</span>
+<span class="nc" id="L125">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void mousePressed(MouseEvent e) {
+<span class="nc bnc" id="L132" title="All 4 branches missed.">        if (getMap() == null || !e.getComponent().isEnabled()) return;</span>
+
+        try {
+<span class="nc bnc" id="L135" title="All 2 branches missed.">            if (e.getButton() == MouseEvent.BUTTON1) {</span>
+<span class="nc" id="L136">                Tile tile = canvas.convertToMapTile(e.getX(), e.getY());</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">                if (tile != null) getGUI().setSelectedTile(tile);</span>
+<span class="nc" id="L138">                startPoint = endPoint = null;</span>
+
+<span class="nc bnc" id="L140" title="All 2 branches missed.">            } else if (e.getButton() == MouseEvent.BUTTON2) {</span>
+<span class="nc" id="L141">                startPoint = e.getPoint();</span>
+<span class="nc" id="L142">                JComponent component = (JComponent)e.getSource();</span>
+<span class="nc" id="L143">                drawBox(component, startPoint, endPoint);</span>
+
+<span class="nc bnc" id="L145" title="All 2 branches missed.">            } else if (e.getButton() == MouseEvent.BUTTON3</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">                || e.isPopupTrigger()) {</span>
+<span class="nc" id="L147">                startPoint = e.getPoint();</span>
+<span class="nc" id="L148">                Tile tile = canvas.convertToMapTile(e.getX(), e.getY());</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">                if (tile != null) {</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">                    if (tile.hasRiver()) {</span>
+<span class="nc" id="L151">                        TileImprovement river = tile.getRiver();</span>
+<span class="nc" id="L152">                        String style = canvas.showRiverStyleDialog(tile);</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">                        if (style == null) {</span>
+                            // cancelled
+<span class="nc bnc" id="L155" title="All 2 branches missed.">                        } else if (RiverStyleDialog.DELETE.equals(style)) {</span>
+<span class="nc" id="L156">                            tile.getTileItemContainer().removeTileItem(river);</span>
+                        } else {
+<span class="nc" id="L158">                            river.updateRiverConnections(style);</span>
+                        }
+                    }
+<span class="nc bnc" id="L161" title="All 2 branches missed.">                    if (tile.getIndianSettlement() != null) {</span>
+<span class="nc" id="L162">                        canvas.showEditSettlementDialog(tile.getIndianSettlement());</span>
+                    }
+                } else {
+<span class="nc" id="L165">                    getGUI().setSelectedTile(null);</span>
+                }
+            }
+<span class="nc" id="L168">        } catch (Exception ex) {</span>
+<span class="nc" id="L169">            logger.log(Level.WARNING, &quot;Error in mousePressed!&quot;, ex);</span>
+<span class="nc" id="L170">        }</span>
+<span class="nc" id="L171">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void mouseReleased(MouseEvent e) {
+<span class="nc bnc" id="L178" title="All 2 branches missed.">        if (getMap() == null</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">            || e.getButton() == MouseEvent.BUTTON1</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">            || getGUI().getFocus() == null) return;</span>
+<span class="nc" id="L181">        final JComponent component = (JComponent)e.getSource();</span>
+<span class="nc" id="L182">        final MapEditorController controller</span>
+<span class="nc" id="L183">            = freeColClient.getMapEditorController();</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">        final boolean isTransformActive = controller.getMapTransform() != null;</span>
+
+<span class="nc" id="L186">        endPoint = e.getPoint();</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">        if (startPoint == null) startPoint = endPoint;</span>
+<span class="nc" id="L188">        drawBox(component, startPoint, endPoint);</span>
+<span class="nc" id="L189">        Tile start = canvas.convertToMapTile(startPoint.x, startPoint.y);</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        Tile end = (startPoint == endPoint) ? start</span>
+<span class="nc" id="L191">            : canvas.convertToMapTile(endPoint.x, endPoint.y);</span>
+
+        // edit 2 more conditions in if statement.  we need to
+        // check for coordinator of X and Y if (x,y) outside of
+        // map then dont focus to that else setfocus to that
+        // position no option selected, just center map
+<span class="nc bnc" id="L197" title="All 6 branches missed.">        if (!isTransformActive &amp;&amp; end.getX() &gt;= 0 &amp;&amp; end.getY() &gt;= 0) {</span>
+<span class="nc" id="L198">            getGUI().setFocus(end);</span>
+<span class="nc" id="L199">            return;</span>
+        }
+
+        // find the area to transform
+        int min_x, max_x, min_y, max_y;
+<span class="nc bnc" id="L204" title="All 2 branches missed.">        if (start.getX() &lt; end.getX()) {</span>
+<span class="nc" id="L205">            min_x = start.getX();</span>
+<span class="nc" id="L206">            max_x = end.getX();</span>
+        } else {
+<span class="nc" id="L208">            min_x = end.getX();</span>
+<span class="nc" id="L209">            max_x = start.getX();</span>
+        }
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        if (start.getY() &lt; end.getY()) {</span>
+<span class="nc" id="L212">            min_y = start.getY();</span>
+<span class="nc" id="L213">            max_y = end.getY();</span>
+        } else {
+<span class="nc" id="L215">            min_y = end.getY();</span>
+<span class="nc" id="L216">            max_y = start.getY();</span>
+        }
+
+        // apply transformation to all tiles in the area
+<span class="nc" id="L220">        Tile t = null;</span>
+<span class="nc bnc" id="L221" title="All 2 branches missed.">        for (int x = min_x; x &lt;= max_x; x++) {</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">            for (int y = min_y; y &lt;= max_y; y++) {</span>
+<span class="nc" id="L223">                t = getMap().getTile(x, y);</span>
+<span class="nc bnc" id="L224" title="All 2 branches missed.">                if (t != null) {</span>
+<span class="nc" id="L225">                    controller.transform(t);</span>
+                }
+            }
+        }
+<span class="nc bnc" id="L229" title="All 2 branches missed.">        if (controller.getMapTransform() instanceof TileTypeTransform) {</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">            for (int x = min_x - 2; x &lt;= max_x + 2; x++) {</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">                for (int y = min_y - 2; y &lt;= max_y + 2; y++) {</span>
+<span class="nc" id="L232">                    t = getMap().getTile(x, y);</span>
+<span class="nc bnc" id="L233" title="All 4 branches missed.">                    if (t != null &amp;&amp; t.getType().isWater()) {</span>
+<span class="nc" id="L234">                        TerrainGenerator.encodeStyle(t);</span>
+                    }
+                }
+            }
+        }
+<span class="nc" id="L239">        getGUI().refresh();</span>
+<span class="nc" id="L240">        canvas.requestFocus();</span>
+<span class="nc" id="L241">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+<span class="nc" id="L247">    public void mouseEntered(MouseEvent e) {} // Ignore for now.</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+<span class="nc" id="L253">    public void mouseExited(MouseEvent e) {} // Ignore for now.</span>
+
+
+    // Implement MouseMotionListener
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void mouseDragged(MouseEvent e) {
+<span class="nc bnc" id="L263" title="All 2 branches missed.">        if (getMap() == null) return;</span>
+<span class="nc" id="L264">        final JComponent component = (JComponent)e.getSource();</span>
+
+<span class="nc" id="L266">        drawBox(component, startPoint, endPoint);</span>
+<span class="nc" id="L267">        endPoint = e.getPoint();</span>
+<span class="nc" id="L268">        drawBox(component, startPoint, endPoint);</span>
+
+<span class="nc" id="L270">        performDragScrollIfActive(e);</span>
+
+<span class="nc" id="L272">        getGUI().refresh();</span>
+<span class="nc" id="L273">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void mouseMoved(MouseEvent e) {
+<span class="nc bnc" id="L280" title="All 4 branches missed.">        if (getMap() == null || e.getY() &lt; AUTO_SCROLL_SPACE) return;</span>
+
+<span class="nc" id="L282">        performAutoScrollIfActive(e);</span>
+<span class="nc" id="L283">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -1,0 +1,548 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FreeColXMLWriter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.io</a> &gt; <span class="el_source">FreeColXMLWriter.java</span></div><h1>FreeColXMLWriter.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.io;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.io.Writer;
+
+import java.util.Collection;
+import java.util.Locale;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.xml.namespace.NamespaceContext;
+import javax.xml.stream.XMLOutputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
+
+import net.sf.freecol.common.model.FreeColObject;
+import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.Player;
+
+
+/**
+ * A wrapper for &lt;code&gt;XMLStreamWriter&lt;/code&gt; and potentially an
+ * underlying stream.  Adds on many useful utilities for writing
+ * XML and FreeCol values.
+ *
+ * Unlike FreeColXMLReader, do not try to close the underlying stream.
+ * Sometimes items are saved with successive FreeColXMLWriters writing
+ * to the same OutputStream.
+ * 
+ * Strange, there is no StreamWriterDelegate, so we are stuck with
+ * all the delegation functions.
+ */
+public class FreeColXMLWriter implements Closeable, XMLStreamWriter {
+
+<span class="fc" id="L65">    private static final Logger logger = Logger.getLogger(FreeColXMLWriter.class.getName());</span>
+
+    /** Magic properties to indent files if supported. */
+<span class="fc" id="L68">    private static final String[] indentProps = {</span>
+        OutputKeys.INDENT, &quot;yes&quot;,
+        &quot;{http://xml.apache.org/xslt}indent-amount&quot;, &quot;2&quot;
+    };
+
+    /** The scope of a FreeCol object write. */
+<span class="pc" id="L74">    public static enum WriteScope {</span>
+<span class="fc" id="L75">        CLIENT,  // Only the client-visible information</span>
+<span class="fc" id="L76">        SERVER,  // Full server-visible information</span>
+<span class="fc" id="L77">        SAVE;    // Absolutely everything needed to save the game state</span>
+
+<span class="fc" id="L79">        private Player player = null; // The player to write to.</span>
+
+
+        public static WriteScope toClient(Player player) {
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">            if (player == null) {</span>
+<span class="nc" id="L84">                throw new IllegalArgumentException(&quot;Null player.&quot;);</span>
+            }
+<span class="fc" id="L86">            WriteScope ret = WriteScope.CLIENT;</span>
+<span class="fc" id="L87">            ret.player = player;</span>
+<span class="fc" id="L88">            return ret;</span>
+        }            
+
+        public static WriteScope toServer() {
+<span class="fc" id="L92">            return WriteScope.SERVER;</span>
+        }
+
+        public static WriteScope toSave() {
+<span class="fc" id="L96">            return WriteScope.SAVE;</span>
+        }
+
+        public boolean isValid() {
+<span class="pc bpc" id="L100" title="1 of 6 branches missed.">            return (this == WriteScope.CLIENT) == (player != null);</span>
+        }
+
+        public boolean validForSave() {
+<span class="fc bfc" id="L104" title="All 2 branches covered.">            return this == WriteScope.SAVE;</span>
+        }
+
+        public boolean validFor(Player player) {
+<span class="fc bfc" id="L108" title="All 4 branches covered.">            return this != WriteScope.CLIENT || this.player == player;</span>
+        }
+
+        public Player getClient() {
+<span class="fc" id="L112">            return this.player;</span>
+        }
+    }
+
+
+    /** The stream to write to. */
+    private final XMLStreamWriter xmlStreamWriter;
+
+    /** Internal writer to accumulate into when pretty printing. */
+<span class="fc" id="L121">    private StringWriter stringWriter = null;</span>
+    /** The final output writer to use when pretty printing. */
+<span class="fc" id="L123">    private Writer outputWriter = null;</span>
+
+    /** A write scope to use for FreeCol object writes. */
+    private WriteScope writeScope;
+
+
+    /**
+     * Creates a new &lt;code&gt;FreeColXMLWriter&lt;/code&gt;.
+     *
+     * @param outputStream The &lt;code&gt;OutputStream&lt;/code&gt; to create
+     *     an &lt;code&gt;FreeColXMLWriter&lt;/code&gt; for.
+     * @param scope The &lt;code&gt;WriteScope&lt;/code&gt; to use for FreeCol
+     *     object writes.
+     * @param indent If true, produce indented output if supported.
+     * @exception IOException if thrown while creating the
+     *     &lt;code&gt;XMLStreamWriter&lt;/code&gt;.
+     */
+    public FreeColXMLWriter(OutputStream outputStream, WriteScope scope,
+                            boolean indent) throws IOException {
+<span class="fc" id="L142">        this(new OutputStreamWriter(outputStream, &quot;UTF-8&quot;), scope, indent);</span>
+<span class="fc" id="L143">    }</span>
+
+    /**
+     * Creates a new &lt;code&gt;FreeColXMLWriter&lt;/code&gt;.
+     *
+     * @param writer A &lt;code&gt;Writer&lt;/code&gt; to create an
+     *     &lt;code&gt;FreeColXMLWriter&lt;/code&gt; for.
+     * @param scope The &lt;code&gt;WriteScope&lt;/code&gt; to use for FreeCol
+     *     object writes.
+     * @exception IOException if thrown while creating the
+     *     &lt;code&gt;XMLStreamWriter&lt;/code&gt;.
+     */
+    public FreeColXMLWriter(Writer writer, WriteScope scope) throws IOException {
+<span class="fc" id="L156">        this(writer, scope, false);</span>
+<span class="fc" id="L157">    }</span>
+
+    /**
+     * Creates a new &lt;code&gt;FreeColXMLWriter&lt;/code&gt;.
+     *
+     * @param scope The &lt;code&gt;WriteScope&lt;/code&gt; to use for FreeCol
+     *     object writes.
+     * @param indent If true, produce indented output if supported.
+     * @exception IOException if thrown while creating the
+     *     &lt;code&gt;FreeColXMLWriter&lt;/code&gt;.
+     */
+    private FreeColXMLWriter(Writer writer, WriteScope scope,
+<span class="fc" id="L169">                             boolean indent) throws IOException {</span>
+        try {
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">            if (indent) {</span>
+<span class="nc" id="L172">                this.outputWriter = writer;</span>
+<span class="nc" id="L173">                this.stringWriter = new StringWriter(1024);</span>
+<span class="nc" id="L174">                this.xmlStreamWriter = getFactory()</span>
+<span class="nc" id="L175">                    .createXMLStreamWriter(this.stringWriter);</span>
+            } else {
+<span class="fc" id="L177">                this.xmlStreamWriter = getFactory()</span>
+<span class="fc" id="L178">                    .createXMLStreamWriter(writer);</span>
+            }
+<span class="nc" id="L180">        } catch (XMLStreamException e) {</span>
+<span class="nc" id="L181">            throw new IOException(e);</span>
+<span class="fc" id="L182">        }</span>
+<span class="fc" id="L183">        this.writeScope = scope;</span>
+<span class="fc" id="L184">    }</span>
+
+
+    /**
+     * Get the &lt;code&gt;XMLOutputFactory&lt;/code&gt; to create the output stream with.
+     *
+     * @return An &lt;code&gt;XMLOutputFactory&lt;/code&gt;.
+     */
+    private XMLOutputFactory getFactory() {
+<span class="fc" id="L193">        return XMLOutputFactory.newInstance();</span>
+    }
+
+    /**
+     * Get the write scope prevailing on this stream.
+     *
+     * @return The write scope.
+     */     
+    public WriteScope getWriteScope() {
+<span class="nc" id="L202">        return this.writeScope;</span>
+    }
+
+    /**
+     * Set the write scope prevailing on this stream.
+     *
+     * @param writeScope The new &lt;code&gt;WriteScope&lt;/code&gt;.
+     */     
+    public void setWriteScope(WriteScope writeScope) {
+<span class="nc" id="L211">        this.writeScope = writeScope;</span>
+<span class="nc" id="L212">    }</span>
+
+    /**
+     * Closes both the &lt;code&gt;XMLStreamWriter&lt;/code&gt; and
+     * the underlying stream if any.
+     *
+     * Implement interface Closeable.
+     */
+    @Override
+    public void close() {
+<span class="pc bpc" id="L222" title="1 of 2 branches missed.">        if (xmlStreamWriter != null) {</span>
+            try {
+<span class="fc" id="L224">                xmlStreamWriter.close();</span>
+<span class="nc" id="L225">            } catch (XMLStreamException xse) {</span>
+<span class="nc" id="L226">                logger.log(Level.WARNING, &quot;Error closing stream.&quot;, xse);</span>
+<span class="fc" id="L227">            }</span>
+        }
+
+<span class="pc bpc" id="L230" title="1 of 2 branches missed.">        if (this.outputWriter != null) {</span>
+            TransformerFactory factory;
+            Transformer transformer;
+            StreamSource source;
+            StreamResult result;
+            try {
+<span class="nc" id="L236">                source = new StreamSource(new StringReader(this.stringWriter</span>
+<span class="nc" id="L237">                                                               .toString()));</span>
+<span class="nc" id="L238">                result = new StreamResult(this.outputWriter);</span>
+<span class="nc" id="L239">                factory = TransformerFactory.newInstance();</span>
+<span class="nc" id="L240">                transformer = factory.newTransformer();</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">                for (int i = 0; i &lt; indentProps.length; i += 2) {</span>
+<span class="nc" id="L242">                    transformer.setOutputProperty(indentProps[i],</span>
+                                                  indentProps[i+1]);
+                }
+<span class="nc" id="L245">                transformer.transform(source, result);</span>
+<span class="nc" id="L246">            } catch (TransformerException te) {</span>
+<span class="nc" id="L247">                logger.log(Level.WARNING, &quot;Transformer fail&quot;, te);</span>
+<span class="nc" id="L248">            }</span>
+            try {
+<span class="nc" id="L250">                this.outputWriter.flush();</span>
+<span class="nc" id="L251">            } catch (IOException ioe) {</span>
+<span class="nc" id="L252">                logger.log(Level.WARNING, &quot;Flush fail&quot;, ioe);</span>
+<span class="nc" id="L253">            }</span>
+        }
+<span class="fc" id="L255">    }</span>
+
+
+    /**
+     * Write a boolean attribute to the stream.
+     *
+     * @param attributeName The attribute name.
+     * @param value A boolean to write.
+     * @exception XMLStreamException if a write error occurs.
+     */
+    public void writeAttribute(String attributeName, boolean value) throws XMLStreamException {
+<span class="fc" id="L266">        xmlStreamWriter.writeAttribute(attributeName, String.valueOf(value));</span>
+<span class="fc" id="L267">    }</span>
+
+    /**
+     * Write a float attribute to the stream.
+     *
+     * @param attributeName The attribute name.
+     * @param value A float to write.
+     * @exception XMLStreamException if a write error occurs.
+     */
+    public void writeAttribute(String attributeName, float value) throws XMLStreamException {
+<span class="fc" id="L277">        xmlStreamWriter.writeAttribute(attributeName, String.valueOf(value));</span>
+<span class="fc" id="L278">    }</span>
+
+    /**
+     * Write an integer attribute to the stream.
+     *
+     * @param attributeName The attribute name.
+     * @param value An integer to write.
+     * @exception XMLStreamException if a write error occurs.
+     */
+    public void writeAttribute(String attributeName, int value) throws XMLStreamException {
+<span class="fc" id="L288">        xmlStreamWriter.writeAttribute(attributeName, String.valueOf(value));</span>
+<span class="fc" id="L289">    }</span>
+
+    /**
+     * Write a long attribute to the stream.
+     *
+     * @param attributeName The attribute name.
+     * @param value A long to write.
+     * @exception XMLStreamException if a write error occurs.
+     */
+    public void writeAttribute(String attributeName, long value) throws XMLStreamException {
+<span class="nc" id="L299">        xmlStreamWriter.writeAttribute(attributeName, String.valueOf(value));</span>
+<span class="nc" id="L300">    }</span>
+
+    /**
+     * Write an enum attribute to the stream.
+     *
+     * @param attributeName The attribute name.
+     * @param value The &lt;code&gt;Enum&lt;/code&gt; to write.
+     * @exception XMLStreamException if a write error occurs.
+     */
+    public void writeAttribute(String attributeName, Enum&lt;?&gt; value) throws XMLStreamException {
+<span class="fc" id="L310">        xmlStreamWriter.writeAttribute(attributeName,</span>
+<span class="fc" id="L311">            value.toString().toLowerCase(Locale.US));</span>
+<span class="fc" id="L312">    }</span>
+
+    /**
+     * Write an Object attribute to the stream.
+     *
+     * @param attributeName The attribute name.
+     * @param value The &lt;code&gt;Object&lt;/code&gt; to write.
+     * @exception XMLStreamException if a write error occurs.
+     */
+    public void writeAttribute(String attributeName, Object value) throws XMLStreamException {
+<span class="fc" id="L322">        xmlStreamWriter.writeAttribute(attributeName, String.valueOf(value));</span>
+<span class="fc" id="L323">    }</span>
+
+    /**
+     * Write the identifier attribute of a non-null FreeColObject to the stream.
+     *
+     * @param attributeName The attribute name.
+     * @param value The &lt;code&gt;FreeColObject&lt;/code&gt; to write the identifier of.
+     * @exception XMLStreamException if a write error occurs.
+     */
+    public void writeAttribute(String attributeName, FreeColObject value) throws XMLStreamException {
+<span class="fc bfc" id="L333" title="All 2 branches covered.">        if (value != null) {</span>
+<span class="fc" id="L334">            xmlStreamWriter.writeAttribute(attributeName, value.getId());</span>
+        }
+<span class="fc" id="L336">    }</span>
+
+    /**
+     * Write the identifier attribute of a non-null Location to the stream.
+     *
+     * @param attributeName The attribute name.
+     * @param value The &lt;code&gt;Location&lt;/code&gt; to write the identifier of.
+     * @exception XMLStreamException if a write error occurs.
+     */
+    public void writeLocationAttribute(String attributeName, Location value) throws XMLStreamException {
+<span class="fc" id="L346">        writeAttribute(attributeName, (FreeColObject)value);</span>
+<span class="fc" id="L347">    }</span>
+
+    /**
+     * Writes an XML-representation of a collection object to the given stream.
+     *
+     * @param tag The tag for the array &lt;code&gt;Element&lt;/code&gt;.
+     * @param members The members of the array.
+     * @exception XMLStreamException if a problem was encountered
+     *      while writing.
+     */
+    public &lt;T extends FreeColObject&gt; void writeToListElement(String tag,
+        Collection&lt;T&gt; members) throws XMLStreamException {
+<span class="fc" id="L359">        writeStartElement(tag);</span>
+
+<span class="fc" id="L361">        writeAttribute(FreeColObject.ARRAY_SIZE_TAG, members.size());</span>
+
+<span class="fc" id="L363">        int i = 0;</span>
+<span class="fc bfc" id="L364" title="All 2 branches covered.">        for (T t : members) {</span>
+<span class="fc" id="L365">            writeAttribute(&quot;x&quot; + i, t);</span>
+<span class="fc" id="L366">            i++;</span>
+<span class="fc" id="L367">        }</span>
+
+<span class="fc" id="L369">        writeEndElement();</span>
+<span class="fc" id="L370">    }</span>
+
+    // Delegations to the WriteScope.
+
+    public Player getClientPlayer() {
+<span class="fc" id="L375">        return writeScope.getClient();</span>
+    }
+
+    //public boolean isValid() {
+    //    return (this == WriteScope.CLIENT) == (player != null);
+    //}
+
+    public boolean validForSave() {
+<span class="fc" id="L383">        return writeScope.validForSave();</span>
+    }
+
+    public boolean validFor(Player player) {
+<span class="fc" id="L387">        return writeScope.validFor(player);</span>
+    }
+
+    // Simple delegations to the XMLStreamWriter.  All should be
+    // present here except close which is supplied above.
+
+    @Override
+    public void flush() throws XMLStreamException {
+<span class="fc" id="L395">        xmlStreamWriter.flush();</span>
+<span class="fc" id="L396">    }</span>
+
+    @Override
+    public NamespaceContext getNamespaceContext() {
+<span class="nc" id="L400">        return xmlStreamWriter.getNamespaceContext();</span>
+    }
+
+    @Override
+    public String getPrefix(String uri) throws XMLStreamException {
+<span class="nc" id="L405">        return xmlStreamWriter.getPrefix(uri);</span>
+    }
+
+    @Override
+    public Object getProperty(String name) {
+<span class="nc" id="L410">        return xmlStreamWriter.getProperty(name);</span>
+    }
+
+    @Override
+    public void setDefaultNamespace(String uri) throws XMLStreamException {
+<span class="nc" id="L415">        xmlStreamWriter.setDefaultNamespace(uri);</span>
+<span class="nc" id="L416">    }</span>
+
+    @Override
+    public void setNamespaceContext(NamespaceContext context) throws XMLStreamException {
+<span class="nc" id="L420">        xmlStreamWriter.setNamespaceContext(context);</span>
+<span class="nc" id="L421">    }</span>
+
+    @Override
+    public void setPrefix(String prefix, String uri) throws XMLStreamException {
+<span class="nc" id="L425">        xmlStreamWriter.setPrefix(prefix, uri);</span>
+<span class="nc" id="L426">    }</span>
+
+    @Override
+    public void writeAttribute(String localName, String value) throws XMLStreamException {
+<span class="fc" id="L430">        xmlStreamWriter.writeAttribute(localName, value);</span>
+<span class="fc" id="L431">    }</span>
+
+    @Override
+    public void writeAttribute(String namespaceURI, String localName, String value) throws XMLStreamException {
+<span class="nc" id="L435">        xmlStreamWriter.writeAttribute(namespaceURI, localName, value);</span>
+<span class="nc" id="L436">    }</span>
+
+    @Override
+    public void writeAttribute(String prefix, String namespaceURI, String localName, String value) throws XMLStreamException {
+<span class="nc" id="L440">        xmlStreamWriter.writeAttribute(prefix, namespaceURI, localName, value);</span>
+<span class="nc" id="L441">    }</span>
+
+    @Override
+    public void writeCData(String data) throws XMLStreamException {
+<span class="nc" id="L445">        xmlStreamWriter.writeCData(data);</span>
+<span class="nc" id="L446">    }</span>
+
+    @Override
+    public void writeCharacters(char[] text, int start, int len) throws XMLStreamException {
+<span class="nc" id="L450">        xmlStreamWriter.writeCharacters(text, start, len);</span>
+<span class="nc" id="L451">    }</span>
+
+    @Override
+    public void writeCharacters(String text) throws XMLStreamException {
+<span class="nc" id="L455">        xmlStreamWriter.writeCharacters(text);</span>
+<span class="nc" id="L456">    }</span>
+
+    @Override
+    public void writeComment(String data) throws XMLStreamException {
+<span class="fc" id="L460">        xmlStreamWriter.writeComment(data);</span>
+<span class="fc" id="L461">    }</span>
+
+    @Override
+    public void writeDefaultNamespace(String namespaceURI) throws XMLStreamException {
+<span class="nc" id="L465">        xmlStreamWriter.writeDefaultNamespace(namespaceURI);</span>
+<span class="nc" id="L466">    }</span>
+
+    @Override
+    public void writeDTD(String dtd) throws XMLStreamException {
+<span class="nc" id="L470">        xmlStreamWriter.writeDTD(dtd);</span>
+<span class="nc" id="L471">    }</span>
+
+    @Override
+    public void writeEmptyElement(String localName) throws XMLStreamException {
+<span class="nc" id="L475">        xmlStreamWriter.writeEmptyElement(localName);</span>
+<span class="nc" id="L476">    }</span>
+
+    @Override
+    public void writeEmptyElement(String namespaceURI, String localName) throws XMLStreamException {
+<span class="nc" id="L480">        xmlStreamWriter.writeEmptyElement(namespaceURI, localName);</span>
+<span class="nc" id="L481">    }</span>
+
+    @Override
+    public void writeEmptyElement(String prefix, String localName, String namespaceURI) throws XMLStreamException {
+<span class="nc" id="L485">        xmlStreamWriter.writeEmptyElement(prefix, localName, namespaceURI);</span>
+<span class="nc" id="L486">    }</span>
+
+    @Override
+    public void writeEndDocument() throws XMLStreamException {
+<span class="fc" id="L490">        xmlStreamWriter.writeEndDocument();</span>
+<span class="fc" id="L491">    }</span>
+
+    @Override
+    public void writeEndElement() throws XMLStreamException {
+<span class="fc" id="L495">        xmlStreamWriter.writeEndElement();</span>
+<span class="fc" id="L496">    }</span>
+
+    @Override
+    public void writeEntityRef(String name) throws XMLStreamException {
+<span class="nc" id="L500">        xmlStreamWriter.writeEntityRef(name);</span>
+<span class="nc" id="L501">    }</span>
+
+    @Override
+    public void writeNamespace(String prefix, String namespaceURI) throws XMLStreamException {
+<span class="nc" id="L505">        xmlStreamWriter.writeNamespace(prefix, namespaceURI);</span>
+<span class="nc" id="L506">    }</span>
+
+    @Override
+    public void writeProcessingInstruction(String target) throws XMLStreamException {
+<span class="nc" id="L510">        xmlStreamWriter.writeProcessingInstruction(target);</span>
+<span class="nc" id="L511">    }</span>
+
+    @Override
+    public void writeProcessingInstruction(String target, String data) throws XMLStreamException {
+<span class="nc" id="L515">        xmlStreamWriter.writeProcessingInstruction(target, data);</span>
+<span class="nc" id="L516">    }</span>
+
+    @Override
+    public void writeStartDocument() throws XMLStreamException {
+<span class="nc" id="L520">        xmlStreamWriter.writeStartDocument();</span>
+<span class="nc" id="L521">    }</span>
+
+    @Override
+    public void writeStartDocument(String version) throws XMLStreamException {
+<span class="nc" id="L525">        xmlStreamWriter.writeStartDocument(version);</span>
+<span class="nc" id="L526">    }</span>
+
+    @Override
+    public void writeStartDocument(String encoding, String version) throws XMLStreamException {
+<span class="fc" id="L530">        xmlStreamWriter.writeStartDocument(encoding, version);</span>
+<span class="fc" id="L531">    }</span>
+
+    @Override
+    public void writeStartElement(String localName) throws XMLStreamException {
+<span class="fc" id="L535">        xmlStreamWriter.writeStartElement(localName);</span>
+<span class="fc" id="L536">    }</span>
+
+    @Override
+    public void writeStartElement(String namespaceURI, String localName) throws XMLStreamException {
+<span class="nc" id="L540">        xmlStreamWriter.writeStartElement(namespaceURI, localName);</span>
+<span class="nc" id="L541">    }</span>
+
+    @Override
+    public void writeStartElement(String prefix, String localName, String namespaceURI) throws XMLStreamException {
+<span class="nc" id="L545">        xmlStreamWriter.writeStartElement(prefix, localName, namespaceURI);</span>
+<span class="nc" id="L546">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

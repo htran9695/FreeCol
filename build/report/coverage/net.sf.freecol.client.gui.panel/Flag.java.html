@@ -1,0 +1,1231 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Flag.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.client.gui.panel</a> &gt; <span class="el_source">Flag.java</span></div><h1>Flag.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.client.gui.panel;
+
+import java.awt.Color;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.GeneralPath;
+import java.awt.geom.Rectangle2D;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.awt.RenderingHints;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * This class generates the most common types of flags from a small
+ * number of parameters, biased towards flags similar to that of the
+ * United States, i.e. flags with a &quot;union&quot;, an area filled with stars
+ * representing the colonies of the player. Obvious improvements
+ * include adding shapes other than stars (e.g. the fleur-de-lys for
+ * Quebec) and larger design elements, such as the Southern Cross, or
+ * coats of arms.
+ *
+ * Please feel free to correct any vexillological errors.
+ */
+public class Flag {
+
+    /**
+     * The alignment of stripes or other design elements on the
+     * flag. Might be extended to handle diagonal alignment
+     * (Friesland, for example).
+     */
+<span class="nc" id="L52">    public enum Alignment {</span>
+<span class="nc" id="L53">        NONE,</span>
+<span class="nc" id="L54">        HORIZONTAL,</span>
+<span class="nc" id="L55">        VERTICAL</span>
+    };
+
+    /**
+     * The &quot;background layer&quot; of the flag, generally one or several
+     * squares or triangles of different color. The alignment of the
+     * background influences the size of the canton, if there is one.
+     */
+<span class="nc" id="L63">    public enum Background {</span>
+            /** A plain background. */
+<span class="nc" id="L65">        PLAIN(Alignment.NONE),</span>
+            /** Quartered rectangularly. */
+<span class="nc" id="L67">        QUARTERLY(Alignment.NONE),</span>
+            /** Vertical stripes. */
+<span class="nc" id="L69">        PALES(Alignment.VERTICAL),</span>
+            /** Horizontal stripes. */
+<span class="nc" id="L71">        FESSES(Alignment.HORIZONTAL),</span>
+            /** Diagonal top left to bottom right. */
+<span class="nc" id="L73">        PER_BEND(Alignment.NONE),</span>
+            /** Diagonal bottom left to top right. */
+<span class="nc" id="L75">        PER_BEND_SINISTER(Alignment.NONE),</span>
+            /** Quartered diagonally. */
+<span class="nc" id="L77">        PER_SALTIRE(Alignment.NONE);</span>
+
+        public final Alignment alignment;
+
+<span class="nc" id="L81">        Background(Alignment alignment) {</span>
+<span class="nc" id="L82">            this.alignment = alignment;</span>
+<span class="nc" id="L83">        }</span>
+    };
+
+    /**
+     * The &quot;middle layer&quot; of the flag, generally a number of vertical,
+     * horizontal or diagonal bars. The decoration limits the shape
+     * and possible positions of the &quot;union&quot;.
+     */
+<span class="nc" id="L91">    public enum Decoration {</span>
+<span class="nc" id="L92">        NONE(),</span>
+<span class="nc" id="L93">        CROSS(UnionPosition.CANTON),</span>
+<span class="nc" id="L94">        GREEK_CROSS(UnionPosition.CANTON),</span>
+<span class="nc" id="L95">        SCANDINAVIAN_CROSS(UnionPosition.CANTON),</span>
+<span class="nc" id="L96">        CHEVRON(UnionShape.CHEVRON, UnionPosition.LEFT),</span>
+<span class="nc" id="L97">        PALL(UnionShape.CHEVRON, UnionPosition.LEFT),</span>
+<span class="nc" id="L98">        BEND(UnionShape.BEND, UnionPosition.TOP, UnionPosition.BOTTOM),</span>
+<span class="nc" id="L99">        BEND_SINISTER(UnionShape.BEND, UnionPosition.TOP, UnionPosition.BOTTOM),</span>
+<span class="nc" id="L100">        SALTIRE(UnionShape.CHEVRON, UnionPosition.TOP, UnionPosition.BOTTOM,</span>
+                UnionPosition.LEFT, UnionPosition.RIGHT),
+<span class="nc" id="L102">        SALTIRE_AND_CROSS(UnionPosition.CANTON);</span>
+
+<span class="nc" id="L104">        public UnionShape unionShape = UnionShape.RECTANGLE;</span>
+<span class="nc" id="L105">        public Set&lt;UnionPosition&gt; unionPositions = EnumSet.allOf(UnionPosition.class);</span>
+
+<span class="nc" id="L107">        Decoration(UnionPosition... positions) {</span>
+<span class="nc" id="L108">            this.unionPositions = EnumSet.of(UnionPosition.NONE);</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">            for (UnionPosition position : positions) {</span>
+<span class="nc" id="L110">                unionPositions.add(position);</span>
+            }
+<span class="nc" id="L112">        }</span>
+
+        Decoration(UnionShape shape, UnionPosition... positions) {
+<span class="nc" id="L115">            this(positions);</span>
+<span class="nc" id="L116">            this.unionShape = shape;</span>
+<span class="nc" id="L117">        }</span>
+
+    };
+
+    /**
+     * The shape of the &quot;union&quot;, which generally depends on the
+     * decoration or background of the flag.
+     */
+<span class="nc" id="L125">    public enum UnionShape {</span>
+<span class="nc" id="L126">        RECTANGLE,</span>
+<span class="nc" id="L127">        TRIANGLE,</span>
+<span class="nc" id="L128">        CHEVRON,</span>
+<span class="nc" id="L129">        BEND,</span>
+<span class="nc" id="L130">        RHOMBUS</span>
+    };
+
+    /**
+     * The position of the &quot;union&quot;, which depends on the alignment of
+     * the background. The &quot;canton&quot; is the top left quarter of the
+     * flag. Other quarters might be added.
+     */
+<span class="nc" id="L138">    public enum UnionPosition {</span>
+<span class="nc" id="L139">        LEFT(Alignment.VERTICAL, 0),</span>
+<span class="nc" id="L140">        CENTER(Alignment.VERTICAL, 1),</span>
+<span class="nc" id="L141">        RIGHT(Alignment.VERTICAL, 2),</span>
+<span class="nc" id="L142">        TOP(Alignment.HORIZONTAL, 0),</span>
+<span class="nc" id="L143">        MIDDLE(Alignment.HORIZONTAL, 1),</span>
+<span class="nc" id="L144">        BOTTOM(Alignment.HORIZONTAL, 2),</span>
+<span class="nc" id="L145">        CANTON(Alignment.NONE, 0),</span>
+<span class="nc" id="L146">        NONE(null, 0);</span>
+
+        public final Alignment alignment;
+        public final int index;
+
+<span class="nc" id="L151">        UnionPosition(Alignment alignment, int index) {</span>
+<span class="nc" id="L152">            this.alignment = alignment;</span>
+<span class="nc" id="L153">            this.index = index;</span>
+<span class="nc" id="L154">        }</span>
+
+    }
+
+    /**
+     * Width and height are used in the usual sense, not the
+     * vexillological sense.
+     */
+    public static final int WIDTH = 150;
+    public static final int HEIGHT = 100;
+<span class="nc" id="L164">    public static final double SQRT_3 = Math.sqrt(3);</span>
+    /**
+     * MAGIC NUMBER: the width of decoration elements.
+     */
+    public static final double DECORATION_SIZE = (double) HEIGHT / 7;
+<span class="nc" id="L169">    public static final double CHEVRON_X = SQRT_3 * HEIGHT / 2;</span>
+    /**
+     * MAGIC NUMBER: the size of the stars in the union.
+     */
+    public static final double STAR_SIZE = 0.07 * HEIGHT;
+    /**
+     * MAGIC NUMBER: the horizontal offset of the vertical bar of the
+     * Scandinavian cross.
+     */
+    public static final double CROSS_OFFSET = 2 * DECORATION_SIZE;
+    public static final double BEND_X = DECORATION_SIZE;
+<span class="nc" id="L180">    public static final double BEND_Y = DECORATION_SIZE / SQRT_3;</span>
+
+<span class="nc" id="L182">    private static final GeneralPath star = getStar();</span>
+
+    /**
+     * The distribution of stars in the &quot;union&quot;, based on historical
+     * flags of the United States. This really should be extended to
+     * handle rectangles of different shapes.
+     */
+<span class="nc" id="L189">    private static final int[][] layout = new int[51][2];</span>
+
+    static {
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        for (int[] bars : new int[][] {</span>
+                { 5, 4 }, { 5, 6 }, { 6, 5 }, { 5, 5 }
+            }) {
+<span class="nc" id="L195">            int sum = bars[0] + bars[1];</span>
+<span class="nc" id="L196">            boolean even = true;</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">            while (sum &lt; 51) {</span>
+<span class="nc" id="L198">                layout[sum] = bars;</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">                if (even) {</span>
+<span class="nc" id="L200">                    sum += bars[0];</span>
+<span class="nc" id="L201">                    even = false;</span>
+                } else {
+<span class="nc" id="L203">                    sum += bars[1];</span>
+<span class="nc" id="L204">                    even = true;</span>
+                }
+            }
+        }
+
+<span class="nc" id="L209">    }</span>
+
+    /**
+     * If the background is striped, the background colors will be
+     * used in turn, from top to bottom, or from left to right. If the
+     * background is quartered, the colors will be used clockwise,
+     * starting at the top left. If there are more colors than stripes
+     * or quarters, the superfluous colors will be ignored.
+     */
+<span class="nc" id="L218">    private List&lt;Color&gt; backgroundColors = new ArrayList&lt;&gt;();</span>
+
+<span class="nc" id="L220">    private Color unionColor = Color.BLUE;</span>
+<span class="nc" id="L221">    private Color starColor = Color.WHITE;</span>
+<span class="nc" id="L222">    private Color decorationColor = Color.WHITE;</span>
+
+<span class="nc" id="L224">    private Background background = Background.FESSES;</span>
+<span class="nc" id="L225">    private Decoration decoration = Decoration.NONE;</span>
+<span class="nc" id="L226">    private UnionShape unionShape = UnionShape.RECTANGLE;</span>
+<span class="nc" id="L227">    private UnionPosition unionPosition = UnionPosition.CANTON;</span>
+
+    /**
+     * The number of stars in the union. This value is only relevant
+     * if the flag contains a union.
+     */
+<span class="nc" id="L233">    private int stars = 13;</span>
+
+    /**
+     * The number of background stripes. This value is only relevant
+     * if the background contains stripes (currently FESSES or
+     * PALES).
+     */
+<span class="nc" id="L240">    private int stripes = 13;</span>
+
+
+    public Flag(Background background, Decoration decoration,
+                UnionPosition unionPosition) {
+<span class="nc" id="L245">        this(background, decoration, unionPosition, UnionShape.RECTANGLE);</span>
+<span class="nc" id="L246">    }</span>
+
+    public Flag(Background background, Decoration decoration,
+<span class="nc" id="L249">                UnionPosition unionPosition, UnionShape unionShape) {</span>
+<span class="nc" id="L250">        this.background = background;</span>
+<span class="nc" id="L251">        this.decoration = decoration;</span>
+<span class="nc" id="L252">        this.unionPosition = unionPosition;</span>
+<span class="nc" id="L253">        this.unionShape = unionShape;</span>
+<span class="nc" id="L254">    }</span>
+
+    /**
+     * Returns the background of the flag.
+     *
+     * @return A &lt;code&gt;Background&lt;/code&gt; value.
+     */
+    public Background getBackground() {
+<span class="nc" id="L262">        return background;</span>
+    }
+
+    /**
+     * Sets the background of the flag and returns the flag itself.
+     *
+     * @param background The new &lt;code&gt;Background&lt;/code&gt; value.
+     * @return The modified flag.
+     */
+    public Flag setBackground(Background background) {
+<span class="nc" id="L272">        this.background = background;</span>
+<span class="nc" id="L273">        return this;</span>
+    }
+
+    /**
+     * Returns the decoration of the flag.
+     *
+     * @return A &lt;code&gt;Decoration&lt;/code&gt; value.
+     */
+    public Decoration getDecoration() {
+<span class="nc" id="L282">        return decoration;</span>
+    }
+
+    /**
+     * Sets the decoration of the flag and returns the flag itself.
+     *
+     * @param decoration The new &lt;code&gt;Decoration&lt;/code&gt; value.
+     * @return The modified flag.
+     */
+    public Flag setDecoration(Decoration decoration) {
+<span class="nc" id="L292">        this.decoration = decoration;</span>
+<span class="nc" id="L293">        return this;</span>
+    }
+
+    /**
+     * Returns the union position of the flag.
+     *
+     * @return A &lt;code&gt;UnionPosition&lt;/code&gt; value.
+     */
+    public UnionPosition getUnionPosition() {
+<span class="nc" id="L302">        return unionPosition;</span>
+    }
+
+    /**
+     * Sets the union position of the flag and returns the flag
+     * itself.
+     *
+     * @param position The new &lt;code&gt;UnionPosition&lt;/code&gt; value.
+     * @return The modified flag.
+     */
+    public Flag setUnionPosition(UnionPosition position) {
+<span class="nc" id="L313">        this.unionPosition = position;</span>
+<span class="nc" id="L314">        return this;</span>
+    }
+
+    /**
+     * Returns the union shape of the flag.
+     *
+     * @return A &lt;code&gt;UnionShape&lt;/code&gt; value.
+     */
+    public UnionShape getUnionShape() {
+<span class="nc" id="L323">        return unionShape;</span>
+    }
+
+    /**
+     * Sets the union shape of the flag and returns the flag itself.
+     *
+     * @param shape The new &lt;code&gt;UnionShape&lt;/code&gt; value.
+     * @return The modified flag.
+     */
+    public Flag setUnionShape(UnionShape shape) {
+<span class="nc" id="L333">        this.unionShape = shape;</span>
+<span class="nc" id="L334">        return this;</span>
+    }
+
+    /**
+     * Returns a &lt;code&gt;List&lt;/code&gt; of background colors.
+     *
+     * @return A &lt;code&gt;List&lt;/code&gt; of background colors.
+     */
+    public List&lt;Color&gt; getBackgroundColors() {
+<span class="nc" id="L343">        return backgroundColors;</span>
+    }
+
+    /**
+     * Sets the background colors of the flag and returns the flag
+     * itself.
+     *
+     * @param backgroundColors A &lt;code&gt;List&lt;/code&gt; of background colors.
+     * @return The modified flag.
+     */
+    public Flag setBackgroundColors(List&lt;Color&gt; backgroundColors) {
+<span class="nc" id="L354">        this.backgroundColors = backgroundColors;</span>
+<span class="nc" id="L355">        return this;</span>
+    }
+
+    /**
+     * Sets the background colors of the flag and returns the flag
+     * itself.
+     *
+     * @param colors A variable number of background colors.
+     * @return The modified flag.
+     */
+    public Flag setBackgroundColors(Color... colors) {
+<span class="nc" id="L366">        backgroundColors.clear();</span>
+<span class="nc bnc" id="L367" title="All 2 branches missed.">        for (Color color : colors) {</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">            if (color != null) {</span>
+<span class="nc" id="L369">                backgroundColors.add(color);</span>
+            }
+        }
+<span class="nc" id="L372">        return this;</span>
+    }
+
+    /**
+     * Returns the union color of the flag.
+     *
+     * @return A &lt;code&gt;Color&lt;/code&gt; value.
+     */
+    public Color getUnionColor() {
+<span class="nc" id="L381">        return unionColor;</span>
+    }
+
+    /**
+     * Sets the union color of the flag and returns the flag itself.
+     *
+     * @param unionColor The new &lt;code&gt;Color&lt;/code&gt; value.
+     * @return The modified flag.
+     */
+    public Flag setUnionColor(Color unionColor) {
+<span class="nc" id="L391">        this.unionColor = unionColor;</span>
+<span class="nc" id="L392">        return this;</span>
+    }
+
+    /**
+     * Returns the decoration color of the flag.
+     *
+     * @return A &lt;code&gt;Color&lt;/code&gt; value.
+     */
+    public Color getDecorationColor() {
+<span class="nc" id="L401">        return decorationColor;</span>
+    }
+
+    /**
+     * Sets the decoration color of the flag and returns the flag
+     * itself.
+     *
+     * @param decorationColor The new &lt;code&gt;Color&lt;/code&gt; value.
+     * @return The modified flag.
+     */
+    public Flag setDecorationColor(Color decorationColor) {
+<span class="nc" id="L412">        this.decorationColor = decorationColor;</span>
+<span class="nc" id="L413">        return this;</span>
+    }
+
+    /**
+     * Returns the star color of the flag.
+     *
+     * @return A &lt;code&gt;Color&lt;/code&gt; value.
+     */
+    public Color getStarColor() {
+<span class="nc" id="L422">        return starColor;</span>
+    }
+
+    /**
+     * Sets the star color of the flag and returns the flag itself.
+     *
+     * @param starColor The new &lt;code&gt;Color&lt;/code&gt; value.
+     * @return The modified flag.
+     */
+    public Flag setStarColor(Color starColor) {
+<span class="nc" id="L432">        this.starColor = starColor;</span>
+<span class="nc" id="L433">        return this;</span>
+    }
+
+    /**
+     * Returns the number of stars in the union.
+     *
+     * @return The number of stars.
+     */
+    public int getStars() {
+<span class="nc" id="L442">        return stars;</span>
+    }
+
+    /**
+     * Sets the number of stars in the union and returns the flag
+     * itself.
+     *
+     * @param stars The new number of stars.
+     * @return The modified flag.
+     */
+    public Flag setStars(int stars) {
+<span class="nc" id="L453">        this.stars = stars;</span>
+<span class="nc" id="L454">        return this;</span>
+    }
+
+    /**
+     * Returns the number of background stripes.
+     *
+     * @return The number of stars.
+     */
+    public int getStripes() {
+<span class="nc" id="L463">        return stripes;</span>
+    }
+
+    /**
+     * Sets the number of background stripes and returns the flag
+     * itself.
+     *
+     * @param stripes The new number of background stripes.
+     * @return The modified flag.
+     */
+    public Flag setStripes(int stripes) {
+<span class="nc" id="L474">        this.stripes = stripes;</span>
+<span class="nc" id="L475">        return this;</span>
+    }
+
+    /**
+     * Generates an image of the flag.
+     *
+     * @return An image of the flag.
+     */
+    public BufferedImage getImage() {
+<span class="nc" id="L484">        BufferedImage image = new BufferedImage(WIDTH, HEIGHT,</span>
+                                                BufferedImage.TYPE_INT_RGB);
+<span class="nc" id="L486">        Graphics2D g = image.createGraphics();</span>
+<span class="nc" id="L487">        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,</span>
+                           RenderingHints.VALUE_ANTIALIAS_ON);
+
+<span class="nc bnc" id="L490" title="All 2 branches missed.">        if (backgroundColors.isEmpty()) {</span>
+<span class="nc" id="L491">            backgroundColors.add(Color.BLACK);</span>
+        }
+        // draw background
+<span class="nc bnc" id="L494" title="All 7 branches missed.">        switch(background) {</span>
+        case FESSES:
+        case PALES:
+<span class="nc bnc" id="L497" title="All 2 branches missed.">            if (stripes &lt; 1) {</span>
+<span class="nc" id="L498">                drawBackground(g);</span>
+            } else {
+<span class="nc" id="L500">                drawStripes(g, background.alignment, stripes);</span>
+            }
+<span class="nc" id="L502">            break;</span>
+        case PLAIN:
+<span class="nc" id="L504">            drawBackground(g);</span>
+<span class="nc" id="L505">            break;</span>
+        case QUARTERLY:
+<span class="nc" id="L507">            drawQuarters(g);</span>
+<span class="nc" id="L508">            break;</span>
+        case PER_BEND:
+<span class="nc" id="L510">            drawPerBend(g, false);</span>
+<span class="nc" id="L511">            break;</span>
+        case PER_BEND_SINISTER:
+<span class="nc" id="L513">            drawPerBend(g, true);</span>
+<span class="nc" id="L514">            break;</span>
+        case PER_SALTIRE:
+<span class="nc" id="L516">            drawPerSaltire(g);</span>
+<span class="nc" id="L517">            break;</span>
+        default:
+            break;
+        }
+
+        // draw decoration
+<span class="nc" id="L523">        GeneralPath decorationShape = null;</span>
+<span class="nc bnc" id="L524" title="All 8 branches missed.">        switch(decoration) {</span>
+        case GREEK_CROSS:
+        case CROSS:
+        case SCANDINAVIAN_CROSS:
+<span class="nc" id="L528">            decorationShape = getCross(decoration);</span>
+<span class="nc" id="L529">            break;</span>
+        case CHEVRON:
+<span class="nc" id="L531">            decorationShape = getTriangle(UnionShape.CHEVRON, false);</span>
+<span class="nc" id="L532">            break;</span>
+        case PALL:
+<span class="nc" id="L534">            decorationShape = getPall();</span>
+<span class="nc" id="L535">            break;</span>
+        case BEND:
+<span class="nc" id="L537">            decorationShape = getBend(false);</span>
+<span class="nc" id="L538">            break;</span>
+        case BEND_SINISTER:
+<span class="nc" id="L540">            decorationShape = getBend(true);</span>
+<span class="nc" id="L541">            break;</span>
+        case SALTIRE:
+<span class="nc" id="L543">            decorationShape = getBend(true);</span>
+<span class="nc" id="L544">            decorationShape.append(getBend(false), false);</span>
+<span class="nc" id="L545">            break;</span>
+        case SALTIRE_AND_CROSS:
+<span class="nc" id="L547">            decorationShape = getBend(true);</span>
+<span class="nc" id="L548">            decorationShape.append(getBend(false), false);</span>
+<span class="nc" id="L549">            decorationShape.append(getCross(Decoration.CROSS), false);</span>
+<span class="nc" id="L550">            break;</span>
+        default:
+            break;
+        }
+<span class="nc bnc" id="L554" title="All 2 branches missed.">        if (decorationShape != null) {</span>
+<span class="nc" id="L555">            g.setColor(decorationColor);</span>
+<span class="nc" id="L556">            g.fill(decorationShape);</span>
+        }
+
+<span class="nc bnc" id="L559" title="All 4 branches missed.">        if (unionPosition == null</span>
+            || unionPosition == UnionPosition.NONE) {
+<span class="nc" id="L561">            return image;</span>
+        }
+
+<span class="nc" id="L564">        GeneralPath union = null;</span>
+<span class="nc" id="L565">        GeneralPath starShape = null;</span>
+        // draw union
+<span class="nc bnc" id="L567" title="All 4 branches missed.">        if (unionShape == null &amp;&amp; decoration != null) {</span>
+<span class="nc" id="L568">            unionShape = decoration.unionShape;</span>
+        }
+<span class="nc bnc" id="L570" title="All 6 branches missed.">        switch(unionShape) {</span>
+        case RECTANGLE:
+<span class="nc" id="L572">            Rectangle2D.Double rectangle = getRectangle();</span>
+<span class="nc" id="L573">            union = new GeneralPath(rectangle);</span>
+<span class="nc" id="L574">            starShape = getUnionRectangle(rectangle);</span>
+<span class="nc" id="L575">            break;</span>
+        case CHEVRON:
+<span class="nc bnc" id="L577" title="All 2 branches missed.">            union = getTriangle(unionShape, decoration == Decoration.PALL);</span>
+<span class="nc" id="L578">            starShape = getUnionTriangle(true);</span>
+<span class="nc" id="L579">            break;</span>
+        case BEND:
+<span class="nc bnc" id="L581" title="All 4 branches missed.">            union = getTriangle(unionShape, (decoration == Decoration.BEND)</span>
+                                || (decoration == Decoration.BEND_SINISTER));
+<span class="nc" id="L583">            starShape = getUnionTriangle(false);</span>
+<span class="nc" id="L584">            transformBend(union);</span>
+<span class="nc" id="L585">            transformBend(starShape);</span>
+<span class="nc" id="L586">            break;</span>
+        case RHOMBUS:
+<span class="nc" id="L588">            union = getRhombus();</span>
+<span class="nc" id="L589">            starShape = getUnionRhombus();</span>
+<span class="nc" id="L590">            break;</span>
+        case TRIANGLE:
+<span class="nc bnc" id="L592" title="All 2 branches missed.">            union = getTriangle(unionShape, decoration == Decoration.SALTIRE);</span>
+<span class="nc" id="L593">            starShape = getUnionTriangle(true);</span>
+<span class="nc" id="L594">            transformTriangle(union);</span>
+<span class="nc" id="L595">            transformTriangle(starShape);</span>
+<span class="nc" id="L596">            break;</span>
+        default:
+            break;
+        }
+<span class="nc bnc" id="L600" title="All 4 branches missed.">        if (!(union == null || unionColor == null)) {</span>
+<span class="nc" id="L601">            g.setColor(unionColor);</span>
+<span class="nc" id="L602">            g.fill(union);</span>
+        }
+<span class="nc bnc" id="L604" title="All 2 branches missed.">        if (starShape != null) {</span>
+<span class="nc" id="L605">            g.setColor(starColor);</span>
+<span class="nc" id="L606">            g.fill(starShape);</span>
+        }
+<span class="nc" id="L608">        g.dispose();</span>
+<span class="nc" id="L609">        return image;</span>
+    }
+
+    /**
+     * Return the stars in a rectangular &quot;union&quot;, distributed
+     * according to rules derived from historical flags of the United
+     * States.
+     *
+     * @param union The rectangular area to fill.
+     * @return The union path
+     */
+    private GeneralPath getUnionRectangle(Rectangle2D.Double union) {
+
+<span class="nc bnc" id="L622" title="All 2 branches missed.">        if (union == null) return null;</span>
+
+        GeneralPath unionPath;
+<span class="nc bnc" id="L625" title="All 2 branches missed.">        if (stars &lt; 14) {</span>
+<span class="nc" id="L626">            double radius = 0.3 * Math.min(union.height, union.width);</span>
+<span class="nc" id="L627">            unionPath = getCircleOfStars(radius);</span>
+<span class="nc" id="L628">        } else {</span>
+<span class="nc" id="L629">            unionPath = getGridOfStars(union);</span>
+        }
+<span class="nc" id="L631">        double x = union.x + union.width / 2;</span>
+<span class="nc" id="L632">        double y = union.y + union.height / 2;</span>
+<span class="nc" id="L633">        center(unionPath, x, y);</span>
+<span class="nc" id="L634">        return unionPath;</span>
+    }
+
+    private GeneralPath getUnionTriangle(boolean isosceles) {
+<span class="nc bnc" id="L638" title="All 6 branches missed.">        boolean small = (decoration == Decoration.PALL</span>
+                         || decoration == Decoration.BEND
+                         || decoration == Decoration.BEND_SINISTER);
+
+<span class="nc" id="L642">        double x = 0;</span>
+<span class="nc" id="L643">        double y = 0;</span>
+<span class="nc" id="L644">        double r = 0;</span>
+<span class="nc bnc" id="L645" title="All 2 branches missed.">        if (unionShape == UnionShape.CHEVRON) {</span>
+<span class="nc" id="L646">            x = CHEVRON_X;</span>
+<span class="nc" id="L647">            y = HEIGHT;</span>
+<span class="nc bnc" id="L648" title="All 2 branches missed.">            if (small) {</span>
+<span class="nc" id="L649">                x -= BEND_X;</span>
+<span class="nc" id="L650">                y -= 2 * BEND_Y;</span>
+            }
+<span class="nc" id="L652">            r = SQRT_3 * y / 6;</span>
+<span class="nc bnc" id="L653" title="All 2 branches missed.">        } else if (unionShape == UnionShape.TRIANGLE) {</span>
+<span class="nc bnc" id="L654" title="All 4 branches missed.">            if (unionPosition == UnionPosition.LEFT</span>
+                || unionPosition == UnionPosition.RIGHT) {
+<span class="nc" id="L656">                x = WIDTH / 2;</span>
+<span class="nc" id="L657">                y = HEIGHT;</span>
+<span class="nc bnc" id="L658" title="All 2 branches missed.">                if (small) {</span>
+<span class="nc" id="L659">                    x -= BEND_X;</span>
+<span class="nc" id="L660">                    y -= 2 * BEND_Y;</span>
+                }
+<span class="nc" id="L662">                r = SQRT_3 * y / 6;</span>
+            } else {
+<span class="nc" id="L664">                x = HEIGHT / 2;</span>
+<span class="nc" id="L665">                y = WIDTH;</span>
+<span class="nc bnc" id="L666" title="All 2 branches missed.">                if (small) {</span>
+<span class="nc" id="L667">                    x -= BEND_Y;</span>
+<span class="nc" id="L668">                    y -= 2 * BEND_X;</span>
+                }
+<span class="nc" id="L670">                double h = y / 2;</span>
+<span class="nc" id="L671">                double c = Math.sqrt(h * h + x * x);</span>
+<span class="nc" id="L672">                r = x * y / (y + 2 * c);</span>
+<span class="nc" id="L673">            }</span>
+        } else {
+            // union shape is bend
+<span class="nc" id="L676">            x = WIDTH;</span>
+<span class="nc" id="L677">            y = HEIGHT;</span>
+<span class="nc bnc" id="L678" title="All 2 branches missed.">            if (small) {</span>
+<span class="nc" id="L679">                x -= BEND_X;</span>
+<span class="nc" id="L680">                y -= BEND_Y;</span>
+            }
+<span class="nc" id="L682">            double c = Math.sqrt(x * x + y * y);</span>
+<span class="nc" id="L683">            double A = x * y / 2;</span>
+<span class="nc" id="L684">            r = 2 * A / (x + y + c);</span>
+        }
+        // leave a margin
+<span class="nc" id="L687">        double radius = r * 0.6;</span>
+
+<span class="nc" id="L689">        GeneralPath unionPath = new GeneralPath();</span>
+<span class="nc bnc" id="L690" title="All 2 branches missed.">        if (stars &lt; 14) {</span>
+<span class="nc" id="L691">            unionPath = getCircleOfStars(radius);</span>
+<span class="nc bnc" id="L692" title="All 2 branches missed.">            if (isosceles) {</span>
+<span class="nc bnc" id="L693" title="All 4 branches missed.">                if (unionPosition == UnionPosition.LEFT</span>
+                    || unionPosition == UnionPosition.RIGHT) {
+<span class="nc" id="L695">                    center(unionPath, r, HEIGHT / 2);</span>
+                } else {
+<span class="nc" id="L697">                    center(unionPath, r, WIDTH / 2);</span>
+                }
+            } else {
+<span class="nc" id="L700">                center(unionPath, r, r);</span>
+            }
+        } else {
+
+<span class="nc" id="L704">            int sum = 0;</span>
+<span class="nc" id="L705">            int rows = 1;</span>
+<span class="nc bnc" id="L706" title="All 2 branches missed.">            while (sum &lt; stars) {</span>
+<span class="nc" id="L707">                sum += rows;</span>
+<span class="nc" id="L708">                rows++;</span>
+            }
+<span class="nc" id="L710">            int missing = sum - stars;</span>
+<span class="nc" id="L711">            double slope = y / x;</span>
+<span class="nc" id="L712">            double dx = x / rows;</span>
+<span class="nc" id="L713">            double xx = dx / 2;</span>
+<span class="nc" id="L714">            double height = y - xx * slope;</span>
+<span class="nc" id="L715">            double offset = 0;</span>
+<span class="nc" id="L716">            rows--;</span>
+<span class="nc" id="L717">            double dy = height / rows;</span>
+<span class="nc bnc" id="L718" title="All 2 branches missed.">            for (int index = rows; index &gt; 0; index--) {</span>
+<span class="nc bnc" id="L719" title="All 2 branches missed.">                if (isosceles) {</span>
+<span class="nc" id="L720">                    height = y - xx * slope;</span>
+<span class="nc" id="L721">                    dy = height / index;</span>
+<span class="nc" id="L722">                    offset = (HEIGHT - height) / 2;</span>
+                }
+<span class="nc" id="L724">                double yy = dy / 2;</span>
+<span class="nc" id="L725">                int count = index;</span>
+<span class="nc bnc" id="L726" title="All 2 branches missed.">                if (missing &gt; 0) {</span>
+<span class="nc" id="L727">                    count = index - missing;</span>
+<span class="nc" id="L728">                    yy += missing / 2 * dy;</span>
+<span class="nc" id="L729">                    missing = 0;</span>
+                }
+<span class="nc bnc" id="L731" title="All 2 branches missed.">                for (int star = 0; star &lt; count; star++) {</span>
+<span class="nc" id="L732">                    unionPath.append(getStar(xx, yy + offset), false);</span>
+<span class="nc" id="L733">                    yy += dy;</span>
+                }
+<span class="nc" id="L735">                xx += dx;</span>
+            }
+        }
+<span class="nc" id="L738">        return unionPath;</span>
+    }
+
+    /**
+     * Flip or rotate a top left triangle so that it fits another
+     * corner.
+     *
+     * @param triangle The top left triangle.
+     * @return The transformed triangle.
+     */
+    private GeneralPath transformBend(GeneralPath triangle) {
+<span class="nc bnc" id="L749" title="All 2 branches missed.">        if (unionPosition == UnionPosition.TOP) {</span>
+<span class="nc bnc" id="L750" title="All 2 branches missed.">            if (decoration == Decoration.BEND) {</span>
+<span class="nc" id="L751">                triangle.transform(AffineTransform.getScaleInstance(-1, 1));</span>
+<span class="nc" id="L752">                triangle.transform(AffineTransform.getTranslateInstance(WIDTH, 0));</span>
+<span class="nc bnc" id="L753" title="All 2 branches missed.">            } else if (decoration == Decoration.BEND_SINISTER) {</span>
+                // nothing to do: default is top left
+            }
+<span class="nc bnc" id="L756" title="All 2 branches missed.">        } else if (unionPosition == UnionPosition.BOTTOM) {</span>
+<span class="nc bnc" id="L757" title="All 2 branches missed.">            if (decoration == Decoration.BEND) {</span>
+<span class="nc" id="L758">                triangle.transform(AffineTransform.getScaleInstance(1, -1));</span>
+<span class="nc" id="L759">                triangle.transform(AffineTransform.getTranslateInstance(0, HEIGHT));</span>
+<span class="nc bnc" id="L760" title="All 2 branches missed.">            } else if (decoration == Decoration.BEND_SINISTER) {</span>
+<span class="nc" id="L761">                triangle.transform(AffineTransform.getQuadrantRotateInstance(2));</span>
+<span class="nc" id="L762">                triangle.transform(AffineTransform.getTranslateInstance(WIDTH, HEIGHT));</span>
+            }
+        }
+<span class="nc" id="L765">        return triangle;</span>
+    }
+
+    /**
+     * Flip or rotate a left triangle so that it fits another side.
+     *
+     * @param triangle The left triangle.
+     * @return The transformed triangle.
+     */
+    private GeneralPath transformTriangle(GeneralPath triangle) {
+<span class="nc bnc" id="L775" title="All 4 branches missed.">        switch(unionPosition) {</span>
+        case TOP:
+<span class="nc" id="L777">            triangle.transform(AffineTransform.getQuadrantRotateInstance(1));</span>
+<span class="nc" id="L778">            triangle.transform(AffineTransform.getTranslateInstance(WIDTH, 0));</span>
+<span class="nc" id="L779">            break;</span>
+        case BOTTOM:
+<span class="nc" id="L781">            triangle.transform(AffineTransform.getQuadrantRotateInstance(3));</span>
+<span class="nc" id="L782">            triangle.transform(AffineTransform.getTranslateInstance(0, HEIGHT));</span>
+<span class="nc" id="L783">            break;</span>
+        case RIGHT:
+<span class="nc" id="L785">            triangle.transform(AffineTransform.getScaleInstance(-1, 1));</span>
+<span class="nc" id="L786">            triangle.transform(AffineTransform.getTranslateInstance(WIDTH, 0));</span>
+<span class="nc" id="L787">            break;</span>
+        case LEFT:
+        default:
+        }
+<span class="nc" id="L791">        return triangle;</span>
+    }
+
+    private GeneralPath getUnionRhombus() {
+<span class="nc" id="L795">        GeneralPath unionPath = new GeneralPath();</span>
+
+<span class="nc" id="L797">        int count = 1;</span>
+<span class="nc" id="L798">        int square = 1;</span>
+<span class="nc bnc" id="L799" title="All 2 branches missed.">        while (square &lt; stars) {</span>
+<span class="nc" id="L800">            count++;</span>
+<span class="nc" id="L801">            square = count * count;</span>
+        }
+<span class="nc" id="L803">        int rows = stars / count;</span>
+<span class="nc bnc" id="L804" title="All 2 branches missed.">        if (rows * count &lt; stars) rows++;</span>
+<span class="nc" id="L805">        int starCount = 0;</span>
+<span class="nc" id="L806">        double a = WIDTH / 2 - BEND_X;</span>
+<span class="nc" id="L807">        double b = HEIGHT / 2 - BEND_Y;</span>
+
+<span class="nc bnc" id="L809" title="All 2 branches missed.">        if (stars &lt; 14) {</span>
+<span class="nc" id="L810">            double c = Math.sqrt(a * a + b * b);</span>
+<span class="nc" id="L811">            double r = (a * b) / c;</span>
+<span class="nc" id="L812">            double radius = 0.6 * r;</span>
+<span class="nc" id="L813">            unionPath = getCircleOfStars(radius);</span>
+<span class="nc" id="L814">            center(unionPath, WIDTH / 2, HEIGHT / 2);</span>
+<span class="nc" id="L815">        } else {</span>
+<span class="nc" id="L816">            double dx = a / count;</span>
+<span class="nc" id="L817">            double dy = b / count;</span>
+<span class="nc" id="L818">            double dx1 = a / rows;</span>
+<span class="nc" id="L819">            double dy1 = b / rows;</span>
+<span class="nc bnc" id="L820" title="All 2 branches missed.">            outer: for (int index = 0; index &lt; rows; index++) {</span>
+<span class="nc" id="L821">                double x = BEND_X + dx + index * dx1;</span>
+<span class="nc" id="L822">                double y = HEIGHT / 2 - index * dy1;</span>
+<span class="nc bnc" id="L823" title="All 2 branches missed.">                for (int star = 0; star &lt; count; star++) {</span>
+<span class="nc" id="L824">                    unionPath.append(getStar(x, y), false);</span>
+<span class="nc" id="L825">                    starCount++;</span>
+<span class="nc bnc" id="L826" title="All 2 branches missed.">                    if (starCount == stars) {</span>
+<span class="nc" id="L827">                        break outer;</span>
+                    } else {
+<span class="nc" id="L829">                        x += dx;</span>
+<span class="nc" id="L830">                        y += dy;</span>
+                    }
+                }
+            }
+        }
+
+<span class="nc" id="L836">        return unionPath;</span>
+    }
+
+
+    /**
+     * Calculate the width of stripes on the basis of the given
+     * alignment.
+     *
+     * @param alignment The alignment of the stripes.
+     * @return The width of the stripes.
+     */
+    private double getStripeWidth(Alignment alignment) {
+<span class="nc bnc" id="L848" title="All 2 branches missed.">        return (alignment == Alignment.HORIZONTAL)</span>
+            ? WIDTH : (double) WIDTH / stripes;
+    }
+
+    /**
+     * Calculate the height of stripes on the basis of the given
+     * alignment.
+     *
+     * @param alignment The alignment of the stripes.
+     * @return The height of the stripes.
+     */
+    private double getStripeHeight(Alignment alignment) {
+<span class="nc bnc" id="L860" title="All 2 branches missed.">        return (alignment == Alignment.VERTICAL)</span>
+            ? HEIGHT : (double) HEIGHT / stripes;
+    }
+
+    private void drawBackground(Graphics2D g) {
+<span class="nc" id="L865">        g.setColor(backgroundColors.get(0));</span>
+<span class="nc" id="L866">        g.fillRect(0, 0, WIDTH, HEIGHT);</span>
+<span class="nc" id="L867">    }</span>
+
+    private void drawStripes(Graphics2D g, Alignment alignment, int stripes) {
+<span class="nc" id="L870">        int colors = backgroundColors.size();</span>
+<span class="nc" id="L871">        double stripeWidth = getStripeWidth(alignment);</span>
+<span class="nc" id="L872">        double stripeHeight = getStripeHeight(alignment);</span>
+<span class="nc bnc" id="L873" title="All 2 branches missed.">        double x = (alignment == Alignment.VERTICAL)</span>
+            ? stripeWidth : 0;
+<span class="nc bnc" id="L875" title="All 2 branches missed.">        double y = (alignment == Alignment.HORIZONTAL)</span>
+            ? stripeHeight : 0;
+<span class="nc" id="L877">        Rectangle2D.Double rectangle = new Rectangle2D.Double();</span>
+<span class="nc bnc" id="L878" title="All 2 branches missed.">        for (int index = 0; index &lt; stripes; index++) {</span>
+<span class="nc" id="L879">            g.setColor(backgroundColors.get(index % colors));</span>
+<span class="nc" id="L880">            rectangle.setRect(index * x, index * y, stripeWidth, stripeHeight);</span>
+<span class="nc" id="L881">            g.fill(rectangle);</span>
+        }
+<span class="nc" id="L883">    }</span>
+
+    private void drawQuarters(Graphics2D g) {
+<span class="nc" id="L886">        int colors = backgroundColors.size();</span>
+<span class="nc" id="L887">        int[] x = { 0, 1, 1, 0 };</span>
+<span class="nc" id="L888">        int[] y = { 0, 0, 1, 1 };</span>
+<span class="nc" id="L889">        double halfWidth = WIDTH / 2;</span>
+<span class="nc" id="L890">        double halfHeight = HEIGHT / 2;</span>
+<span class="nc bnc" id="L891" title="All 2 branches missed.">        double offset = (decoration == Decoration.SCANDINAVIAN_CROSS)</span>
+            ? CROSS_OFFSET : 0;
+<span class="nc" id="L893">        Rectangle2D.Double rectangle = new Rectangle2D.Double();</span>
+<span class="nc bnc" id="L894" title="All 2 branches missed.">        for (int index = 0; index &lt; 4; index++) {</span>
+<span class="nc" id="L895">            g.setColor(backgroundColors.get(index % colors));</span>
+<span class="nc" id="L896">            rectangle.setRect(x[index] * halfWidth - offset, y[index] * halfHeight,</span>
+                              halfWidth + x[index] * offset, halfHeight);
+<span class="nc" id="L898">            g.fill(rectangle);</span>
+        }
+<span class="nc" id="L900">    }</span>
+
+    private void drawPerBend(Graphics2D g, boolean sinister) {
+<span class="nc" id="L903">        drawBackground(g);</span>
+<span class="nc" id="L904">        int colors = backgroundColors.size();</span>
+<span class="nc" id="L905">        GeneralPath path = new GeneralPath();</span>
+<span class="nc" id="L906">        path.moveTo(0, HEIGHT);</span>
+<span class="nc bnc" id="L907" title="All 2 branches missed.">        path.lineTo(sinister ? WIDTH : 0, 0);</span>
+<span class="nc" id="L908">        path.lineTo(WIDTH, HEIGHT);</span>
+<span class="nc" id="L909">        g.setColor(backgroundColors.get(1 % colors));</span>
+<span class="nc" id="L910">        g.fill(path);</span>
+<span class="nc" id="L911">    }</span>
+
+    private void drawPerSaltire(Graphics2D g) {
+<span class="nc" id="L914">        int colors = backgroundColors.size();</span>
+<span class="nc" id="L915">        GeneralPath path = new GeneralPath();</span>
+<span class="nc" id="L916">        int[] x = { 0, WIDTH, WIDTH, 0 };</span>
+<span class="nc" id="L917">        int[] y = { 0, 0, HEIGHT, HEIGHT };</span>
+<span class="nc" id="L918">        double halfWidth = WIDTH / 2;</span>
+<span class="nc" id="L919">        double halfHeight = HEIGHT / 2;</span>
+<span class="nc bnc" id="L920" title="All 2 branches missed.">        for (int index = 0; index &lt; 4; index++) {</span>
+<span class="nc" id="L921">            path.moveTo(x[index], y[index]);</span>
+<span class="nc" id="L922">            path.lineTo(halfWidth, halfHeight);</span>
+<span class="nc" id="L923">            int nextIndex = (index + 1) % 4;</span>
+<span class="nc" id="L924">            path.lineTo(x[nextIndex], y[nextIndex]);</span>
+<span class="nc" id="L925">            g.setColor(backgroundColors.get(index % colors));</span>
+<span class="nc" id="L926">            g.fill(path);</span>
+<span class="nc" id="L927">            path.reset();</span>
+        }
+<span class="nc" id="L929">    }</span>
+
+    private GeneralPath getCross(Decoration decoration) {
+<span class="nc" id="L932">        double quarterWidth = (WIDTH - DECORATION_SIZE) / 2;</span>
+<span class="nc" id="L933">        double quarterHeight = (HEIGHT - DECORATION_SIZE) / 2;</span>
+<span class="nc" id="L934">        double offset = 0;</span>
+<span class="nc" id="L935">        double width = WIDTH;</span>
+<span class="nc" id="L936">        double height = HEIGHT;</span>
+<span class="nc bnc" id="L937" title="All 3 branches missed.">        switch(decoration) {</span>
+        case SCANDINAVIAN_CROSS:
+<span class="nc" id="L939">            offset = CROSS_OFFSET;</span>
+<span class="nc" id="L940">            break;</span>
+        case GREEK_CROSS:
+<span class="nc" id="L942">            width = height = Math.min(WIDTH, HEIGHT) - 2 * DECORATION_SIZE;</span>
+<span class="nc" id="L943">            break;</span>
+        default:
+            break;
+        }
+<span class="nc" id="L947">        GeneralPath cross = new GeneralPath();</span>
+<span class="nc" id="L948">        cross.append(new Rectangle2D.Double((WIDTH - width) / 2, quarterHeight,</span>
+                                            width, DECORATION_SIZE), false);
+<span class="nc" id="L950">        cross.append(new Rectangle2D.Double(quarterWidth - offset, (HEIGHT - height) / 2,</span>
+                                            DECORATION_SIZE, height), false);
+<span class="nc" id="L952">        return cross;</span>
+    }
+
+    private GeneralPath getBend(boolean sinister) {
+<span class="nc" id="L956">        GeneralPath path = new GeneralPath();</span>
+<span class="nc bnc" id="L957" title="All 2 branches missed.">        if (sinister) {</span>
+<span class="nc" id="L958">            path.moveTo(0, HEIGHT);</span>
+<span class="nc" id="L959">            path.lineTo(0, HEIGHT - BEND_Y);</span>
+<span class="nc" id="L960">            path.lineTo(WIDTH - BEND_X, 0);</span>
+<span class="nc" id="L961">            path.lineTo(WIDTH, 0);</span>
+<span class="nc" id="L962">            path.lineTo(WIDTH, BEND_Y);</span>
+<span class="nc" id="L963">            path.lineTo(BEND_X, HEIGHT);</span>
+        } else {
+<span class="nc" id="L965">            path.moveTo(0, 0);</span>
+<span class="nc" id="L966">            path.lineTo(BEND_X, 0);</span>
+<span class="nc" id="L967">            path.lineTo(WIDTH, HEIGHT - BEND_Y);</span>
+<span class="nc" id="L968">            path.lineTo(WIDTH, HEIGHT);</span>
+<span class="nc" id="L969">            path.lineTo(WIDTH - BEND_X, HEIGHT);</span>
+<span class="nc" id="L970">            path.lineTo(0, BEND_Y);</span>
+        }
+<span class="nc" id="L972">        return path;</span>
+    }
+
+    private GeneralPath getPall() {
+<span class="nc" id="L976">        double y1 = (HEIGHT - DECORATION_SIZE) / 2;</span>
+<span class="nc" id="L977">        double y2 = (HEIGHT + DECORATION_SIZE) / 2;</span>
+<span class="nc" id="L978">        double x = BEND_X + y1 * SQRT_3;</span>
+<span class="nc" id="L979">        GeneralPath path = new GeneralPath(getTriangle(UnionShape.CHEVRON, true));</span>
+<span class="nc" id="L980">        path.lineTo(0, HEIGHT);</span>
+<span class="nc" id="L981">        path.lineTo(BEND_X, HEIGHT);</span>
+<span class="nc" id="L982">        path.lineTo(x, y2);</span>
+<span class="nc" id="L983">        path.lineTo(WIDTH, y2);</span>
+<span class="nc" id="L984">        path.lineTo(WIDTH, y1);</span>
+<span class="nc" id="L985">        path.lineTo(x, y1);</span>
+<span class="nc" id="L986">        path.lineTo(BEND_X, 0);</span>
+<span class="nc" id="L987">        path.lineTo(0, 0);</span>
+<span class="nc" id="L988">        return path;</span>
+    }
+
+    /**
+     * Returns a triangle of the given shape and size. This is a large
+     * top left triangle if the given shape is BEND, and a small left
+     * triangle if the given shape is CHEVRON or TRIANGLE.
+     *
+     * @param unionShape The shape of the union.
+     * @param small Whether the shape is limited by decorations.
+     */
+    private GeneralPath getTriangle(UnionShape unionShape, boolean small) {
+<span class="nc" id="L1000">        GeneralPath path = new GeneralPath();</span>
+<span class="nc" id="L1001">        double x = 0;</span>
+<span class="nc" id="L1002">        double y = 0;</span>
+<span class="nc bnc" id="L1003" title="All 2 branches missed.">        if (small) {</span>
+<span class="nc" id="L1004">            x = BEND_X;</span>
+<span class="nc" id="L1005">            y = BEND_Y;</span>
+        }
+<span class="nc bnc" id="L1007" title="All 4 branches missed.">        switch(unionShape) {</span>
+        case BEND:
+<span class="nc" id="L1009">            path.moveTo(0, HEIGHT - y);</span>
+<span class="nc" id="L1010">            path.lineTo(0, 0);</span>
+<span class="nc" id="L1011">            path.lineTo(WIDTH - x, 0);</span>
+<span class="nc" id="L1012">            break;</span>
+        case CHEVRON:
+<span class="nc" id="L1014">            path.moveTo(0, y);</span>
+<span class="nc" id="L1015">            path.lineTo(CHEVRON_X - x, HEIGHT / 2);</span>
+<span class="nc" id="L1016">            path.lineTo(0, HEIGHT - y);</span>
+<span class="nc" id="L1017">            break;</span>
+        case TRIANGLE:
+<span class="nc bnc" id="L1019" title="All 4 branches missed.">            if (unionPosition == UnionPosition.LEFT</span>
+                || unionPosition == UnionPosition.RIGHT) {
+<span class="nc" id="L1021">                path.moveTo(0, y);</span>
+<span class="nc" id="L1022">                path.lineTo(WIDTH / 2 - x, HEIGHT / 2);</span>
+<span class="nc" id="L1023">                path.lineTo(0, HEIGHT - y);</span>
+            } else {
+<span class="nc" id="L1025">                path.moveTo(0, x);</span>
+<span class="nc" id="L1026">                path.lineTo(HEIGHT / 2 - y, WIDTH / 2);</span>
+<span class="nc" id="L1027">                path.lineTo(0, WIDTH - x);</span>
+            }
+<span class="nc" id="L1029">            break;</span>
+        default:
+            break;
+        }
+<span class="nc" id="L1033">        return path;</span>
+    }
+
+    private GeneralPath getRhombus() {
+<span class="nc" id="L1037">        GeneralPath rhombus = new GeneralPath();</span>
+<span class="nc" id="L1038">        rhombus.moveTo(WIDTH / 2, BEND_Y);</span>
+<span class="nc" id="L1039">        rhombus.lineTo(WIDTH - BEND_X, HEIGHT / 2);</span>
+<span class="nc" id="L1040">        rhombus.lineTo(WIDTH / 2, HEIGHT - BEND_Y);</span>
+<span class="nc" id="L1041">        rhombus.lineTo(BEND_X, HEIGHT / 2);</span>
+<span class="nc" id="L1042">        return rhombus;</span>
+    }
+
+    private Rectangle2D.Double getRectangle() {
+<span class="nc bnc" id="L1046" title="All 4 branches missed.">        if (unionPosition == null || unionPosition == UnionPosition.NONE) {</span>
+<span class="nc" id="L1047">            return null;</span>
+        }
+<span class="nc" id="L1049">        Rectangle2D.Double union = new Rectangle2D.Double();</span>
+<span class="nc bnc" id="L1050" title="All 2 branches missed.">        if (unionPosition.alignment == Alignment.VERTICAL) {</span>
+<span class="nc bnc" id="L1051" title="All 4 branches missed.">            if (background.alignment == Alignment.VERTICAL</span>
+                &amp;&amp; stripes &lt; 3) {
+<span class="nc" id="L1053">                union.width = WIDTH / stripes;</span>
+<span class="nc bnc" id="L1054" title="All 4 branches missed.">                if (stripes == 2 &amp;&amp; unionPosition == UnionPosition.RIGHT) {</span>
+<span class="nc" id="L1055">                    union.x = WIDTH /2;</span>
+                }
+            } else {
+<span class="nc" id="L1058">                union.width = WIDTH / 3;</span>
+<span class="nc" id="L1059">                union.x = unionPosition.index * union.width;</span>
+            }
+<span class="nc" id="L1061">            union.height = HEIGHT;</span>
+<span class="nc bnc" id="L1062" title="All 2 branches missed.">        } else if (unionPosition.alignment == Alignment.HORIZONTAL) {</span>
+<span class="nc bnc" id="L1063" title="All 4 branches missed.">            if (background.alignment == Alignment.HORIZONTAL</span>
+                &amp;&amp; stripes &lt; 3) {
+<span class="nc" id="L1065">                union.height = HEIGHT / stripes;</span>
+<span class="nc bnc" id="L1066" title="All 4 branches missed.">                if (stripes == 2 &amp;&amp; unionPosition == UnionPosition.BOTTOM) {</span>
+<span class="nc" id="L1067">                    union.y = HEIGHT / 2;</span>
+                }
+            } else {
+<span class="nc" id="L1070">                union.height = HEIGHT / 3;</span>
+<span class="nc" id="L1071">                union.y = unionPosition.index * union.height;</span>
+            }
+<span class="nc" id="L1073">            union.width = WIDTH;</span>
+        } else {
+            // canton
+<span class="nc" id="L1076">            union.width = WIDTH / 2;</span>
+<span class="nc" id="L1077">            union.height = HEIGHT / 2;</span>
+<span class="nc bnc" id="L1078" title="All 2 branches missed.">            if (background.alignment == Alignment.HORIZONTAL) {</span>
+<span class="nc bnc" id="L1079" title="All 2 branches missed.">                union.height = (stripes &lt; 3)</span>
+                    ? HEIGHT / 2
+<span class="nc" id="L1081">                    : (stripes / 2) * getStripeHeight(background.alignment);</span>
+<span class="nc bnc" id="L1082" title="All 2 branches missed.">            } else if (background.alignment == Alignment.VERTICAL) {</span>
+<span class="nc bnc" id="L1083" title="All 2 branches missed.">                union.width = (stripes &lt; 3)</span>
+                    ? WIDTH / 2
+<span class="nc" id="L1085">                    : (stripes / 2) * getStripeWidth(background.alignment);</span>
+            }
+<span class="nc bnc" id="L1087" title="All 4 branches missed.">            if (decoration == Decoration.GREEK_CROSS</span>
+                || decoration == Decoration.CROSS) {
+<span class="nc" id="L1089">                union.width = (WIDTH - DECORATION_SIZE) / 2;</span>
+<span class="nc" id="L1090">                union.height = (HEIGHT - DECORATION_SIZE) / 2;</span>
+<span class="nc bnc" id="L1091" title="All 2 branches missed.">            } else if (decoration == Decoration.SCANDINAVIAN_CROSS) {</span>
+<span class="nc" id="L1092">                union.width = (WIDTH - DECORATION_SIZE) / 2</span>
+                    - CROSS_OFFSET;
+<span class="nc" id="L1094">                union.height = (HEIGHT - DECORATION_SIZE) / 2;</span>
+            }
+        }
+
+<span class="nc" id="L1098">        return union;</span>
+    }
+
+    /**
+     * Return the basic five-point star.
+     *
+     * @return the basic star shape
+     */
+    private static GeneralPath getStar() {
+<span class="nc" id="L1107">        GeneralPath star = new GeneralPath(GeneralPath.WIND_NON_ZERO);</span>
+<span class="nc" id="L1108">        double angle = 2 * Math.PI / 5;</span>
+<span class="nc" id="L1109">        double radius = STAR_SIZE / 2;</span>
+<span class="nc" id="L1110">        double x = 0;</span>
+<span class="nc" id="L1111">        double y = -radius;</span>
+<span class="nc" id="L1112">        star.moveTo(x, y);</span>
+<span class="nc" id="L1113">        int[] vertex = { 2, 4, 1, 3 };</span>
+<span class="nc bnc" id="L1114" title="All 2 branches missed.">        for (int i : vertex) {</span>
+<span class="nc" id="L1115">            double phi = i * angle;</span>
+<span class="nc" id="L1116">            x = radius * Math.sin(phi);</span>
+<span class="nc" id="L1117">            y = -radius * Math.cos(phi);</span>
+<span class="nc" id="L1118">            star.lineTo(x, y);</span>
+        }
+<span class="nc" id="L1120">        star.closePath();</span>
+<span class="nc" id="L1121">        return star;</span>
+    }
+
+    /**
+     * Returns a star at the given coordinates (x, y).
+     *
+     * @param x The x coordinate of the star.
+     * @param y The y coordinate of the star.
+     */
+    public GeneralPath getStar(double x, double y) {
+<span class="nc" id="L1131">        return getStar(-1, x, y);</span>
+    }
+
+    /**
+     * Returns a star of the given scale at the given coordinates (x, y).
+     *
+     * @param scale The scale of the star.
+     * @param x The x coordinate of the star.
+     * @param y The y coordinate of the star.
+     */
+    public GeneralPath getStar(double scale, double x, double y) {
+<span class="nc" id="L1142">        GeneralPath newStar = new GeneralPath(star);</span>
+<span class="nc bnc" id="L1143" title="All 2 branches missed.">        if (scale &gt; 0) {</span>
+<span class="nc" id="L1144">            newStar.transform(AffineTransform.getScaleInstance(scale, scale));</span>
+        }
+<span class="nc" id="L1146">        newStar.transform(AffineTransform.getTranslateInstance(x, y));</span>
+<span class="nc" id="L1147">        return newStar;</span>
+    }
+
+    /**
+     * Centers the given path on the given point (x,y).
+     *
+     * @param path The path to center.
+     * @param x The x coordinate of the center.
+     * @param y The y coordinate of the center.
+     */
+    private void center(GeneralPath path, double x, double y) {
+<span class="nc" id="L1158">        double dx = x - path.getBounds().getX() - path.getBounds().getWidth() / 2;</span>
+<span class="nc" id="L1159">        double dy = y - path.getBounds().getY() - path.getBounds().getHeight() / 2;</span>
+<span class="nc" id="L1160">        path.transform(AffineTransform.getTranslateInstance(dx, dy));</span>
+<span class="nc" id="L1161">    }</span>
+
+    /**
+     * Returns either a single star, or a circle of stars with the
+     * given radius, centered at the origin.
+     *
+     * @param radius The radius of the circle.
+     * @return The circle of stars.
+     */
+    private GeneralPath getCircleOfStars(double radius) {
+<span class="nc" id="L1171">        double phi = Math.PI * 2 / stars;</span>
+<span class="nc" id="L1172">        GeneralPath unionPath = new GeneralPath();</span>
+<span class="nc bnc" id="L1173" title="All 2 branches missed.">        if (stars == 0) {</span>
+            // nothing to do
+<span class="nc bnc" id="L1175" title="All 2 branches missed.">        } else if (stars == 1) {</span>
+            // one double sized star
+<span class="nc" id="L1177">            unionPath = getStar(2, 0, 0);</span>
+<span class="nc bnc" id="L1178" title="All 2 branches missed.">        } else if (stars == 2) {</span>
+            // two larger stars, on the x axis
+<span class="nc" id="L1180">            unionPath.append(getStar(1.5, -radius, 0), false);</span>
+<span class="nc" id="L1181">            unionPath.append(getStar(1.5, radius, 0), false);</span>
+        } else {
+            // a general circle of stars
+<span class="nc bnc" id="L1184" title="All 2 branches missed.">            for (int i = 0; i &lt; stars; i++) {</span>
+<span class="nc" id="L1185">                double x = -radius - radius * Math.sin(i * phi);</span>
+<span class="nc" id="L1186">                double y = -radius * Math.cos(i * phi);</span>
+<span class="nc" id="L1187">                unionPath.append(getStar(x, y), false);</span>
+            }
+        }
+<span class="nc" id="L1190">        return unionPath;</span>
+    }
+
+
+    public GeneralPath getGridOfStars(Rectangle2D.Double union) {
+<span class="nc" id="L1195">        int[] bars = new int[2];</span>
+<span class="nc bnc" id="L1196" title="All 2 branches missed.">        for (int count = stars; count &lt; 51; count++) {</span>
+<span class="nc bnc" id="L1197" title="All 2 branches missed.">            if (layout[count][0] &gt; 0) {</span>
+<span class="nc" id="L1198">                bars = layout[count];</span>
+<span class="nc" id="L1199">                break;</span>
+            }
+        }
+<span class="nc" id="L1202">        int maxCols = Math.max(bars[0], bars[1]);</span>
+<span class="nc" id="L1203">        int rows = 2;</span>
+<span class="nc" id="L1204">        int sum = bars[0] + bars[1];</span>
+<span class="nc bnc" id="L1205" title="All 2 branches missed.">        while (sum &lt; stars) {</span>
+<span class="nc" id="L1206">            sum += bars[rows%2];</span>
+<span class="nc" id="L1207">            rows++;</span>
+        }
+<span class="nc" id="L1209">        double hSpace = union.getWidth() / (2 * maxCols);</span>
+<span class="nc" id="L1210">        double vSpace = union.getHeight() / (2 * rows);</span>
+<span class="nc" id="L1211">        double y = 0;</span>
+<span class="nc" id="L1212">        GeneralPath grid = new GeneralPath();</span>
+<span class="nc" id="L1213">        int count = 1;</span>
+<span class="nc bnc" id="L1214" title="All 2 branches missed.">        for (int row = 0; row &lt; rows; row++) {</span>
+<span class="nc" id="L1215">            int cols = bars[row%2];</span>
+<span class="nc bnc" id="L1216" title="All 2 branches missed.">            double x = (cols == maxCols) ? 0 : hSpace;</span>
+<span class="nc bnc" id="L1217" title="All 2 branches missed.">            for (int col = 0; col &lt; cols; col++) {</span>
+<span class="nc bnc" id="L1218" title="All 2 branches missed.">                if (count &gt; stars) {</span>
+<span class="nc" id="L1219">                    break;</span>
+                }
+<span class="nc" id="L1221">                grid.append(getStar(x, y), false);</span>
+<span class="nc" id="L1222">                x += 2 * hSpace;</span>
+<span class="nc" id="L1223">                count++;</span>
+            }
+<span class="nc" id="L1225">            y += 2 * vSpace;</span>
+        }
+<span class="nc" id="L1227">        return grid;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

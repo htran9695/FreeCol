@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GotoAdjacentGoal.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.ai.goal</a> &gt; <span class="el_source">GotoAdjacentGoal.java</span></div><h1>GotoAdjacentGoal.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.ai.goal;
+
+import java.util.Iterator;
+import java.util.logging.Logger;
+
+import javax.xml.stream.XMLStreamException;
+
+import net.sf.freecol.common.io.FreeColXMLReader;
+import net.sf.freecol.common.io.FreeColXMLWriter;
+import net.sf.freecol.common.model.PathNode;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.Unit.MoveType;
+import net.sf.freecol.server.ai.AIPlayer;
+import net.sf.freecol.server.ai.AIUnit;
+
+
+/**
+ * A goal to make a move to a tile adjacent to a target tile.
+ */
+public class GotoAdjacentGoal extends Goal {
+
+<span class="nc" id="L41">    private static final Logger logger = Logger.getLogger(GotoAdjacentGoal.class.getName());</span>
+
+    //the destination tile
+    private final Tile target;
+
+    public GotoAdjacentGoal(AIPlayer p, Goal g, float w, AIUnit u, Tile t) {
+<span class="nc" id="L47">        super(p,g,w,u);</span>
+<span class="nc" id="L48">        target = t;</span>
+<span class="nc" id="L49">    }</span>
+
+    @Override
+    protected Iterator&lt;AIUnit&gt; getOwnedAIUnitsIterator() {
+        //we're keeping units on the availableUnitsList,
+        //so all our own units at any moment are these
+<span class="nc" id="L55">        return availableUnitsList.iterator();</span>
+    }
+
+    @Override
+    protected Iterator&lt;Goal&gt; getSubGoalIterator() {
+<span class="nc" id="L60">        return null;</span>
+    }
+    
+    @Override
+    protected void removeUnit(AIUnit u) {
+<span class="nc" id="L65">        Iterator&lt;AIUnit&gt; uit = availableUnitsList.iterator();</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        while (uit.hasNext()) {</span>
+<span class="nc" id="L67">            AIUnit unit = uit.next();</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">            if (unit.equals(u)) {</span>
+<span class="nc" id="L69">                uit.remove();</span>
+            }
+<span class="nc" id="L71">        }</span>
+<span class="nc" id="L72">    }</span>
+    
+    @Override
+    protected void plan() {
+<span class="nc" id="L76">        isFinished = false;</span>
+        
+        //Run through available units. For each unit, find a path to the
+        //target and move towards it. Return to parent if adjacent to target,
+        //or no path can be found.
+<span class="nc" id="L81">        Iterator&lt;AIUnit&gt; uit = availableUnitsList.iterator();</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        nextUnit: while (uit.hasNext()) {</span>
+<span class="nc" id="L83">            AIUnit u = uit.next();</span>
+
+<span class="nc" id="L85">            PathNode pathNode = u.getUnit().findPath(target);</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">            if (pathNode==null) {</span>
+<span class="nc" id="L87">                uit.remove();</span>
+<span class="nc" id="L88">                addUnitToParent(u);            </span>
+            } else {
+<span class="nc bnc" id="L90" title="All 2 branches missed.">                while (pathNode.next != null </span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">                        &amp;&amp; pathNode.getTurns() == 0</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">                        &amp;&amp; pathNode.getTile() != target</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">                        &amp;&amp; (u.getUnit().getMoveType(pathNode.getDirection()) == MoveType.MOVE</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">                          ||u.getUnit().getMoveType(pathNode.getDirection()) == MoveType.EXPLORE_LOST_CITY_RUMOUR)) {</span>
+                        
+<span class="nc bnc" id="L96" title="All 2 branches missed.">                            if(u.getUnit().getMoveType(pathNode.getDirection()) == MoveType.EXPLORE_LOST_CITY_RUMOUR) {</span>
+<span class="nc" id="L97">                                logger.warning(&quot;Accidental rumour exploration!&quot;);</span>
+                            }
+                        
+<span class="nc" id="L100">                            u.move(pathNode.getDirection());</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">                            if (u.getUnit() == null</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">                                || u.getUnit().isDisposed()) {</span>
+<span class="nc" id="L103">                                continue nextUnit;</span>
+                            }
+<span class="nc" id="L105">                            pathNode = pathNode.next;</span>
+                }
+<span class="nc bnc" id="L107" title="All 2 branches missed.">                if (u.getUnit().getTile().isAdjacent(target)) {</span>
+                    //If unit is adjacent after moving, return to parent
+<span class="nc" id="L109">                    uit.remove();</span>
+<span class="nc" id="L110">                    addUnitToParent(u);</span>
+                }
+            }
+<span class="nc" id="L113">        }</span>
+        
+<span class="nc bnc" id="L115" title="All 2 branches missed.">        if (availableUnitsList.isEmpty()) {</span>
+            //we don't have any units left to deal with,
+            //signal that we may safely be cancelled now
+<span class="nc" id="L118">            isFinished = true;</span>
+        }
+<span class="nc" id="L120">    }</span>
+
+    @Override
+    public String getGoalDescription() {
+<span class="nc" id="L124">        String descr = super.getGoalDescription();</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        if (target!=null) {</span>
+<span class="nc" id="L126">            descr += &quot;:&quot;+target.getX()+&quot;,&quot;+target.getY();</span>
+        } else {
+<span class="nc" id="L128">            descr += &quot;:null&quot;;</span>
+        }
+<span class="nc" id="L130">        return descr;</span>
+    }
+    
+
+    @Override
+    public void toXML(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="nc" id="L136">    }</span>
+    
+    @Override
+    public void readFromXML(FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L140">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+<span class="nc" id="L146">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

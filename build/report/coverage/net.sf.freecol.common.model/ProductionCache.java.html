@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProductionCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.model</a> &gt; <span class="el_source">ProductionCache.java</span></div><h1>ProductionCache.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.model;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static net.sf.freecol.common.util.CollectionUtils.*;
+
+
+/**
+ * The &lt;code&gt;ProductionCache&lt;/code&gt; is contains all relevant
+ * information about the production and consumption of the
+ * colony. This includes the production of all colony tiles and
+ * buildings, as well as the consumption of all units, buildings and
+ * build queues.
+ *
+ */
+public class ProductionCache {
+
+    /**
+     * The colony whose production is being cached. The goods stored
+     * in the colony may need to be considered in order to prevent
+     * excess production.
+     */
+    private final Colony colony;
+
+    /** A map of net production by goods type. */
+<span class="fc" id="L50">    private final TypeCountMap&lt;GoodsType&gt; netProduction</span>
+        = new TypeCountMap&lt;&gt;();
+
+    /** A map of production info for various producers and consumers. */
+<span class="fc" id="L54">    private final Map&lt;Object, ProductionInfo&gt; productionAndConsumption</span>
+        = new HashMap&lt;&gt;();
+
+    /** A set of the goods used by the colony. */
+<span class="fc" id="L58">    private final Set&lt;GoodsType&gt; goodsUsed = new HashSet&lt;&gt;();</span>
+
+    /**
+     * Flag to indicate whether the cache is up to date, or not and
+     * needs {@link #update} to be called.
+     */
+<span class="fc" id="L64">    private boolean upToDate = false;</span>
+
+
+    /**
+     * Creates a new &lt;code&gt;ProductionCache&lt;/code&gt; instance.
+     *
+     * @param colony a &lt;code&gt;Colony&lt;/code&gt; value
+     */
+<span class="fc" id="L72">    public ProductionCache(Colony colony) {</span>
+<span class="fc" id="L73">        this.colony = colony;</span>
+<span class="fc" id="L74">    }</span>
+
+
+    /**
+     * Updates all data structures.  The method has no side effects.
+     *
+     * For now, there is a hard assumption that ColonyTiles do not
+     * consume but Buildings do.  One day we may want to generalize
+     * this, which will require processing the goods types in an order
+     * sorted by the requirement dependencies.  But not yet.  This
+     * assumption is made explicit by getting the ProductionInfo from
+     * ColonyTiles with the simple getBasicProductionInfo() routine,
+     * but from Buildings with getAdjustedProductionInfo() which takes
+     * account of the input and output goods levels.
+     *
+     * FIXME: Ideally these should be unified into a
+     * WorkLocation.getProductionInfo with the Building-form
+     * arguments.
+     */
+    private synchronized void update() {
+<span class="fc bfc" id="L94" title="All 2 branches covered.">        if (upToDate) return; // nothing to do</span>
+<span class="fc" id="L95">        final Specification spec = colony.getSpecification();</span>
+<span class="fc" id="L96">        final GoodsType bells = spec.getGoodsType(&quot;model.goods.bells&quot;);</span>
+
+<span class="fc" id="L98">        productionAndConsumption.clear();</span>
+<span class="fc" id="L99">        netProduction.clear();</span>
+<span class="fc" id="L100">        goodsUsed.clear();</span>
+<span class="fc" id="L101">        ProductionMap production = new ProductionMap();</span>
+
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        for (ColonyTile colonyTile : colony.getColonyTiles()) {</span>
+<span class="fc" id="L104">            ProductionInfo info = colonyTile.getBasicProductionInfo();</span>
+<span class="fc" id="L105">            production.add(info.getProduction());</span>
+<span class="fc" id="L106">            productionAndConsumption.put(colonyTile, info);</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">            for (AbstractGoods goods : info.getProduction()) {</span>
+<span class="fc" id="L108">                goodsUsed.add(goods.getType());</span>
+<span class="fc" id="L109">                netProduction.incrementCount(goods.getType().getStoredAs(),</span>
+<span class="fc" id="L110">                                             goods.getAmount());</span>
+<span class="fc" id="L111">            }</span>
+<span class="fc" id="L112">        }</span>
+
+        // Add bell production to compensate for the units-that-use-no-bells
+        // as this is not handled by the unit conumption.
+<span class="fc" id="L116">        int unitsThatUseNoBells</span>
+<span class="fc" id="L117">            = spec.getInteger(GameOptions.UNITS_THAT_USE_NO_BELLS);</span>
+<span class="fc" id="L118">        int amount = Math.min(unitsThatUseNoBells, colony.getUnitCount());</span>
+<span class="fc" id="L119">        ProductionInfo bellsInfo = new ProductionInfo();</span>
+<span class="fc" id="L120">        bellsInfo.addProduction(new AbstractGoods(bells, amount));</span>
+<span class="fc" id="L121">        productionAndConsumption.put(this, bellsInfo);</span>
+<span class="fc" id="L122">        netProduction.incrementCount(bells, amount);</span>
+
+<span class="fc" id="L124">        List&lt;AbstractGoods&gt; goods = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L125" title="All 2 branches covered.">        for (Consumer consumer : colony.getConsumers()) {</span>
+<span class="fc" id="L126">            Set&lt;Modifier&gt; modifiers = consumer</span>
+<span class="fc" id="L127">                .getModifiers(Modifier.CONSUME_ONLY_SURPLUS_PRODUCTION);</span>
+<span class="fc" id="L128">            goods.clear();</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">            for (AbstractGoods g : consumer.getConsumedGoods()) {</span>
+<span class="fc" id="L130">                goodsUsed.add(g.getType());</span>
+<span class="fc" id="L131">                AbstractGoods surplus</span>
+<span class="fc" id="L132">                    = new AbstractGoods(production.get(g.getType()));</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">                if (modifiers.isEmpty()) {</span>
+<span class="fc" id="L134">                    surplus.setAmount(surplus.getAmount()</span>
+<span class="fc" id="L135">                        + getGoodsCount(g.getType()));</span>
+                } else {
+<span class="fc" id="L137">                    surplus.setAmount((int)FeatureContainer</span>
+<span class="fc" id="L138">                        .applyModifiers(surplus.getAmount(), null, modifiers));</span>
+                }
+<span class="fc" id="L140">                goods.add(surplus);</span>
+<span class="fc" id="L141">            }</span>
+<span class="fc" id="L142">            ProductionInfo info = null;</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">            if (consumer instanceof Building) {</span>
+<span class="fc" id="L144">                Building building = (Building)consumer;</span>
+<span class="fc" id="L145">                List&lt;AbstractGoods&gt; outputs = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">                for (AbstractGoods output : building.getOutputs()) {</span>
+<span class="fc" id="L147">                    GoodsType outputType = output.getType();</span>
+<span class="fc" id="L148">                    goodsUsed.add(outputType);</span>
+<span class="fc" id="L149">                    AbstractGoods newOutput</span>
+<span class="fc" id="L150">                        = new AbstractGoods(production.get(outputType));</span>
+<span class="fc" id="L151">                    newOutput.setAmount(newOutput.getAmount()</span>
+<span class="fc" id="L152">                        + getGoodsCount(outputType));</span>
+<span class="fc" id="L153">                    outputs.add(newOutput);</span>
+<span class="fc" id="L154">                }</span>
+<span class="fc" id="L155">                info = building.getAdjustedProductionInfo(goods, outputs);</span>
+<span class="fc bfc" id="L156" title="All 2 branches covered.">            } else if (consumer instanceof Unit) {</span>
+<span class="fc" id="L157">                info = ((Unit)consumer).getProductionInfo(goods);</span>
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">            } else if (consumer instanceof BuildQueue) {</span>
+<span class="fc" id="L159">                info = ((BuildQueue&lt;?&gt;)consumer).getProductionInfo(goods);</span>
+            }
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">            if (info != null) {</span>
+<span class="fc" id="L162">                production.add(info.getProduction());</span>
+<span class="fc" id="L163">                production.remove(info.getConsumption());</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">                for (AbstractGoods g : info.getProduction()) {</span>
+<span class="fc" id="L165">                    netProduction.incrementCount(g.getType().getStoredAs(),</span>
+<span class="fc" id="L166">                                                 g.getAmount());</span>
+<span class="fc" id="L167">                }</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">                for (AbstractGoods g : info.getConsumption()) {</span>
+<span class="fc" id="L169">                    netProduction.incrementCount(g.getType().getStoredAs(),</span>
+<span class="fc" id="L170">                                                 -g.getAmount());</span>
+<span class="fc" id="L171">                }</span>
+<span class="fc" id="L172">                productionAndConsumption.put(consumer, info);</span>
+            }
+<span class="fc" id="L174">        }</span>
+<span class="fc" id="L175">        upToDate = true;</span>
+<span class="fc" id="L176">    }</span>
+
+
+    /**
+     * Returns the number of goods of the given type stored in the
+     * colony.
+     *
+     * @param type a &lt;code&gt;GoodsType&lt;/code&gt; value
+     * @return an &lt;code&gt;int&lt;/code&gt; value
+     */
+    private int getGoodsCount(GoodsType type) {
+<span class="fc" id="L187">        return colony.getGoodsCount(type);</span>
+    }
+
+    /**
+     * Invalidates the production cache. This method needs to be
+     * called whenever global production modifiers change. This might
+     * be the case when a new {@link FoundingFather} is added, or when
+     * the colony's production bonus changes.
+     *
+     */
+    public synchronized void invalidate() {
+<span class="fc" id="L198">        upToDate = false;</span>
+<span class="fc" id="L199">    }</span>
+
+    /**
+     * Invalidates the production cache if it produces or consumes the
+     * given GoodsType. This method needs to be called whenever goods
+     * are added to or removed from the colony.
+     *
+     * @param goodsType a &lt;code&gt;GoodsType&lt;/code&gt; value
+     */
+    public synchronized void invalidate(GoodsType goodsType) {
+<span class="fc bfc" id="L209" title="All 2 branches covered.">        if (goodsUsed.contains(goodsType)) {</span>
+<span class="fc" id="L210">            upToDate = false;</span>
+        }
+<span class="fc" id="L212">    }</span>
+
+    /**
+     * Does this production cache contain production of a goods type?
+     *
+     * @param goodsType The &lt;code&gt;GoodsType&lt;/code&gt; to check.
+     * @return True if there is a production entry for the given type.
+     */
+    public boolean isProducing(GoodsType goodsType) {
+<span class="nc" id="L221">        update();</span>
+<span class="nc" id="L222">        return any(productionAndConsumption.values(),</span>
+<span class="nc" id="L223">            pi -&gt; AbstractGoods.containsType(goodsType, pi.getProduction()));</span>
+    }
+
+    /**
+     * Does this production cache contain consumption of a goods type?
+     *
+     * @param goodsType The &lt;code&gt;GoodsType&lt;/code&gt; to check.
+     * @return True if there is a consumption entry for the given type.
+     */
+    public boolean isConsuming(GoodsType goodsType) {
+<span class="nc" id="L233">        update();</span>
+<span class="nc" id="L234">        return any(productionAndConsumption.values(),</span>
+<span class="nc" id="L235">            pi -&gt; AbstractGoods.containsType(goodsType, pi.getConsumption()));</span>
+    }
+    
+    /**
+     * Returns the net production, that is the total production minus
+     * the total consumption, of the given GoodsType.
+     *
+     * @param type a &lt;code&gt;GoodsType&lt;/code&gt; value
+     * @return an &lt;code&gt;int&lt;/code&gt; value
+     */
+    public int getNetProductionOf(GoodsType type) {
+<span class="fc" id="L246">        update();</span>
+<span class="fc" id="L247">        return netProduction.getCount(type);</span>
+    }
+
+    /**
+     * Gets the &lt;code&gt;ProductionInfo&lt;/code&gt; for the given
+     * {@link WorkLocation} or {@link Consumer}.
+     *
+     * @param object an &lt;code&gt;Object&lt;/code&gt; value
+     * @return a &lt;code&gt;ProductionInfo&lt;/code&gt; value
+     */
+    public ProductionInfo getProductionInfo(Object object) {
+<span class="fc" id="L258">        update();</span>
+<span class="fc" id="L259">        return productionAndConsumption.get(object);</span>
+    }
+
+    /**
+     * Gets a copy of the current production state.
+     *
+     * @return A copy of the current production state.
+     */
+    public TypeCountMap&lt;GoodsType&gt; getProductionMap() {
+<span class="fc" id="L268">        update();</span>
+<span class="fc" id="L269">        TypeCountMap&lt;GoodsType&gt; result = new TypeCountMap&lt;&gt;();</span>
+<span class="fc" id="L270">        result.putAll(netProduction);</span>
+<span class="fc" id="L271">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -1,0 +1,642 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AIMain.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.ai</a> &gt; <span class="el_source">AIMain.java</span></div><h1>AIMain.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.ai;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+
+import net.sf.freecol.common.io.FreeColXMLReader;
+import net.sf.freecol.common.io.FreeColXMLWriter;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.FreeColGameObject;
+import net.sf.freecol.common.model.FreeColGameObjectListener;
+import net.sf.freecol.common.model.FreeColObject;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.Unit;
+import static net.sf.freecol.common.util.RandomUtils.*;
+import static net.sf.freecol.common.util.StringUtils.*;
+import net.sf.freecol.server.FreeColServer;
+import net.sf.freecol.server.model.ServerPlayer;
+
+
+/**
+ * The main AI-class.
+ * Keeps references to all other AI-classes.
+ */
+public class AIMain extends FreeColObject
+    implements FreeColGameObjectListener {
+
+<span class="fc" id="L56">    private static final Logger logger = Logger.getLogger(AIMain.class.getName());</span>
+
+    /** The server that this AI is operating within. */
+    private final FreeColServer freeColServer;
+
+    /** The next AI identifier index. */
+<span class="fc" id="L62">    private int nextId = 1;</span>
+
+    /**
+     * Contains mappings between &lt;code&gt;FreeColGameObject&lt;/code&gt;s
+     * and &lt;code&gt;AIObject&lt;/code&gt;s.
+     */
+<span class="fc" id="L68">    private final Map&lt;String, AIObject&gt; aiObjects = new HashMap&lt;&gt;();</span>
+
+
+    /**
+     * Creates a new &lt;code&gt;AIMain&lt;/code&gt; and searches the current
+     * game for &lt;code&gt;FreeColGameObject&lt;/code&gt;s.
+     *
+     * @param freeColServer The main controller object for the server.
+     */
+<span class="fc" id="L77">    public AIMain(FreeColServer freeColServer) {</span>
+<span class="fc" id="L78">        this.freeColServer = freeColServer;</span>
+<span class="fc" id="L79">    }</span>
+
+    /**
+     * Creates a new &lt;code&gt;AIMain&lt;/code&gt; and reads the given element.
+     *
+     * @param freeColServer The main controller object for the
+     *     server.
+     * @param xr The input stream containing the XML.
+     * @exception XMLStreamException if a problem was encountered
+     *     during parsing.
+     * @see #readFromXML
+     */
+    public AIMain(FreeColServer freeColServer,
+                  FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L93">        this(freeColServer);</span>
+
+<span class="fc" id="L95">        readFromXML(xr);</span>
+<span class="fc" id="L96">    }</span>
+
+
+    /**
+     * Gets the main controller object for the server.
+     *
+     * @return The &lt;code&gt;FreeColServer&lt;/code&gt;-object.
+     */
+    public FreeColServer getFreeColServer() {
+<span class="fc" id="L105">        return freeColServer;</span>
+    }
+
+    /**
+     * Convenience accessor for the Game.
+     *
+     * @return The &lt;code&gt;Game&lt;/code&gt; this AI is operating in.
+     */
+    public Game getGame() {
+<span class="fc" id="L114">        return freeColServer.getGame();</span>
+    }
+
+    /**
+     * Gets a unique identifier for an &lt;code&gt;AIObject&lt;/code&gt;.
+     *
+     * @return A unique identifier.
+     */
+    public String getNextId() {
+<span class="fc" id="L123">        String id = &quot;am&quot; + Integer.toString(nextId);</span>
+<span class="fc" id="L124">        nextId++;</span>
+<span class="fc" id="L125">        return id;</span>
+    }
+
+    /**
+     * Gets a random value from the server to use for individual AI player
+     * PRNG seeds.
+     *
+     * @param logMe A logging string.
+     * @return A random seed.
+     */
+    public int getRandomSeed(String logMe) {
+<span class="fc" id="L136">        return randomInt(logger, logMe, freeColServer.getServerRandom(),</span>
+                         Integer.MAX_VALUE);
+    }
+
+    /**
+     * Should a &lt;code&gt;FreeColGameObject&lt;/code&gt; have a corresponding AI
+     * object?
+     *
+     * Strictly true only for AI players and their units and colonies
+     * (not (yet) for native settlements).  However object
+     * initialization is not necessarily complete when we arrive here,
+     * which means we can not yet use the Colony or Unit owner fields.
+     * So the actual test implemented here is somewhat sloppy.
+     *
+     * @param fcgo The &lt;code&gt;FreeColGameObject&lt;/code&gt; to test.
+     * @return True if a corresponding AI object is needed.
+     */
+    private boolean shouldHaveAIObject(FreeColGameObject fcgo) {
+<span class="fc bfc" id="L154" title="All 4 branches covered.">        return (fcgo instanceof Colony) ? true</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">            : (fcgo instanceof Player)  ? ((Player)fcgo).isAI()</span>
+            : (fcgo instanceof Unit)    ? true
+            : false;
+    }
+
+    /**
+     * Searches for new {@link FreeColGameObject FreeColGameObjects}.
+     * An AI-object is created for each new object.
+     *
+     * @param overwrite Determines wether any old &lt;code&gt;AIObject&lt;/code&gt;
+     *     should be overwritten or not.
+     */
+    public void findNewObjects(boolean overwrite) {
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        for (FreeColGameObject fcgo : freeColServer.getGame()</span>
+<span class="fc" id="L169">                 .getFreeColGameObjects()) {</span>
+<span class="fc bfc" id="L170" title="All 2 branches covered.">            if (!shouldHaveAIObject(fcgo)) continue;</span>
+<span class="pc bpc" id="L171" title="3 of 4 branches missed.">            if (overwrite || getAIObject(fcgo) == null) {</span>
+<span class="fc" id="L172">                setFreeColGameObject(fcgo.getId(), fcgo);</span>
+            }
+<span class="fc" id="L174">        }</span>
+<span class="fc" id="L175">    }</span>
+
+    /**
+     * Gets the &lt;code&gt;AIObject&lt;/code&gt; for the given
+     * &lt;code&gt;FreeColGameObject&lt;/code&gt;.
+     *
+     * @param fcgo The &lt;code&gt;FreeColGameObject&lt;/code&gt; to find the
+     *     &lt;code&gt;AIObject&lt;/code&gt; for.
+     * @see #getAIObject(String)
+     * @return The &lt;code&gt;AIObject&lt;/code&gt;.
+     */
+    public AIObject getAIObject(FreeColGameObject fcgo) {
+<span class="fc" id="L187">        return getAIObject(fcgo.getId());</span>
+    }
+
+    /**
+     * Gets the &lt;code&gt;AIObject&lt;/code&gt; for a given object identifier.
+     *
+     * @param id The object identifier.
+     * @see #getAIObject(FreeColGameObject)
+     * @return The &lt;code&gt;AIObject&lt;/code&gt;.
+     */
+    public AIObject getAIObject(String id) {
+<span class="fc" id="L198">        synchronized (aiObjects) {</span>
+<span class="fc" id="L199">            return aiObjects.get(id);</span>
+<span class="nc" id="L200">        }</span>
+    }
+
+    /**
+     * Adds a reference to the given &lt;code&gt;AIObject&lt;/code&gt;.
+     *
+     * @param id The object identifier.
+     * @param aiObject The &lt;code&gt;AIObject&lt;/code&gt; to store a reference
+     *        for.
+     */
+    public void addAIObject(String id, AIObject aiObject) {
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">        if (aiObject == null) {</span>
+<span class="nc" id="L212">            throw new NullPointerException(&quot;aiObject == null&quot;);</span>
+        }
+        boolean present;
+<span class="fc" id="L215">        synchronized (aiObjects) {</span>
+<span class="fc" id="L216">            present = aiObjects.containsKey(id);</span>
+<span class="pc bpc" id="L217" title="1 of 2 branches missed.">            if (!present) aiObjects.put(id, aiObject);</span>
+<span class="pc" id="L218">        }</span>
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">        if (present) {</span>
+<span class="nc" id="L220">            throw new RuntimeException(&quot;AIObject already created: &quot; + id);</span>
+        }
+<span class="fc" id="L222">    }</span>
+
+    /**
+     * Removes a reference to the given &lt;code&gt;AIObject&lt;/code&gt;.
+     *
+     * @param id The object identifier.
+     * @return True if an object for the identifier is removed.
+     */
+    public boolean removeAIObject(String id) {
+        boolean result;
+<span class="fc" id="L232">        synchronized (aiObjects) {</span>
+<span class="fc bfc" id="L233" title="All 2 branches covered.">            result = aiObjects.remove(id) != null;</span>
+<span class="pc" id="L234">        }</span>
+<span class="fc bfc" id="L235" title="All 2 branches covered.">        if (result) logger.finest(&quot;Removed AI object: &quot; + id);</span>
+<span class="fc" id="L236">        return result;</span>
+    }
+
+    /**
+     * Get a copy of the list of all AI objects.
+     *
+     * @return A list of &lt;code&gt;AIObject&lt;/code&gt;s.
+     */
+    private List&lt;AIObject&gt; getAIObjects() {
+<span class="fc" id="L245">        synchronized (aiObjects) {</span>
+<span class="fc" id="L246">            return new ArrayList&lt;&gt;(aiObjects.values());</span>
+<span class="nc" id="L247">        }</span>
+    }
+
+    /**
+     * Gets the &lt;code&gt;AIObject&lt;/code&gt; with the specified object
+     * identifier and class.
+     *
+     * @param id The object identifier.
+     * @param returnClass The expected class of the object.
+     * @return The &lt;code&gt;AIObject&lt;/code&gt; found, or null if not.
+     */
+    public &lt;T extends AIObject&gt; T getAIObject(String id, Class&lt;T&gt; returnClass) {
+<span class="fc" id="L259">        AIObject aio = getAIObject(id);</span>
+        try {
+<span class="fc" id="L261">            return returnClass.cast(aio);</span>
+<span class="nc" id="L262">        } catch (ClassCastException e) {</span>
+<span class="nc" id="L263">            return null;</span>
+        }
+    }
+
+    /**
+     * Gets the AI colony corresponding to a given colony.
+     *
+     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to look up.
+     * @return The corresponding AI colony, or null if not found.
+     */
+    public AIColony getAIColony(Colony colony) {
+<span class="fc" id="L274">        return getAIObject(colony.getId(), AIColony.class);</span>
+    }
+
+    /**
+     * Gets the AI player corresponding to a given player.
+     *
+     * @param player The &lt;code&gt;Player&lt;/code&gt; to look up.
+     * @return The corresponding AI player, or null if not found.
+     */
+    public AIPlayer getAIPlayer(Player player) {
+<span class="fc" id="L284">        return getAIObject(player.getId(), AIPlayer.class);</span>
+    }
+
+    /**
+     * Gets the AI unit corresponding to a given unit.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to look up.
+     * @return The corresponding AI unit, or null if not found.
+     */
+    public AIUnit getAIUnit(Unit unit) {
+<span class="fc" id="L294">        return getAIObject(unit.getId(), AIUnit.class);</span>
+    }
+
+    /**
+     * Computes how many objects of each class have been created, to
+     * track memory leaks over time
+     */
+    public Map&lt;String, String&gt; getAIStatistics() {
+<span class="nc" id="L302">        Map&lt;String, String&gt; stats = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L303">        Map&lt;String, Long&gt; objStats = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L304" title="All 2 branches missed.">        for (AIObject aio : getAIObjects()) {</span>
+<span class="nc" id="L305">            String className = aio.getClass().getSimpleName();</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">            if (objStats.containsKey(className)) {</span>
+<span class="nc" id="L307">                Long count = objStats.get(className);</span>
+<span class="nc" id="L308">                count++;</span>
+<span class="nc" id="L309">                objStats.put(className, count);</span>
+<span class="nc" id="L310">            } else {</span>
+<span class="nc" id="L311">                Long count = (long) 1;</span>
+<span class="nc" id="L312">                objStats.put(className, count);</span>
+            }
+<span class="nc" id="L314">        }</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">        for (Entry&lt;String, Long&gt; entry : objStats.entrySet()) {</span>
+<span class="nc" id="L316">            stats.put(entry.getKey(), Long.toString(entry.getValue()));</span>
+<span class="nc" id="L317">        }</span>
+
+<span class="nc" id="L319">        return stats;</span>
+    }
+
+    /**
+     * Checks the integrity of this &lt;code&gt;AIMain&lt;/code&gt; by checking if
+     * there are any invalid objects.
+     *
+     * @param fix Fix problems if possible.
+     * @return Negative if there are problems remaining, zero if
+     *     problems were fixed, positive if no problems found at all.
+     */
+    public int checkIntegrity(boolean fix) {
+<span class="fc" id="L331">        int result = 1;</span>
+<span class="fc bfc" id="L332" title="All 2 branches covered.">        for (AIObject aio : getAIObjects()) {</span>
+<span class="fc" id="L333">            int integ = aio.checkIntegrity(fix);</span>
+<span class="pc bpc" id="L334" title="3 of 4 branches missed.">            if (integ &lt; 0 &amp;&amp; fix) {</span>
+<span class="nc" id="L335">                logger.warning(&quot;Invalid AIObject: &quot; + aio.getId()</span>
+<span class="nc" id="L336">                    + &quot; (&quot; + lastPart(aio.getClass().getName(), &quot;.&quot;)</span>
+                    + &quot;), dropping.&quot;);
+<span class="nc" id="L338">                removeAIObject(aio.getId());</span>
+<span class="nc" id="L339">                aio.dispose();</span>
+<span class="nc" id="L340">                integ = 0;</span>
+            }
+<span class="fc" id="L342">            result = Math.min(result, integ);</span>
+<span class="fc" id="L343">        }</span>
+
+<span class="fc bfc" id="L345" title="All 2 branches covered.">        for (FreeColGameObject fcgo : getGame().getFreeColGameObjects()) {</span>
+<span class="fc bfc" id="L346" title="All 2 branches covered.">            if (shouldHaveAIObject(fcgo)</span>
+<span class="pc bpc" id="L347" title="1 of 2 branches missed.">                &amp;&amp; getAIObject(fcgo.getId()) == null) {</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">                if (fix) {</span>
+<span class="nc" id="L349">                    logger.warning(&quot;Added missing AIObject for: &quot; + fcgo.getId());</span>
+<span class="nc" id="L350">                    setFreeColGameObject(fcgo.getId(), fcgo);</span>
+<span class="nc" id="L351">                    result = 0;</span>
+                } else {
+<span class="nc" id="L353">                    logger.warning(&quot;Missing AIObject for: &quot; + fcgo.getId());</span>
+<span class="nc" id="L354">                    result = -1;</span>
+                }
+            }
+<span class="fc" id="L357">        }</span>
+<span class="fc" id="L358">        return result;</span>
+    }
+
+
+    // Interface FreeColGameObjectListener
+
+    /**
+     * Creates a new &lt;code&gt;AIObject&lt;/code&gt; for a given
+     * &lt;code&gt;FreeColGameObject&lt;/code&gt;. This method gets called
+     * whenever a new object gets added to the {@link Game}.
+     *
+     * @param id The object identifier.
+     * @param fcgo The &lt;code&gt;FreeColGameObject&lt;/code&gt; to add.
+     * @see AIObject
+     * @see FreeColGameObject
+     * @see FreeColGameObject#getId
+     */
+    @Override
+    public void setFreeColGameObject(String id, FreeColGameObject fcgo) {
+<span class="fc bfc" id="L377" title="All 4 branches covered.">        if (getAIObject(id) != null || !shouldHaveAIObject(fcgo)) return;</span>
+<span class="pc bpc" id="L378" title="1 of 2 branches missed.">        if (!id.equals(fcgo.getId())) {</span>
+<span class="nc" id="L379">            throw new IllegalArgumentException(&quot;!id.equals(fcgo.getId())&quot;);</span>
+        }
+<span class="fc bfc" id="L381" title="All 2 branches covered.">        if (fcgo instanceof Colony) {</span>
+<span class="fc" id="L382">            new AIColony(this, (Colony)fcgo);</span>
+<span class="fc bfc" id="L383" title="All 2 branches covered.">        } else if (fcgo instanceof ServerPlayer) {</span>
+<span class="fc" id="L384">            ServerPlayer player = (ServerPlayer)fcgo;</span>
+<span class="pc bpc" id="L385" title="1 of 2 branches missed.">            if (player.getPlayerType() == null) {</span>
+                // No point doing anything with the object yet, as we
+                // need the player type before we can create the
+                // right class of AI player.
+<span class="nc" id="L389">                logger.info(&quot;Temporarily ignoring incomplete AI player: &quot;</span>
+<span class="nc" id="L390">                    + fcgo.getId());</span>
+<span class="fc bfc" id="L391" title="All 2 branches covered.">            } else if (player.isIndian()) {</span>
+<span class="fc" id="L392">                new NativeAIPlayer(this, player);</span>
+<span class="fc bfc" id="L393" title="All 2 branches covered.">            } else if (player.isREF()) {</span>
+<span class="fc" id="L394">                new REFAIPlayer(this, player);</span>
+<span class="pc bpc" id="L395" title="1 of 2 branches missed.">            } else if (player.isEuropean()) {</span>
+<span class="fc" id="L396">                new EuropeanAIPlayer(this, player);</span>
+            } else {
+<span class="nc" id="L398">                throw new IllegalArgumentException(&quot;Bogus player: &quot; + player);</span>
+            }
+<span class="pc bpc" id="L400" title="1 of 2 branches missed.">        } else if (fcgo instanceof Unit) {</span>
+<span class="fc" id="L401">            new AIUnit(this, (Unit)fcgo);</span>
+        }
+<span class="fc" id="L403">    }</span>
+
+    /**
+     * Removes the &lt;code&gt;AIObject&lt;/code&gt; for a given AI identifier.
+     * Needed for interface FreeColGameObjectListener.
+     *
+     * @param id The object identifier.
+     */
+    @Override
+    public void removeFreeColGameObject(String id) {
+<span class="fc" id="L413">        AIObject o = getAIObject(id);</span>
+<span class="fc bfc" id="L414" title="All 2 branches covered.">        if (o != null) o.dispose();</span>
+<span class="fc" id="L415">        removeAIObject(id);</span>
+<span class="fc" id="L416">    }</span>
+
+    /**
+     * Replaces the AI object when ownership changes.
+     *
+     * @param source The &lt;code&gt;FreeColGameObject&lt;/code&gt; that has changed.
+     * @param oldOwner The old owning &lt;code&gt;Player&lt;/code&gt;.
+     * @param newOwner The new owning &lt;code&gt;Player&lt;/code&gt;.
+     */
+    @Override
+    public void ownerChanged(FreeColGameObject source, Player oldOwner,
+                             Player newOwner) {
+<span class="fc" id="L428">        AIObject ao = getAIObject(source);</span>
+<span class="fc" id="L429">        logger.finest(&quot;Owner changed for &quot; + source.getId()</span>
+            + &quot; with AI object: &quot; + ao);
+<span class="fc" id="L431">        AIPlayer aiOwner = getAIPlayer(oldOwner);</span>
+<span class="pc bpc" id="L432" title="1 of 2 branches missed.">        if (aiOwner != null) {</span>
+<span class="fc bfc" id="L433" title="All 2 branches covered.">            if (ao instanceof AIColony) {</span>
+<span class="fc" id="L434">                aiOwner.removeAIColony((AIColony)ao);</span>
+<span class="pc bpc" id="L435" title="1 of 2 branches missed.">            } else if (ao instanceof AIUnit) {</span>
+<span class="fc" id="L436">                aiOwner.removeAIUnit((AIUnit)ao);</span>
+            }
+        }
+<span class="pc bpc" id="L439" title="1 of 2 branches missed.">        if (ao != null) {</span>
+<span class="fc" id="L440">            ao.dispose();</span>
+<span class="fc" id="L441">            setFreeColGameObject(source.getId(), source);</span>
+        }
+<span class="fc" id="L443">    }</span>
+
+
+    // Override FreeColObject
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Specification getSpecification() {
+<span class="nc" id="L453">        return getGame().getSpecification();</span>
+    }
+
+
+    // Serialization
+
+    private static final String NEXT_ID_TAG = &quot;nextId&quot;;
+    // @compat 0.10.3
+    private static final String COLONIAL_AI_PLAYER_TAG = &quot;colonialAIPlayer&quot;;
+    private static final String GOODS_WISH_TAG = &quot;GoodsWish&quot;;
+    // end @compat
+    // @compat 0.10.7
+    private static final String OLD_NEXT_ID_TAG = &quot;nextID&quot;;
+    // end @compat
+    // @compat 0.11.3
+    private static final String OLD_TILE_IMPROVEMENT_PLAN_TAG = &quot;tileimprovementplan&quot;;
+    // end @compat 0.11.3
+
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+        // Does not have an identifier, so no need for
+        // super.writeAttributes()
+
+<span class="fc" id="L480">        xw.writeAttribute(NEXT_ID_TAG, nextId);</span>
+<span class="fc" id="L481">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L488">        super.writeChildren(xw);</span>
+
+<span class="fc bfc" id="L490" title="All 2 branches covered.">        for (AIObject aio : FreeColObject.getSortedCopy(aiObjects.values())) {</span>
+<span class="pc bpc" id="L491" title="1 of 2 branches missed.">            if (aio.checkIntegrity(false) &lt; 0) {</span>
+                // We expect to see integrity failure when AIGoods are
+                // aboard a unit that gets destroyed or if its
+                // destination is destroyed, and probably more.  These
+                // are hard to catch because AIGoods ids are not
+                // linked to the Goods ids (Goods ids are just the
+                // type ids) so we do not get notification of the
+                // Goods being destroyed.
+<span class="nc" id="L499">                aio.dispose();</span>
+<span class="nc" id="L500">                continue;</span>
+            }
+<span class="pc bpc" id="L502" title="1 of 2 branches missed.">            if (aio instanceof Wish) {</span>
+<span class="nc bnc" id="L503" title="All 2 branches missed.">                if (!((Wish)aio).shouldBeStored()) continue;</span>
+            }
+
+            try {
+<span class="pc bpc" id="L507" title="1 of 2 branches missed.">                if (aio.getId() == null) {</span>
+<span class="nc" id="L508">                    logger.warning(&quot;Null AI identifier for: &quot;</span>
+<span class="nc" id="L509">                        + aio.getClass().getName());</span>
+                } else {
+<span class="fc" id="L511">                    aio.toXML(xw);</span>
+                }
+<span class="nc" id="L513">            } catch (Exception e) {</span>
+<span class="nc" id="L514">                logger.log(Level.WARNING, &quot;Failed to write AI object: &quot; + aio,</span>
+                    e);
+<span class="fc" id="L516">            }</span>
+<span class="fc" id="L517">        }</span>
+<span class="fc" id="L518">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L525">        nextId = xr.getAttribute(NEXT_ID_TAG, -1);</span>
+        // @compat 0.10.x
+<span class="pc bpc" id="L527" title="1 of 2 branches missed.">        if (nextId &lt; 0) nextId = xr.getAttribute(OLD_NEXT_ID_TAG, 0);</span>
+        // end @compat
+<span class="fc" id="L529">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+        // Clear containers.
+<span class="fc" id="L537">        aiObjects.clear();</span>
+
+<span class="fc" id="L539">        super.readChildren(xr);</span>
+<span class="fc" id="L540">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L547">        final String tag = xr.getLocalName();</span>
+<span class="fc" id="L548">        final String oid = xr.readId();</span>
+
+        try {
+<span class="fc" id="L551">            Wish wish = null;</span>
+
+            // The AI data is quite shallow, so we can get away with
+            // fixing up forward references just with this simple
+            // lookup.  AIObjects that can be forward referenced must
+            // ensure they complete initialization somewhere in their
+            // serialization read* routines.
+            AIObject aio;
+<span class="pc bpc" id="L559" title="2 of 4 branches missed.">            if (oid != null &amp;&amp; (aio = getAIObject(oid)) != null) {</span>
+<span class="nc" id="L560">                aio.readFromXML(xr);</span>
+
+            // @compat 0.10.1
+<span class="pc bpc" id="L563" title="1 of 2 branches missed.">            } else if (COLONIAL_AI_PLAYER_TAG.equals(tag)) {</span>
+<span class="nc" id="L564">                new EuropeanAIPlayer(this, xr);</span>
+            // end @compat
+
+<span class="pc bpc" id="L567" title="1 of 2 branches missed.">            } else if (AIColony.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L568">                new AIColony(this, xr);</span>
+
+<span class="pc bpc" id="L570" title="1 of 2 branches missed.">            } else if (AIGoods.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L571">                new AIGoods(this, xr);</span>
+
+<span class="fc bfc" id="L573" title="All 2 branches covered.">            } else if (AIPlayer.getXMLElementTagName().equals(tag)) {</span>
+<span class="fc" id="L574">                Player p = getGame().getFreeColGameObject(oid, Player.class);</span>
+<span class="pc bpc" id="L575" title="1 of 2 branches missed.">                if (p != null) {</span>
+<span class="fc bfc" id="L576" title="All 2 branches covered.">                    if (p.isIndian()) {</span>
+<span class="fc" id="L577">                        new NativeAIPlayer(this, xr);</span>
+<span class="pc bpc" id="L578" title="1 of 2 branches missed.">                    } else if (p.isREF()) {</span>
+<span class="nc" id="L579">                        new REFAIPlayer(this, xr);</span>
+<span class="pc bpc" id="L580" title="1 of 2 branches missed.">                    } else if (p.isEuropean()) {</span>
+<span class="fc" id="L581">                        new EuropeanAIPlayer(this, xr);</span>
+                    } else {
+<span class="nc" id="L583">                        throw new RuntimeException(&quot;Bogus AIPlayer: &quot; + p);</span>
+                    }
+                }
+
+<span class="pc bpc" id="L587" title="1 of 2 branches missed.">            } else if (AIUnit.getXMLElementTagName().equals(tag)) {</span>
+<span class="fc" id="L588">                new AIUnit(this, xr);</span>
+
+<span class="nc bnc" id="L590" title="All 2 branches missed.">            } else if (GoodsWish.getXMLElementTagName().equals(tag)</span>
+                // @compat 0.10.3
+<span class="nc bnc" id="L592" title="All 2 branches missed.">                || GOODS_WISH_TAG.equals(tag)</span>
+                // end @compat
+                       ) {
+<span class="nc" id="L595">                wish = new GoodsWish(this, xr);</span>
+
+<span class="nc bnc" id="L597" title="All 2 branches missed.">            } else if (TileImprovementPlan.getXMLElementTagName().equals(tag)</span>
+                // @compat 0.10.3
+<span class="nc bnc" id="L599" title="All 2 branches missed.">                || OLD_TILE_IMPROVEMENT_PLAN_TAG.equals(tag)</span>
+                // end @compat
+                       ) {
+<span class="nc" id="L602">                new TileImprovementPlan(this, xr);</span>
+
+<span class="nc bnc" id="L604" title="All 2 branches missed.">            } else if (WorkerWish.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L605">                wish = new WorkerWish(this, xr);</span>
+            
+            } else {
+<span class="nc" id="L608">                super.readChild(xr);</span>
+            }
+            
+<span class="pc bpc" id="L611" title="1 of 2 branches missed.">            if (wish != null) {</span>
+<span class="nc" id="L612">                AIColony ac = wish.getDestinationAIColony();</span>
+<span class="nc bnc" id="L613" title="All 2 branches missed.">                if (ac != null) ac.addWish(wish);</span>
+            }
+
+<span class="nc" id="L616">        } catch (Exception e) {</span>
+<span class="nc" id="L617">            logger.log(Level.WARNING, &quot;Exception reading AIObject: &quot;</span>
+                       + tag + &quot;, id=&quot; + oid, e);
+            // We are hosed.  Try to resynchronize at the end of the tag
+            // or aiMain.
+<span class="nc" id="L621">            final String mainTag = getXMLElementTagName();</span>
+<span class="nc bnc" id="L622" title="All 2 branches missed.">            while (xr.nextTag() != XMLStreamConstants.END_ELEMENT</span>
+<span class="nc bnc" id="L623" title="All 4 branches missed.">                || !(xr.atTag(tag) || xr.atTag(mainTag)));</span>
+<span class="fc" id="L624">        }</span>
+<span class="fc" id="L625">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+<span class="fc" id="L631">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
+
+    /**
+     * Gets the tag name of the root element representing this object.
+     *
+     * @return &quot;aiMain&quot;
+     */
+    public static String getXMLElementTagName() {
+<span class="fc" id="L639">        return &quot;aiMain&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MapEditorTransformPanel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.client.gui.panel</a> &gt; <span class="el_source">MapEditorTransformPanel.java</span></div><h1>MapEditorTransformPanel.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.client.gui.panel;
+
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.GridLayout;
+import java.awt.Image;
+import java.awt.event.ActionEvent;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Logger;
+
+import javax.swing.ButtonGroup;
+import javax.swing.ImageIcon;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JToggleButton;
+
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.control.MapEditorController;
+import net.sf.freecol.client.control.MapEditorController.IMapTransform;
+import net.sf.freecol.client.gui.ChoiceItem;
+import net.sf.freecol.client.gui.ImageLibrary;
+import net.sf.freecol.client.gui.SwingGUI;
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Direction;
+import net.sf.freecol.common.model.IndianNationType;
+import net.sf.freecol.common.model.LostCityRumour;
+import net.sf.freecol.common.model.ModelMessage;
+import net.sf.freecol.common.model.Nation;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Resource;
+import net.sf.freecol.common.model.ResourceType;
+import net.sf.freecol.common.model.SettlementType;
+import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TileImprovement;
+import net.sf.freecol.common.model.TileImprovementType;
+import net.sf.freecol.common.model.TileType;
+import net.sf.freecol.common.model.UnitType;
+import net.sf.freecol.server.model.ServerIndianSettlement;
+
+
+/**
+ * A panel for choosing the current &lt;code&gt;MapTransform&lt;/code&gt;.
+ *
+ * &lt;br&gt;&lt;br&gt;
+ *
+ * This panel is only used when running in
+ * {@link net.sf.freecol.client.FreeColClient#isMapEditor() map editor mode}.
+ *
+ * @see MapEditorController#getMapTransform()
+ * @see MapTransform
+ */
+public final class MapEditorTransformPanel extends FreeColPanel {
+
+    @SuppressWarnings(&quot;unused&quot;)
+<span class="nc" id="L78">    private static final Logger logger = Logger.getLogger(MapEditorTransformPanel.class.getName());</span>
+
+    private final JPanel listPanel;
+    private JToggleButton settlementButton;
+    private final ButtonGroup group;
+
+    /**
+     * A native nation to use for native settlement type and skill.
+     */
+<span class="nc" id="L87">    private static Nation nativeNation = null;</span>
+
+
+    /**
+     * Creates a panel to choose a map transform.
+     *
+     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+     */
+    public MapEditorTransformPanel(FreeColClient freeColClient) {
+<span class="nc" id="L96">        super(freeColClient, new BorderLayout());</span>
+
+<span class="nc" id="L98">        nativeNation = getSpecification().getIndianNations().get(0);</span>
+
+<span class="nc" id="L100">        listPanel = new JPanel(new GridLayout(2, 0));</span>
+
+<span class="nc" id="L102">        group = new ButtonGroup();</span>
+        //Add an invisible, move button to de-select all others
+<span class="nc" id="L104">        group.add(new JToggleButton());</span>
+<span class="nc" id="L105">        buildList();</span>
+
+<span class="nc" id="L107">        JScrollPane sl = new JScrollPane(listPanel,</span>
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+<span class="nc" id="L110">        sl.getViewport().setOpaque(false);</span>
+<span class="nc" id="L111">        add(sl);</span>
+<span class="nc" id="L112">    }</span>
+
+
+    /**
+     * Builds the buttons for all the terrains.
+     */
+    private void buildList() {
+<span class="nc" id="L119">        final Specification spec = getSpecification();</span>
+<span class="nc" id="L120">        List&lt;TileType&gt; tileList = spec.getTileTypeList();</span>
+<span class="nc" id="L121">        Dimension terrainSize = ImageLibrary.scaleDimension(ImageLibrary.TILE_OVERLAY_SIZE, 0.5f);</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        for (TileType type : tileList) {</span>
+<span class="nc" id="L123">            listPanel.add(buildButton(SwingGUI.createTileImageWithOverlayAndForest(type, terrainSize),</span>
+<span class="nc" id="L124">                                      Messages.getName(type),</span>
+                                      new TileTypeTransform(type)));
+<span class="nc" id="L126">        }</span>
+<span class="nc" id="L127">        Dimension riverSize = ImageLibrary.scaleDimension(ImageLibrary.TILE_SIZE, 0.5f);</span>
+<span class="nc" id="L128">        listPanel.add(buildButton(ImageLibrary.getRiverImage(&quot;0101&quot;, riverSize),</span>
+<span class="nc" id="L129">                                  Messages.message(&quot;mapEditorTransformPanel.minorRiver&quot;),</span>
+                                  new RiverTransform(TileImprovement.SMALL_RIVER)));
+<span class="nc" id="L131">        listPanel.add(buildButton(ImageLibrary.getRiverImage(&quot;0202&quot;, riverSize),</span>
+<span class="nc" id="L132">                                  Messages.message(&quot;mapEditorTransformPanel.majorRiver&quot;),</span>
+                                  new RiverTransform(TileImprovement.LARGE_RIVER)));
+<span class="nc" id="L134">        listPanel.add(buildButton(ImageLibrary.getMiscImage(&quot;image.tileitem.&quot;</span>
+<span class="nc" id="L135">                + getSpecification().getResourceTypeList().get(0).getId(), 0.75f),</span>
+<span class="nc" id="L136">            Messages.message(&quot;mapEditorTransformPanel.resource&quot;),</span>
+            new ResourceTransform()));
+<span class="nc" id="L138">        listPanel.add(buildButton(ImageLibrary.getMiscImage(ImageLibrary.LOST_CITY_RUMOUR, 0.5f),</span>
+<span class="nc" id="L139">                                  Messages.getName(ModelMessage.MessageType.LOST_CITY_RUMOUR),</span>
+                                  new LostCityRumourTransform()));
+<span class="nc" id="L141">        SettlementType settlementType = nativeNation.getType().getCapitalType();</span>
+<span class="nc" id="L142">        settlementButton = buildButton(ImageLibrary.getSettlementImage(settlementType, 0.5f),</span>
+<span class="nc" id="L143">                                       Messages.message(&quot;settlement&quot;),</span>
+                                       new SettlementTransform());
+<span class="nc" id="L145">        listPanel.add(settlementButton);</span>
+<span class="nc" id="L146">    }</span>
+
+    /**
+     * Builds the button for the given terrain.
+     *
+     * @param image an &lt;code&gt;Image&lt;/code&gt; value
+     * @param text a &lt;code&gt;String&lt;/code&gt; value
+     * @param mt a &lt;code&gt;MapTransform&lt;/code&gt; value
+     */
+    private JToggleButton buildButton(Image image, String text, final MapTransform mt) {
+
+<span class="nc" id="L157">        JPanel descriptionPanel = new JPanel(new BorderLayout());</span>
+<span class="nc" id="L158">        descriptionPanel.add(new JLabel(new ImageIcon(image)), BorderLayout.CENTER);</span>
+<span class="nc" id="L159">        descriptionPanel.add(new JLabel(text, JLabel.CENTER), BorderLayout.SOUTH);</span>
+<span class="nc" id="L160">        descriptionPanel.setBackground(Color.RED);</span>
+<span class="nc" id="L161">        mt.setDescriptionPanel(descriptionPanel);</span>
+
+<span class="nc" id="L163">        ImageIcon icon = new ImageIcon(image);</span>
+<span class="nc" id="L164">        final JToggleButton button = new JToggleButton(icon);</span>
+<span class="nc" id="L165">        button.setToolTipText(text);</span>
+<span class="nc" id="L166">        button.setOpaque(false);</span>
+<span class="nc" id="L167">        group.add(button);</span>
+<span class="nc" id="L168">        button.addActionListener((ActionEvent ae) -&gt; {</span>
+<span class="nc" id="L169">                MapEditorController ctlr</span>
+<span class="nc" id="L170">                    = getFreeColClient().getMapEditorController();</span>
+<span class="nc" id="L171">                MapTransform newMapTransform = null;</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">                if (ctlr.getMapTransform() != mt) {</span>
+<span class="nc" id="L173">                    newMapTransform = mt;</span>
+                }
+<span class="nc" id="L175">                ctlr.setMapTransform(newMapTransform);</span>
+<span class="nc bnc" id="L176" title="All 4 branches missed.">                if (newMapTransform == null &amp;&amp; mt != null) {</span>
+                    //select the invisible button, de-selecting all others
+<span class="nc" id="L178">                    group.setSelected(group.getElements().nextElement()</span>
+<span class="nc" id="L179">                        .getModel(), true);</span>
+                }
+<span class="nc" id="L181">            });</span>
+<span class="nc" id="L182">        button.setBorder(null);</span>
+<span class="nc" id="L183">        return button;</span>
+    }
+
+    /**
+     * Set the native nation.
+     *
+     * @param newNativeNation The new native &lt;code&gt;Nation&lt;/code&gt;.
+     */
+    public static void setNativeNation(Nation newNativeNation) {
+<span class="nc" id="L192">        nativeNation = newNativeNation;</span>
+<span class="nc" id="L193">    }</span>
+
+    /**
+     * Represents a transformation that can be applied to
+     * a &lt;code&gt;Tile&lt;/code&gt;.
+     *
+     * @see #transform(Tile)
+     */
+<span class="nc" id="L201">    public abstract class MapTransform implements IMapTransform {</span>
+
+        /**
+         * A panel with information about this transformation.
+         */
+<span class="nc" id="L206">        private JPanel descriptionPanel = null;</span>
+
+        /**
+         * Applies this transformation to the given tile.
+         * @param t The &lt;code&gt;Tile&lt;/code&gt; to be transformed,
+         */
+        public abstract void transform(Tile t);
+
+        /**
+         * A panel with information about this transformation.
+         * This panel is currently displayed on the
+         * {@link InfoPanel} when selected, but might be
+         * used elsewhere as well.
+         *
+         * @return The panel or &lt;code&gt;null&lt;/code&gt; if no panel
+         *      has been set.
+         */
+        public JPanel getDescriptionPanel() {
+<span class="nc" id="L224">            return descriptionPanel;</span>
+        }
+
+        /**
+         * Sets a panel that can be used for describing this
+         * transformation to the user.
+         *
+         * @param descriptionPanel The panel.
+         * @see #setDescriptionPanel(JPanel)
+         */
+        public void setDescriptionPanel(JPanel descriptionPanel) {
+<span class="nc" id="L235">            this.descriptionPanel = descriptionPanel;</span>
+<span class="nc" id="L236">        }</span>
+    }
+
+    public class TileTypeTransform extends MapTransform {
+        private final TileType tileType;
+
+<span class="nc" id="L242">        private TileTypeTransform(TileType tileType) {</span>
+<span class="nc" id="L243">            this.tileType = tileType;</span>
+<span class="nc" id="L244">        }</span>
+
+        public TileType getTileType() {
+<span class="nc" id="L247">            return tileType;</span>
+        }
+
+        @Override
+        public void transform(Tile t) {
+<span class="nc" id="L252">            t.changeType(tileType);</span>
+<span class="nc" id="L253">            t.removeLostCityRumour();</span>
+<span class="nc" id="L254">        }</span>
+    }
+
+    private class RiverTransform extends MapTransform {
+        private final int magnitude;
+
+<span class="nc" id="L260">        private RiverTransform(int magnitude) {</span>
+<span class="nc" id="L261">            this.magnitude = magnitude;</span>
+<span class="nc" id="L262">        }</span>
+
+        @Override
+        public void transform(Tile tile) {
+<span class="nc" id="L266">            TileImprovementType riverType =</span>
+<span class="nc" id="L267">                tile.getSpecification().getTileImprovementType(&quot;model.improvement.river&quot;);</span>
+
+<span class="nc bnc" id="L269" title="All 2 branches missed.">            if (riverType.isTileTypeAllowed(tile.getType())</span>
+<span class="nc bnc" id="L270" title="All 2 branches missed.">                &amp;&amp; !tile.hasRiver()) {</span>
+<span class="nc" id="L271">                String conns = &quot;&quot;;</span>
+<span class="nc bnc" id="L272" title="All 2 branches missed.">                for (Direction direction : Direction.longSides) {</span>
+<span class="nc" id="L273">                    Tile t = tile.getNeighbourOrNull(direction);</span>
+<span class="nc bnc" id="L274" title="All 2 branches missed.">                    TileImprovement otherRiver = (t == null) ? null</span>
+<span class="nc" id="L275">                        : t.getRiver();</span>
+<span class="nc bnc" id="L276" title="All 2 branches missed.">                    conns += (t == null</span>
+<span class="nc bnc" id="L277" title="All 4 branches missed.">                        || (t.isLand() &amp;&amp; otherRiver == null)) ? &quot;0&quot;</span>
+<span class="nc" id="L278">                        : Integer.toString(magnitude);</span>
+<span class="nc" id="L279">                }</span>
+<span class="nc" id="L280">                tile.addRiver(magnitude, conns);</span>
+            }
+<span class="nc" id="L282">        }</span>
+    }
+
+    /**
+     * Adds, removes or cycles through the available resources for
+     * this Tile.  Cycles through the ResourceTypeList and picks the
+     * next valid, or removes if end of list.
+     */
+<span class="nc" id="L290">    private class ResourceTransform extends MapTransform {</span>
+        @Override
+        public void transform(Tile t) {
+            // Check if there is a resource already
+<span class="nc" id="L294">            Resource resource = null;</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">            if (t.getTileItemContainer() != null) {</span>
+<span class="nc" id="L296">                resource = t.getTileItemContainer().getResource();</span>
+            }
+<span class="nc bnc" id="L298" title="All 2 branches missed.">            if (resource != null) {</span>
+<span class="nc" id="L299">                t.getTileItemContainer().removeTileItem(resource);</span>
+            } else {
+<span class="nc" id="L301">                List&lt;ResourceType&gt; resList = t.getType().getResourceTypes();</span>
+<span class="nc bnc" id="L302" title="All 3 branches missed.">                switch (resList.size()) {</span>
+                case 0:
+<span class="nc" id="L304">                    return;</span>
+                case 1:
+<span class="nc" id="L306">                    ResourceType resourceType = resList.get(0);</span>
+                    // FIXME: create GUI for setting the quantity
+<span class="nc" id="L308">                    t.addResource(new Resource(t.getGame(), t, resourceType,</span>
+<span class="nc" id="L309">                                  resourceType.getMaxValue()));</span>
+<span class="nc" id="L310">                    return;</span>
+                default:
+<span class="nc" id="L312">                    List&lt;ChoiceItem&lt;ResourceType&gt;&gt; choices = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L313" title="All 2 branches missed.">                    for (ResourceType rt : resList) {</span>
+<span class="nc" id="L314">                        String name = Messages.getName(rt);</span>
+<span class="nc" id="L315">                        choices.add(new ChoiceItem&lt;&gt;(name, rt));</span>
+<span class="nc" id="L316">                    }</span>
+<span class="nc" id="L317">                    ResourceType choice = getGUI().getChoice(null, </span>
+<span class="nc" id="L318">                        Messages.message(&quot;mapEditorTransformPanel.chooseResource&quot;),</span>
+                        &quot;cancel&quot;, choices);
+<span class="nc bnc" id="L320" title="All 2 branches missed.">                    if (choice != null) {</span>
+<span class="nc" id="L321">                        t.addResource(new Resource(t.getGame(), t, choice,</span>
+<span class="nc" id="L322">                                      choice.getMaxValue()));</span>
+                    }
+                }
+            }
+<span class="nc" id="L326">        }</span>
+    }
+
+<span class="nc" id="L329">    private class LostCityRumourTransform extends MapTransform {</span>
+        @Override
+        public void transform(Tile t) {
+<span class="nc bnc" id="L332" title="All 2 branches missed.">            if (t.isLand()) {</span>
+<span class="nc" id="L333">                LostCityRumour rumour = t.getLostCityRumour();</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">                if (rumour == null) {</span>
+<span class="nc" id="L335">                    t.addLostCityRumour(new LostCityRumour(t.getGame(), t));</span>
+                } else {
+<span class="nc" id="L337">                    t.removeLostCityRumour();</span>
+                }
+            }
+<span class="nc" id="L340">        }</span>
+    }
+
+<span class="nc" id="L343">    private class SettlementTransform extends MapTransform {</span>
+        @Override
+        public void transform(Tile t) {
+<span class="nc bnc" id="L346" title="All 2 branches missed.">            if (!t.isLand()</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">                || t.hasSettlement()</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">                || nativeNation == null) return;</span>
+<span class="nc" id="L349">            UnitType skill = ((IndianNationType)nativeNation.getType())</span>
+<span class="nc" id="L350">                .getSkills().get(0).getObject();</span>
+<span class="nc" id="L351">            Player nativePlayer = getGame().getPlayerByNation(nativeNation);</span>
+<span class="nc bnc" id="L352" title="All 2 branches missed.">            if (nativePlayer == null) return;</span>
+<span class="nc" id="L353">            String name = nativePlayer.getSettlementName(null);</span>
+<span class="nc" id="L354">            ServerIndianSettlement settlement</span>
+<span class="nc" id="L355">                = new ServerIndianSettlement(t.getGame(),</span>
+                    nativePlayer, name, t, false, skill, null);
+<span class="nc" id="L357">            nativePlayer.addSettlement(settlement);</span>
+<span class="nc" id="L358">            settlement.placeSettlement(true);</span>
+<span class="nc" id="L359">            settlement.addUnits(null);</span>
+<span class="nc" id="L360">            logger.info(&quot;Add settlement &quot; + settlement.getName()</span>
+                + &quot; to tile &quot; + t);
+<span class="nc" id="L362">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

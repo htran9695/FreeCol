@@ -1,0 +1,432 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>River.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.generator</a> &gt; <span class="el_source">River.java</span></div><h1>River.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.generator;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.logging.Logger;
+
+import net.sf.freecol.common.model.Map;
+import net.sf.freecol.common.model.Direction;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TileImprovement;
+import net.sf.freecol.common.model.TileImprovementType;
+import net.sf.freecol.common.model.TileType;
+import net.sf.freecol.server.model.ServerRegion;
+import static net.sf.freecol.common.util.CollectionUtils.*;
+import static net.sf.freecol.common.util.RandomUtils.*;
+
+
+/**
+ * A river for the map generator.
+ */
+public class River {
+
+<span class="fc" id="L43">    private static final Logger logger = Logger.getLogger(SimpleMapGenerator.class.getName());</span>
+
+    private final TileImprovementType riverType;
+
+    /**
+     * Possible direction changes for a river.
+     * @see net.sf.freecol.common.model.Map
+     */
+<span class="pc" id="L51">    private static enum DirectionChange {</span>
+<span class="fc" id="L52">        STRAIGHT_AHEAD,</span>
+<span class="fc" id="L53">        RIGHT_TURN,</span>
+<span class="fc" id="L54">        LEFT_TURN;</span>
+
+        public Direction getNewDirection(Direction oldDirection) {
+<span class="pc bpc" id="L57" title="1 of 4 branches missed.">            switch(this) {</span>
+            case STRAIGHT_AHEAD:
+<span class="fc" id="L59">                return oldDirection;</span>
+            case RIGHT_TURN:
+<span class="pc bpc" id="L61" title="1 of 5 branches missed.">                switch(oldDirection) {</span>
+                case NE:
+<span class="fc" id="L63">                    return Direction.SE;</span>
+                case SE:
+<span class="fc" id="L65">                    return Direction.SW;</span>
+                case SW:
+<span class="fc" id="L67">                    return Direction.NW;</span>
+                case NW:
+<span class="fc" id="L69">                    return Direction.NE;</span>
+                default:
+<span class="nc" id="L71">                    return oldDirection;</span>
+                }
+            case LEFT_TURN:
+<span class="pc bpc" id="L74" title="1 of 5 branches missed.">                switch(oldDirection) {</span>
+                case NE:
+<span class="fc" id="L76">                    return Direction.NW;</span>
+                case SE:
+<span class="fc" id="L78">                    return Direction.NE;</span>
+                case SW:
+<span class="fc" id="L80">                    return Direction.SE;</span>
+                case NW:
+<span class="fc" id="L82">                    return Direction.SW;</span>
+                default:
+<span class="nc" id="L84">                    return oldDirection;</span>
+                }
+            }
+<span class="nc" id="L87">            return oldDirection;</span>
+        }
+    }
+
+    /**
+     * Current direction the river is flowing in.
+     */
+    private Direction direction;
+
+    /**
+     * The map on which the river flows.
+     */
+    private final Map map;
+
+    /**
+     * A list of river sections.
+     */
+<span class="fc" id="L104">    private List&lt;RiverSection&gt; sections = new ArrayList&lt;&gt;();</span>
+
+    /**
+     * The next river.
+     */
+<span class="fc" id="L109">    private River nextRiver = null;</span>
+
+    /**
+     * The ServerRegion this River belongs to.
+     */
+    private ServerRegion region;
+
+    /**
+     * The random number source.
+     */
+    private final Random random;
+
+    /**
+     * A hashtable of position-river pairs.
+     */
+    private final java.util.Map&lt;Tile, River&gt; riverMap;
+
+    /**
+     * Whether the river is connected to the high seas.
+     */
+<span class="fc" id="L129">    private boolean connected = false;</span>
+
+
+    /**
+     * Constructor.
+     *
+     * @param map The map on which the river flows.
+     * @param riverMap A hashtable of position-river pairs.
+     * @param region The region for this river.
+     * @param random The &lt;code&gt;Random&lt;/code&gt; number source to use.
+     */
+    public River(Map map, java.util.Map&lt;Tile, River&gt; riverMap,
+<span class="fc" id="L141">                 ServerRegion region, Random random) {</span>
+<span class="fc" id="L142">        this.map = map;</span>
+<span class="fc" id="L143">        this.riverMap = riverMap;</span>
+<span class="fc" id="L144">        this.region = region;</span>
+<span class="fc" id="L145">        this.random = random;</span>
+<span class="fc" id="L146">        this.riverType = map.getSpecification()</span>
+<span class="fc" id="L147">            .getTileImprovementType(&quot;model.improvement.river&quot;);</span>
+<span class="fc" id="L148">        this.direction = getRandomMember(logger, &quot;River&quot;, Direction.longSides,</span>
+                                         random);
+<span class="fc" id="L150">        logger.fine(&quot;Starting new river flowing &quot; + direction);</span>
+<span class="fc" id="L151">    }</span>
+
+    public List&lt;RiverSection&gt; getSections() {
+<span class="fc" id="L154">        return sections;</span>
+    }
+
+    /**
+     * Returns the length of this river.
+     *
+     * @return the length of this river.
+     */
+    public int getLength() {
+<span class="fc" id="L163">        return this.sections.size();</span>
+    }
+
+    public RiverSection getLastSection() {
+<span class="fc" id="L167">        return this.sections.get(sections.size() - 1);</span>
+    }
+
+    /**
+     * Get the &lt;code&gt;ServerRegion&lt;/code&gt; value.
+     *
+     * @return a &lt;code&gt;ServerRegion&lt;/code&gt; value
+     */
+    public final ServerRegion getRegion() {
+<span class="fc" id="L176">        return region;</span>
+    }
+
+    /**
+     * Set the &lt;code&gt;ServerRegion&lt;/code&gt; value.
+     *
+     * @param newServerRegion The new ServerRegion value.
+     */
+    public final void setRegion(final ServerRegion newServerRegion) {
+<span class="nc" id="L185">        this.region = newServerRegion;</span>
+<span class="nc" id="L186">    }</span>
+
+    /**
+     * Adds a new section to this river.
+     *
+     * @param tile The &lt;code&gt;Tile&lt;/code&gt; where this section is located.
+     * @param direction The &lt;code&gt;Direction&lt;/code&gt; the river is flowing in.
+     */
+    public void add(Tile tile, Direction direction) {
+<span class="nc" id="L195">        this.sections.add(new RiverSection(tile, direction));</span>
+<span class="nc" id="L196">    }</span>
+
+    /**
+     * Increases the size of this river.
+     *
+     * @param lastSection The last section of the river flowing into this one.
+     * @param tile The &lt;code&gt;Tile&lt;/code&gt; of the confluence.
+     */
+    public void grow(RiverSection lastSection, Tile tile) {
+
+<span class="fc" id="L206">        boolean found = false;</span>
+
+<span class="fc bfc" id="L208" title="All 2 branches covered.">        for (RiverSection section : sections) {</span>
+<span class="fc bfc" id="L209" title="All 2 branches covered.">            if (found) {</span>
+<span class="fc" id="L210">                section.grow();</span>
+<span class="fc bfc" id="L211" title="All 2 branches covered.">            } else if (section.getTile().equals(tile)) {</span>
+<span class="fc" id="L212">                section.setBranch(lastSection.direction.getReverseDirection(),</span>
+<span class="fc" id="L213">                                  lastSection.getSize());</span>
+<span class="fc" id="L214">                section.grow();</span>
+<span class="fc" id="L215">                found = true;</span>
+            }
+<span class="fc" id="L217">        }</span>
+<span class="fc" id="L218">        drawToMap(sections);</span>
+<span class="fc bfc" id="L219" title="All 2 branches covered.">        if (nextRiver != null) {</span>
+<span class="fc" id="L220">            RiverSection section = sections.get(sections.size() - 1);</span>
+<span class="fc" id="L221">            Tile neighbor = section.getTile().getNeighbourOrNull(section.direction);</span>
+<span class="fc" id="L222">            nextRiver.grow(section, neighbor);</span>
+        }
+<span class="fc" id="L224">    }</span>
+
+    /**
+     * Returns true if the given tile is next to this river.
+     *
+     * @param tile A map tile.
+     * @return true if the given tile is next to this river.
+     */
+    public boolean isNextToSelf(Tile tile) {
+<span class="fc" id="L233">        return any(Direction.longSides,</span>
+<span class="fc" id="L234">            d -&gt; this.contains(tile.getNeighbourOrNull(d)));</span>
+    }
+
+    /**
+     * Returns true if the given tile is next to a river, lake or sea.
+     *
+     * @param tile A map tile.
+     * @return true if the given tile is next to a river, lake or sea.
+     */
+    public boolean isNextToWater(Tile tile) {
+<span class="fc" id="L244">        return any(Direction.longSides,</span>
+            d -&gt; {
+<span class="fc" id="L246">                Tile t = tile.getNeighbourOrNull(d);</span>
+<span class="pc bpc" id="L247" title="2 of 6 branches missed.">                return t != null &amp;&amp; (!t.isLand() || t.hasRiver());</span>
+            });
+    }
+
+    /**
+     * Returns true if this river already contains the given tile.
+     *
+     * @param tile A map tile.
+     * @return true if this river already contains the given tile.
+     */
+    public boolean contains(Tile tile) {
+<span class="fc bfc" id="L258" title="All 2 branches covered.">        return any(getSections(), rs -&gt; rs.getTile() == tile);</span>
+    }
+
+    /**
+     * Creates a river flowing from the given tile if possible.
+     *
+     * @param tile An origin map &lt;code&gt;Tile&lt;/code&gt;.
+     * @return True if a river was created, false otherwise.
+     */
+    public boolean flowFromSource(Tile tile) {
+<span class="fc" id="L268">        TileImprovementType riverType =</span>
+<span class="fc" id="L269">            map.getSpecification().getTileImprovementType(&quot;model.improvement.river&quot;);</span>
+<span class="pc bpc" id="L270" title="1 of 2 branches missed.">        if (!riverType.isTileTypeAllowed(tile.getType())) {</span>
+            // Mountains, ocean cannot have rivers
+<span class="nc" id="L272">            logger.fine(&quot;Tile (&quot; + tile + &quot;) can not have a river.&quot;);</span>
+<span class="nc" id="L273">            return false;</span>
+<span class="fc bfc" id="L274" title="All 2 branches covered.">        } else if (isNextToWater(tile)) {</span>
+<span class="fc" id="L275">            logger.fine(&quot;Tile (&quot; + tile + &quot;) is next to water.&quot;);</span>
+<span class="fc" id="L276">            return false;</span>
+        } else {
+<span class="fc" id="L278">            logger.fine(&quot;Tile (&quot; + tile + &quot;) is suitable source.&quot;);</span>
+<span class="fc" id="L279">            return flow(tile);</span>
+        }
+    }
+
+    /**
+     * Lets the river flow from the given tile.
+     *
+     * @param source A map tile.
+     * @return true if a river was created, false otherwise.
+     */
+    private boolean flow(Tile source) {
+
+<span class="fc bfc" id="L291" title="All 2 branches covered.">        if (sections.size() % 2 == 0) {</span>
+            // get random new direction
+<span class="fc" id="L293">            int length = DirectionChange.values().length;</span>
+<span class="fc" id="L294">            int index = randomInt(logger, &quot;Flow&quot;, random, length);</span>
+<span class="fc" id="L295">            DirectionChange change = DirectionChange.values()[index];</span>
+<span class="fc" id="L296">            this.direction = change.getNewDirection(this.direction);</span>
+<span class="fc" id="L297">            logger.fine(&quot;Direction is now &quot; + direction);</span>
+        }
+
+<span class="fc bfc" id="L300" title="All 2 branches covered.">        for (DirectionChange change : DirectionChange.values()) {</span>
+<span class="fc" id="L301">            Direction dir = change.getNewDirection(direction);</span>
+<span class="fc" id="L302">            Tile nextTile = source.getNeighbourOrNull(dir);</span>
+<span class="pc bpc" id="L303" title="1 of 2 branches missed.">            if (nextTile == null) continue;</span>
+
+            // is the tile suitable for this river?
+<span class="fc bfc" id="L306" title="All 2 branches covered.">            if (!riverType.isTileTypeAllowed(nextTile.getType())) {</span>
+                // Mountains, ocean cannot have rivers
+<span class="fc" id="L308">                logger.fine(&quot;Tile (&quot; + nextTile + &quot;) can not have a river.&quot;);</span>
+<span class="fc" id="L309">                continue;</span>
+<span class="fc bfc" id="L310" title="All 2 branches covered.">            } else if (this.contains(nextTile)) {</span>
+<span class="fc" id="L311">                logger.fine(&quot;Tile (&quot; + nextTile + &quot;) is already in river.&quot;);</span>
+<span class="fc" id="L312">                continue;</span>
+<span class="fc bfc" id="L313" title="All 2 branches covered.">            } else if (isNextToSelf(nextTile)) {</span>
+<span class="fc" id="L314">                logger.fine(&quot;Tile (&quot; + nextTile + &quot;) is next to the river.&quot;);</span>
+<span class="fc" id="L315">                continue;</span>
+            } else {
+                // find out if an adjacent tile is next to water
+<span class="fc bfc" id="L318" title="All 2 branches covered.">                for (DirectionChange change2 : DirectionChange.values()) {</span>
+<span class="fc" id="L319">                    Direction lastDir = change2.getNewDirection(dir);</span>
+<span class="fc" id="L320">                    Tile t = nextTile.getNeighbourOrNull(lastDir);</span>
+<span class="pc bpc" id="L321" title="1 of 2 branches missed.">                    if (t == null) continue;</span>
+<span class="fc bfc" id="L322" title="All 4 branches covered.">                    if (t.isLand() &amp;&amp; !t.hasRiver()) continue;</span>
+
+<span class="fc" id="L324">                    sections.add(new RiverSection(source, dir));</span>
+<span class="fc" id="L325">                    RiverSection lastSection = new RiverSection(nextTile,</span>
+                            lastDir);
+<span class="fc" id="L327">                    sections.add(lastSection);</span>
+
+<span class="pc bpc" id="L329" title="1 of 4 branches missed.">                    if (t.hasRiver() &amp;&amp; t.isLand()) {</span>
+<span class="fc" id="L330">                        logger.fine(&quot;Tile (&quot; + t + &quot;) is next to another river.&quot;);</span>
+                        // increase the size of the other river
+<span class="fc" id="L332">                        nextRiver = riverMap.get(t);</span>
+<span class="fc" id="L333">                        nextRiver.grow(lastSection, t);</span>
+                        // if the other river is connected, so is this one
+<span class="fc" id="L335">                        connected |= nextRiver.connected;</span>
+                        // add this region to other river if too small
+<span class="fc bfc" id="L337" title="All 2 branches covered.">                        if (getLength() &lt; 10) {</span>
+<span class="fc" id="L338">                            region = nextRiver.region;</span>
+                        }
+<span class="fc" id="L340">                        drawToMap(sections);</span>
+                    } else {
+                        // flow into the sea (or a lake)
+<span class="fc" id="L343">                        logger.fine(&quot;Tile (&quot; + t + &quot;) is next to water.&quot;);</span>
+<span class="fc" id="L344">                        River someRiver = riverMap.get(t);</span>
+<span class="fc bfc" id="L345" title="All 2 branches covered.">                        if (someRiver == null) {</span>
+<span class="fc" id="L346">                            sections.add(new RiverSection(t, lastDir.getReverseDirection()));</span>
+<span class="pc bpc" id="L347" title="1 of 2 branches missed.">                            if (lastSection.getSize() &lt; TileImprovement.FJORD_RIVER) {</span>
+<span class="fc" id="L348">                                createDelta(nextTile, lastDir, lastSection);</span>
+                            }
+                        } else {
+<span class="fc" id="L351">                            RiverSection waterSection = someRiver.getLastSection();</span>
+<span class="fc" id="L352">                            waterSection.setBranch(lastDir.getReverseDirection(),</span>
+                                TileImprovement.SMALL_RIVER);
+                        }
+<span class="fc" id="L355">                        connected |= t.isHighSeasConnected();</span>
+<span class="fc" id="L356">                        drawToMap(sections);</span>
+                    }
+<span class="fc" id="L358">                    return true;</span>
+                }
+                // not next to water
+<span class="fc" id="L361">                logger.fine(&quot;Tile (&quot; + nextTile + &quot;) is suitable.&quot;);</span>
+<span class="fc" id="L362">                sections.add(new RiverSection(source, dir));</span>
+<span class="fc" id="L363">                return flow(nextTile);</span>
+            }
+        }
+<span class="fc" id="L366">        sections = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L367">        return false;</span>
+    }
+
+    private void createDelta(Tile tile, Direction direction, RiverSection section) {
+<span class="fc" id="L371">        delta(tile, direction, section, DirectionChange.LEFT_TURN.getNewDirection(direction));</span>
+<span class="fc" id="L372">        delta(tile, direction, section, DirectionChange.RIGHT_TURN.getNewDirection(direction));</span>
+<span class="fc" id="L373">    }</span>
+
+    private void delta(Tile tile, Direction direction, RiverSection section, Direction d) {
+<span class="fc" id="L376">        Tile t = tile.getNeighbourOrNull(d);</span>
+<span class="fc bfc" id="L377" title="All 2 branches covered.">        if (!t.isLand()) {</span>
+<span class="fc" id="L378">            List&lt;RiverSection&gt; deltaSections = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L379">            section.setBranch(d, TileImprovement.SMALL_RIVER);</span>
+<span class="fc" id="L380">            deltaSections.add(new RiverSection(tile, d.getReverseDirection()));</span>
+<span class="fc" id="L381">            drawToMap(deltaSections);</span>
+<span class="fc bfc" id="L382" title="All 2 branches covered.">        } else if (riverType.isTileTypeAllowed(t.getType())) {</span>
+<span class="fc" id="L383">            Tile t2 = t.getNeighbourOrNull(direction);</span>
+<span class="fc bfc" id="L384" title="All 4 branches covered.">            if (!t2.isLand() &amp;&amp; randomInt(logger, &quot;Delta&quot;, random, 2) == 0) {</span>
+<span class="fc" id="L385">                List&lt;RiverSection&gt; deltaSections = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L386">                section.setBranch(d, TileImprovement.SMALL_RIVER);</span>
+<span class="fc" id="L387">                RiverSection rs = new RiverSection(t, direction);</span>
+<span class="fc" id="L388">                rs.setBranch(d.getReverseDirection(), TileImprovement.SMALL_RIVER);</span>
+<span class="fc" id="L389">                deltaSections.add(rs);</span>
+<span class="fc" id="L390">                rs = new RiverSection(t2, direction.getReverseDirection());</span>
+<span class="fc" id="L391">                deltaSections.add(rs);</span>
+<span class="fc" id="L392">                drawToMap(deltaSections);</span>
+            }
+        }
+
+<span class="fc" id="L396">    }</span>
+
+    /**
+     * Draws the completed river to the map.
+     */
+    private void drawToMap(List&lt;RiverSection&gt; sections) {
+<span class="fc" id="L402">        RiverSection oldSection = null;</span>
+
+<span class="fc bfc" id="L404" title="All 2 branches covered.">        for (RiverSection section : sections) {</span>
+<span class="fc" id="L405">            riverMap.put(section.getTile(), this);</span>
+<span class="fc bfc" id="L406" title="All 2 branches covered.">            if (oldSection != null) {</span>
+<span class="fc" id="L407">                section.setBranch(oldSection.direction.getReverseDirection(),</span>
+<span class="fc" id="L408">                                  oldSection.getSize());</span>
+            }
+<span class="fc" id="L410">            Tile tile = section.getTile();</span>
+<span class="fc bfc" id="L411" title="All 2 branches covered.">            if (tile.isLand()) {</span>
+<span class="fc bfc" id="L412" title="All 2 branches covered.">                if (section.getSize() &gt;= TileImprovement.FJORD_RIVER) {</span>
+<span class="fc" id="L413">                    TileType greatRiver = map.getSpecification().getTileType(&quot;model.tile.greatRiver&quot;);</span>
+<span class="fc" id="L414">                    tile.changeType(greatRiver);</span>
+                    // changing the type resets the improvements
+                    //container.addRiver(section.getSize(), section.encodeStyle());
+<span class="fc" id="L417">                    logger.fine(&quot;Added fjord (magnitude: &quot; + section.getSize() +</span>
+<span class="fc" id="L418">                                &quot;) to tile: &quot; + section.getTile());</span>
+<span class="pc bpc" id="L419" title="1 of 2 branches missed.">                } else if (section.getSize() &gt; TileImprovement.NO_RIVER) {</span>
+<span class="fc" id="L420">                    String style = section.encodeStyle();</span>
+<span class="fc" id="L421">                    tile.addRiver(section.getSize(), style);</span>
+<span class="fc" id="L422">                    logger.fine(&quot;Added river&quot;</span>
+<span class="fc" id="L423">                        + &quot;(magnitude: &quot; + section.getSize()</span>
+                        + &quot; style: &quot; + style);
+                }
+<span class="fc" id="L426">                region.addTile(tile);</span>
+<span class="fc" id="L427">                oldSection = section;</span>
+            }
+<span class="fc" id="L429">        }</span>
+<span class="fc" id="L430">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

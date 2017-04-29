@@ -1,0 +1,1930 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChangeSet.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.control</a> &gt; <span class="el_source">ChangeSet.java</span></div><h1>ChangeSet.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.control;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+
+import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.Feature;
+import net.sf.freecol.common.model.FoundingFather;
+import net.sf.freecol.common.model.FreeColGameObject;
+import net.sf.freecol.common.model.FreeColObject;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.HistoryEvent;
+import net.sf.freecol.common.model.LastSale;
+import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.ModelMessage;
+import net.sf.freecol.common.model.Modifier;
+import net.sf.freecol.common.model.Ownable;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Stance;
+import net.sf.freecol.common.model.Settlement;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TradeRoute;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.WorkLocation;
+import net.sf.freecol.common.networking.DOMMessage;
+import net.sf.freecol.server.model.ServerPlayer;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
+
+
+/**
+ * Changes to be sent to the client.
+ */
+public class ChangeSet {
+
+    /** Compare changes by ascending priority. */
+<span class="fc" id="L63">    private static final Comparator&lt;Change&gt; changeComparator</span>
+<span class="fc" id="L64">        = Comparator.comparingInt(Change::getPriority);</span>
+
+    // Convenient way to specify the relative priorities of the fixed
+    // change types in one place.
+<span class="pc" id="L68">    public static enum ChangePriority {</span>
+<span class="fc" id="L69">        CHANGE_ATTRIBUTE(-1), // N/A</span>
+<span class="fc" id="L70">        CHANGE_ANIMATION(0),  // Do animations first</span>
+<span class="fc" id="L71">        CHANGE_REMOVE(100),   // Do removes last</span>
+<span class="fc" id="L72">        CHANGE_STANCE(5),     // Do stance before updates</span>
+<span class="fc" id="L73">        CHANGE_OWNED(20),     // Do owned changes after updates</span>
+<span class="fc" id="L74">        CHANGE_UPDATE(10),    // There are a lot of updates</span>
+        // Symbolic priorities used by various non-fixed types
+<span class="fc" id="L76">        CHANGE_EARLY(1),</span>
+<span class="fc" id="L77">        CHANGE_NORMAL(15),</span>
+<span class="fc" id="L78">        CHANGE_LATE(90);</span>
+
+        private final int level;
+
+<span class="fc" id="L82">        ChangePriority(int level) {</span>
+<span class="fc" id="L83">            this.level = level;</span>
+<span class="fc" id="L84">        }</span>
+
+        public int getPriority() {
+<span class="fc" id="L87">            return level;</span>
+        }
+    }
+
+    private final ArrayList&lt;Change&gt; changes;
+
+
+    /**
+     * Class to control the visibility of a change.
+     */
+    public static class See {
+        private static final int ALL = 1;
+        private static final int PERHAPS = 0;
+        private static final int ONLY = -1;
+        private ServerPlayer seeAlways;
+        private ServerPlayer seePerhaps;
+        private ServerPlayer seeNever;
+        private final int type;
+
+<span class="fc" id="L106">        private See(int type) {</span>
+<span class="fc" id="L107">            this.seeAlways = this.seePerhaps = this.seeNever = null;</span>
+<span class="fc" id="L108">            this.type = type;</span>
+<span class="fc" id="L109">        }</span>
+
+        /**
+         * Check this visibility with respect to a player.
+         *
+         * @param player The &lt;code&gt;ServerPlayer&lt;/code&gt; to consider.
+         * @param perhapsResult The result if the visibility is ambiguous.
+         * @return True if the player satisfies the visibility test.
+         */
+        public boolean check(ServerPlayer player, boolean perhapsResult) {
+<span class="pc bpc" id="L119" title="1 of 10 branches missed.">            return (seeNever == player) ? false</span>
+                : (seeAlways == player) ? true
+                : (seePerhaps == player) ? perhapsResult
+                : (type == ONLY) ? false
+                : (type == ALL) ? true
+                : perhapsResult;
+        }
+
+        // Use these public constructor-like functions to define the
+        // visibility of changes.
+
+        /**
+         * Make this change visible to all players.
+         *
+         * @return a &lt;code&gt;See&lt;/code&gt; value
+         */
+        public static See all() {
+<span class="fc" id="L136">            return new See(ALL);</span>
+        }
+
+        /**
+         * Make this change visible to all players, provided they can
+         * see the objects that are being changed.
+         *
+         * @return a &lt;code&gt;See&lt;/code&gt; value
+         */
+        public static See perhaps() {
+<span class="fc" id="L146">            return new See(PERHAPS);</span>
+        }
+
+        /**
+         * Make this change visible only to the given player.
+         *
+         * @param player a &lt;code&gt;ServerPlayer&lt;/code&gt; value
+         * @return a &lt;code&gt;See&lt;/code&gt; value
+         */
+        public static See only(ServerPlayer player) {
+<span class="fc" id="L156">            return new See(ONLY).always(player);</span>
+        }
+
+        // Use these to modify a See visibility.
+
+        /**
+         * Make this change visible to the given player.
+         *
+         * @param player a &lt;code&gt;ServerPlayer&lt;/code&gt; value
+         * @return a &lt;code&gt;See&lt;/code&gt; value
+         */
+        public See always(ServerPlayer player) {
+<span class="fc" id="L168">            seeAlways = player;</span>
+<span class="fc" id="L169">            return this;</span>
+        }
+
+        /**
+         * Make this change visible to the given player, provided the
+         * player can see the objects being changed.
+         *
+         * @param player a &lt;code&gt;ServerPlayer&lt;/code&gt; value
+         * @return a &lt;code&gt;See&lt;/code&gt; value
+         */
+        public See perhaps(ServerPlayer player) {
+<span class="nc" id="L180">            seePerhaps = player;</span>
+<span class="nc" id="L181">            return this;</span>
+        }
+
+        /**
+         * Make this change invisible to the given player.
+         *
+         * @param player a &lt;code&gt;ServerPlayer&lt;/code&gt; value
+         * @return a &lt;code&gt;See&lt;/code&gt; value
+         */
+        public See except(ServerPlayer player) {
+<span class="fc" id="L191">            seeNever = player;</span>
+<span class="fc" id="L192">            return this;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L200">            StringBuilder sb = new StringBuilder(64);</span>
+<span class="nc bnc" id="L201" title="All 6 branches missed.">            sb.append((type == ALL) ? &quot;ALL&quot; : (type == PERHAPS) ? &quot;PERHAPS&quot;</span>
+                : (type == ONLY) ? &quot;ONLY&quot; : &quot;BADTYPE&quot;);
+<span class="nc bnc" id="L203" title="All 2 branches missed.">            if (seeAlways != null) {</span>
+<span class="nc" id="L204">                sb.append(&quot;,always(&quot;).append(seeAlways.getId()).append(&quot;)&quot;);</span>
+            }
+<span class="nc bnc" id="L206" title="All 2 branches missed.">            if (seePerhaps != null) {</span>
+<span class="nc" id="L207">                sb.append(&quot;,perhaps(&quot;).append(seePerhaps.getId()).append(&quot;)&quot;);</span>
+            }
+<span class="nc bnc" id="L209" title="All 2 branches missed.">            if (seeNever != null) {</span>
+<span class="nc" id="L210">                sb.append(&quot;,never(&quot;).append(seeNever.getId()).append(&quot;)&quot;);</span>
+            }
+<span class="nc" id="L212">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Abstract template for all types of Change.
+     */
+    private abstract static class Change {
+
+        /**
+         * The visibility of the change.
+         */
+        protected final See see;
+
+
+        /**
+         * Make a new Change.
+         */
+<span class="fc" id="L230">        public Change(See see) {</span>
+<span class="fc" id="L231">            this.see = see;</span>
+<span class="fc" id="L232">        }</span>
+
+
+        /**
+         * Does this Change operate on the given object?
+         *
+         * @param fcgo The &lt;code&gt;FreeColGameObject&lt;/code&gt; to check.
+         * @return True if the object is a subject of this change.
+         */
+        public boolean matches(FreeColGameObject fcgo) {
+<span class="fc" id="L242">            return false;</span>
+        }
+
+        /**
+         * Gets the sort priority of a change, to be used by the
+         * changeComparator.
+         */
+        public abstract int getPriority();
+
+        /**
+         * Should a player be notified of this Change?
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to consider.
+         * @return True if this &lt;code&gt;Change&lt;/code&gt; should be sent.
+         */
+        public boolean isNotifiable(ServerPlayer serverPlayer) {
+<span class="fc" id="L258">            return see.check(serverPlayer, isPerhapsNotifiable(serverPlayer));</span>
+        }
+
+        /**
+         * Should a player be notified of a Change for which the
+         * visibility is delegated to the change type, allowing
+         * special change-specific overrides.
+         *
+         * This is false by default, subclasses should override when
+         * special case handling is required.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to consider.
+         * @return False.
+         */
+        public boolean isPerhapsNotifiable(ServerPlayer serverPlayer) {
+<span class="fc" id="L273">            return false;</span>
+        }
+
+        /**
+         * Are the secondary changes consequent to this Change?
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to consider.
+         * @return A list of secondary &lt;code&gt;Change&lt;/code&gt;s or the
+         *     empty list if there are none, which is usually the case.
+         */
+        public List&lt;Change&gt; consequences(ServerPlayer serverPlayer) {
+<span class="fc" id="L284">            return Collections.&lt;Change&gt;emptyList();</span>
+        }
+
+        /**
+         * Can this Change be directly converted to an Element?
+         *
+         * @return True if this change can be directly converted to an Element.
+         */
+        public boolean convertsToElement() {
+<span class="fc" id="L293">            return true;</span>
+        }
+
+        /**
+         * Specialize a Change for a particular player.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt; to build the element in.
+         * @return An &lt;code&gt;Element&lt;/code&gt; encapsulating this change.
+         */
+        public abstract Element toElement(ServerPlayer serverPlayer,
+                                          Document doc);
+
+        /**
+         * Some changes can not be directly specialized, but need to be
+         * directly attached to an element.
+         *
+         * @param element The &lt;code&gt;Element&lt;/code&gt; to attach to.
+         */
+        public abstract void attachToElement(Element element);
+    }
+
+    /**
+     * Encapsulate an attack.
+     */
+    private static class AttackChange extends Change {
+
+        private final Unit attacker;
+        private final Unit defender;
+        private final boolean success;
+        private final boolean defenderInSettlement;
+
+
+        /**
+         * Build a new AttackChange.
+         *
+         * Note that we must copy attackers and defenders because a
+         * successful attacker can move, any an unsuccessful
+         * participant can die, and unsuccessful defenders can be
+         * captured.  Furthermore for defenders, insufficient
+         * information is serialized when a unit is inside a
+         * settlement, but if unscoped too much is disclosed.  So we
+         * make a copy and neuter it.
+         *
+         * We have to remember if the defender was in a settlement
+         * because by the time serialization occurs the settlement
+         * might have been destroyed.
+         *
+         * We just have to accept that combat animation is an
+         * exception to the normal visibility rules.
+         *
+         * @param see The visibility of this change.
+         * @param attacker The &lt;code&gt;Unit&lt;/code&gt; that is attacking.
+         * @param defender The &lt;code&gt;Unit&lt;/code&gt; that is defending.
+         * @param success Did the attack succeed.
+         */
+        public AttackChange(See see, Unit attacker, Unit defender,
+                            boolean success) {
+<span class="fc" id="L351">            super(see);</span>
+<span class="fc" id="L352">            Game game = attacker.getGame();</span>
+<span class="fc" id="L353">            this.defenderInSettlement = defender.getTile().hasSettlement();</span>
+<span class="fc" id="L354">            this.attacker = attacker.copy(game, Unit.class);</span>
+<span class="fc" id="L355">            this.attacker.setLocationNoUpdate(this.attacker.getTile());</span>
+<span class="fc" id="L356">            this.defender = defender.copy(game, Unit.class);</span>
+<span class="fc" id="L357">            this.defender.setLocationNoUpdate(this.defender.getTile());</span>
+<span class="fc" id="L358">            this.success = success;</span>
+<span class="fc" id="L359">        }</span>
+
+        /**
+         * Gets the sort priority.
+         *
+         * @return &quot;CHANGE_ANIMATION&quot;.
+         */
+        @Override
+        public int getPriority() {
+<span class="fc" id="L368">            return ChangePriority.CHANGE_ANIMATION.getPriority();</span>
+        }
+
+        /**
+         * Should a player perhaps be notified of this attack?  Do not
+         * use canSeeUnit because that gives a false negative for
+         * units in settlements, which should be animated.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to notify.
+         * @return True if the player should be notified.
+         */
+        @Override
+        public boolean isPerhapsNotifiable(ServerPlayer serverPlayer) {
+<span class="fc bfc" id="L381" title="All 2 branches covered.">            return serverPlayer == attacker.getOwner()</span>
+<span class="fc bfc" id="L382" title="All 2 branches covered.">                || serverPlayer == defender.getOwner()</span>
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">                || (serverPlayer.canSee(attacker.getTile())</span>
+<span class="pc bnc" id="L384" title="All 2 branches missed.">                    &amp;&amp; serverPlayer.canSee(defender.getTile()));</span>
+        }
+
+        /**
+         * Specialize a AttackChange into an &quot;animateAttack&quot; element
+         * for a particular player.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt;.
+         * @return An &quot;animateAttack&quot; element.
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="fc" id="L397">            final Game game = serverPlayer.getGame();</span>
+<span class="fc" id="L398">            Element element = doc.createElement(&quot;animateAttack&quot;);</span>
+<span class="fc" id="L399">            element.setAttribute(&quot;attacker&quot;, attacker.getId());</span>
+<span class="fc" id="L400">            element.setAttribute(&quot;defender&quot;, defender.getId());</span>
+<span class="fc" id="L401">            element.setAttribute(&quot;attackerTile&quot;, attacker.getTile().getId());</span>
+<span class="fc" id="L402">            element.setAttribute(&quot;defenderTile&quot;, defender.getTile().getId());</span>
+<span class="fc" id="L403">            element.setAttribute(&quot;success&quot;, Boolean.toString(success));</span>
+<span class="fc bfc" id="L404" title="All 2 branches covered.">            if (!canSeeUnit(serverPlayer, attacker)) {</span>
+<span class="fc" id="L405">                element.appendChild(attacker.toXMLElement(doc));</span>
+<span class="pc bpc" id="L406" title="1 of 2 branches missed.">                if (attacker.getLocation() instanceof Unit) {</span>
+<span class="nc" id="L407">                    Unit loc = (Unit)attacker.getLocation();</span>
+<span class="nc" id="L408">                    element.appendChild(loc.toXMLElement(doc, serverPlayer));</span>
+                }
+            }
+<span class="fc bfc" id="L411" title="All 4 branches covered.">            if (!canSeeUnit(serverPlayer, defender)</span>
+                || this.defenderInSettlement) {
+<span class="fc" id="L413">                defender.setWorkType(null);</span>
+<span class="fc" id="L414">                element.appendChild(defender.toXMLElement(doc));</span>
+            }
+<span class="fc" id="L416">            return element;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+<span class="nc" id="L423">        public void attachToElement(Element element) {} // Noop</span>
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L430">            StringBuilder sb = new StringBuilder(64);</span>
+<span class="nc" id="L431">            sb.append(&quot;[&quot;).append(getClass().getName())</span>
+<span class="nc" id="L432">                .append(&quot; &quot;).append(see)</span>
+<span class="nc" id="L433">                .append(&quot; #&quot;).append(getPriority())</span>
+<span class="nc" id="L434">                .append(&quot; &quot;).append(attacker.getId())</span>
+<span class="nc" id="L435">                .append(&quot;@&quot;).append(attacker.getTile().getId())</span>
+<span class="nc" id="L436">                .append(&quot; &quot;).append(success)</span>
+<span class="nc" id="L437">                .append(&quot; &quot;).append(defender.getId())</span>
+<span class="nc" id="L438">                .append(&quot;@&quot;).append(defender.getTile().getId())</span>
+<span class="nc" id="L439">                .append(&quot;]&quot;);</span>
+<span class="nc" id="L440">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Encapsulate an attribute change.
+     */
+    private static class AttributeChange extends Change {
+        private final String key;
+        private final String value;
+
+        /**
+         * Build a new AttributeChange.
+         *
+         * @param see The visibility of this change.
+         * @param key A key &lt;code&gt;String&lt;/code&gt;.
+         * @param value The corresponding value as a &lt;code&gt;String&lt;/code&gt;.
+         */
+        public AttributeChange(See see, String key, String value) {
+<span class="fc" id="L459">            super(see);</span>
+<span class="fc" id="L460">            this.key = key;</span>
+<span class="fc" id="L461">            this.value = value;</span>
+<span class="fc" id="L462">        }</span>
+
+        /**
+         * Gets the sort priority.
+         *
+         * @return &quot;CHANGE_ATTRIBUTE&quot;, attributes are special.
+         */
+        @Override
+        public int getPriority() {
+<span class="fc" id="L471">            return ChangePriority.CHANGE_ATTRIBUTE.getPriority();</span>
+        }
+
+        /**
+         * AttributeChanges are tacked onto the final Element, not converted
+         * directly.
+         *
+         * @return false.
+         */
+        @Override
+        public boolean convertsToElement() {
+<span class="fc" id="L482">            return false;</span>
+        }
+
+        /**
+         * We do not specialize AttributeChanges.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt;.
+         * @return Null.
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="nc" id="L494">            return null;</span>
+        }
+
+        /**
+         * Tack attributes onto the element.
+         *
+         * @param element The &lt;code&gt;Element&lt;/code&gt; to attach to.
+         */
+        @Override
+        public void attachToElement(Element element) {
+<span class="fc" id="L504">            element.setAttribute(key, value);</span>
+<span class="fc" id="L505">        }</span>
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L512">            StringBuilder sb = new StringBuilder(32);</span>
+<span class="nc" id="L513">            sb.append(&quot;[&quot;).append(getClass().getName())</span>
+<span class="nc" id="L514">                .append(&quot; &quot;).append(see)</span>
+<span class="nc" id="L515">                .append(&quot; #&quot;).append(getPriority())</span>
+<span class="nc" id="L516">                .append(&quot; &quot;).append(key)</span>
+<span class="nc" id="L517">                .append(&quot;=&quot;).append(value)</span>
+<span class="nc" id="L518">                .append(&quot;]&quot;);</span>
+<span class="nc" id="L519">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Encapsulate a Message.
+     */
+    private static class MessageChange extends Change {
+        private final ChangePriority priority;
+        private final DOMMessage message;
+
+        /**
+         * Build a new MessageChange.
+         *
+         * @param see The visibility of this change.
+         * @param priority The priority of the change.
+         * @param message The &lt;code&gt;Message&lt;/code&gt; to add.
+         */
+        public MessageChange(See see, ChangePriority priority,
+                             DOMMessage message) {
+<span class="fc" id="L539">            super(see);</span>
+<span class="fc" id="L540">            this.priority = priority;</span>
+<span class="fc" id="L541">            this.message = message;</span>
+<span class="fc" id="L542">        }</span>
+
+        /**
+         * Gets the sort priority.
+         *
+         * @return The priority.
+         */
+        @Override
+        public int getPriority() {
+<span class="fc" id="L551">            return priority.getPriority();</span>
+        }
+
+        /**
+         * Specialize a MessageChange to a particular player.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt;.
+         * @return An element.
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="fc" id="L563">            Element element = message.toXMLElement();</span>
+<span class="fc" id="L564">            return (Element) doc.importNode(element, true);</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+<span class="nc" id="L571">        public void attachToElement(Element element) {} // Noop</span>
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L578">            StringBuilder sb = new StringBuilder(32);</span>
+<span class="nc" id="L579">            sb.append(&quot;[&quot;).append(getClass().getName())</span>
+<span class="nc" id="L580">                .append(&quot; &quot;).append(see)</span>
+<span class="nc" id="L581">                .append(&quot; #&quot;).append(getPriority())</span>
+<span class="nc" id="L582">                .append(&quot; &quot;).append(message)</span>
+<span class="nc" id="L583">                .append(&quot;]&quot;);</span>
+<span class="nc" id="L584">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Encapsulate a move.
+     */
+    private static class MoveChange extends Change {
+        private final Unit unit;
+        private final Location oldLocation;
+        private final Tile newTile;
+
+        private boolean seeOld(ServerPlayer serverPlayer) {
+<span class="fc" id="L597">            Tile oldTile = oldLocation.getTile();</span>
+<span class="pc bpc" id="L598" title="1 of 4 branches missed.">            return serverPlayer.owns(unit)</span>
+                || (oldTile != null
+<span class="fc bfc" id="L600" title="All 2 branches covered.">                    &amp;&amp; serverPlayer.canSee(oldTile)</span>
+<span class="pc bpc" id="L601" title="1 of 4 branches missed.">                    &amp;&amp; !oldTile.hasSettlement()</span>
+                    &amp;&amp; !(oldLocation instanceof Unit));
+        }
+
+        private boolean seeNew(ServerPlayer serverPlayer) {
+<span class="fc" id="L606">            return canSeeUnit(serverPlayer, unit);</span>
+        }
+
+
+        /**
+         * Build a new MoveChange.
+         *
+         * @param see The visibility of this change.
+         * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is moving.
+         * @param oldLocation The location from which the unit is moving.
+         * @param newTile The &lt;code&gt;Tile&lt;/code&gt; to which the unit is moving.
+         */
+        public MoveChange(See see, Unit unit, Location oldLocation,
+                          Tile newTile) {
+<span class="fc" id="L620">            super(see);</span>
+<span class="fc" id="L621">            this.unit = unit;</span>
+<span class="fc" id="L622">            this.oldLocation = oldLocation;</span>
+<span class="fc" id="L623">            this.newTile = newTile;</span>
+<span class="fc" id="L624">        }</span>
+
+        /**
+         * Gets the sort priority.
+         *
+         * @return &quot;CHANGE_ANIMATION&quot;
+         */
+        @Override
+        public int getPriority() {
+<span class="fc" id="L633">            return ChangePriority.CHANGE_ANIMATION.getPriority();</span>
+        }
+
+        /**
+         * Should a player perhaps be notified of this move?
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to notify.
+         * @return True if the player should be notified.
+         */
+        @Override
+        public boolean isPerhapsNotifiable(ServerPlayer serverPlayer) {
+<span class="fc bfc" id="L644" title="All 4 branches covered.">            return seeOld(serverPlayer) || seeNew(serverPlayer);</span>
+        }
+
+        /**
+         * There are consequences to a move.  If the player can not
+         * see the unit after the move, it should be removed.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to notify.
+         * @return A RemoveChange if the unit disappears (but not if it
+         *     is destroyed, that is handled elsewhere).
+         */
+        @Override
+        public List&lt;Change&gt; consequences(ServerPlayer serverPlayer) {
+<span class="pc bpc" id="L657" title="1 of 4 branches missed.">            if (seeOld(serverPlayer) &amp;&amp; !seeNew(serverPlayer)</span>
+<span class="nc bnc" id="L658" title="All 2 branches missed.">                &amp;&amp; !unit.isDisposed()) {</span>
+<span class="nc" id="L659">                List&lt;Unit&gt; units = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L660">                units.add(unit);</span>
+<span class="nc" id="L661">                List&lt;Change&gt; changes = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L662">                changes.add(new RemoveChange(See.only(serverPlayer),</span>
+<span class="nc" id="L663">                                             unit.getLocation(), units));</span>
+<span class="nc" id="L664">                return changes;</span>
+            }
+<span class="fc" id="L666">            return Collections.&lt;Change&gt;emptyList();</span>
+        }
+
+        /**
+         * Specialize a MoveChange into an &quot;animateMove&quot; element for a
+         * particular player.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt;.
+         * @return An &quot;animateMove&quot; element.
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="fc" id="L679">            Element element = doc.createElement(&quot;animateMove&quot;);</span>
+<span class="fc" id="L680">            element.setAttribute(&quot;unit&quot;, unit.getId());</span>
+<span class="fc" id="L681">            element.setAttribute(&quot;oldTile&quot;, oldLocation.getTile().getId());</span>
+<span class="fc" id="L682">            element.setAttribute(&quot;newTile&quot;, newTile.getId());</span>
+<span class="fc bfc" id="L683" title="All 2 branches covered.">            if (!seeOld(serverPlayer)) {</span>
+                // We can not rely on the unit that is about to move
+                // being present on the client side, and it is needed
+                // before we can run the animation, so it is attached
+                // to animateMove.
+<span class="fc" id="L688">                element.appendChild(unit.toXMLElement(doc, serverPlayer));</span>
+            }
+<span class="fc" id="L690">            return element;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+<span class="nc" id="L697">        public void attachToElement(Element element) {} // Noop</span>
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L704">            StringBuilder sb = new StringBuilder(32);</span>
+<span class="nc" id="L705">            sb.append(&quot;[&quot;).append(getClass().getName())</span>
+<span class="nc" id="L706">                .append(&quot; &quot;).append(see)</span>
+<span class="nc" id="L707">                .append(&quot; #&quot;).append(getPriority())</span>
+<span class="nc" id="L708">                .append(&quot; &quot;).append(unit.getId())</span>
+<span class="nc" id="L709">                .append(&quot; &quot;).append(oldLocation.getId())</span>
+<span class="nc" id="L710">                .append(&quot; &quot;).append(newTile.getId())</span>
+<span class="nc" id="L711">                .append(&quot;]&quot;);</span>
+<span class="nc" id="L712">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Encapsulate a FreeColGameObject update.
+     */
+    private static class ObjectChange extends Change {
+        protected final FreeColGameObject fcgo;
+
+        /**
+         * Build a new ObjectChange for a single object.
+         *
+         * @param see The visibility of this change.
+         * @param fcgo The &lt;code&gt;FreeColGameObject&lt;/code&gt; to update.
+         */
+        public ObjectChange(See see, FreeColGameObject fcgo) {
+<span class="fc" id="L729">            super(see);</span>
+<span class="fc" id="L730">            this.fcgo = fcgo;</span>
+<span class="fc" id="L731">        }</span>
+
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public boolean matches(FreeColGameObject fcgo) {
+<span class="pc bpc" id="L739" title="1 of 2 branches missed.">            return this.fcgo == fcgo;</span>
+        }
+
+        /**
+         * Gets the sort priority.
+         *
+         * @return &quot;CHANGE_UPDATE&quot;
+         */
+        @Override
+        public int getPriority() {
+<span class="fc" id="L749">            return ChangePriority.CHANGE_UPDATE.getPriority();</span>
+        }
+
+        /**
+         * Should a player perhaps be notified of this update?
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to notify.
+         * @return True if the object update can is notifiable.
+         */
+        @Override
+        public boolean isPerhapsNotifiable(ServerPlayer serverPlayer) {
+<span class="fc bfc" id="L760" title="All 2 branches covered.">            if (fcgo instanceof Unit) {</span>
+                // Units have a precise test, use that rather than
+                // the more general interface-based tests.
+<span class="fc" id="L763">                return canSeeUnit(serverPlayer, (Unit)fcgo);</span>
+            }
+            // If we own it, we can see it.
+<span class="fc bfc" id="L766" title="All 4 branches covered.">            if (fcgo instanceof Ownable &amp;&amp; serverPlayer.owns((Ownable)fcgo)) {</span>
+<span class="fc" id="L767">                return true;</span>
+            }
+            // We do not own it, so the only way we could see it is if
+            // it is on the map.  Would like to use getTile() to
+            // decide that, but this will include ColonyTiles, which
+            // report the colony center tile, yet should never be visible.
+            // So just brutally disallow WorkLocations which should always
+            // be invisible inside colonies.
+<span class="pc bpc" id="L775" title="1 of 2 branches missed.">            if (fcgo instanceof WorkLocation) {</span>
+<span class="nc" id="L776">                return false;</span>
+            }
+<span class="fc bfc" id="L778" title="All 2 branches covered.">            if (fcgo instanceof Location) {</span>
+<span class="fc" id="L779">                Tile tile = ((Location)fcgo).getTile();</span>
+<span class="fc" id="L780">                return serverPlayer.canSee(tile);</span>
+            }
+<span class="fc" id="L782">            return false;</span>
+        }
+
+        /**
+         * Specialize a ObjectChange to a particular player.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt;.
+         * @return An &quot;update&quot; element, or null if the update should not
+         *     be visible to the player.
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="fc" id="L795">            Element element = doc.createElement(&quot;update&quot;);</span>
+<span class="fc" id="L796">            element.appendChild(fcgo.toXMLElement(doc, serverPlayer));</span>
+<span class="fc" id="L797">            return element;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+<span class="nc" id="L804">        public void attachToElement(Element element) {} // Noop</span>
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L811">            StringBuilder sb = new StringBuilder(32);</span>
+<span class="nc" id="L812">            sb.append(&quot;[&quot;).append(getClass().getName())</span>
+<span class="nc" id="L813">                .append(&quot; &quot;).append(see)</span>
+<span class="nc" id="L814">                .append(&quot; #&quot;).append(getPriority())</span>
+<span class="nc" id="L815">                .append(&quot; &quot;).append(fcgo.getId())</span>
+<span class="nc" id="L816">                .append(&quot;]&quot;);</span>
+<span class="nc" id="L817">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Encapsulate a partial update of a FreeColGameObject.
+     */
+    private static class PartialObjectChange extends ObjectChange {
+        private final String[] fields;
+
+        /**
+         * Build a new PartialObjectChange for a single object.
+         *
+         * @param see The visibility of this change.
+         * @param fcgo The &lt;code&gt;FreeColGameObject&lt;/code&gt; to update.
+         * @param fields The fields to update.
+         */
+        public PartialObjectChange(See see, FreeColGameObject fcgo,
+                                   String... fields) {
+<span class="fc" id="L836">            super(see, fcgo);</span>
+<span class="fc" id="L837">            this.fields = fields;</span>
+<span class="fc" id="L838">        }</span>
+
+
+        /**
+         * Should a player perhaps be notified of this update?
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to notify.
+         * @return False.  Revert to default from ObjectChange special case.
+         */
+        @Override
+        public boolean isPerhapsNotifiable(ServerPlayer serverPlayer) {
+<span class="fc" id="L849">            return false;</span>
+        }
+
+        /**
+         * Specialize a PartialObjectChange to a particular player.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt;.
+         * @return An &quot;update&quot; element.
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="fc" id="L861">            Element element = doc.createElement(&quot;update&quot;);</span>
+<span class="fc" id="L862">            element.appendChild(fcgo.toXMLElementPartial(doc, fields));</span>
+<span class="fc" id="L863">            return element;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L871">            StringBuilder sb = new StringBuilder(32);</span>
+<span class="nc" id="L872">            sb.append(&quot;[&quot;).append(getClass().getName())</span>
+<span class="nc" id="L873">                .append(&quot; &quot;).append(see)</span>
+<span class="nc" id="L874">                .append(&quot; #&quot;).append(getPriority())</span>
+<span class="nc" id="L875">                .append(&quot; &quot;).append(fcgo.getId());</span>
+<span class="nc bnc" id="L876" title="All 2 branches missed.">            for (String f : fields) sb.append(&quot; &quot;).append(f);</span>
+<span class="nc" id="L877">            sb.append(&quot;]&quot;);</span>
+<span class="nc" id="L878">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Encapsulate a new player change.
+     */
+    private static class PlayerChange extends Change {
+        private final ServerPlayer player;
+
+        /**
+         * Build a new PlayerChange.
+         *
+         * @param see The visibility of this change.
+         * @param player The &lt;code&gt;Player&lt;/code&gt; to add.
+         */
+        public PlayerChange(See see, ServerPlayer player) {
+<span class="fc" id="L895">            super(see);</span>
+<span class="fc" id="L896">            this.player = player;</span>
+<span class="fc" id="L897">        }</span>
+
+        /**
+         * Gets the sort priority.
+         *
+         * @return &quot;CHANGE_EARLY&quot;.
+         */
+        @Override
+        public int getPriority() {
+<span class="fc" id="L906">            return ChangePriority.CHANGE_EARLY.getPriority();</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public boolean isNotifiable(ServerPlayer serverPlayer) {
+<span class="fc" id="L914">            return true;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="fc" id="L922">            final Game game = serverPlayer.getGame();</span>
+<span class="fc" id="L923">            Element element = doc.createElement(&quot;addPlayer&quot;);</span>
+<span class="fc" id="L924">            element.appendChild(this.player.toXMLElement(doc, serverPlayer));</span>
+<span class="fc" id="L925">            return element;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+<span class="nc" id="L932">        public void attachToElement(Element element) {} // Noop</span>
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L939">            StringBuilder sb = new StringBuilder(32);</span>
+<span class="nc" id="L940">            sb.append(&quot;[&quot;).append(getClass().getName())</span>
+<span class="nc" id="L941">                .append(&quot; &quot;).append(see)</span>
+<span class="nc" id="L942">                .append(&quot; #&quot;).append(getPriority())</span>
+<span class="nc" id="L943">                .append(&quot; &quot;).append(player.getId())</span>
+<span class="nc" id="L944">                .append(&quot;]&quot;);</span>
+<span class="nc" id="L945">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Encapsulates removing some objects.
+     *
+     * -vis: If removing settlements or units, visibility changes.
+     */
+    private static class RemoveChange extends Change {
+        private final Tile tile;
+        private final FreeColGameObject fcgo;
+        private final List&lt;? extends FreeColGameObject&gt; contents;
+
+        /**
+         * Build a new RemoveChange for an object that is disposed.
+         *
+         * @param see The visibility of this change.
+         * @param loc The &lt;code&gt;Location&lt;/code&gt; where the object was.
+         * @param objects The &lt;code&gt;FreeColGameObject&lt;/code&gt;s to remove.
+         */
+        public RemoveChange(See see, Location loc,
+                            List&lt;? extends FreeColGameObject&gt; objects) {
+<span class="fc" id="L968">            super(see);</span>
+<span class="fc bfc" id="L969" title="All 2 branches covered.">            this.tile = (loc instanceof Tile) ? (Tile)loc : null;</span>
+<span class="fc" id="L970">            this.fcgo = objects.remove(objects.size() - 1);</span>
+<span class="fc" id="L971">            this.contents = objects;</span>
+<span class="fc" id="L972">        }</span>
+
+        /**
+         * Gets the sort priority.
+         *
+         * @return &quot;CHANGE_REMOVE&quot;
+         */
+        @Override
+        public int getPriority() {
+<span class="fc" id="L981">            return ChangePriority.CHANGE_REMOVE.getPriority();</span>
+        }
+
+        /**
+         * Should a player perhaps be notified of this removal?
+         * They should if they can see the tile, and there is no
+         * other-player settlement present.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to notify.
+         * @return True if the player should be notified.
+         */
+        @Override
+        public boolean isPerhapsNotifiable(ServerPlayer serverPlayer) {
+            Settlement settlement;
+<span class="fc bfc" id="L995" title="All 2 branches covered.">            return tile != null</span>
+<span class="fc bfc" id="L996" title="All 2 branches covered.">                &amp;&amp; serverPlayer.canSee(tile)</span>
+<span class="fc bfc" id="L997" title="All 2 branches covered.">                &amp;&amp; ((settlement = tile.getSettlement()) == null</span>
+<span class="pc bpc" id="L998" title="1 of 2 branches missed.">                    || settlement.isDisposed()</span>
+<span class="fc bfc" id="L999" title="All 2 branches covered.">                    || serverPlayer.owns(settlement));</span>
+        }
+
+        /**
+         * Specialize a RemoveChange to a particular player.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt;.
+         * @return A &quot;remove&quot; element.
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="fc" id="L1011">            Element element = doc.createElement(&quot;remove&quot;);</span>
+            // The main object may be visible, but the contents are
+            // only visible if the deeper ownership test succeeds.
+<span class="pc bpc" id="L1014" title="1 of 4 branches missed.">            if (fcgo instanceof Ownable &amp;&amp; serverPlayer.owns((Ownable)fcgo)) {</span>
+<span class="fc bfc" id="L1015" title="All 2 branches covered.">                for (FreeColGameObject o : contents) {</span>
+<span class="fc" id="L1016">                    element.appendChild(o.toXMLElementPartial(doc));</span>
+<span class="fc" id="L1017">                }</span>
+<span class="fc bfc" id="L1018" title="All 2 branches covered.">                element.setAttribute(&quot;divert&quot;, (tile != null) ? tile.getId()</span>
+<span class="fc" id="L1019">                                     : serverPlayer.getId());</span>
+            }
+<span class="fc" id="L1021">            element.appendChild(fcgo.toXMLElementPartial(doc));</span>
+<span class="fc" id="L1022">            return element;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+<span class="nc" id="L1029">        public void attachToElement(Element element) {} // Noop</span>
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L1036">            StringBuilder sb = new StringBuilder(32);</span>
+<span class="nc" id="L1037">            sb.append(&quot;[&quot;).append(getClass().getName())</span>
+<span class="nc" id="L1038">                .append(&quot; &quot;).append(see)</span>
+<span class="nc" id="L1039">                .append(&quot; #&quot;).append(getPriority())</span>
+<span class="nc bnc" id="L1040" title="All 2 branches missed.">                .append(&quot; &quot;).append(((tile == null) ? &quot;&lt;null&gt;&quot; : tile.getId()));</span>
+<span class="nc bnc" id="L1041" title="All 2 branches missed.">            for (FreeColGameObject f : contents) {</span>
+<span class="nc" id="L1042">                sb.append(&quot; &quot;).append(f.getId());</span>
+<span class="nc" id="L1043">            }</span>
+<span class="nc" id="L1044">            sb.append(&quot; &quot;).append(fcgo.getId()).append(&quot;]&quot;);</span>
+<span class="nc" id="L1045">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Encapsulate an owned object change.
+     */
+    private static class OwnedChange extends Change {
+        private final FreeColObject fco;
+
+        /**
+         * Build a new OwnedChange.
+         *
+         * @param see The visibility of this change.
+         * @param fco The &lt;code&gt;FreeColObject&lt;/code&gt; to update.
+         */
+        public OwnedChange(See see, FreeColObject fco) {
+<span class="fc" id="L1062">            super(see);</span>
+<span class="fc" id="L1063">            this.fco = fco;</span>
+<span class="fc" id="L1064">        }</span>
+
+        /**
+         * Gets the sort priority.
+         *
+         * @return &quot;CHANGE_OWNER&quot;
+         */
+        @Override
+        public int getPriority() {
+<span class="fc" id="L1073">            return ChangePriority.CHANGE_OWNED.getPriority();</span>
+        }
+
+        /**
+         * Specialize a OwnedChange into an &quot;addObject&quot; element for a
+         * particular player.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt;.
+         * @return An &quot;addObject&quot; element.
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="fc" id="L1086">            Element element = doc.createElement(&quot;addObject&quot;);</span>
+<span class="fc" id="L1087">            Element child = fco.toXMLElement(doc, serverPlayer);</span>
+<span class="fc" id="L1088">            child.setAttribute(&quot;owner&quot;, serverPlayer.getId());</span>
+<span class="fc" id="L1089">            element.appendChild(child);</span>
+<span class="fc" id="L1090">            return element;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+<span class="nc" id="L1097">        public void attachToElement(Element element) {} // Noop</span>
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L1104">            StringBuilder sb = new StringBuilder(32);</span>
+<span class="nc" id="L1105">            sb.append(&quot;[&quot;).append(getClass().getName())</span>
+<span class="nc" id="L1106">                .append(&quot; &quot;).append(see)</span>
+<span class="nc" id="L1107">                .append(&quot; #&quot;).append(getPriority())</span>
+<span class="nc" id="L1108">                .append(&quot; &quot;).append(fco.getId())</span>
+<span class="nc" id="L1109">                .append(&quot;]&quot;);</span>
+<span class="nc" id="L1110">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Encapsulate a feature change.
+     */
+    private static class FeatureChange extends Change {
+        private final FreeColGameObject object;
+        private final Feature feature;
+        private final boolean add;
+
+        /**
+         * Build a new FeatureChange.
+         *
+         * @param see The visibility of this change.
+         * @param object The &lt;code&gt;FreeColGameObject&lt;/code&gt; to update.
+         * @param feature a &lt;code&gt;Feature&lt;/code&gt; value to add or remove.
+         * @param add a &lt;code&gt;boolean&lt;/code&gt; value
+         */
+        public FeatureChange(See see, FreeColGameObject object,
+                             Feature feature, boolean add) {
+<span class="nc" id="L1132">            super(see);</span>
+<span class="nc" id="L1133">            this.object = object;</span>
+<span class="nc" id="L1134">            this.feature = feature;</span>
+<span class="nc" id="L1135">            this.add = add;</span>
+<span class="nc" id="L1136">        }</span>
+
+        /**
+         * Gets the sort priority.
+         *
+         * @return &quot;CHANGE_OWNER&quot;
+         */
+        @Override
+        public int getPriority() {
+<span class="nc" id="L1145">            return ChangePriority.CHANGE_OWNED.getPriority();</span>
+        }
+
+        /**
+         * Specialize a feature change into an element for a
+         * particular player.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt;.
+         * @return An &quot;addObject&quot; element.
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="nc" id="L1158">            Element element = doc.createElement(&quot;featureChange&quot;);</span>
+<span class="nc" id="L1159">            element.setAttribute(&quot;add&quot;, Boolean.toString(add));</span>
+<span class="nc" id="L1160">            element.setAttribute(FreeColObject.ID_ATTRIBUTE_TAG, object.getId());</span>
+<span class="nc" id="L1161">            Element child = feature.toXMLElement(doc);</span>
+<span class="nc" id="L1162">            element.appendChild(child);</span>
+<span class="nc" id="L1163">            return element;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+<span class="nc" id="L1170">        public void attachToElement(Element element) {} // Noop</span>
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L1177">            StringBuilder sb = new StringBuilder(32);</span>
+<span class="nc" id="L1178">            sb.append(&quot;[&quot;).append(getClass().getName())</span>
+<span class="nc" id="L1179">                .append(&quot; &quot;).append(see)</span>
+<span class="nc" id="L1180">                .append(&quot; #&quot;).append(getPriority())</span>
+<span class="nc bnc" id="L1181" title="All 2 branches missed.">                .append(&quot; &quot;).append((add) ? &quot;add&quot; : &quot;remove&quot;)</span>
+<span class="nc" id="L1182">                .append(&quot; &quot;).append(feature)</span>
+<span class="nc bnc" id="L1183" title="All 2 branches missed.">                .append(&quot; &quot;).append((add) ? &quot;to&quot; : &quot;from&quot;)</span>
+<span class="nc" id="L1184">                .append(&quot; &quot;).append(object.getId())</span>
+<span class="nc" id="L1185">                .append(&quot;]&quot;);</span>
+<span class="nc" id="L1186">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Encapsulates a spying action.
+     */
+    private static class SpyChange extends Change {
+        private final Tile tile;
+
+        /**
+         * Build a new SpyChange.
+         *
+         * @param see The visibility of this change.
+         * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; to spy on.
+         */
+        public SpyChange(See see, Settlement settlement) {
+<span class="nc" id="L1203">            super(see);</span>
+<span class="nc" id="L1204">            tile = settlement.getTile();</span>
+<span class="nc" id="L1205">        }</span>
+
+        /**
+         * Gets the sort priority.
+         *
+         * @return priority.
+         */
+        @Override
+        public int getPriority() {
+<span class="nc" id="L1214">            return ChangePriority.CHANGE_NORMAL.getPriority();</span>
+        }
+
+        /**
+         * Specialize a SpyChange into an element with the supplied name.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt;.
+         * @return An element.
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="nc" id="L1226">            Element element = doc.createElement(&quot;spyResult&quot;);</span>
+<span class="nc" id="L1227">            element.setAttribute(&quot;tile&quot;, tile.getId());</span>
+            // Have to tack on two copies of the settlement tile.
+            // One full version, one ordinary version to restore.
+<span class="nc" id="L1230">            element.appendChild(tile.toXMLElement(doc));</span>
+<span class="nc" id="L1231">            element.appendChild(tile.getCachedTile(serverPlayer)</span>
+<span class="nc" id="L1232">                .toXMLElement(doc, serverPlayer));</span>
+<span class="nc" id="L1233">            return element;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+<span class="nc" id="L1240">        public void attachToElement(Element element) {} // Noop</span>
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L1247">            StringBuilder sb = new StringBuilder(32);</span>
+<span class="nc" id="L1248">            sb.append(&quot;[&quot;).append(getClass().getName())</span>
+<span class="nc" id="L1249">                .append(&quot; &quot;).append(see)</span>
+<span class="nc" id="L1250">                .append(&quot; #&quot;).append(getPriority())</span>
+<span class="nc" id="L1251">                .append(&quot; &quot;).append(tile.getId())</span>
+<span class="nc" id="L1252">                .append(&quot;]&quot;);</span>
+<span class="nc" id="L1253">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Encapsulate a stance change.
+     */
+    private static class StanceChange extends Change {
+        private final Player first;
+        private final Stance stance;
+        private final Player second;
+
+        /**
+         * Build a new StanceChange.
+         *
+         * @param see The visibility of this change.
+         * @param first The &lt;code&gt;Player&lt;/code&gt; changing stance.
+         * @param stance The &lt;code&gt;Stance&lt;/code&gt; to change to.
+         * @param second The &lt;code&gt;Player&lt;/code&gt; wrt with to change.
+         */
+        public StanceChange(See see, Player first, Stance stance,
+                            Player second) {
+<span class="fc" id="L1275">            super(see);</span>
+<span class="fc" id="L1276">            this.first = first;</span>
+<span class="fc" id="L1277">            this.stance = stance;</span>
+<span class="fc" id="L1278">            this.second = second;</span>
+<span class="fc" id="L1279">        }</span>
+
+        /**
+         * Gets the sort priority.
+         *
+         * @return &quot;CHANGE_STANCE&quot;
+         */
+        @Override
+        public int getPriority() {
+<span class="fc" id="L1288">            return ChangePriority.CHANGE_STANCE.getPriority();</span>
+        }
+
+        /**
+         * Specialize a StanceChange to a particular player.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt;.
+         * @return A &quot;setStance&quot; element.
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="fc" id="L1300">            Element element = doc.createElement(&quot;setStance&quot;);</span>
+<span class="fc" id="L1301">            element.setAttribute(&quot;stance&quot;, stance.toString());</span>
+<span class="fc" id="L1302">            element.setAttribute(&quot;first&quot;, first.getId());</span>
+<span class="fc" id="L1303">            element.setAttribute(&quot;second&quot;, second.getId());</span>
+<span class="fc" id="L1304">            return element;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+<span class="nc" id="L1311">        public void attachToElement(Element element) {} // Noop</span>
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L1318">            StringBuilder sb = new StringBuilder(32);</span>
+<span class="nc" id="L1319">            sb.append(&quot;[&quot;).append(getClass().getName())</span>
+<span class="nc" id="L1320">                .append(&quot; &quot;).append(see)</span>
+<span class="nc" id="L1321">                .append(&quot; #&quot;).append(getPriority())</span>
+<span class="nc" id="L1322">                .append(&quot; &quot;).append(first.getId())</span>
+<span class="nc" id="L1323">                .append(&quot; &quot;).append(stance)</span>
+<span class="nc" id="L1324">                .append(&quot; &quot;).append(second.getId())</span>
+<span class="nc" id="L1325">                .append(&quot;]&quot;);</span>
+<span class="nc" id="L1326">            return sb.toString();</span>
+        }
+    }
+
+    /**
+     * Encapsulate trivial element, which will only have attributes apart
+     * from its name.
+     */
+    private static class TrivialChange extends Change {
+        private final int priority;
+        private final String name;
+        private final String[] attributes;
+
+        /**
+         * Build a new TrivialChange.
+         *
+         * @param see The visibility of this change.
+         * @param name The name of the element.
+         * @param priority The sort priority of this change.
+         */
+        public TrivialChange(See see, String name, int priority,
+                             String[] attributes) {
+<span class="nc" id="L1348">            super(see);</span>
+<span class="nc bnc" id="L1349" title="All 2 branches missed.">            if ((attributes.length &amp; 1) == 1) {</span>
+<span class="nc" id="L1350">                throw new IllegalArgumentException(&quot;Attributes must be even sized&quot;);</span>
+            }
+<span class="nc" id="L1352">            this.name = name;</span>
+<span class="nc" id="L1353">            this.priority = priority;</span>
+<span class="nc" id="L1354">            this.attributes = attributes;</span>
+<span class="nc" id="L1355">        }</span>
+
+        /**
+         * Gets the sort priority.
+         *
+         * @return priority.
+         */
+        @Override
+        public int getPriority() {
+<span class="nc" id="L1364">            return priority;</span>
+        }
+
+        /**
+         * Specialize a TrivialChange into an element with the supplied name.
+         *
+         * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to update.
+         * @param doc The owner &lt;code&gt;Document&lt;/code&gt;.
+         * @return An element.
+         */
+        @Override
+        public Element toElement(ServerPlayer serverPlayer, Document doc) {
+<span class="nc" id="L1376">            Element element = doc.createElement(name);</span>
+<span class="nc bnc" id="L1377" title="All 2 branches missed.">            for (int i = 0; i &lt; attributes.length; i += 2) {</span>
+<span class="nc" id="L1378">                element.setAttribute(attributes[i], attributes[i+1]);</span>
+            }
+<span class="nc" id="L1380">            return element;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+<span class="nc" id="L1387">        public void attachToElement(Element element) {} // Noop</span>
+
+        /**
+         * Debug helper.
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L1394">            String ret = &quot;[&quot; + getClass().getName() + &quot; &quot; + see</span>
+<span class="nc" id="L1395">                + &quot; #&quot; + getPriority()</span>
+                + &quot; &quot; + name;
+<span class="nc bnc" id="L1397" title="All 2 branches missed.">            for (String a : attributes) ret += &quot; &quot; + a;</span>
+<span class="nc" id="L1398">            return ret + &quot;]&quot;;</span>
+        }
+    }
+
+    /**
+     * Simple constructor.
+     */
+<span class="fc" id="L1405">    public ChangeSet() {</span>
+<span class="fc" id="L1406">        changes = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L1407">    }</span>
+
+    /**
+     * Copying constructor.
+     *
+     * @param other The other &lt;code&gt;ChangeSet&lt;/code&gt; to copy.
+     */
+<span class="nc" id="L1414">    public ChangeSet(ChangeSet other) {</span>
+<span class="nc" id="L1415">        changes = new ArrayList&lt;&gt;(other.changes);</span>
+<span class="nc" id="L1416">    }</span>
+
+
+    // Helper routines that should be used to construct a change set.
+
+    /**
+     * Sometimes we need to backtrack on making a change.
+     *
+     * @param fcgo A &lt;code&gt;FreeColGameObject&lt;/code&gt; to remove a matching
+     *     change for.
+     */
+    public void remove(FreeColGameObject fcgo) {
+<span class="fc" id="L1428">        Iterator&lt;Change&gt; ci = changes.iterator();</span>
+<span class="fc bfc" id="L1429" title="All 2 branches covered.">        while (ci.hasNext()) {</span>
+<span class="fc" id="L1430">            Change c = ci.next();</span>
+<span class="pc bpc" id="L1431" title="1 of 2 branches missed.">            if (c.matches(fcgo)) ci.remove();</span>
+<span class="fc" id="L1432">        }</span>
+<span class="fc" id="L1433">    }</span>
+
+    /**
+     * Helper function to add updates for multiple objects to a ChangeSet.
+     *
+     * @param see The visibility of this change.
+     * @param objects The &lt;code&gt;FreeColGameObject&lt;/code&gt;s that changed.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet add(See see, FreeColGameObject... objects) {
+<span class="fc bfc" id="L1443" title="All 2 branches covered.">        for (FreeColGameObject o : objects) {</span>
+<span class="fc" id="L1444">            changes.add(new ObjectChange(see, o));</span>
+        }
+<span class="fc" id="L1446">        return this;</span>
+    }
+
+    /**
+     * Helper function to add updates for multiple objects to a ChangeSet.
+     *
+     * @param see The visibility of this change.
+     * @param objects The &lt;code&gt;FreeColGameObject&lt;/code&gt;s that changed.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet add(See see, Collection&lt;? extends FreeColGameObject&gt; objects) {
+<span class="fc bfc" id="L1457" title="All 2 branches covered.">        for (FreeColGameObject o : objects) {</span>
+<span class="fc" id="L1458">            changes.add(new ObjectChange(see, o));</span>
+<span class="fc" id="L1459">        }</span>
+<span class="fc" id="L1460">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a Message to a ChangeSet.
+     *
+     * @param see The visibility of this change.
+     * @param cp The priority of this change.
+     * @param message The &lt;code&gt;Message&lt;/code&gt; to add.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet add(See see, ChangePriority cp, DOMMessage message) {
+<span class="fc" id="L1472">        changes.add(new MessageChange(see, cp, message));</span>
+<span class="fc" id="L1473">        return this;</span>
+    }
+
+    /**
+     * Helper function to add an attack to a ChangeSet.
+     *
+     * @param see The visibility of this change.
+     * @param attacker The &lt;code&gt;Unit&lt;/code&gt; that is attacking.
+     * @param defender The &lt;code&gt;Unit&lt;/code&gt; that is defending.
+     * @param success Did the attack succeed?
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addAttack(See see, Unit attacker, Unit defender,
+                               boolean success) {
+<span class="fc" id="L1487">        changes.add(new AttackChange(see, attacker, defender, success));</span>
+<span class="fc" id="L1488">        return this;</span>
+    }
+
+    /**
+     * Helper function to add an attribute setting to a ChangeSet.
+     *
+     * @param see The visibility of this change.
+     * @param key A key &lt;code&gt;String&lt;/code&gt;.
+     * @param value The corresponding value as a &lt;code&gt;String&lt;/code&gt;.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addAttribute(See see, String key, String value) {
+<span class="fc" id="L1500">        changes.add(new AttributeChange(see, key, value));</span>
+<span class="fc" id="L1501">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a dead player event to a ChangeSet.
+     * Deaths are public knowledge.
+     *
+     * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; that died.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addDead(ServerPlayer serverPlayer) {
+<span class="nc" id="L1512">        addTrivial(See.all(), &quot;setDead&quot;, ChangePriority.CHANGE_EARLY,</span>
+<span class="nc" id="L1513">                &quot;player&quot;, serverPlayer.getId());</span>
+<span class="nc" id="L1514">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a removal for an object that disappears
+     * (that is, moves where it can not be seen) to a ChangeSet.
+     *
+     * @param owner The &lt;code&gt;ServerPlayer&lt;/code&gt; that owns this object.
+     * @param tile The &lt;code&gt;Tile&lt;/code&gt; where the object was.
+     * @param fcgo The &lt;code&gt;FreeColGameObject&lt;/code&gt; that disappears.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addDisappear(ServerPlayer owner, Tile tile,
+                                  FreeColGameObject fcgo) {
+<span class="fc" id="L1528">        List&lt;FreeColGameObject&gt; objects = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L1529">        objects.add(fcgo);</span>
+<span class="fc" id="L1530">        changes.add(new RemoveChange(See.perhaps().except(owner), tile, objects));</span>
+<span class="fc" id="L1531">        changes.add(new ObjectChange(See.perhaps().except(owner), tile));</span>
+<span class="fc" id="L1532">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a founding father addition event to a ChangeSet.
+     * Also adds the father to the owner.
+     *
+     * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; adding the father.
+     * @param father The &lt;code&gt;FoundingFather&lt;/code&gt; to add.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addFather(ServerPlayer serverPlayer,
+                               FoundingFather father) {
+<span class="fc" id="L1545">        changes.add(new OwnedChange(See.only(serverPlayer), father));</span>
+<span class="fc" id="L1546">        serverPlayer.addFather(father);</span>
+<span class="fc" id="L1547">        return this;</span>
+    }
+
+    /**
+     * Helper function to add an Ability to a FreeColGameObject, or remove it.
+     *
+     * @param serverPlayer a &lt;code&gt;ServerPlayer&lt;/code&gt; value
+     * @param object a &lt;code&gt;FreeColGameObject&lt;/code&gt; value
+     * @param ability an &lt;code&gt;Ability&lt;/code&gt; value
+     * @param add a &lt;code&gt;boolean&lt;/code&gt; value
+     * @return a &lt;code&gt;ChangeSet&lt;/code&gt; value
+     */
+    public ChangeSet addFeatureChange(ServerPlayer serverPlayer, FreeColGameObject object,
+                                      Ability ability, boolean add) {
+<span class="nc" id="L1561">        changes.add(new FeatureChange(See.only(serverPlayer), object, ability, add));</span>
+<span class="nc bnc" id="L1562" title="All 2 branches missed.">        if (add) {</span>
+<span class="nc" id="L1563">            object.addAbility(ability);</span>
+        } else {
+<span class="nc" id="L1565">            object.removeAbility(ability);</span>
+        }
+<span class="nc" id="L1567">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a Modifier to a FreeColGameObject, or remove it.
+     *
+     * @param serverPlayer a &lt;code&gt;ServerPlayer&lt;/code&gt; value
+     * @param object a &lt;code&gt;FreeColGameObject&lt;/code&gt; value
+     * @param modifier a &lt;code&gt;Modifier&lt;/code&gt; value
+     * @param add a &lt;code&gt;boolean&lt;/code&gt; value
+     * @return a &lt;code&gt;ChangeSet&lt;/code&gt; value
+     */
+    public ChangeSet addFeatureChange(ServerPlayer serverPlayer, FreeColGameObject object,
+                                      Modifier modifier, boolean add) {
+<span class="nc" id="L1581">        changes.add(new FeatureChange(See.only(serverPlayer), object, modifier, add));</span>
+<span class="nc bnc" id="L1582" title="All 2 branches missed.">        if (add) {</span>
+<span class="nc" id="L1583">            object.addModifier(modifier);</span>
+        } else {
+<span class="nc" id="L1585">            object.removeModifier(modifier);</span>
+        }
+<span class="nc" id="L1587">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a global history event to a ChangeSet.
+     * Also adds the history to all the European players.
+     *
+     * @param game The &lt;code&gt;Game&lt;/code&gt; to find players in.
+     * @param history The &lt;code&gt;HistoryEvent&lt;/code&gt; to add.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addGlobalHistory(Game game, HistoryEvent history) {
+<span class="nc" id="L1599">        changes.add(new OwnedChange(See.all(), history));</span>
+<span class="nc bnc" id="L1600" title="All 2 branches missed.">        for (Player p : game.getLiveEuropeanPlayers(null)) {</span>
+<span class="nc" id="L1601">            p.addHistory(history);</span>
+<span class="nc" id="L1602">        }</span>
+<span class="nc" id="L1603">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a history event to a ChangeSet.
+     * Also adds the history to the owner.
+     *
+     * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; making history.
+     * @param history The &lt;code&gt;HistoryEvent&lt;/code&gt; to add.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addHistory(ServerPlayer serverPlayer,
+                                HistoryEvent history) {
+<span class="fc" id="L1616">        changes.add(new OwnedChange(See.only(serverPlayer), history));</span>
+<span class="fc" id="L1617">        serverPlayer.addHistory(history);</span>
+<span class="fc" id="L1618">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a message to a ChangeSet.
+     *
+     * @param see The visibility of this change.
+     * @param message The &lt;code&gt;ModelMessage&lt;/code&gt; to add.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addMessage(See see, ModelMessage message) {
+<span class="fc" id="L1629">        changes.add(new OwnedChange(see, message));</span>
+<span class="fc" id="L1630">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a move to a ChangeSet.
+     *
+     * @param see The visibility of this change.
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is moving.
+     * @param loc The location from which the unit is moving.
+     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to which the unit is moving.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addMove(See see, Unit unit, Location loc, Tile tile) {
+<span class="fc" id="L1643">        changes.add(new MoveChange(see, unit, loc, tile));</span>
+<span class="fc" id="L1644">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a partial update change for an object to
+     * a ChangeSet.
+     *
+     * @param see The visibility of this change.
+     * @param fcgo The &lt;code&gt;FreeColGameObject&lt;/code&gt; to update.
+     * @param fields The fields to update.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addPartial(See see, FreeColGameObject fcgo,
+                                String... fields) {
+<span class="fc" id="L1658">        changes.add(new PartialObjectChange(see, fcgo, fields));</span>
+<span class="fc" id="L1659">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a new player to a ChangeSet.
+     *
+     * @param serverPlayer The new &lt;code&gt;ServerPlayer&lt;/code&gt; to add.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addPlayer(ServerPlayer serverPlayer) {
+<span class="fc" id="L1669">        changes.add(new PlayerChange(See.all().except(serverPlayer),</span>
+                                     serverPlayer));
+<span class="fc" id="L1671">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a removal to a ChangeSet.
+     *
+     * -vis: If disposing of units or colonies, this routine changes
+     * player visibility.
+     *
+     * @param see The visibility of this change.
+     * @param loc The &lt;code&gt;Location&lt;/code&gt; where the object was.
+     * @param obj The &lt;code&gt;FreeColGameObject&lt;/code&gt; to remove.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addRemove(See see, Location loc, FreeColGameObject obj) {
+<span class="fc" id="L1686">        changes.add(new RemoveChange(see, loc, obj.getDisposeList()));//-vis</span>
+<span class="fc" id="L1687">        return this;</span>
+    }
+
+    /**
+     * Helper function to add removals for several objects to a ChangeSet.
+     *
+     * @param see The visibility of this change.
+     * @param loc The &lt;code&gt;Location&lt;/code&gt; where the object was.
+     * @param objects A list of &lt;code&gt;FreeColGameObject&lt;/code&gt;s to remove.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addRemoves(See see, Location loc,
+                                List&lt;? extends FreeColGameObject&gt; objects) {
+<span class="fc bfc" id="L1700" title="All 2 branches covered.">        for (FreeColGameObject fcgo : objects) {</span>
+<span class="fc" id="L1701">            changes.add(new RemoveChange(see, loc, fcgo.getDisposeList()));</span>
+<span class="fc" id="L1702">        }</span>
+<span class="fc" id="L1703">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a sale change to a ChangeSet.
+     *
+     * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; making the sale.
+     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; that is buying.
+     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; bought.
+     * @param price The per unit price.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addSale(ServerPlayer serverPlayer, Settlement settlement,
+                             GoodsType type, int price) {
+<span class="nc" id="L1717">        Game game = settlement.getGame();</span>
+<span class="nc" id="L1718">        LastSale sale = new LastSale(settlement, type, game.getTurn(), price);</span>
+<span class="nc" id="L1719">        changes.add(new OwnedChange(See.only(serverPlayer), sale));</span>
+<span class="nc" id="L1720">        serverPlayer.addLastSale(sale);</span>
+<span class="nc" id="L1721">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a spying change to a ChangeSet.
+     *
+     * @param see The visibility of this change.
+     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; to spy on.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addSpy(See see, Settlement settlement) {
+<span class="nc" id="L1732">        changes.add(new SpyChange(see, settlement));</span>
+<span class="nc" id="L1733">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a stance change to a ChangeSet.
+     *
+     * @param see The visibility of this change.
+     * @param first The &lt;code&gt;Player&lt;/code&gt; changing stance.
+     * @param stance The &lt;code&gt;Stance&lt;/code&gt; to change to.
+     * @param second The &lt;code&gt;Player&lt;/code&gt; wrt with to change.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addStance(See see, Player first, Stance stance,
+                               Player second) {
+<span class="fc" id="L1747">        changes.add(new StanceChange(see, first, stance, second));</span>
+<span class="fc" id="L1748">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a new trade route change to a ChangeSet.
+     * Also adds the trade route to the player.
+     *
+     * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; adding the route.
+     * @param tradeRoute The new &lt;code&gt;TradeRoute&lt;/code&gt;.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addTradeRoute(ServerPlayer serverPlayer,
+                                   TradeRoute tradeRoute) {
+<span class="nc" id="L1761">        changes.add(new OwnedChange(See.only(serverPlayer), tradeRoute));</span>
+<span class="nc" id="L1762">        return this;</span>
+    }
+
+    /**
+     * Helper function to add a trivial element to a ChangeSet.
+     *
+     * @param see The visibility of this change.
+     * @param name The name of the element.
+     * @param cp The &lt;code&gt;ChangePriority&lt;/code&gt; for this change.
+     * @param attributes Attributes to add to this trivial change.
+     * @return The updated &lt;code&gt;ChangeSet&lt;/code&gt;.
+     */
+    public ChangeSet addTrivial(See see, String name, ChangePriority cp,
+                                String... attributes) {
+<span class="nc" id="L1776">        changes.add(new TrivialChange(see, name, cp.getPriority(), attributes));</span>
+<span class="nc" id="L1777">        return this;</span>
+    }
+
+    // Conversion of a change set to a corresponding element.
+
+    /**
+     * Checks if a player can see a unit.
+     *
+     * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; looking for the unit.
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to check.
+     * @return True if the &lt;code&gt;Unit&lt;/code&gt; is visible to the player.
+     */
+    private static boolean canSeeUnit(ServerPlayer serverPlayer, Unit unit) {
+        Tile tile;
+<span class="fc bfc" id="L1791" title="All 2 branches covered.">        return (serverPlayer.owns(unit)) ? true</span>
+<span class="fc bfc" id="L1792" title="All 2 branches covered.">            : ((tile = unit.getTile()) == null) ? false</span>
+<span class="fc bfc" id="L1793" title="All 2 branches covered.">            : (!serverPlayer.canSee(tile)) ? false</span>
+<span class="fc bfc" id="L1794" title="All 2 branches covered.">            : (tile.hasSettlement()) ? false</span>
+<span class="fc bfc" id="L1795" title="All 2 branches covered.">            : (unit.isOnCarrier()) ? false</span>
+            : true;
+    }
+
+    /**
+     * Collapse one element into another.
+     *
+     * @param head The &lt;code&gt;Element&lt;/code&gt; to collapse into.
+     * @param tail The &lt;code&gt;Element&lt;/code&gt; to extract nodes from.
+     */
+    private static void collapseElements(Element head, Element tail) {
+<span class="fc bfc" id="L1806" title="All 2 branches covered.">        while (tail.hasChildNodes()) {</span>
+<span class="fc" id="L1807">            head.appendChild(tail.removeChild(tail.getFirstChild()));</span>
+        }
+<span class="fc" id="L1809">    }</span>
+
+    /**
+     * Can two elements be collapsed?
+     * They need to have the same name and attributes.
+     *
+     * @param e1 The first &lt;code&gt;Element&lt;/code&gt;.
+     * @param e2 The second &lt;code&gt;Element&lt;/code&gt;.
+     * @return True if they can be collapsed.
+     */
+    private static boolean collapseOK(Element e1, Element e2) {
+<span class="fc bfc" id="L1820" title="All 2 branches covered.">        if (!e1.getTagName().equals(e2.getTagName())) return false;</span>
+<span class="fc" id="L1821">        NamedNodeMap nnm1 = e1.getAttributes();</span>
+<span class="fc" id="L1822">        NamedNodeMap nnm2 = e2.getAttributes();</span>
+<span class="pc bpc" id="L1823" title="1 of 2 branches missed.">        if (nnm1.getLength() != nnm2.getLength()) return false;</span>
+<span class="pc bfc" id="L1824" title="All 2 branches covered.">        for (int i = 0; i &lt; nnm1.getLength(); i++) {</span>
+<span class="pc bpc" id="L1825" title="1 of 2 branches missed.">            if (nnm1.item(i).getNodeType() != nnm2.item(i).getNodeType()) {</span>
+<span class="nc" id="L1826">                return false;</span>
+            }
+<span class="pc bpc" id="L1828" title="1 of 2 branches missed.">            if (!nnm1.item(i).getNodeName().equals(nnm2.item(i).getNodeName())) {</span>
+<span class="nc" id="L1829">                return false;</span>
+            }
+<span class="pc bpc" id="L1831" title="1 of 2 branches missed.">            if (!nnm1.item(i).getNodeValue().equals(nnm2.item(i).getNodeValue())) {</span>
+<span class="fc" id="L1832">                return false;</span>
+            }
+        }
+<span class="fc" id="L1835">        return true;</span>
+    }
+
+    /**
+     * Collapse adjacent elements in a list with the same tag.
+     *
+     * @param elements The list of &lt;code&gt;Element&lt;/code&gt;s to consider.
+     * @return A collapsed list of elements.
+     */
+    private static List&lt;Element&gt; collapseElementList(List&lt;Element&gt; elements) {
+<span class="fc" id="L1845">        List&lt;Element&gt; results = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L1846" title="All 2 branches covered.">        if (!elements.isEmpty()) {</span>
+<span class="fc" id="L1847">            Element head = elements.remove(0);</span>
+<span class="fc bfc" id="L1848" title="All 2 branches covered.">            while (!elements.isEmpty()) {</span>
+<span class="fc" id="L1849">                Element e = elements.remove(0);</span>
+<span class="fc bfc" id="L1850" title="All 2 branches covered.">                if (collapseOK(head, e)) {</span>
+<span class="fc" id="L1851">                    collapseElements(head, e);</span>
+                } else {
+<span class="fc" id="L1853">                    results.add(head);</span>
+<span class="fc" id="L1854">                    head = e;</span>
+                }
+<span class="fc" id="L1856">            }</span>
+<span class="fc" id="L1857">            results.add(head);</span>
+        }
+<span class="fc" id="L1859">        return results;</span>
+    }
+
+    /**
+     * Build a generalized update.
+     * Beware that removing an object does not necessarily update
+     * its tile correctly on the client side--- if a tile update
+     * is needed the tile should be supplied in the objects list.
+     *
+     * @param serverPlayer The &lt;code&gt;ServerPlayer&lt;/code&gt; to send the
+     *            update to.
+     * @return An element encapsulating an update of the objects to
+     *         consider, or null if there is nothing to report.
+     */
+    public Element build(ServerPlayer serverPlayer) {
+<span class="fc" id="L1874">        List&lt;Change&gt; c = new ArrayList&lt;&gt;(changes);</span>
+<span class="fc" id="L1875">        List&lt;Element&gt; elements = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L1876">        List&lt;Change&gt; diverted = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L1877">        Document doc = DOMMessage.createNewDocument();</span>
+
+        // For all sorted changes, if it is notifiable to the target
+        // player then convert it to an Element, or divert for later
+        // attachment.  Then add all consequence changes to the list.
+<span class="fc" id="L1882">        Collections.sort(c, changeComparator);</span>
+<span class="fc bfc" id="L1883" title="All 2 branches covered.">        while (!c.isEmpty()) {</span>
+<span class="fc" id="L1884">            Change change = c.remove(0);</span>
+<span class="fc bfc" id="L1885" title="All 2 branches covered.">            if (change.isNotifiable(serverPlayer)) {</span>
+<span class="fc bfc" id="L1886" title="All 2 branches covered.">                if (change.convertsToElement()) {</span>
+<span class="fc" id="L1887">                    elements.add(change.toElement(serverPlayer, doc));</span>
+                } else {
+<span class="fc" id="L1889">                    diverted.add(change);</span>
+                }
+<span class="fc" id="L1891">                c.addAll(change.consequences(serverPlayer));</span>
+            }
+<span class="fc" id="L1893">        }</span>
+<span class="fc" id="L1894">        elements = collapseElementList(elements);</span>
+
+        // Decide what to return.  If there are several parts with
+        // children then return multiple, if there is one viable part,
+        // return that, if there is none return null unless there are
+        // attributes in which case they become viable as an update.
+        Element result;
+<span class="fc bfc" id="L1901" title="All 3 branches covered.">        switch (elements.size()) {</span>
+        case 0:
+<span class="pc bpc" id="L1903" title="1 of 2 branches missed.">            if (diverted.isEmpty()) return null;</span>
+<span class="nc" id="L1904">            result = doc.createElement(&quot;update&quot;);</span>
+<span class="nc" id="L1905">            break;</span>
+        case 1:
+<span class="fc" id="L1907">            result = elements.get(0);</span>
+<span class="fc" id="L1908">            break;</span>
+        default:
+<span class="fc" id="L1910">            result = doc.createElement(&quot;multiple&quot;);</span>
+<span class="fc bfc" id="L1911" title="All 2 branches covered.">            for (Element e : elements) result.appendChild(e);</span>
+            break;
+        }
+<span class="fc" id="L1914">        doc.appendChild(result);</span>
+<span class="fc bfc" id="L1915" title="All 2 branches covered.">        for (Change change : diverted) change.attachToElement(result);</span>
+<span class="fc" id="L1916">        return result;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString() {
+<span class="nc" id="L1924">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc" id="L1925">        Collections.sort(changes, changeComparator);</span>
+<span class="nc bnc" id="L1926" title="All 2 branches missed.">        for (Change c : changes) sb.append(c).append(&quot;\n&quot;);</span>
+<span class="nc" id="L1927">        return sb.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InputHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.control</a> &gt; <span class="el_source">InputHandler.java</span></div><h1>InputHandler.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.control;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import net.sf.freecol.common.networking.Connection;
+import net.sf.freecol.common.networking.DOMMessage;
+import net.sf.freecol.common.networking.ChatMessage;
+import net.sf.freecol.common.networking.MessageHandler;
+import net.sf.freecol.common.networking.NetworkRequestHandler;
+import net.sf.freecol.server.FreeColServer;
+import net.sf.freecol.server.model.ServerPlayer;
+import net.sf.freecol.server.networking.Server;
+
+import org.w3c.dom.Element;
+
+
+/**
+ * Handles the network messages.
+ * 
+ * @see Controller
+ */
+public abstract class InputHandler extends FreeColServerHolder implements MessageHandler {
+
+<span class="fc" id="L48">    private static final Logger logger = Logger.getLogger(InputHandler.class.getName());</span>
+
+    /**
+     * The handler map provides named handlers for network requests. Each
+     * handler deals with a given request type.
+     */
+<span class="fc" id="L54">    private final Map&lt;String, NetworkRequestHandler&gt; _handlerMap</span>
+<span class="fc" id="L55">        = Collections.synchronizedMap(new HashMap&lt;String, NetworkRequestHandler&gt;());</span>
+
+
+    /**
+     * The constructor to use.
+     * 
+     * @param freeColServer The main server object.
+     */
+    public InputHandler(final FreeColServer freeColServer) {
+<span class="fc" id="L64">        super(freeColServer);</span>
+        // All sub-classes are forced to implement this one
+<span class="fc" id="L66">        register(&quot;logout&quot;, (Connection connection, Element element) -&gt;</span>
+<span class="nc" id="L67">            logout(connection, element));</span>
+<span class="fc" id="L68">        register(&quot;disconnect&quot;, new DisconnectHandler());</span>
+<span class="fc" id="L69">        register(&quot;chat&quot;, (Connection connection, Element element) -&gt;</span>
+<span class="nc" id="L70">            new ChatMessage(getGame(), element)</span>
+<span class="nc" id="L71">                .handle(freeColServer, connection));</span>
+<span class="fc" id="L72">    }</span>
+
+    /**
+     * Register a network request handler.
+     * 
+     * @param name The name.
+     * @param handler The handler.
+     */
+    protected final void register(String name, NetworkRequestHandler handler) {
+<span class="fc" id="L81">        _handlerMap.put(name, handler);</span>
+<span class="fc" id="L82">    }</span>
+
+    /**
+     * Unregister a network request handler.
+     * 
+     * @param name The name.
+     * @param handler The handler.
+     * @return True if the supplied handler was actually removed.
+     */
+    protected final boolean unregister(String name, NetworkRequestHandler handler) {
+        // _handlerMap.remove(name, handler) would be better?
+<span class="nc bnc" id="L93" title="All 2 branches missed.">        return _handlerMap.remove(name) == handler;</span>
+    }
+
+    /**
+     * Deals with incoming messages that have just been received.
+     * 
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the message was received
+     *            on.
+     * @param element The root element of the message.
+     * @return The reply.
+     */
+    @Override
+    public final Element handle(Connection connection, Element element) {
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">        if (element == null) return null;</span>
+<span class="fc" id="L107">        String tagName = element.getTagName();</span>
+<span class="fc" id="L108">        NetworkRequestHandler handler = _handlerMap.get(tagName);</span>
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">        if (handler != null) {</span>
+            try {
+<span class="fc" id="L111">                logger.log(Level.FINEST, &quot;Handling &quot; + tagName);</span>
+<span class="fc" id="L112">                return handler.handle(connection, element);</span>
+<span class="nc" id="L113">            } catch (Exception e) {</span>
+                // FIXME: should we really catch Exception? The old code did.
+<span class="nc" id="L115">                logger.log(Level.WARNING, &quot;Handler failed&quot;, e);</span>
+<span class="nc" id="L116">                sendReconnectSafely(connection);</span>
+<span class="nc" id="L117">            }</span>
+        } else {
+            // Should we return an error here? The old handler returned null.
+<span class="nc" id="L120">            logger.warning(&quot;No handler installed for &quot; + tagName);</span>
+        }
+<span class="nc" id="L122">        return null;</span>
+    }
+
+    /**
+     * Send a reconnect message ignoring (but logging) IO errors.
+     * 
+     * @param connection The connection.
+     */
+    private void sendReconnectSafely(Connection connection) {
+        try {
+<span class="nc" id="L132">            connection.send(DOMMessage.createMessage(&quot;reconnect&quot;));</span>
+<span class="nc" id="L133">        } catch (IOException e) {</span>
+<span class="nc" id="L134">            logger.log(Level.WARNING, &quot;Could not send reconnect message!&quot;, e);</span>
+<span class="nc" id="L135">        }</span>
+<span class="nc" id="L136">    }</span>
+
+    /**
+     * Create a reply message with an error.
+     *
+     * FIXME: should this be localized (return message name)?
+     * 
+     * @param message The error message.
+     * @return An error message.
+     */
+    protected Element createErrorReply(String message) {
+<span class="nc" id="L147">        return DOMMessage.createMessage(&quot;error&quot;,</span>
+            &quot;message&quot;, message);
+    }
+
+    /**
+     * Handles a &quot;logout&quot;-message.
+     * 
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the message was received
+     *     on.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; (root element in a
+     *     DOM-parsed XML tree) that holds all the information.
+     * @return The reply.
+     */
+    protected abstract Element logout(Connection connection, Element element);
+
+
+<span class="fc" id="L163">    private class DisconnectHandler implements NetworkRequestHandler {</span>
+
+        @Override
+        public Element handle(Connection connection, Element disconnectElement) {
+            // The player should be logged out by now, but just in case:
+<span class="nc" id="L168">            ServerPlayer player = getFreeColServer().getPlayer(connection);</span>
+<span class="nc" id="L169">            logDisconnect(connection, player);</span>
+<span class="nc bnc" id="L170" title="All 4 branches missed.">            if (player != null &amp;&amp; player.isConnected()) {</span>
+<span class="nc" id="L171">                logout(connection, null);</span>
+            }
+<span class="nc" id="L173">            connection.reallyClose();</span>
+<span class="nc" id="L174">            Server server = getFreeColServer().getServer();</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">            if (server != null) {</span>
+<span class="nc" id="L176">                server.removeConnection(connection);</span>
+            }
+<span class="nc" id="L178">            return null;</span>
+        }
+
+        private void logDisconnect(Connection connection, ServerPlayer player) {
+<span class="nc bnc" id="L182" title="All 2 branches missed.">            logger.info(&quot;Disconnection by: &quot; + connection + ((player != null) ? &quot; (&quot; + player.getName() + &quot;) &quot; : &quot;&quot;));</span>
+<span class="nc" id="L183">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

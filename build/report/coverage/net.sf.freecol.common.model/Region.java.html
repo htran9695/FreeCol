@@ -1,0 +1,652 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Region.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.model</a> &gt; <span class="el_source">Region.java</span></div><h1>Region.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.model;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.logging.Logger;
+
+import javax.xml.stream.XMLStreamException;
+
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.io.FreeColXMLReader;
+import net.sf.freecol.common.io.FreeColXMLWriter;
+import static net.sf.freecol.common.util.CollectionUtils.*;
+import static net.sf.freecol.common.util.StringUtils.*;
+
+
+/**
+ * A named region on the map.
+ */
+public class Region extends FreeColGameObject implements Nameable, Named {
+
+<span class="fc" id="L41">    private static final Logger logger = Logger.getLogger(Region.class.getName());</span>
+
+    /** The keys for the valid predefined regions. */
+<span class="fc" id="L44">    public static final List&lt;String&gt; predefinedRegionKeys</span>
+<span class="fc" id="L45">        = makeUnmodifiableList(&quot;model.region.arctic&quot;, &quot;model.region.antarctic&quot;,</span>
+            &quot;model.region.northWest&quot;, &quot;model.region.north&quot;, &quot;model.region.northEast&quot;,
+            &quot;model.region.west&quot;, &quot;model.region.center&quot;, &quot;model.region.east&quot;,
+            &quot;model.region.southWest&quot;, &quot;model.region.south&quot;, &quot;model.region.southEast&quot;,
+            &quot;model.region.atlantic&quot;, &quot;model.region.northAtlantic&quot;, &quot;model.region.southAtlantic&quot;,
+            &quot;model.region.pacific&quot;, &quot;model.region.northPacific&quot;, &quot;model.region.southPacific&quot;);
+
+    /** Hardwired name key for the Pacific for the benefit of isPacific(). */
+    public static final String PACIFIC_KEY = &quot;model.region.pacific&quot;;
+
+    /** The type of region. */
+<span class="pc" id="L56">    public static enum RegionType implements Named {</span>
+<span class="fc" id="L57">        OCEAN(false),</span>
+<span class="fc" id="L58">        COAST(false),</span>
+<span class="fc" id="L59">        LAKE(false),</span>
+<span class="fc" id="L60">        RIVER(true),</span>
+<span class="fc" id="L61">        LAND(true),</span>
+<span class="fc" id="L62">        MOUNTAIN(true),</span>
+<span class="fc" id="L63">        DESERT(true);</span>
+
+        /** Are regions of this type claimable by default? */
+        private final boolean claimable;
+
+
+        /**
+         * Create a region type.
+         *
+         * @param claimable The default claimability of this region type.
+         */
+<span class="fc" id="L74">        RegionType(boolean claimable) {</span>
+<span class="fc" id="L75">            this.claimable = claimable;</span>
+<span class="fc" id="L76">        }</span>
+        
+
+        /** Is this region claimable by default?
+         *
+         * @return True if this region type is normally claimable.
+         */
+        public boolean getClaimable() {
+<span class="fc" id="L84">            return this.claimable;</span>
+        }
+
+        /**
+         * Get a stem key for this region type.
+         *
+         * @return A stem key.
+         */
+        public String getKey() {
+<span class="nc" id="L93">            return &quot;regionType.&quot; + getEnumKey(this);</span>
+        }
+
+        /**
+         * Gets a message key for an unknown region of this type.
+         *
+         * @return A message key.
+         */
+        public String getUnknownKey() {
+<span class="nc" id="L102">            return &quot;model.&quot; + getKey() + &quot;.unknown&quot;;</span>
+        }
+
+        // Interface Named
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String getNameKey() {
+<span class="nc" id="L112">            return Messages.nameKey(&quot;model.&quot; + getKey());</span>
+        }
+    }
+
+    /** The name of this region, given by a player. */
+    protected String name;
+
+    /** The key for this region if it is a predefined one. */
+    protected String key;
+
+    /** The type of region. */
+    protected RegionType type;
+
+    /** The parent region of this region. */
+    protected Region parent;
+
+    /** The child regions of this region. */
+<span class="fc" id="L129">    protected List&lt;Region&gt; children = null;</span>
+
+    /**
+     * Whether this region is claimable.
+     * Ocean regions and non-leaf regions are not claimable.
+     */
+<span class="fc" id="L135">    protected boolean claimable = false;</span>
+
+    /**
+     * Whether this region is discoverable.  The Eastern Ocean regions
+     * should not be discoverable.  In general, non-leaf regions should
+     * not be discoverable.  The Pacific Ocean is an exception however,
+     * unless players start there.
+     */
+<span class="fc" id="L143">    protected boolean discoverable = false;</span>
+
+    /** Which Turn the region was discovered in. */
+    protected Turn discoveredIn;
+
+    /** Which Player the Region was discovered by. */
+    protected Player discoveredBy;
+
+    /**
+     * Identifier for the unit the region was discovered by.   Using
+     * an identifier as units may subsequently die.
+     */
+<span class="fc" id="L155">    private String discoverer = null;</span>
+
+    /**
+     * How much discovering this region contributes to your score.
+     * This should be zero unless the region is discoverable.
+     */
+<span class="fc" id="L161">    protected int scoreValue = 0;</span>
+
+
+    /**
+     * Creates a new &lt;code&gt;Region&lt;/code&gt; instance.
+     *
+     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
+     */
+    public Region(Game game) {
+<span class="fc" id="L170">        super(game);</span>
+<span class="fc" id="L171">    }</span>
+
+    /**
+     * Creates a new &lt;code&gt;Region&lt;/code&gt; instance.
+     *
+     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
+     * @param id The object identifier.
+     */
+    public Region(Game game, String id) {
+<span class="fc" id="L180">        super(game, id);</span>
+<span class="fc" id="L181">    }</span>
+
+
+    /**
+     * Get the key for this region.
+     *
+     * @return The region key, which will be null for non-fixed regions.
+     */
+    public String getKey() {
+<span class="fc" id="L190">        return this.key;</span>
+    }
+
+    /**
+     * Does this region have a name?
+     *
+     * @return True if the region has been named or was predefined.
+     */
+    public boolean hasName() {
+<span class="nc bnc" id="L199" title="All 4 branches missed.">        return this.name != null || this.key != null;</span>
+    }
+
+    /**
+     * Is this region the Pacific Ocean?
+     *
+     * The Pacific Ocean is special in that it is the only Region that
+     * could be discovered in the original game.
+     *
+     * @return True if this region is the Pacific.
+     */
+    public boolean isPacific() {
+<span class="fc bfc" id="L211" title="All 4 branches covered.">        return PACIFIC_KEY.equals(this.key)</span>
+<span class="fc bfc" id="L212" title="All 2 branches covered.">            || (this.parent != null &amp;&amp; this.parent.isPacific());</span>
+    }
+
+    /**
+     * Gets the name or default name of this Region.
+     *
+     * @return The i18n-ready name for the region.
+     */
+    public StringTemplate getLabel() {
+<span class="nc bnc" id="L221" title="All 4 branches missed.">        return (this.key != null) ? StringTemplate.key(getNameKey())</span>
+<span class="nc" id="L222">            : (this.name != null) ? StringTemplate.name(this.name)</span>
+<span class="nc" id="L223">            : StringTemplate.key(type.getUnknownKey());</span>
+    }
+
+    /**
+     * Gets the type of the region.
+     *
+     * @return The region type.
+     */
+    public final RegionType getType() {
+<span class="fc" id="L232">        return this.type;</span>
+    }
+
+    /**
+     * Gets the enclosing parent region.
+     *
+     * @return The parent region
+     */
+    public final Region getParent() {
+<span class="fc" id="L241">        return this.parent;</span>
+    }
+
+    /**
+     * Sets the parent region.
+     *
+     * @param newParent The new parent region.
+     */
+    public final void setParent(final Region newParent) {
+<span class="fc" id="L250">        this.parent = newParent;</span>
+<span class="fc" id="L251">    }</span>
+
+    /**
+     * Get a list of the child regions.
+     *
+     * @return The child regions.
+     */
+    public final List&lt;Region&gt; getChildren() {
+<span class="fc bfc" id="L259" title="All 2 branches covered.">        return (this.children == null) ? Collections.&lt;Region&gt;emptyList()</span>
+            : this.children;
+    }
+
+    /**
+     * Sets the child regions.
+     *
+     * @param newChildren The new child regions.
+     */
+    public final void setChildren(final List&lt;Region&gt; newChildren) {
+<span class="nc" id="L269">        this.children = newChildren;</span>
+<span class="nc" id="L270">    }</span>
+
+    /**
+     * Add a child region to this region.
+     *
+     * @param child The child &lt;code&gt;Region&lt;/code&gt; to add.
+     */
+    public void addChild(Region child) {
+<span class="fc bfc" id="L278" title="All 2 branches covered.">        if (this.children == null) this.children = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L279">        this.children.add(child);</span>
+<span class="fc" id="L280">    }</span>
+
+    /**
+     * Is this a leaf region?
+     *
+     * @return True if the region has no children.
+     */
+    public boolean isLeaf() {
+<span class="nc bnc" id="L288" title="All 4 branches missed.">        return this.children == null || this.children.isEmpty();</span>
+    }
+
+    /**
+     * Can this region be claimed?
+     *
+     * @return True if the region can be claimed.
+     */
+    public final boolean getClaimable() {
+<span class="fc" id="L297">        return this.claimable;</span>
+    }
+
+    /**
+     * Set the claimability of this region.
+     *
+     * @param newClaimable True if the region can be claimed.
+     */
+    public final void setClaimable(final boolean newClaimable) {
+<span class="fc" id="L306">        this.claimable = newClaimable;</span>
+<span class="fc" id="L307">    }</span>
+
+    /**
+     * Can this region be discovered?
+     *
+     * @return True if the region can be discovered.
+     */
+    public final boolean getDiscoverable() {
+<span class="fc" id="L315">        return this.discoverable;</span>
+    }
+
+    /**
+     * Set the discoverability of this region.
+     *
+     * @param newDiscoverable True if the region can be discovered.
+     */
+    public final void setDiscoverable(final boolean newDiscoverable) {
+<span class="fc" id="L324">        this.discoverable = newDiscoverable;</span>
+<span class="fc" id="L325">    }</span>
+
+    /**
+     * Get the identifier for the unit that discovered the region.
+     *
+     * @return The unit identifier, or null if none yet.
+     */
+    public synchronized String getDiscoverer() {
+<span class="nc" id="L333">        return this.discoverer;</span>
+    }
+
+    /**
+     * Set the identifier for the unit the discovered the region.
+     *
+     * @param discoverer The unit identifier to set.
+     */
+    public synchronized void setDiscoverer(String discoverer) {
+<span class="nc" id="L342">        this.discoverer = discoverer;</span>
+<span class="nc" id="L343">    }</span>
+
+    /**
+     * Gets a discoverable Region or null.  If this region is
+     * discoverable, it is returned.  If not, a discoverable parent is
+     * returned, unless there is none.  This is intended for
+     * discovering the Pacific Ocean when discovering one of its
+     * sub-Regions.
+     *
+     * @return A discoverable a region, or null if none found.
+     */
+    public Region getDiscoverableRegion() {
+<span class="fc bfc" id="L355" title="All 2 branches covered.">        return (getDiscoverable()) ? this</span>
+<span class="fc bfc" id="L356" title="All 2 branches covered.">            : (getParent() != null) ? getParent().getDiscoverableRegion()</span>
+            : null;
+    }
+
+    /**
+     * Gets the turn the region was discovered in.
+     *
+     * @return The discovery turn.
+     */
+    public final Turn getDiscoveredIn() {
+<span class="fc" id="L366">        return this.discoveredIn;</span>
+    }
+
+    /**
+     * Sets the discovery turn.
+     *
+     * @param newDiscoveredIn The new discoveredy turn.
+     */
+    public final void setDiscoveredIn(final Turn newDiscoveredIn) {
+<span class="nc" id="L375">        this.discoveredIn = newDiscoveredIn;</span>
+<span class="nc" id="L376">    }</span>
+
+    /**
+     * Gets the player that discovered the region.
+     *
+     * @return The discovering &lt;code&gt;Player&lt;/code&gt;.
+     */
+    public final Player getDiscoveredBy() {
+<span class="fc" id="L384">        return this.discoveredBy;</span>
+    }
+
+    /**
+     * Sets the discovering player.
+     *
+     * @param newDiscoveredBy The new discovering player.
+     */
+    public final void setDiscoveredBy(final Player newDiscoveredBy) {
+<span class="nc" id="L393">        this.discoveredBy = newDiscoveredBy;</span>
+<span class="nc" id="L394">    }</span>
+
+    /**
+     * Gets the score for discovering this region.
+     *
+     * @return The score.
+     */
+    public final int getScoreValue() {
+<span class="fc" id="L402">        return this.scoreValue;</span>
+    }
+
+    /**
+     * Sets the score for discovering this region.
+     *
+     * @param newScoreValue The new score.
+     */
+    public final void setScoreValue(final int newScoreValue) {
+<span class="fc" id="L411">        this.scoreValue = newScoreValue;</span>
+<span class="fc" id="L412">    }</span>
+
+    /**
+     * Discover this region (and its children).
+     *
+     * @param player The discovering &lt;code&gt;Player&lt;/code&gt;.
+     * @param turn The &lt;code&gt;Turn&lt;/code&gt; of discovery.
+     * @return A list of discovered &lt;code&gt;Region&lt;/code&gt;s.
+     */
+    public List&lt;Region&gt; discover(Player player, Turn turn) {
+<span class="fc" id="L422">        List&lt;Region&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L423">        this.discoveredBy = player;</span>
+<span class="fc" id="L424">        this.discoveredIn = turn;</span>
+<span class="fc" id="L425">        this.discoverable = false;</span>
+<span class="fc" id="L426">        result.add(this);</span>
+<span class="fc bfc" id="L427" title="All 2 branches covered.">        for (Region r : getChildren()) {</span>
+<span class="pc bpc" id="L428" title="1 of 2 branches missed.">            if (!r.getDiscoverable()) continue;</span>
+<span class="nc" id="L429">            r.discoveredBy = player;</span>
+<span class="nc" id="L430">            r.discoveredIn = turn;</span>
+<span class="nc" id="L431">            r.discoverable = false;</span>
+<span class="nc" id="L432">            result.add(r);</span>
+<span class="nc" id="L433">        }</span>
+<span class="fc" id="L434">        return result;</span>
+    }
+
+    // @compat 0.11.3
+    /**
+     * Is a key one of the dodgy keys that were generated up to 0.11.3?
+     *
+     * @return A valid key or null if already null or invalid.
+     */
+    private String fixRegionKey(String key) {
+<span class="pc bpc" id="L444" title="1 of 2 branches missed.">        if (key == null) return key;</span>
+<span class="fc bfc" id="L445" title="All 2 branches covered.">        for (String r : predefinedRegionKeys) {</span>
+<span class="fc bfc" id="L446" title="All 2 branches covered.">            if (key.equals(r)) {</span>
+<span class="fc" id="L447">                return r;</span>
+<span class="pc bpc" id="L448" title="1 of 2 branches missed.">            } else if (key.equals(Messages.nameKey(r))) {</span>
+<span class="nc" id="L449">                return lastPart(key, &quot;.&quot;);</span>
+            }            
+<span class="fc" id="L451">        }</span>
+<span class="fc" id="L452">        return null;</span>
+    }
+    // end @compat 0.11.3
+
+
+    // Implement Nameable
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String getName() {
+<span class="fc" id="L464">        return this.name;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setName(final String newName) {
+<span class="nc" id="L472">        this.name = newName;</span>
+<span class="nc" id="L473">    }</span>
+
+
+    // Implement Named
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public final String getNameKey() {
+<span class="fc" id="L483">        return Messages.nameKey(this.key);</span>
+    }
+
+
+    // Serialization
+
+    private static final String CHILD_TAG = &quot;child&quot;;
+    private static final String CLAIMABLE_TAG = &quot;claimable&quot;;
+    private static final String DISCOVERABLE_TAG = &quot;discoverable&quot;;
+    private static final String DISCOVERED_BY_TAG = &quot;discoveredBy&quot;;
+    private static final String DISCOVERED_IN_TAG = &quot;discoveredIn&quot;;
+    private static final String KEY_TAG = &quot;key&quot;;
+    private static final String NAME_TAG = &quot;name&quot;;
+    private static final String PARENT_TAG = &quot;parent&quot;;
+    private static final String SCORE_VALUE_TAG = &quot;scoreValue&quot;;
+    private static final String TYPE_TAG = &quot;type&quot;;
+    // @compat 0.11.3
+    private static final String NAME_KEY_TAG = &quot;nameKey&quot;;
+    // end @compat 0.11.3
+    
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L509">        super.writeAttributes(xw);</span>
+
+<span class="pc bpc" id="L511" title="1 of 2 branches missed.">        if (name != null) {</span>
+<span class="nc" id="L512">            xw.writeAttribute(NAME_TAG, name);</span>
+        }
+
+<span class="fc bfc" id="L515" title="All 2 branches covered.">        if (key != null) {</span>
+<span class="fc" id="L516">            xw.writeAttribute(KEY_TAG, key);</span>
+        }
+
+<span class="fc" id="L519">        xw.writeAttribute(TYPE_TAG, type);</span>
+
+<span class="fc" id="L521">        xw.writeAttribute(CLAIMABLE_TAG, claimable);</span>
+
+<span class="fc" id="L523">        xw.writeAttribute(DISCOVERABLE_TAG, discoverable);</span>
+
+<span class="fc bfc" id="L525" title="All 2 branches covered.">        if (parent != null) {</span>
+<span class="fc" id="L526">            xw.writeAttribute(PARENT_TAG, parent);</span>
+        }
+
+<span class="pc bpc" id="L529" title="1 of 2 branches missed.">        if (discoveredIn != null) {</span>
+<span class="nc" id="L530">            xw.writeAttribute(DISCOVERED_IN_TAG, discoveredIn.getNumber());</span>
+        }
+
+<span class="pc bpc" id="L533" title="1 of 2 branches missed.">        if (discoveredBy != null) {</span>
+<span class="nc" id="L534">            xw.writeAttribute(DISCOVERED_BY_TAG, discoveredBy);</span>
+        }
+
+<span class="fc bfc" id="L537" title="All 2 branches covered.">        if (scoreValue &gt; 0) {</span>
+<span class="fc" id="L538">            xw.writeAttribute(SCORE_VALUE_TAG, scoreValue);</span>
+        }
+<span class="fc" id="L540">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L547">        super.writeChildren(xw);</span>
+
+<span class="fc bfc" id="L549" title="All 2 branches covered.">        for (Region child : getChildren()) {</span>
+
+<span class="fc" id="L551">            xw.writeStartElement(CHILD_TAG);</span>
+
+<span class="fc" id="L553">            xw.writeAttribute(ID_ATTRIBUTE_TAG, child);</span>
+
+<span class="fc" id="L555">            xw.writeEndElement();</span>
+<span class="fc" id="L556">        }</span>
+<span class="fc" id="L557">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L564">        super.readAttributes(xr);</span>
+
+<span class="fc" id="L566">        name = xr.getAttribute(NAME_TAG, (String)null);</span>
+
+        // @compat 0.11.3
+<span class="fc bfc" id="L569" title="All 2 branches covered.">        if (xr.hasAttribute(NAME_KEY_TAG)) {</span>
+<span class="fc" id="L570">            key = xr.getAttribute(NAME_KEY_TAG, (String)null);</span>
+<span class="fc" id="L571">            key = fixRegionKey(key);</span>
+        } else
+        // @end compat 0.11.3
+<span class="fc" id="L574">            key = xr.getAttribute(KEY_TAG, (String)null);</span>
+
+<span class="fc" id="L576">        type = xr.getAttribute(TYPE_TAG, RegionType.class, (RegionType)null);</span>
+
+<span class="fc" id="L578">        claimable = xr.getAttribute(CLAIMABLE_TAG, false);</span>
+
+<span class="fc" id="L580">        discoverable = xr.getAttribute(DISCOVERABLE_TAG, false);</span>
+
+<span class="fc" id="L582">        scoreValue = xr.getAttribute(SCORE_VALUE_TAG, 0);</span>
+
+<span class="fc" id="L584">        int turn = xr.getAttribute(DISCOVERED_IN_TAG, UNDEFINED);</span>
+<span class="pc bpc" id="L585" title="1 of 2 branches missed.">        discoveredIn = (turn == UNDEFINED) ? null : new Turn(turn);</span>
+
+<span class="fc" id="L587">        discoveredBy = xr.findFreeColGameObject(getGame(), DISCOVERED_BY_TAG,</span>
+            Player.class, (Player)null, false);
+
+<span class="fc" id="L590">        parent = xr.makeFreeColGameObject(getGame(), PARENT_TAG,</span>
+                                          Region.class, false);
+<span class="fc" id="L592">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+        // Clear containers.
+<span class="fc" id="L600">        children = null;</span>
+
+<span class="fc" id="L602">        super.readChildren(xr);</span>
+<span class="fc" id="L603">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void readChild(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L610">        final String tag = xr.getLocalName();</span>
+
+<span class="pc bpc" id="L612" title="1 of 2 branches missed.">        if (CHILD_TAG.equals(tag)) {</span>
+<span class="fc" id="L613">            addChild(xr.makeFreeColGameObject(getGame(), ID_ATTRIBUTE_TAG,</span>
+                                              Region.class, true));
+<span class="fc" id="L615">            xr.closeTag(CHILD_TAG);</span>
+        
+        } else {
+<span class="nc" id="L618">            super.readChild(xr);</span>
+        }
+<span class="fc" id="L620">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString() {
+<span class="fc" id="L627">        StringBuilder sb = new StringBuilder(32);</span>
+<span class="fc" id="L628">        sb.append(&quot;[&quot;).append(getId())</span>
+<span class="pc bpc" id="L629" title="1 of 4 branches missed.">            .append(&quot; &quot;).append((key != null) ? key : (name != null) ? name</span>
+                : &quot;&lt;unnamed&gt;&quot;)
+<span class="fc" id="L631">            .append(&quot; &quot;).append(type);</span>
+<span class="fc bfc" id="L632" title="All 2 branches covered.">        if (getDiscoverable()) sb.append(&quot;!&quot;);</span>
+<span class="fc" id="L633">        sb.append(&quot;]&quot;);</span>
+<span class="fc" id="L634">        return sb.toString();</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+<span class="fc" id="L641">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
+
+    /**
+     * Gets the tag name of the root element representing this object.
+     *
+     * @return &quot;region&quot;.
+     */
+    public static String getXMLElementTagName() {
+<span class="fc" id="L649">        return &quot;region&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

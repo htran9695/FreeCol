@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SelectOption.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.option</a> &gt; <span class="el_source">SelectOption.java</span></div><h1>SelectOption.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.option;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Logger;
+
+import javax.xml.stream.XMLStreamException;
+
+import net.sf.freecol.common.io.FreeColXMLReader;
+import net.sf.freecol.common.io.FreeColXMLWriter;
+import net.sf.freecol.common.model.Specification;
+
+
+/**
+ * Represents an option where the valid choice is an integer and the
+ * choices are represented by strings.  In general, these strings are
+ * localized by looking up the key of the choice, which consists of
+ * the identifier of the AbstractObject followed by a &quot;.&quot; followed by
+ * the value of the option string.  The automatic localization can be
+ * suppressed with the doNotLocalize parameter, however.  There are
+ * two reasons to do this: either the option strings should not be
+ * localized at all (because they are language names, for example), or
+ * the option strings have already been localized (because they do not
+ * use the default keys, for example).
+ */
+public class SelectOption extends IntegerOption {
+
+    @SuppressWarnings(&quot;unused&quot;)
+<span class="fc" id="L49">    private static final Logger logger = Logger.getLogger(SelectOption.class.getName());</span>
+
+    /** Use localized labels? */
+<span class="fc" id="L52">    protected boolean localizedLabels = false;</span>
+
+    /** A map of the valid values. */
+<span class="fc" id="L55">    private final Map&lt;Integer, String&gt; itemValues</span>
+        = new LinkedHashMap&lt;&gt;();
+
+
+    /**
+     * Creates a new &lt;code&gt;SelectOption&lt;/code&gt;.
+     *
+     * @param specification The &lt;code&gt;Specification&lt;/code&gt; to refer to.
+     */
+    public SelectOption(Specification specification) {
+<span class="fc" id="L65">        super(specification);</span>
+<span class="fc" id="L66">    }</span>
+
+
+    /**
+     * Gets the range values of this &lt;code&gt;RangeOption&lt;/code&gt;.
+     *
+     * @return The value.
+     */
+    public Map&lt;Integer, String&gt; getItemValues() {
+<span class="fc" id="L75">        return itemValues;</span>
+    }
+
+    /**
+     * Add a new key,value pair to this option.
+     *
+     * @param key The key to add.
+     * @param value The value to add.
+     */
+    public void addItemValue(Integer key, String value) {
+<span class="fc" id="L85">        itemValues.put(key, value);</span>
+<span class="fc" id="L86">    }</span>
+
+    /**
+     * Clear the item values for this option.
+     *
+     * Required by ClientOptions.fixClientOptions.
+     */
+    public void clearItemValues() {
+<span class="fc" id="L94">        itemValues.clear();</span>
+<span class="fc" id="L95">    }</span>
+    
+    /**
+     * Whether the labels of this option need to be localized.  This is
+     * not the case when the labels are just numeric values.
+     *
+     * @return True if localization is required.
+     */
+    public boolean localizeLabels() {
+<span class="nc" id="L104">        return localizedLabels;</span>
+    }
+
+    /**
+     * Gets the tag name of the item element.
+     *
+     * Should be overridden by subclasses to ensure read/writeChildren work.
+     *
+     * @return &quot;selectValue&quot;.
+     */
+    public String getXMLItemElementTagName() {
+<span class="fc" id="L115">        return &quot;selectValue&quot;;</span>
+    }
+
+    // Interface Option
+    
+    /**
+     * {@inheritDoc}
+     */
+    public void setValue(Integer value) {
+<span class="fc" id="L124">        Set&lt;Integer&gt; keys = getItemValues().keySet();</span>
+<span class="fc bfc" id="L125" title="All 2 branches covered.">        if (keys.isEmpty()) return; // May not have been read yet</span>
+
+<span class="fc" id="L127">        Integer fallback = null;</span>
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">        for (Integer i : keys) {</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">            if (i == value) { // Found a valid selection</span>
+<span class="fc" id="L130">                super.setValue(value);</span>
+<span class="fc" id="L131">                return;</span>
+            }
+<span class="fc bfc" id="L133" title="All 2 branches covered.">            if (fallback == null) fallback = i;</span>
+<span class="fc" id="L134">        }</span>
+<span class="nc" id="L135">        logger.warning(getXMLElementTagName() + &quot;.setValue invalid value: &quot;</span>
+            + value + &quot;, using fallback: &quot; + fallback);
+<span class="nc" id="L137">        super.setValue(fallback);</span>
+<span class="nc" id="L138">    }</span>
+
+
+    // Serialization
+
+    private static final String LABEL_TAG = &quot;label&quot;;
+    private static final String LOCALIZED_LABELS_TAG = &quot;localizedLabels&quot;;
+
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L152">        super.writeAttributes(xw);</span>
+
+<span class="fc" id="L154">        xw.writeAttribute(LOCALIZED_LABELS_TAG, localizedLabels);</span>
+<span class="fc" id="L155">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L162">        super.writeChildren(xw);</span>
+
+<span class="fc bfc" id="L164" title="All 2 branches covered.">        for (Map.Entry&lt;Integer, String&gt; entry : itemValues.entrySet()) {</span>
+<span class="fc" id="L165">            xw.writeStartElement(getXMLItemElementTagName());</span>
+
+<span class="fc" id="L167">            xw.writeAttribute(VALUE_TAG, entry.getKey());</span>
+
+<span class="fc" id="L169">            xw.writeAttribute(LABEL_TAG, entry.getValue());</span>
+
+<span class="fc" id="L171">            xw.writeEndElement();</span>
+<span class="fc" id="L172">        }</span>
+<span class="fc" id="L173">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L180">        super.readAttributes(xr);</span>
+
+<span class="fc" id="L182">        localizedLabels = xr.getAttribute(LOCALIZED_LABELS_TAG, true);</span>
+<span class="fc" id="L183">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+        // We can not set the value until we have read the select options
+        // so as to be able to check its validity.
+<span class="fc" id="L192">        String value = xr.getAttribute(VALUE_TAG, (String)null);</span>
+<span class="fc" id="L193">        String defaultValue = xr.getAttribute(DEFAULT_VALUE_TAG, (String)null);</span>
+
+        // Clear containers.
+<span class="fc" id="L196">        clearItemValues();</span>
+        
+<span class="fc" id="L198">        super.readChildren(xr);</span>
+
+        // Now we can correctly set the value.
+<span class="fc" id="L201">        setValue(value, defaultValue);</span>
+<span class="fc" id="L202">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L209">        final String tag = xr.getLocalName();</span>
+
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">        if (getXMLItemElementTagName().equals(tag)) {</span>
+<span class="fc" id="L212">            addItemValue(xr.getAttribute(VALUE_TAG, INFINITY),</span>
+<span class="fc" id="L213">                         xr.getAttribute(LABEL_TAG, (String)null));</span>
+<span class="fc" id="L214">            xr.closeTag(tag);</span>
+
+        } else {
+<span class="nc" id="L217">            super.readChild(xr);</span>
+        }
+<span class="fc" id="L219">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString() {
+<span class="nc" id="L226">        StringBuilder sb = new StringBuilder(16);</span>
+<span class="nc" id="L227">        sb.append(&quot;[&quot;).append(getId())</span>
+<span class="nc" id="L228">            .append(&quot; value=&quot;).append(getValue())</span>
+<span class="nc" id="L229">            .append(&quot; localized=&quot;).append(localizedLabels)</span>
+<span class="nc" id="L230">            .append(&quot;]&quot;);</span>
+<span class="nc" id="L231">        return sb.toString();</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+<span class="fc" id="L238">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
+
+    /**
+     * Gets the tag name of the root element representing this object.
+     *
+     * @return &quot;selectOption&quot;.
+     */
+    public static String getXMLElementTagName() {
+<span class="fc" id="L246">        return &quot;selectOption&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

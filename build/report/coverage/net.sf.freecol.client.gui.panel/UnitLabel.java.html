@@ -1,0 +1,441 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnitLabel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.client.gui.panel</a> &gt; <span class="el_source">UnitLabel.java</span></div><h1>UnitLabel.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.client.gui.panel;
+
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.Locale;
+import java.util.logging.Logger;
+
+import javax.swing.ImageIcon;
+import javax.swing.JLabel;
+
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.control.InGameController;
+import net.sf.freecol.client.gui.FontLibrary;
+import net.sf.freecol.client.gui.ImageLibrary;
+import net.sf.freecol.client.gui.SwingGUI;
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.AbstractGoods;
+import net.sf.freecol.common.model.Building;
+import net.sf.freecol.common.model.ColonyTile;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.WorkLocation;
+
+import static net.sf.freecol.common.util.StringUtils.lastPart;
+
+
+/**
+ * This label holds Unit data in addition to the JLabel data, which makes it
+ * ideal to use for drag and drop purposes.
+ */
+public final class UnitLabel extends JLabel
+    implements ActionListener, Draggable {
+
+    @SuppressWarnings(&quot;unused&quot;)
+<span class="nc" id="L64">    private static final Logger logger = Logger.getLogger(UnitLabel.class.getName());</span>
+
+<span class="nc" id="L66">    public static enum UnitAction {</span>
+<span class="nc" id="L67">        ASSIGN,</span>
+<span class="nc" id="L68">        CLEAR_SPECIALITY,</span>
+<span class="nc" id="L69">        ACTIVATE_UNIT,</span>
+<span class="nc" id="L70">        FORTIFY,</span>
+<span class="nc" id="L71">        SENTRY,</span>
+<span class="nc" id="L72">        COLOPEDIA,</span>
+<span class="nc" id="L73">        LEAVE_TOWN,</span>
+<span class="nc" id="L74">        WORK_COLONYTILE, // Must match the WorkLocation actual type</span>
+<span class="nc" id="L75">        WORK_BUILDING,   // Must match the WorkLocation actual type</span>
+<span class="nc" id="L76">        CLEAR_ORDERS,</span>
+<span class="nc" id="L77">        ASSIGN_TRADE_ROUTE,</span>
+<span class="nc" id="L78">        LEAVE_SHIP,</span>
+<span class="nc" id="L79">        UNLOAD,</span>
+    }
+
+    private final FreeColClient freeColClient;
+
+    private final SwingGUI gui;
+
+    private final Unit unit;
+
+    private boolean selected;
+
+<span class="nc" id="L90">    private boolean isSmall = false;</span>
+
+    private boolean ignoreLocation;
+    
+    private boolean useTileImageLibrary;
+
+
+    /**
+     * Creates a JLabel to display a unit.
+     *
+     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to display.
+     */
+    public UnitLabel(FreeColClient freeColClient, Unit unit) {
+<span class="nc" id="L104">        this(freeColClient, unit, false);</span>
+<span class="nc" id="L105">    }</span>
+
+    /**
+     * Creates a JLabel to display a unit.
+     *
+     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to display.
+     * @param isSmall The image will be smaller if set to &lt;code&gt;true&lt;/code&gt;.
+     */
+    public UnitLabel(FreeColClient freeColClient, Unit unit, boolean isSmall) {
+<span class="nc" id="L115">        this(freeColClient, unit, isSmall, false);</span>
+<span class="nc" id="L116">    }</span>
+
+    /**
+     * Creates a JLabel to display a unit.
+     *
+     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to display.
+     * @param isSmall The image will be smaller if set to &lt;code&gt;true&lt;/code&gt;.
+     * @param ignoreLocation The image will not include production or state
+     *            information if set to &lt;code&gt;true&lt;/code&gt;.
+     */
+    public UnitLabel(FreeColClient freeColClient, Unit unit,
+                     boolean isSmall, boolean ignoreLocation) {
+<span class="nc" id="L129">        this(freeColClient, unit, isSmall, ignoreLocation, false);</span>
+<span class="nc" id="L130">    }</span>
+
+
+    /**
+     * Creates a JLabel to display a unit.
+     *
+     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to display.
+     * @param isSmall The image will be smaller if set to &lt;code&gt;true&lt;/code&gt;.
+     * @param ignoreLocation The image will not include production or state
+     *            information if set to &lt;code&gt;true&lt;/code&gt;.
+     * @param useTileImageLibrary If false use ImageLibrary in GUI.
+     *              If true use tileImageLibrary in SwingGUI.
+     */
+    public UnitLabel(FreeColClient freeColClient, Unit unit,
+                     boolean isSmall, boolean ignoreLocation,
+<span class="nc" id="L146">                     boolean useTileImageLibrary) {</span>
+<span class="nc" id="L147">        this.freeColClient = freeColClient;</span>
+<span class="nc" id="L148">        this.gui = (SwingGUI)freeColClient.getGUI();</span>
+<span class="nc" id="L149">        this.unit = unit;</span>
+
+<span class="nc" id="L151">        selected = false;</span>
+<span class="nc" id="L152">        this.isSmall = isSmall;</span>
+<span class="nc" id="L153">        this.ignoreLocation = ignoreLocation;</span>
+<span class="nc" id="L154">        this.useTileImageLibrary = useTileImageLibrary;</span>
+
+<span class="nc" id="L156">        updateIcon();</span>
+<span class="nc" id="L157">    }</span>
+
+
+    /**
+     * Returns this UnitLabel's unit data.
+     *
+     * @return This UnitLabel's unit data.
+     */
+    public Unit getUnit() {
+<span class="nc" id="L166">        return unit;</span>
+    }
+
+    /**
+     * Sets whether or not this unit should be selected.
+     *
+     * @param b Whether or not this unit should be selected.
+     */
+    public void setSelected(boolean b) {
+<span class="nc" id="L175">        selected = b;</span>
+<span class="nc" id="L176">    }</span>
+
+    /**
+     * Sets whether or not this unit label should include production and state
+     * information.
+     *
+     * @param b Whether or not this unit label should include production and
+     *            state information.
+     */
+    public void setIgnoreLocation(boolean b) {
+<span class="nc" id="L186">        ignoreLocation = b;</span>
+<span class="nc" id="L187">    }</span>
+
+    /**
+     * Makes a smaller version.
+     *
+     * @param isSmall The image will be smaller if set to &lt;code&gt;true&lt;/code&gt;.
+     */
+    public void setSmall(boolean isSmall) {
+<span class="nc bnc" id="L195" title="All 2 branches missed.">        final ImageLibrary lib = useTileImageLibrary</span>
+<span class="nc" id="L196">            ? gui.getTileImageLibrary()</span>
+<span class="nc" id="L197">            : gui.getImageLibrary();</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">        if (isSmall) {</span>
+<span class="nc" id="L199">            ImageIcon imageIcon = new ImageIcon(lib.getSmallUnitImage(unit));</span>
+<span class="nc" id="L200">            ImageIcon disabledImageIcon = new ImageIcon(lib.getSmallUnitImage(unit, true));</span>
+<span class="nc" id="L201">            setPreferredSize(null);</span>
+
+<span class="nc" id="L203">            setIcon(imageIcon);</span>
+<span class="nc" id="L204">            setDisabledIcon(disabledImageIcon);</span>
+<span class="nc" id="L205">            setBorder(Utility.blankBorder(0, 2, 0, 0));</span>
+<span class="nc" id="L206">            this.isSmall = true;</span>
+<span class="nc" id="L207">        } else {</span>
+<span class="nc" id="L208">            ImageIcon imageIcon = new ImageIcon(lib.getUnitImage(unit));</span>
+<span class="nc" id="L209">            ImageIcon disabledImageIcon = new ImageIcon(lib.getUnitImage(unit, true));</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">            if (unit.getLocation() instanceof ColonyTile) {</span>
+<span class="nc" id="L211">                Dimension tileSize = lib.scaleDimension(ImageLibrary.TILE_SIZE);</span>
+<span class="nc" id="L212">                tileSize.width /= 2;</span>
+<span class="nc" id="L213">                tileSize.height = imageIcon.getIconHeight();</span>
+<span class="nc" id="L214">                setSize(tileSize);</span>
+<span class="nc" id="L215">            } else {</span>
+<span class="nc" id="L216">                setPreferredSize(null);</span>
+            }
+
+<span class="nc" id="L219">            setIcon(imageIcon);</span>
+<span class="nc" id="L220">            setDisabledIcon(disabledImageIcon);</span>
+<span class="nc bnc" id="L221" title="All 2 branches missed.">            setBorder((unit.getLocation() instanceof ColonyTile)</span>
+<span class="nc" id="L222">                ? Utility.blankBorder(0, 15, 0, 15)</span>
+<span class="nc" id="L223">                : Utility.blankBorder(0, 5, 0, 5));</span>
+<span class="nc" id="L224">            this.isSmall = false;</span>
+        }
+<span class="nc" id="L226">    }</span>
+
+    /**
+     * Gets the description label.
+     *
+     * The description label is a tooltip with the unit name and description of
+     * the terrain its on if applicable *
+     *
+     * @return This UnitLabel's description label.
+     */
+    public String getDescriptionLabel() {
+<span class="nc" id="L237">        return getToolTipText();</span>
+    }
+
+    /**
+     * Sets the description label.
+     *
+     * The description label is a tooltip with the unit name and description of
+     * the terrain its on if applicable
+     *
+     * @param label The string to set the label to.
+     */
+    public void setDescriptionLabel(String label) {
+<span class="nc" id="L249">        setToolTipText(label);</span>
+<span class="nc" id="L250">    }</span>
+
+    /**
+     * Paints this UnitLabel.
+     *
+     * @param g The graphics context in which to do the painting.
+     */
+    @Override
+    public void paintComponent(Graphics g) {
+<span class="nc" id="L259">        final Player player = freeColClient.getMyPlayer();</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">        final ImageLibrary lib = useTileImageLibrary</span>
+<span class="nc" id="L261">            ? gui.getTileImageLibrary()</span>
+<span class="nc" id="L262">            : gui.getImageLibrary();</span>
+<span class="nc bnc" id="L263" title="All 4 branches missed.">        if (ignoreLocation || selected</span>
+<span class="nc bnc" id="L264" title="All 4 branches missed.">            || (!unit.isCarrier() &amp;&amp; unit.getState() != Unit.UnitState.SENTRY)) {</span>
+<span class="nc" id="L265">            setEnabled(true);</span>
+<span class="nc bnc" id="L266" title="All 2 branches missed.">        } else if (unit.getOwner() != player</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">            &amp;&amp; unit.getColony() == null) {</span>
+<span class="nc" id="L268">            setEnabled(true);</span>
+        } else {
+<span class="nc" id="L270">            setEnabled(false);</span>
+        }
+
+<span class="nc" id="L273">        super.paintComponent(g);</span>
+<span class="nc bnc" id="L274" title="All 2 branches missed.">        if (ignoreLocation)</span>
+<span class="nc" id="L275">            return;</span>
+
+<span class="nc bnc" id="L277" title="All 2 branches missed.">        if (unit.getLocation() instanceof ColonyTile) {</span>
+<span class="nc" id="L278">            GoodsType workType = unit.getWorkType();</span>
+<span class="nc bnc" id="L279" title="All 2 branches missed.">            if (workType != null) {</span>
+<span class="nc" id="L280">                int production = ((ColonyTile)unit.getLocation())</span>
+<span class="nc" id="L281">                    .getTotalProductionOf(workType);</span>
+<span class="nc" id="L282">                ProductionLabel pl = new ProductionLabel(freeColClient, lib,</span>
+                    new AbstractGoods(workType, production));
+<span class="nc" id="L284">                g.translate(0, 10);</span>
+<span class="nc" id="L285">                pl.paintComponent(g);</span>
+<span class="nc" id="L286">                g.translate(0, -10);</span>
+            }
+<span class="nc bnc" id="L288" title="All 2 branches missed.">        } else if (getParent() instanceof ColonyPanel.OutsideColonyPanel ||</span>
+<span class="nc bnc" id="L289" title="All 2 branches missed.">                   getParent() instanceof InPortPanel ||</span>
+<span class="nc bnc" id="L290" title="All 2 branches missed.">                   getParent() instanceof EuropePanel.DocksPanel ||</span>
+<span class="nc bnc" id="L291" title="All 2 branches missed.">                   getParent().getParent() instanceof ReportPanel) {</span>
+<span class="nc" id="L292">            String text = Messages.message(unit.getOccupationLabel(player, false));</span>
+<span class="nc" id="L293">            g.drawImage(lib.getOccupationIndicatorChip((Graphics2D)g, unit, text), 0, 0, null);</span>
+
+<span class="nc bnc" id="L295" title="All 2 branches missed.">            if (unit.isDamaged()) {</span>
+<span class="nc" id="L296">                String underRepair = Messages.message(unit.getRepairLabel());</span>
+<span class="nc" id="L297">                String underRepair1 = underRepair.substring(0, underRepair.indexOf('(')).trim();</span>
+<span class="nc" id="L298">                String underRepair2 = underRepair.substring(underRepair.indexOf('(')).trim();</span>
+<span class="nc" id="L299">                Font font = FontLibrary.createFont(FontLibrary.FontType.NORMAL,</span>
+<span class="nc" id="L300">                    FontLibrary.FontSize.TINY, lib.getScaleFactor());</span>
+<span class="nc" id="L301">                Image repairImage1 = lib.getStringImage(g, underRepair1, Color.RED, font);</span>
+<span class="nc" id="L302">                Image repairImage2 = lib.getStringImage(g, underRepair2, Color.RED, font);</span>
+<span class="nc" id="L303">                int textHeight = repairImage1.getHeight(null) + repairImage2.getHeight(null);</span>
+<span class="nc" id="L304">                int leftIndent = Math.min(5, Math.min(getWidth() - repairImage1.getWidth(null),</span>
+<span class="nc" id="L305">                                                      getWidth() - repairImage2.getWidth(null)));</span>
+<span class="nc" id="L306">                g.drawImage(repairImage1,</span>
+                            leftIndent, // indent from left side of label (icon is placed at the left side)
+<span class="nc" id="L308">                            ((getHeight() - textHeight) / 2),</span>
+                            null);
+<span class="nc" id="L310">                g.drawImage(repairImage2,</span>
+                            leftIndent,
+<span class="nc" id="L312">                            ((getHeight() - textHeight) / 2) + repairImage1.getHeight(null),</span>
+                            null);
+            }
+        }
+<span class="nc" id="L316">    }</span>
+
+    /**
+     * Update the icon for this unit label.
+     */
+    public void updateIcon() {
+<span class="nc" id="L322">        setDescriptionLabel(unit.getDescription(Unit.UnitLabelType.FULL));</span>
+<span class="nc" id="L323">        setSmall(isSmall);</span>
+        // repaint(0, 0, getWidth(), getHeight());
+        // uc.refresh();
+<span class="nc" id="L326">    }</span>
+
+    /**
+     * Can a unit be equipped with a particular label.
+     *
+     * @param data The label to add.
+     * @return True if the label refers to suitable equipment.
+     */
+    public boolean canUnitBeEquippedWith(JLabel data) {
+<span class="nc bnc" id="L335" title="All 4 branches missed.">        return getUnit().hasAbility(Ability.CAN_BE_EQUIPPED)</span>
+            &amp;&amp; data instanceof AbstractGoodsLabel;
+    }
+
+    /**
+     * Gets a string corresponding to the UnitAction to work at a work
+     * location.
+     *
+     * @param wl The &lt;code&gt;WorkLocation&lt;/code&gt; to use.
+     * @return The unit action as a string.
+     */
+    public static String getWorkLabel(WorkLocation wl) {
+<span class="nc" id="L347">        return &quot;WORK_&quot; + lastPart(wl.getClass().toString(), &quot;.&quot;)</span>
+<span class="nc" id="L348">            .toUpperCase(Locale.US);</span>
+    }
+
+
+    // Interface Draggable
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isOnCarrier() {
+<span class="nc bnc" id="L359" title="All 4 branches missed.">        return unit != null &amp;&amp; unit.isOnCarrier();</span>
+    }
+
+
+    // Interface ActionListener
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L370">        final Game game = freeColClient.getGame();</span>
+<span class="nc" id="L371">        final Specification spec = game.getSpecification();</span>
+<span class="nc" id="L372">        final InGameController igc = freeColClient.getInGameController();</span>
+<span class="nc" id="L373">        String[] args = ae.getActionCommand().split(&quot;/&quot;);</span>
+        GoodsType gt;
+<span class="nc bnc" id="L375" title="All 14 branches missed.">        switch (Enum.valueOf(UnitAction.class,</span>
+<span class="nc" id="L376">                             args[0].toUpperCase(Locale.US))) {</span>
+        case ASSIGN:
+<span class="nc" id="L378">            igc.assignTeacher(unit,</span>
+<span class="nc" id="L379">                              game.getFreeColGameObject(args[1], Unit.class));</span>
+<span class="nc" id="L380">            break;</span>
+        case WORK_COLONYTILE:
+<span class="nc bnc" id="L382" title="All 2 branches missed.">            if (args.length &lt; 3) break;</span>
+<span class="nc" id="L383">            ColonyTile colonyTile</span>
+<span class="nc" id="L384">                = game.getFreeColGameObject(args[1], ColonyTile.class);</span>
+<span class="nc bnc" id="L385" title="All 4 branches missed.">            if (args.length &gt;= 4 &amp;&amp; &quot;!&quot;.equals(args[3])) {</span>
+                // Claim tile if needed
+<span class="nc bnc" id="L387" title="All 2 branches missed.">                if (!igc.claimTile(colonyTile.getWorkTile(),</span>
+<span class="nc" id="L388">                                   unit.getColony())) break;</span>
+            }
+<span class="nc bnc" id="L390" title="All 2 branches missed.">            if (colonyTile != unit.getLocation()) igc.work(unit, colonyTile);</span>
+<span class="nc bnc" id="L391" title="All 2 branches missed.">            if ((gt = spec.getGoodsType(args[2])) != null</span>
+<span class="nc bnc" id="L392" title="All 2 branches missed.">                &amp;&amp; unit.getWorkType() != gt) {</span>
+<span class="nc" id="L393">                igc.changeWorkType(unit, gt);</span>
+            }
+            break;
+        case WORK_BUILDING:
+<span class="nc bnc" id="L397" title="All 2 branches missed.">            if (args.length &lt; 3) break;</span>
+<span class="nc" id="L398">            Building building</span>
+<span class="nc" id="L399">                = game.getFreeColGameObject(args[1], Building.class);</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">            if (building != unit.getLocation()) igc.work(unit, building);</span>
+<span class="nc bnc" id="L401" title="All 2 branches missed.">            if ((gt = spec.getGoodsType(args[2])) != null</span>
+<span class="nc bnc" id="L402" title="All 2 branches missed.">                &amp;&amp; unit.getWorkType() != gt) {</span>
+<span class="nc" id="L403">                igc.changeWorkType(unit, gt);</span>
+            }
+            break;
+        case ACTIVATE_UNIT:
+<span class="nc" id="L407">            igc.changeState(unit, Unit.UnitState.ACTIVE);</span>
+<span class="nc" id="L408">            gui.setActiveUnit(unit);</span>
+<span class="nc" id="L409">            break;</span>
+        case FORTIFY:
+<span class="nc" id="L411">            igc.changeState(unit, Unit.UnitState.FORTIFYING);</span>
+<span class="nc" id="L412">            break;</span>
+        case SENTRY:
+<span class="nc" id="L414">            igc.changeState(unit, Unit.UnitState.SENTRY);</span>
+<span class="nc" id="L415">            break;</span>
+        case COLOPEDIA:
+<span class="nc" id="L417">            gui.showColopediaPanel(unit.getType().getId());</span>
+<span class="nc" id="L418">            break;</span>
+        case LEAVE_TOWN:
+<span class="nc" id="L420">            igc.putOutsideColony(unit);</span>
+<span class="nc" id="L421">            break;</span>
+        case CLEAR_SPECIALITY:
+<span class="nc" id="L423">            igc.clearSpeciality(unit);</span>
+<span class="nc" id="L424">            break;</span>
+        case CLEAR_ORDERS:
+<span class="nc" id="L426">            igc.clearOrders(unit);</span>
+<span class="nc" id="L427">            break;</span>
+        case ASSIGN_TRADE_ROUTE:
+<span class="nc" id="L429">            gui.showTradeRoutePanel(unit);</span>
+<span class="nc" id="L430">            break;</span>
+        case LEAVE_SHIP:
+<span class="nc" id="L432">            igc.leaveShip(unit);</span>
+<span class="nc" id="L433">            break;</span>
+        case UNLOAD:
+<span class="nc" id="L435">            igc.unload(unit);</span>
+            break;
+        }
+<span class="nc" id="L438">        updateIcon();</span>
+<span class="nc" id="L439">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

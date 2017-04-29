@@ -1,0 +1,712 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GoodsType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.model</a> &gt; <span class="el_source">GoodsType.java</span></div><h1>GoodsType.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.model;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import javax.xml.stream.XMLStreamException;
+
+import net.sf.freecol.common.io.FreeColXMLReader;
+import net.sf.freecol.common.io.FreeColXMLWriter;
+
+
+/**
+ * A type of goods, derived from the specification.
+ */
+public final class GoodsType extends FreeColGameObjectType {
+
+    private static final float DEFAULT_PRODUCTION_WEIGHT = 1.0f;
+    private static final float DEFAULT_LOW_PRODUCTION_THRESHOLD = 0.0f;
+    private static final float DEFAULT_ZERO_PRODUCTION_FACTOR = 1.0f;
+
+    /** A comparator to impose a useful order on goods types. */
+<span class="fc" id="L44">    public static final Comparator&lt;GoodsType&gt; goodsTypeComparator</span>
+<span class="fc" id="L45">        = new Comparator&lt;GoodsType&gt;() {</span>
+            private int rank(GoodsType g) {
+<span class="pc bpc" id="L47" title="1 of 4 branches missed.">                return (!g.isStorable() || g.isTradeGoods()) ? -1</span>
+<span class="pc bpc" id="L48" title="1 of 2 branches missed.">                    : (g.isFoodType()) ? 1</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">                    : (g.isNewWorldGoodsType()) ? 2</span>
+<span class="pc bpc" id="L50" title="1 of 2 branches missed.">                    : (g.isFarmed()) ? 3</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">                    : (g.isRawMaterial()) ? 4</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">                    : (g.isNewWorldLuxuryType()) ? 5</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">                    : (g.isRefined()) ? 6</span>
+                    : -1;
+            }
+
+            @Override
+            public int compare(GoodsType g1, GoodsType g2) {
+<span class="fc" id="L59">                int r1 = rank(g1);</span>
+<span class="fc" id="L60">                int r2 = rank(g2);</span>
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">                return (r1 != r2) ? r1 - r2</span>
+<span class="nc" id="L62">                : g1.getId().compareTo(g2.getId());</span>
+            }
+        };
+
+    /** Is this a farmed goods type. */
+    private boolean isFarmed;
+
+    /** Is this a food type. */
+    private boolean isFood;
+
+    /** Does this goods type ignore warehouse limits. */
+    private boolean ignoreLimit;
+
+    /** Is this goods type native to the New World. */
+    private boolean newWorldGoods;
+
+    /**
+     * Whether this type of goods is required for building equipment
+     * that grants an offence bonus or defence bonus.
+     */
+<span class="fc" id="L82">    private boolean isMilitary = false;</span>
+
+    /**
+     * Whether this type of goods is required for building. (Derived
+     * attribute)
+     */
+<span class="fc" id="L88">    private boolean buildingMaterial = false;</span>
+
+    /** Whether these are trade goods that can only be obtained in Europe. */
+    private boolean tradeGoods;
+
+    /** Whether this type of goods can be stored in a warehouse. */
+    private boolean storable;
+
+    /** What this goods type is stored as. */
+    private GoodsType storedAs;
+
+    /** What this goods type is made from. */
+    private GoodsType madeFrom;
+
+    /** What this goods type can make.  (Derived attribute) */
+<span class="fc" id="L103">    private GoodsType makes = null;</span>
+
+    /** The initial amount of this goods type in a market. */
+    private int initialAmount;
+
+    /** The initial &lt;em&gt;minimum&lt;/em&gt; sales price for this type of goods. */
+    private int initialPrice;
+
+    /** The initial market price difference for this type of goods. */
+    private int priceDiff;
+
+    /**
+     * The number of units required to breed this type of goods. This
+     * obviously only applies to animals.
+     */
+<span class="fc" id="L118">    private int breedingNumber = INFINITY;</span>
+
+    /**
+     * The price of this type of goods.  This is only used for goods
+     * that can not be traded in the market, such as hammers.
+     */
+<span class="fc" id="L124">    private int price = INFINITY;</span>
+
+    /**
+     * A weight for the potential production of this goods type at a
+     * colony site.
+     */
+<span class="fc" id="L130">    private float productionWeight = DEFAULT_PRODUCTION_WEIGHT;</span>
+
+    /**
+     * A threshold amount of potential production of this goods type
+     * at a colony site, below which the score for the site is reduced.
+     */
+<span class="fc" id="L136">    private float lowProductionThreshold = DEFAULT_LOW_PRODUCTION_THRESHOLD;</span>
+
+    /**
+     * The multiplicative factor with which to penalize a colony site
+     * with zero production of this goods type, scaling linearly to
+     * unity when the amount reaches lowResourceThreshold.
+     */
+<span class="fc" id="L143">    private float zeroProductionFactor = DEFAULT_ZERO_PRODUCTION_FACTOR;</span>
+
+
+    /**
+     * Create a new goods type.
+     *
+     * @param id The object identifier.
+     * @param specification The &lt;code&gt;Specification&lt;/code&gt; to refer to.
+     */
+    public GoodsType(String id, Specification specification) {
+<span class="fc" id="L153">        super(id, specification);</span>
+<span class="fc" id="L154">    }</span>
+
+
+    /**
+     * Is this a farmed goods type?
+     *
+     * @return True if this is a farmed goods type.
+     */
+    public boolean isFarmed() {
+<span class="fc" id="L163">        return isFarmed;</span>
+    }
+
+    /**
+     * Is this an edible goods type?
+     *
+     * @return True if this is a food type.
+     */
+    public boolean isFoodType() {
+<span class="fc" id="L172">        return isFood;</span>
+    }
+
+    /**
+     * Is this goods type a military goods type?
+     *
+     * @return True if this is a military goods type.
+     */
+    public boolean isMilitaryGoods() {
+<span class="fc" id="L181">        return isMilitary;</span>
+    }
+
+    // @compat 0.10.x
+    // Needed by Specification fixup010x()
+    public void setMilitary() {
+<span class="fc" id="L187">        this.isMilitary = true;</span>
+<span class="fc" id="L188">    }</span>
+    // end @compat 0.10.x
+
+    /**
+     * Do warehouse storage limits not apply to this goods type?
+     *
+     * @return True if unlimited amounts of this goods type can be stored.
+     */
+    public boolean limitIgnored() {
+<span class="fc" id="L197">        return ignoreLimit;</span>
+    }
+
+    /**
+     * Is this a goods type native to the New World?
+     *
+     * @return True if this goods type is native to the New World.
+     */
+    public boolean isNewWorldGoodsType() {
+<span class="fc" id="L206">        return newWorldGoods;</span>
+    }
+
+    /**
+     * Is this goods type made from a New World goods type?
+     *
+     * @return True if this goods type is made from New World goods.
+     */
+    public boolean isNewWorldLuxuryType() {
+<span class="fc bfc" id="L215" title="All 4 branches covered.">        return madeFrom != null &amp;&amp; madeFrom.isNewWorldGoodsType();</span>
+    }
+
+    /**
+     * Is this type of goods is required for building a BuildableType?
+     *
+     * @return True if this is a simple building material.
+     * @see BuildableType
+     */
+    public boolean isBuildingMaterial() {
+<span class="fc" id="L225">        return buildingMaterial;</span>
+    }
+
+    /**
+     * Is this a trade goods type?
+     *
+     * @return True if this goods type is trade goods.
+     */
+    public boolean isTradeGoods() {
+<span class="fc" id="L234">        return tradeGoods;</span>
+    }
+
+    /**
+     * Does this type of goods produce liberty?
+     *
+     * @return True if this goods type produces liberty.
+     */
+    public boolean isLibertyType() {
+<span class="fc" id="L243">        return containsModifierKey(Modifier.LIBERTY);</span>
+    }
+
+    /**
+     * Does this type of goods produce immigration?
+     *
+     * @return True if this goods type produces immigration.
+     */
+    public boolean isImmigrationType() {
+<span class="fc" id="L252">        return containsModifierKey(Modifier.IMMIGRATION);</span>
+    }
+
+    /**
+     * Is this goods type storable?
+     *
+     * @return True if this goods type is storable.
+     */
+    public boolean isStorable() {
+<span class="fc" id="L261">        return storable;</span>
+    }
+
+    /**
+     * Is this type of goods stored as something else?
+     *
+     * @return True if this type of goods is stored as another type.
+     */
+    public boolean isStoredAs() {
+<span class="fc bfc" id="L270" title="All 2 branches covered.">        return storedAs != null;</span>
+    }
+
+    /**
+     * What type of goods is this goods type stored as?
+     *
+     * @return The &lt;code&gt;GoodsType&lt;/code&gt; this is stored as, usually itself.
+     */
+    public GoodsType getStoredAs() {
+<span class="fc bfc" id="L279" title="All 2 branches covered.">        return (storedAs == null) ? this : storedAs;</span>
+    }
+
+    /**
+     * Can this goods type be made into somthing?
+     *
+     * @return True if this &lt;code&gt;GoodsType&lt;/code&gt; can be made into something.
+     */
+    public boolean isRawMaterial() {
+<span class="fc bfc" id="L288" title="All 2 branches covered.">        return makes != null;</span>
+    }
+
+    /**
+     * Is this goods type made from somthing?
+     *
+     * @return True if this &lt;code&gt;GoodsType&lt;/code&gt; is made from something.
+     */
+    public boolean isRefined() {
+<span class="fc bfc" id="L297" title="All 2 branches covered.">        return madeFrom != null;</span>
+    }
+
+    /**
+     * What is this goods made into?
+     *
+     * @return The &lt;code&gt;GoodsType&lt;/code&gt; this is made into, if anything.
+     */
+    public GoodsType getOutputType() {
+<span class="fc" id="L306">        return makes;</span>
+    }
+
+    /**
+     * What is this goods type made from?
+     *
+     * @return The &lt;code&gt;GoodsType&lt;/code&gt; this is made from, if anything.
+     */
+    public GoodsType getInputType() {
+<span class="fc" id="L315">        return madeFrom;</span>
+    }
+
+    /**
+     * Get the default initial amount of this goods type in a market.
+     *
+     * @return The default initial amount.
+     */
+    public int getInitialAmount() {
+<span class="fc" id="L324">        return initialAmount;</span>
+    }
+
+    /**
+     * Get the initial &lt;em&gt;minimum&lt;/em&gt; sales price for this type
+     * of goods.  The actual initial sales price in a particular
+     * Market may be higher.  This method is only used for initializing
+     * Markets.
+     *
+     * @return The initial sell price.
+     * @see Market
+     */
+    int getInitialSellPrice() {
+<span class="fc" id="L337">        return initialPrice;</span>
+    }
+
+    /**
+     * The default initial purchase price for this goods type.
+     *
+     * @return The default initial purchase price.
+     */
+    int getInitialBuyPrice() {
+<span class="fc" id="L346">        return initialPrice + priceDiff;</span>
+    }
+
+    /**
+     * The default initial price difference (between purchase and sale price)
+     * for this type of goods.
+     *
+     * @return The default initial price difference.
+     */
+    int getPriceDifference() {
+<span class="fc" id="L356">        return priceDiff;</span>
+    }
+
+    /**
+     * Get the breeding number for this goods type.
+     *
+     * @return The breeding number.
+     */
+    public int getBreedingNumber() {
+<span class="fc" id="L365">        return breedingNumber;</span>
+    }
+
+    /**
+     * Is this type of goods breedable?
+     *
+     * @return True if this &lt;code&gt;GoodsType&lt;/code&gt; is breedable.
+     */
+    public boolean isBreedable() {
+<span class="fc bfc" id="L374" title="All 2 branches covered.">        return breedingNumber != INFINITY;</span>
+    }
+
+    /**
+     * Get the price of a non-tradeable goods type.
+     *
+     * @return The price.
+     */
+    public int getPrice() {
+<span class="fc" id="L383">        return price;</span>
+    }
+
+    public void setPrice(final int newPrice) {
+<span class="nc" id="L387">        this.price = newPrice;</span>
+<span class="nc" id="L388">    }</span>
+
+    /**
+     * Get the production weight.
+     *
+     * @return The production weight.
+     */
+    public float getProductionWeight() {
+<span class="nc" id="L396">        return productionWeight;</span>
+    }
+
+    /**
+     * Get the low production threshold.
+     *
+     * @return The low production threshold.
+     */
+    public float getLowProductionThreshold() {
+<span class="nc" id="L405">        return lowProductionThreshold;</span>
+    }
+
+    /**
+     * Get the zero production factor.
+     *
+     * @return The zero production factor.
+     */
+    public float getZeroProductionFactor() {
+<span class="nc" id="L414">        return zeroProductionFactor;</span>
+    }
+
+
+    /**
+     * Gets the i18n-ed name for this goods type.
+     *
+     * @return The name of this &lt;code&gt;GoodsType&lt;/code&gt;.
+     */
+    public StringTemplate getLabel() {
+<span class="nc" id="L424">        return StringTemplate.key(getNameKey());</span>
+    }
+
+    /**
+     * Gets the &quot;workingAs&quot; key for the profession that makes this goods type.
+     *
+     * @return The &quot;workingAs&quot; message key.
+     */
+    public final String getWorkingAsKey() {
+<span class="nc" id="L433">        return getId() + &quot;.workingAs&quot;;</span>
+    }
+
+    /**
+     * Gets the production chain of the goods type, beginning with a
+     * raw material that can not be produced from any other.  The last
+     * element of the production chain is the goods type itself.
+     *
+     * Note that this does not really handle goods that are stored as
+     * something else as is the case for grain etc.
+     * FIXME: fix or retire this routine?
+     *
+     * @return The production chain of this &lt;code&gt;GoodsType&lt;/code&gt; as
+     *     a list.
+     */
+    public List&lt;GoodsType&gt; getProductionChain() {
+<span class="fc" id="L449">        List&lt;GoodsType&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L450">        GoodsType currentGoods = this;</span>
+<span class="fc bfc" id="L451" title="All 2 branches covered.">        while (currentGoods != null) {</span>
+<span class="fc" id="L452">            result.add(0, currentGoods);</span>
+<span class="fc" id="L453">            currentGoods = currentGoods.madeFrom;</span>
+        }
+<span class="fc" id="L455">        return result;</span>
+    }
+
+    /**
+     * Is this type of goods required somewhere in the chain for
+     * producing a BuildableType, and is not itself buildable.
+     *
+     * @return True if a raw building type.
+     * @see BuildableType
+     */
+    public boolean isRawBuildingMaterial() {
+<span class="fc bfc" id="L466" title="All 2 branches covered.">        if (this.madeFrom != null) return false;</span>
+
+<span class="fc" id="L468">        GoodsType refinedType = makes;</span>
+<span class="fc bfc" id="L469" title="All 2 branches covered.">        while (refinedType != null) {</span>
+<span class="fc bfc" id="L470" title="All 2 branches covered.">            if (refinedType.isBuildingMaterial()) return true;</span>
+<span class="fc" id="L471">            refinedType = refinedType.makes;</span>
+        }
+<span class="fc" id="L473">        return false;</span>
+    }
+
+    /**
+     * Get all the equivalent goods types, in the sense that they are
+     * stored as this type.
+     *
+     * @return A set of equivalent &lt;code&gt;GoodsType&lt;/code&gt;s, which
+     *     must include this one.
+     */
+    public Set&lt;GoodsType&gt; getEquivalentTypes() {
+<span class="fc" id="L484">        Set&lt;GoodsType&gt; result = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L485" title="All 2 branches covered.">        for (GoodsType type : getSpecification().getGoodsTypeList()) {</span>
+<span class="fc bfc" id="L486" title="All 2 branches covered.">            if (type == this</span>
+<span class="fc bfc" id="L487" title="All 2 branches covered.">                || type.getStoredAs() == this) result.add(type);</span>
+<span class="fc" id="L488">        }</span>
+<span class="fc" id="L489">        return result;</span>
+    }
+        
+    /**
+     * Set the derived fields for the goods types in a specification.
+     *
+     * The &quot;derived&quot; fields are: buildingMaterial + makes
+     * - buildingMaterial depends on whether a GoodsType is present on
+     *   a BuildableType requiredGoods list
+     * - makes depends on whether a GoodsType madeFrom field refers
+     *   to another
+     *   
+     * This is called from Specification.clean() when the
+     * specification is fully read.  We must wait until then as the
+     * made-from field can change in extended specifications and mods.
+     * The current example of which is horses, which is made-from food
+     * in the classic ruleset and made-from grain in the freecol
+     * ruleset.
+     *
+     * @param spec The &lt;code&gt;Specification&lt;code&gt; to operate on.
+     */
+    public static void setDerivedAttributes(Specification spec) {
+        // Reset to default state
+<span class="fc bfc" id="L512" title="All 2 branches covered.">        for (GoodsType g : spec.getGoodsTypeList()) {</span>
+<span class="fc" id="L513">            g.buildingMaterial = false;</span>
+<span class="fc" id="L514">            g.makes = null;</span>
+<span class="fc" id="L515">        }</span>
+
+        // Set buildingMaterial attribute
+<span class="fc" id="L518">        List&lt;BuildableType&gt; buildableTypes = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L519">        buildableTypes.addAll(spec.getBuildingTypeList());</span>
+<span class="fc" id="L520">        buildableTypes.addAll(spec.getUnitTypeList());</span>
+<span class="fc" id="L521">        buildableTypes.addAll(spec.getRoles());</span>
+<span class="fc bfc" id="L522" title="All 2 branches covered.">        for (BuildableType b : buildableTypes) {</span>
+<span class="fc bfc" id="L523" title="All 2 branches covered.">            for (AbstractGoods ag : b.getRequiredGoods()) {</span>
+<span class="fc" id="L524">                ag.getType().buildingMaterial = true;</span>
+<span class="fc" id="L525">            }</span>
+<span class="fc" id="L526">        }</span>
+
+        // Set makes attribute
+<span class="fc bfc" id="L529" title="All 2 branches covered.">        for (GoodsType g : spec.getGoodsTypeList()) {</span>
+<span class="fc bfc" id="L530" title="All 2 branches covered.">            if (g.madeFrom != null) g.madeFrom.makes = g;</span>
+<span class="fc" id="L531">        }</span>
+<span class="fc" id="L532">    }</span>
+
+
+    // Serialization
+
+    private static final String BREEDING_NUMBER_TAG = &quot;breeding-number&quot;;
+    private static final String IGNORE_LIMIT_TAG = &quot;ignore-limit&quot;;
+    private static final String INITIAL_AMOUNT_TAG = &quot;initial-amount&quot;;
+    private static final String INITIAL_PRICE_TAG = &quot;initial-price&quot;;
+    private static final String IS_FARMED_TAG = &quot;is-farmed&quot;;
+    private static final String IS_FOOD_TAG = &quot;is-food&quot;;
+    private static final String IS_MILITARY_TAG = &quot;is-military&quot;;
+    private static final String LOW_PRODUCTION_THRESHOLD_TAG = &quot;low-production-threshold&quot;;
+    private static final String MADE_FROM_TAG = &quot;made-from&quot;;
+    private static final String MARKET_TAG = &quot;market&quot;;
+    private static final String NEW_WORLD_GOODS_TAG = &quot;new-world-goods&quot;;
+    private static final String PRICE_TAG = &quot;price&quot;;
+    private static final String PRICE_DIFFERENCE_TAG = &quot;price-difference&quot;;
+    private static final String PRODUCTION_WEIGHT_TAG = &quot;production-weight&quot;;
+    private static final String STORABLE_TAG = &quot;storable&quot;;
+    private static final String STORED_AS_TAG = &quot;stored-as&quot;;
+    private static final String TRADE_GOODS_TAG = &quot;trade-goods&quot;;
+    private static final String ZERO_PRODUCTION_FACTOR_TAG = &quot;zero-production-factor&quot;;
+
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L562">        super.writeAttributes(xw);</span>
+
+<span class="fc" id="L564">        xw.writeAttribute(IS_FARMED_TAG, isFarmed);</span>
+
+<span class="fc" id="L566">        xw.writeAttribute(IS_FOOD_TAG, isFood);</span>
+
+<span class="fc" id="L568">        xw.writeAttribute(IS_MILITARY_TAG, isMilitary);</span>
+
+<span class="fc" id="L570">        xw.writeAttribute(IGNORE_LIMIT_TAG, ignoreLimit);</span>
+
+<span class="fc" id="L572">        xw.writeAttribute(NEW_WORLD_GOODS_TAG, newWorldGoods);</span>
+
+<span class="fc" id="L574">        xw.writeAttribute(TRADE_GOODS_TAG, tradeGoods);</span>
+
+<span class="fc" id="L576">        xw.writeAttribute(STORABLE_TAG, storable);</span>
+
+<span class="fc bfc" id="L578" title="All 2 branches covered.">        if (breedingNumber != INFINITY) {</span>
+<span class="fc" id="L579">            xw.writeAttribute(BREEDING_NUMBER_TAG, breedingNumber);</span>
+        }
+
+<span class="fc bfc" id="L582" title="All 2 branches covered.">        if (price != INFINITY) {</span>
+<span class="fc" id="L583">            xw.writeAttribute(PRICE_TAG, price);</span>
+        }
+
+<span class="fc bfc" id="L586" title="All 2 branches covered.">        if (madeFrom != null) {</span>
+<span class="fc" id="L587">            xw.writeAttribute(MADE_FROM_TAG, madeFrom);</span>
+        }
+
+<span class="fc bfc" id="L590" title="All 2 branches covered.">        if (storedAs != null) {</span>
+<span class="fc" id="L591">            xw.writeAttribute(STORED_AS_TAG, storedAs);</span>
+        }
+
+<span class="fc" id="L594">        xw.writeAttribute(PRODUCTION_WEIGHT_TAG, productionWeight);</span>
+
+<span class="fc bfc" id="L596" title="All 2 branches covered.">        if (lowProductionThreshold &gt; DEFAULT_LOW_PRODUCTION_THRESHOLD) {</span>
+<span class="fc" id="L597">            xw.writeAttribute(LOW_PRODUCTION_THRESHOLD_TAG,</span>
+                              lowProductionThreshold);
+        }
+
+<span class="pc bpc" id="L601" title="1 of 4 branches missed.">        if (0.0 &lt;= zeroProductionFactor</span>
+            &amp;&amp; zeroProductionFactor &lt; DEFAULT_ZERO_PRODUCTION_FACTOR) {
+<span class="fc" id="L603">            xw.writeAttribute(ZERO_PRODUCTION_FACTOR_TAG, zeroProductionFactor);</span>
+        }
+<span class="fc" id="L605">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L612">        super.writeChildren(xw);</span>
+
+<span class="fc bfc" id="L614" title="All 2 branches covered.">        if (initialAmount &gt; 0) {</span>
+<span class="fc" id="L615">            xw.writeStartElement(MARKET_TAG);</span>
+
+<span class="fc" id="L617">            xw.writeAttribute(INITIAL_AMOUNT_TAG, initialAmount);</span>
+
+<span class="fc" id="L619">            xw.writeAttribute(INITIAL_PRICE_TAG, initialPrice);</span>
+
+<span class="fc" id="L621">            xw.writeAttribute(PRICE_DIFFERENCE_TAG, priceDiff);</span>
+
+<span class="fc" id="L623">            xw.writeEndElement();</span>
+        }
+<span class="fc" id="L625">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L632">        super.readAttributes(xr);</span>
+
+<span class="fc" id="L634">        final Specification spec = getSpecification();</span>
+
+<span class="fc" id="L636">        isFarmed = xr.getAttribute(IS_FARMED_TAG, false);</span>
+
+<span class="fc" id="L638">        isFood = xr.getAttribute(IS_FOOD_TAG, false);</span>
+
+<span class="fc" id="L640">        isMilitary = xr.getAttribute(IS_MILITARY_TAG, false);</span>
+
+<span class="fc" id="L642">        ignoreLimit = xr.getAttribute(IGNORE_LIMIT_TAG, false);</span>
+
+<span class="fc" id="L644">        newWorldGoods = xr.getAttribute(NEW_WORLD_GOODS_TAG, false);</span>
+
+<span class="fc" id="L646">        tradeGoods = xr.getAttribute(TRADE_GOODS_TAG, false);</span>
+
+<span class="fc" id="L648">        breedingNumber = xr.getAttribute(BREEDING_NUMBER_TAG, INFINITY);</span>
+
+<span class="fc" id="L650">        price = xr.getAttribute(PRICE_TAG, INFINITY);</span>
+
+<span class="fc" id="L652">        madeFrom = xr.getType(spec, MADE_FROM_TAG, GoodsType.class,</span>
+                              (GoodsType)null);
+
+<span class="fc" id="L655">        storable = xr.getAttribute(STORABLE_TAG, true);</span>
+
+<span class="fc" id="L657">        storedAs = xr.getType(spec, STORED_AS_TAG, GoodsType.class,</span>
+                              (GoodsType)null);
+
+<span class="fc" id="L660">        productionWeight = xr.getAttribute(PRODUCTION_WEIGHT_TAG,</span>
+            DEFAULT_PRODUCTION_WEIGHT);
+        // @compat 0.10.7
+<span class="pc bpc" id="L663" title="1 of 4 branches missed.">        if (!xr.hasAttribute(PRODUCTION_WEIGHT_TAG) &amp;&amp; isFarmed) {</span>
+            // Use something a bit more than the default for old games
+<span class="nc" id="L665">            productionWeight = 3.0f;</span>
+        }
+        // end @compat 0.10.7
+
+<span class="fc" id="L669">        lowProductionThreshold = xr.getAttribute(LOW_PRODUCTION_THRESHOLD_TAG,</span>
+            DEFAULT_LOW_PRODUCTION_THRESHOLD);
+
+<span class="fc" id="L672">        zeroProductionFactor = xr.getAttribute(ZERO_PRODUCTION_FACTOR_TAG,</span>
+            DEFAULT_ZERO_PRODUCTION_FACTOR);
+<span class="fc" id="L674">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L681">        final String tag = xr.getLocalName();</span>
+
+<span class="fc bfc" id="L683" title="All 2 branches covered.">        if (MARKET_TAG.equals(tag)) {</span>
+<span class="fc" id="L684">            initialAmount = xr.getAttribute(INITIAL_AMOUNT_TAG, 0);</span>
+
+<span class="fc" id="L686">            initialPrice = xr.getAttribute(INITIAL_PRICE_TAG, 1);</span>
+
+<span class="fc" id="L688">            priceDiff = xr.getAttribute(PRICE_DIFFERENCE_TAG, 1);</span>
+
+<span class="fc" id="L690">            xr.closeTag(MARKET_TAG);</span>
+
+        } else {
+<span class="fc" id="L693">            super.readChild(xr);</span>
+        }
+<span class="fc" id="L695">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+<span class="fc" id="L701">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
+
+    /**
+     * Gets the tag name of the root element representing this object.
+     *
+     * @return &quot;goods-type&quot;.
+     */
+    public static String getXMLElementTagName() {
+<span class="fc" id="L709">        return &quot;goods-type&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -1,0 +1,1518 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GUI.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.client.gui</a> &gt; <span class="el_source">GUI.java</span></div><h1>GUI.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.client.gui;
+
+import java.awt.Dimension;
+import java.awt.Graphics2D;
+import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.swing.SwingUtilities;
+
+import net.sf.freecol.client.ClientOptions;
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.control.InGameController;
+import net.sf.freecol.client.control.InGameController.*;
+import net.sf.freecol.client.gui.panel.MiniMap;
+import net.sf.freecol.client.gui.panel.Parameters;
+import net.sf.freecol.common.FreeColException;
+import net.sf.freecol.common.debug.FreeColDebugger;
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.io.FreeColDirectories;
+import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.Building;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.DiplomaticTrade;
+import net.sf.freecol.common.model.Europe;
+import net.sf.freecol.common.model.FoundingFather;
+import net.sf.freecol.common.model.FreeColGameObject;
+import net.sf.freecol.common.model.FreeColObject;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Goods;
+import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.HighScore;
+import net.sf.freecol.common.model.IndianNationType;
+import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.ModelMessage;
+import net.sf.freecol.common.model.Monarch.MonarchAction;
+import net.sf.freecol.common.model.Nation;
+import net.sf.freecol.common.model.NationSummary;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Settlement;
+import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.Stance;
+import net.sf.freecol.common.model.StringTemplate;
+import net.sf.freecol.common.model.Tension;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TradeRoute;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.option.Option;
+import net.sf.freecol.common.option.OptionGroup;
+import net.sf.freecol.common.resources.ResourceManager;
+
+
+/**
+ * The API and common reusable functionality for the overall GUI.
+ */
+public class GUI {
+
+<span class="nc" id="L85">    protected static final Logger logger = Logger.getLogger(GUI.class.getName());</span>
+
+    /** Warning levels. */
+<span class="nc" id="L88">    protected static final String levels[] = {</span>
+        &quot;low&quot;, &quot;normal&quot;, &quot;high&quot;
+    };
+
+    /** View modes. */
+    public static final int MOVE_UNITS_MODE = 0;
+    public static final int VIEW_TERRAIN_MODE = 1;
+
+    /** The client for the game. */
+    protected final FreeColClient freeColClient;
+
+    /** An image library to use. */
+    protected final ImageLibrary imageLibrary;
+
+
+    /**
+     * Create the GUI.
+     *
+     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+     * @param scaleFactor The scale factor for the GUI.
+     */
+<span class="nc" id="L109">    public GUI(FreeColClient freeColClient, float scaleFactor) {</span>
+<span class="nc" id="L110">        this.freeColClient = freeColClient;</span>
+<span class="nc" id="L111">        this.imageLibrary = new ImageLibrary(scaleFactor);</span>
+<span class="nc" id="L112">    }</span>
+
+
+    // Simple accessors
+
+    protected InGameController igc() {
+<span class="nc" id="L118">        return freeColClient.getInGameController();</span>
+    }
+
+    public ImageLibrary getImageLibrary() {
+<span class="nc" id="L122">        return imageLibrary;</span>
+    }
+
+    public boolean isWindowed() {
+<span class="nc" id="L126">        return true;</span>
+    }
+
+    // Initialization related methods
+
+    /** 
+     * Swing system and look-and-feel initialization.
+     * 
+     * @param fontName An optional font name to be used.
+     */
+    public void installLookAndFeel(String fontName) throws FreeColException {
+<span class="nc" id="L137">    }</span>
+
+    /**
+     * Quit the GUI.  All that is required is to exit the full screen.
+     */
+    public void quit() throws Exception {
+<span class="nc" id="L143">    }</span>
+
+    /**
+     * In game initializations.
+     * Called from PreGameController.startGame().
+     *
+     * @param tile An initial &lt;code&gt;Tile&lt;/code&gt; to select.
+     */
+    public void initializeInGame(Tile tile) {
+<span class="nc" id="L152">    }</span>
+
+    /**
+     * Set up the mouse listeners for the canvas and map viewer.
+     */
+    public void setupMouseListeners() {
+<span class="nc" id="L158">    }</span>
+
+    /**
+     * Display the splash screen.
+     *
+     * @param splashStream A stream to find the image in.
+     */
+    public void displaySplashScreen(final InputStream splashStream) {
+<span class="nc" id="L166">    }</span>
+
+    /**
+     * Hide the splash screen.
+     */
+    public void hideSplashScreen() {
+<span class="nc" id="L172">    }</span>
+
+    /**
+     * Shows the &lt;code&gt;VideoPanel&lt;/code&gt;.
+     *
+     * @param userMsg An optional user message.
+     */
+    public void showOpeningVideo(final String userMsg) {
+<span class="nc" id="L180">    }</span>
+
+    /**
+     * Starts the GUI by creating and displaying the GUI-objects.
+     *
+     * @param desiredWindowSize The desired size of the GUI window.
+     */
+    public void startGUI(final Dimension desiredWindowSize) {
+<span class="nc" id="L188">        logger.info(&quot;It seems that the GraphicsEnvironment is headless!&quot;);</span>
+<span class="nc" id="L189">    }</span>
+
+    /**
+     * Change the windowed mode.
+     */
+    public void changeWindowedMode() {
+<span class="nc" id="L195">    }</span>
+
+    /**
+     * Start the GUI for the map editor.
+     */
+    public void startMapEditorGUI() {
+<span class="nc" id="L201">    }</span>
+
+
+    // Non-trivial public routines.
+
+    /**
+     * Start/stop the goto path display.
+     */
+    public void activateGotoPath() {
+<span class="nc" id="L210">    }</span>
+
+    /**
+     * Stop the goto path display.
+     */
+    public void clearGotoPath() {
+<span class="nc" id="L216">    }</span>
+
+    /**
+     * Create a thumbnail for the minimap.
+     * 
+     * FIXME: Delete all code inside this method and replace it with
+     *        sensible code directly drawing in necessary size,
+     *        without creating a throwaway GUI panel, drawing in wrong
+     *        size and immediately resizing.
+     * @return The created image.
+     */
+    public BufferedImage createMiniMapThumbNail() {
+<span class="nc" id="L228">        MiniMap miniMap = new MiniMap(freeColClient);</span>
+<span class="nc" id="L229">        miniMap.setTileSize(MiniMap.MAX_TILE_SIZE);</span>
+<span class="nc" id="L230">        Game game = freeColClient.getGame();</span>
+<span class="nc" id="L231">        int width = game.getMap().getWidth() * MiniMap.MAX_TILE_SIZE</span>
+            + MiniMap.MAX_TILE_SIZE / 2;
+<span class="nc" id="L233">        int height = game.getMap().getHeight() * MiniMap.MAX_TILE_SIZE / 4;</span>
+<span class="nc" id="L234">        BufferedImage image = new BufferedImage(</span>
+            width, height, BufferedImage.TYPE_INT_ARGB);
+<span class="nc" id="L236">        Graphics2D g1 = image.createGraphics();</span>
+<span class="nc" id="L237">        miniMap.paintMap(g1);</span>
+<span class="nc" id="L238">        g1.dispose();</span>
+
+<span class="nc" id="L240">        int scaledWidth = Math.min((int)((64 * width) / (float)height), 128);</span>
+<span class="nc" id="L241">        BufferedImage scaledImage = new BufferedImage(scaledWidth, 64,</span>
+            BufferedImage.TYPE_INT_ARGB);
+<span class="nc" id="L243">        Graphics2D g2 = scaledImage.createGraphics();</span>
+<span class="nc" id="L244">        g2.drawImage(image, 0, 0, scaledWidth, 64, null);</span>
+<span class="nc" id="L245">        g2.dispose();</span>
+<span class="nc" id="L246">        return scaledImage;</span>
+    }
+
+    /**
+     * Tells the map controls that a chat message was received.
+     *
+     * @param player The player who sent the chat message.
+     * @param message The chat message.
+     * @param privateChat 'true' if the message is a private one, 'false'
+     *            otherwise.
+     * @see GUIMessage
+     */
+    public void displayChatMessage(Player player, String message,
+                                   boolean privateChat) {
+<span class="nc" id="L260">    }</span>
+
+    /**
+     * Refresh the GUI.
+     */
+    public void refresh() {
+<span class="nc" id="L266">    }</span>
+
+    /**
+     * Reset the menu bar.
+     */
+    public void resetMenuBar() {
+<span class="nc" id="L272">    }</span>
+
+    protected void resetMapZoom() {
+<span class="nc" id="L275">        ResourceManager.clean();</span>
+<span class="nc" id="L276">    }</span>
+
+    public boolean canZoomInMap() {
+<span class="nc" id="L279">        return false;</span>
+    }
+
+    public boolean canZoomOutMap() {
+<span class="nc" id="L283">        return false;</span>
+    }
+
+    public void zoomInMap() {
+<span class="nc" id="L287">        ResourceManager.clean();</span>
+<span class="nc" id="L288">    }</span>
+
+    public void zoomOutMap() {
+<span class="nc" id="L291">        ResourceManager.clean();</span>
+<span class="nc" id="L292">    }</span>
+
+    /**
+     * Set the active unit.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to activate.
+     * @return true if the focus was set.
+     */
+    public boolean setActiveUnit(Unit unit) {
+<span class="nc" id="L301">        return false;</span>
+    }
+
+    /**
+     * Update the menu bar.
+     */
+    public void updateMenuBar() {
+<span class="nc" id="L308">    }</span>
+
+
+    // Animation handling
+
+    /**
+     * Require the given tile to be in the onScreen()-area.
+     *
+     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to check.
+     * @return True if the focus was set.
+     */
+    public boolean requireFocus(Tile tile) {
+<span class="nc" id="L320">        return false;</span>
+    }
+    
+    /**
+     * Animate a unit attack.
+     *
+     * @param attacker The attacking &lt;code&gt;Unit&lt;/code&gt;.
+     * @param defender The defending &lt;code&gt;Unit&lt;/code&gt;.
+     * @param attackerTile The &lt;code&gt;Tile&lt;/code&gt; to show the attacker on.
+     * @param defenderTile The &lt;code&gt;Tile&lt;/code&gt; to show the defender on.
+     * @param success Did the attack succeed?
+     */
+    public void animateUnitAttack(Unit attacker, Unit defender,
+                                  Tile attackerTile, Tile defenderTile,
+                                  boolean success) {
+<span class="nc" id="L335">    }</span>
+
+    /**
+     * Animate a unit move.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is moving.
+     * @param srcTile The &lt;code&gt;Tile&lt;/code&gt; the unit starts at.
+     * @param dstTile The &lt;code&gt;Tile&lt;/code&gt; the unit moves to.
+     */
+    public void animateUnitMove(Unit unit, Tile srcTile, Tile dstTile) {
+<span class="nc" id="L345">    }</span>
+
+
+    // MapControls handling
+
+    /**
+     * Enable the map controls.
+     *
+     * Called from the MapControlsAction.
+     *
+     * @param enable If true then enable.
+     */
+    public void enableMapControls(boolean enable) {
+<span class="nc" id="L358">    }</span>
+
+    public void updateMapControls() {
+<span class="nc" id="L361">    }</span>
+
+    public void zoomInMapControls() {
+<span class="nc" id="L364">    }</span>
+
+    public void zoomOutMapControls() {
+<span class="nc" id="L367">    }</span>
+
+    public boolean canZoomInMapControls() {
+<span class="nc" id="L370">        return false;</span>
+    }
+
+    public boolean canZoomOutMapControls() {
+<span class="nc" id="L374">        return false;</span>
+    }
+
+    public void miniMapToggleViewControls() {
+<span class="nc" id="L378">    }</span>
+
+    public void miniMapToggleFogOfWarControls() {
+<span class="nc" id="L381">    }</span>
+
+
+    // Dialogs that return values
+
+    /**
+     * Simple modal confirmation dialog.
+     *
+     * @param textKey A string to use as the message key.
+     * @param okKey A key for the &quot;ok&quot; button.
+     * @param cancelKey A key for the &quot;cancel&quot; button.
+     * @return True if the &quot;ok&quot; button was selected.
+     */
+    public boolean confirm(String textKey, String okKey, String cancelKey) {
+<span class="nc" id="L395">        return false;</span>
+    }
+
+    /**
+     * General modal confirmation dialog.
+     *
+     * @param tile An optional &lt;code&gt;Tile&lt;/code&gt; to expose.
+     * @param template The &lt;code&gt;StringTemplate&lt;/code&gt; explaining the choice.
+     * @param okKey A key for the &quot;ok&quot; button.
+     * @param cancelKey A key for the &quot;cancel&quot; button.
+     * @return True if the &quot;ok&quot; button was selected.
+     */
+    public boolean confirm(Tile tile, StringTemplate template,
+                           String okKey, String cancelKey) {
+<span class="nc" id="L409">        return false;</span>
+    }
+
+    /**
+     * General modal confirmation dialog.
+     *
+     * @param tile An optional &lt;code&gt;Tile&lt;/code&gt; to expose.
+     * @param template The &lt;code&gt;StringTemplate&lt;/code&gt; explaining the choice.
+     * @param unit An optional unit to make an icon for the dialog from.
+     * @param okKey A key for the &quot;ok&quot; button.
+     * @param cancelKey A key for the &quot;cancel&quot; button.
+     * @return True if the &quot;ok&quot; button was selected.
+     */
+    public boolean confirm(Tile tile, StringTemplate template, Unit unit,
+                           String okKey, String cancelKey) {
+<span class="nc" id="L424">        return false;</span>
+    }
+
+    public boolean confirm(Tile tile, StringTemplate template,
+                           Settlement settlement,
+                           String okKey, String cancelKey) {
+<span class="nc" id="L430">        return false;</span>
+    }
+
+    public boolean confirm(Tile tile, StringTemplate template,
+                           GoodsType goodsType,
+                           String okKey, String cancelKey) {
+<span class="nc" id="L436">        return false;</span>
+    }
+
+    /**
+     * Confirm that a unit should abandon its educational activity.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to check.
+     * @param leaveColony True if the unit is about to leave the colony,
+     *     not just the education building.
+     * @return True if the unit can proceed.
+     */
+    public boolean confirmAbandonEducation(Unit unit, boolean leaveColony) {
+<span class="nc bnc" id="L448" title="All 2 branches missed.">        if (!unit.isInColony()) return true;</span>
+<span class="nc bnc" id="L449" title="All 2 branches missed.">        boolean teacher = unit.getStudent() != null;</span>
+        // if leaving the colony, the student loses learning spot, so
+        // check with player
+<span class="nc bnc" id="L452" title="All 4 branches missed.">        boolean student = leaveColony &amp;&amp; unit.getTeacher() != null;</span>
+<span class="nc bnc" id="L453" title="All 4 branches missed.">        if (!teacher &amp;&amp; !student) return true;</span>
+
+<span class="nc bnc" id="L455" title="All 2 branches missed.">        Building school = (Building)((teacher) ? unit.getLocation()</span>
+<span class="nc" id="L456">            : unit.getTeacher().getLocation());</span>
+<span class="nc" id="L457">        StringTemplate label = unit.getLabel(Unit.UnitLabelType.NATIONAL);</span>
+<span class="nc bnc" id="L458" title="All 2 branches missed.">        StringTemplate template = (leaveColony) ? StringTemplate</span>
+<span class="nc" id="L459">            .template(&quot;abandonEducation.text&quot;)</span>
+<span class="nc" id="L460">            .addStringTemplate(&quot;%unit%&quot;, label)</span>
+<span class="nc" id="L461">            .addName(&quot;%colony%&quot;, school.getColony().getName())</span>
+<span class="nc bnc" id="L462" title="All 2 branches missed.">            .addNamed(&quot;%building%&quot;, school)</span>
+<span class="nc bnc" id="L463" title="All 2 branches missed.">            .addStringTemplate(&quot;%action%&quot;, (teacher)</span>
+<span class="nc" id="L464">                ? StringTemplate.key(&quot;abandonEducation.action.teaching&quot;)</span>
+<span class="nc" id="L465">                : StringTemplate.key(&quot;abandonEducation.action.studying&quot;))</span>
+            : (teacher)
+<span class="nc" id="L467">            ? StringTemplate.template(&quot;abandonTeaching.text&quot;)</span>
+<span class="nc" id="L468">                .addStringTemplate(&quot;%unit%&quot;, label)</span>
+<span class="nc" id="L469">                .addNamed(&quot;%building%&quot;, school)</span>
+            : null;
+<span class="nc bnc" id="L471" title="All 2 branches missed.">        return template == null</span>
+<span class="nc bnc" id="L472" title="All 2 branches missed.">            || confirm(unit.getTile(), template, unit,</span>
+                       &quot;abandonEducation.yes&quot;, &quot;abandonEducation.no&quot;);
+    }
+
+    /**
+     * If a unit has a trade route, get confirmation that it is
+     * ok to clear it and set a destination.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to check.
+     * @return Whether it is acceptable to set a destination for this unit.
+     */
+    public boolean confirmClearTradeRoute(Unit unit) {
+<span class="nc" id="L484">        TradeRoute tr = unit.getTradeRoute();</span>
+<span class="nc bnc" id="L485" title="All 2 branches missed.">        if (tr == null) return true;</span>
+<span class="nc" id="L486">        StringTemplate template = StringTemplate</span>
+<span class="nc" id="L487">            .template(&quot;clearTradeRoute.text&quot;)</span>
+<span class="nc" id="L488">            .addStringTemplate(&quot;%unit%&quot;,</span>
+<span class="nc" id="L489">                unit.getLabel(Unit.UnitLabelType.NATIONAL))</span>
+<span class="nc" id="L490">            .addName(&quot;%route%&quot;, tr.getName());</span>
+<span class="nc" id="L491">        return confirm(unit.getTile(), template, unit, &quot;yes&quot;, &quot;no&quot;);</span>
+    }
+
+    /**
+     * Confirm declaration of independence.
+     *
+     * @return A list of new nation and country names.
+     */
+    public List&lt;String&gt; confirmDeclaration() {
+<span class="nc" id="L500">        return Collections.&lt;String&gt;emptyList();</span>
+    }
+
+    /**
+     * Confirm whether the player wants to demand tribute from a colony.
+     *
+     * @param attacker The potential attacking &lt;code&gt;Unit&lt;/code&gt;.
+     * @param colony The target &lt;code&gt;Colony&lt;/code&gt;.
+     * @param ns A &lt;code&gt;NationSummary&lt;/code&gt; of the other nation.
+     * @return The amount of tribute to demand, positive if the demand
+     *     should proceed.
+     */
+    public int confirmEuropeanTribute(Unit attacker, Colony colony,
+                                      NationSummary ns) {
+<span class="nc" id="L514">        Player player = attacker.getOwner();</span>
+<span class="nc" id="L515">        Player other = colony.getOwner();</span>
+<span class="nc" id="L516">        int strength = player.calculateStrength(false);</span>
+<span class="nc" id="L517">        int otherStrength = ns.getMilitaryStrength();</span>
+<span class="nc bnc" id="L518" title="All 8 branches missed.">        int mil = (otherStrength &lt;= 1 || otherStrength * 5 &lt; strength) ? 0</span>
+            : (strength == 0 || strength * 5 &lt; otherStrength) ? 2
+            : 1;
+
+        StringTemplate t;
+<span class="nc" id="L523">        int gold = ns.getGold();</span>
+<span class="nc bnc" id="L524" title="All 2 branches missed.">        if (gold == 0) {</span>
+<span class="nc" id="L525">            t = StringTemplate.template(&quot;confirmTribute.broke&quot;)</span>
+<span class="nc" id="L526">                .addStringTemplate(&quot;%nation%&quot;, other.getNationLabel());</span>
+<span class="nc" id="L527">            showInformationMessage(t);</span>
+<span class="nc" id="L528">            return -1;</span>
+        }
+
+<span class="nc bnc" id="L531" title="All 4 branches missed.">        int fin = (gold &lt;= 100) ? 0 : (gold &lt;= 1000) ? 1 : 2;</span>
+<span class="nc" id="L532">        t = StringTemplate.template(&quot;confirmTribute.european&quot;)</span>
+<span class="nc" id="L533">            .addStringTemplate(&quot;%nation%&quot;, other.getNationLabel())</span>
+<span class="nc" id="L534">            .addStringTemplate(&quot;%danger%&quot;,</span>
+<span class="nc" id="L535">                StringTemplate.template(&quot;danger.&quot; + levels[mil]))</span>
+<span class="nc" id="L536">            .addStringTemplate(&quot;%finance%&quot;,</span>
+<span class="nc" id="L537">                StringTemplate.template(&quot;finance.&quot; + levels[fin]));</span>
+<span class="nc" id="L538">        return showSelectTributeAmountDialog(t, gold);</span>
+    }
+
+    /**
+     * Check if an attack results in a transition from peace or cease fire to
+     * war and, if so, warn the player.
+     *
+     * @param attacker The potential attacking &lt;code&gt;Unit&lt;/code&gt;.
+     * @param target The target &lt;code&gt;Tile&lt;/code&gt;.
+     * @return True to attack, false to abort.
+     */
+    public boolean confirmHostileAction(Unit attacker, Tile target) {
+<span class="nc bnc" id="L550" title="All 2 branches missed.">        if (attacker.hasAbility(Ability.PIRACY)) {</span>
+            // Privateers can attack and remain at peace
+<span class="nc" id="L552">            return true;</span>
+        }
+
+        Player enemy;
+<span class="nc bnc" id="L556" title="All 2 branches missed.">        if (target.hasSettlement()) {</span>
+<span class="nc" id="L557">            enemy = target.getSettlement().getOwner();</span>
+<span class="nc bnc" id="L558" title="All 2 branches missed.">        } else if (target == attacker.getTile()) {</span>
+            // Fortify on tile owned by another nation
+<span class="nc" id="L560">            enemy = target.getOwner();</span>
+<span class="nc bnc" id="L561" title="All 2 branches missed.">            if (enemy == null) return true;</span>
+        } else {
+<span class="nc" id="L563">            Unit defender = target.getDefendingUnit(attacker);</span>
+<span class="nc bnc" id="L564" title="All 2 branches missed.">            if (defender == null) {</span>
+<span class="nc" id="L565">                logger.warning(&quot;Attacking, but no defender - will try!&quot;);</span>
+<span class="nc" id="L566">                return true;</span>
+            }
+<span class="nc bnc" id="L568" title="All 2 branches missed.">            if (defender.hasAbility(Ability.PIRACY)) {</span>
+                // Privateers can be attacked and remain at peace
+<span class="nc" id="L570">                return true;</span>
+            }
+<span class="nc" id="L572">            enemy = defender.getOwner();</span>
+        }
+
+        String messageId;
+<span class="nc bnc" id="L576" title="All 4 branches missed.">        switch (attacker.getOwner().getStance(enemy)) {</span>
+        case WAR:
+<span class="nc" id="L578">            logger.finest(&quot;Player at war, no confirmation needed&quot;);</span>
+<span class="nc" id="L579">            return true;</span>
+        case CEASE_FIRE:
+<span class="nc" id="L581">            messageId = &quot;confirmHostile.ceaseFire&quot;;</span>
+<span class="nc" id="L582">            break;</span>
+        case ALLIANCE:
+<span class="nc" id="L584">            messageId = &quot;confirmHostile.alliance&quot;;</span>
+<span class="nc" id="L585">            break;</span>
+        case UNCONTACTED: case PEACE: default:
+<span class="nc" id="L587">            messageId = &quot;confirmHostile.peace&quot;;</span>
+            break;
+        }
+<span class="nc" id="L590">        return confirm(attacker.getTile(), StringTemplate</span>
+<span class="nc" id="L591">            .template(messageId)</span>
+<span class="nc" id="L592">            .addStringTemplate(&quot;%nation%&quot;, enemy.getNationLabel()),</span>
+            attacker, &quot;confirmHostile.yes&quot;, &quot;cancel&quot;);
+    }
+
+    /**
+     * Confirm that a unit can leave its colony.
+     * - Check for population limit.
+     * - Query if education should be abandoned.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is leaving the colony.
+     * @return True if the unit is allowed to leave.
+     */
+    public boolean confirmLeaveColony(Unit unit) {
+<span class="nc" id="L605">        Colony colony = unit.getColony();</span>
+<span class="nc" id="L606">        StringTemplate message = colony.getReducePopulationMessage();</span>
+<span class="nc bnc" id="L607" title="All 2 branches missed.">        if (message != null) {</span>
+<span class="nc" id="L608">            showInformationMessage(message);</span>
+<span class="nc" id="L609">            return false;</span>
+        }
+<span class="nc" id="L611">        return confirmAbandonEducation(unit, true);</span>
+    }
+
+    /**
+     * Confirm whether the player wants to demand tribute from a native
+     * settlement.
+     *
+     * @param attacker The potential attacking &lt;code&gt;Unit&lt;/code&gt;.
+     * @param is The target &lt;code&gt;IndianSettlement&lt;/code&gt;.
+     * @return The amount of tribute to demand, positive if the demand
+     *     should proceed.
+     */
+    public int confirmNativeTribute(Unit attacker, IndianSettlement is) {
+<span class="nc" id="L624">        Player player = attacker.getOwner();</span>
+<span class="nc" id="L625">        Player other = is.getOwner();</span>
+<span class="nc" id="L626">        int strength = player.calculateStrength(false);</span>
+<span class="nc bnc" id="L627" title="All 2 branches missed.">        String messageId = (other.getNumberOfSettlements() &gt;= strength)</span>
+            ? &quot;confirmTribute.unwise&quot;
+<span class="nc bnc" id="L629" title="All 2 branches missed.">            : (other.getStance(player) == Stance.CEASE_FIRE)</span>
+            ? &quot;confirmTribute.warLikely&quot;
+<span class="nc bnc" id="L631" title="All 2 branches missed.">            : (is.getAlarm(player).getLevel() == Tension.Level.HAPPY)</span>
+            ? &quot;confirmTribute.happy&quot;
+            : &quot;confirmTribute.normal&quot;;
+<span class="nc bnc" id="L634" title="All 2 branches missed.">        return (confirm(is.getTile(), StringTemplate.template(messageId)</span>
+<span class="nc" id="L635">                .addName(&quot;%settlement%&quot;, is.getName())</span>
+<span class="nc" id="L636">                .addStringTemplate(&quot;%nation%&quot;, other.getNationLabel()),</span>
+                attacker, &quot;confirmTribute.yes&quot;, &quot;confirmTribute.no&quot;))
+            ? 1 : -1;
+    }
+
+    /**
+     * Shows the pre-combat dialog if enabled, allowing the user to
+     * view the odds and possibly cancel the attack.
+     *
+     * @param attacker The attacking &lt;code&gt;Unit&lt;/code&gt;.
+     * @param tile The target &lt;code&gt;Tile&lt;/code&gt;.
+     * @return True to attack, false to abort.
+     */
+    public boolean confirmPreCombat(Unit attacker, Tile tile) {
+<span class="nc" id="L650">        if (freeColClient.getClientOptions()</span>
+<span class="nc bnc" id="L651" title="All 2 branches missed.">            .getBoolean(ClientOptions.SHOW_PRECOMBAT)) {</span>
+<span class="nc" id="L652">            Settlement settlement = tile.getSettlement();</span>
+            // Don't tell the player how a settlement is defended!
+<span class="nc bnc" id="L654" title="All 2 branches missed.">            FreeColGameObject defender = (settlement != null) ? settlement</span>
+<span class="nc" id="L655">                : tile.getDefendingUnit(attacker);</span>
+<span class="nc" id="L656">            return showPreCombatDialog(attacker, defender, tile);</span>
+        }
+<span class="nc" id="L658">        return true;</span>
+    }
+
+    /**
+     * Confirm whether to stop the current game.
+     *
+     * @return True if confirmation was given.
+     */
+    public boolean confirmStopGame() {
+<span class="nc" id="L667">        return confirm(&quot;stopCurrentGame.text&quot;,</span>
+                       &quot;stopCurrentGame.yes&quot;, &quot;stopCurrentGame.no&quot;);
+    }
+
+    /**
+     * Get the choice of what a user wants to do with an armed unit at
+     * a foreign settlement.
+     *
+     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; to consider.
+     * @return The chosen action, tribute, attack or cancel.
+     */
+    public ArmedUnitSettlementAction getArmedUnitSettlementChoice(Settlement settlement) {
+<span class="nc" id="L679">        final Player player = freeColClient.getMyPlayer();</span>
+
+<span class="nc" id="L681">        List&lt;ChoiceItem&lt;ArmedUnitSettlementAction&gt;&gt; choices = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L682">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;armedUnitSettlement.tribute&quot;),</span>
+                ArmedUnitSettlementAction.SETTLEMENT_TRIBUTE));
+<span class="nc" id="L684">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;armedUnitSettlement.attack&quot;),</span>
+                ArmedUnitSettlementAction.SETTLEMENT_ATTACK));
+
+<span class="nc" id="L687">        return getChoice(settlement.getTile(),</span>
+<span class="nc" id="L688">            settlement.getAlarmLevelLabel(player),</span>
+            settlement, &quot;cancel&quot;, choices);
+    }
+
+    /**
+     * Get the user choice of whether to pay arrears for boycotted
+     * goods or to dump them instead.
+     *
+     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to possibly dump.
+     * @param europe The player &lt;code&gt;Europe&lt;/code&gt; where the boycott
+     *     is in force.
+     * @return The chosen &lt;code&gt;BoycottAction&lt;/code&gt;.
+     */
+    public BoycottAction getBoycottChoice(Goods goods, Europe europe) {
+<span class="nc" id="L702">        int arrears = europe.getOwner().getArrears(goods.getType());</span>
+<span class="nc" id="L703">        StringTemplate template = StringTemplate</span>
+<span class="nc" id="L704">            .template(&quot;boycottedGoods.text&quot;)</span>
+<span class="nc" id="L705">            .addNamed(&quot;%goods%&quot;, goods)</span>
+<span class="nc" id="L706">            .addNamed(&quot;%europe%&quot;, europe)</span>
+<span class="nc" id="L707">            .addAmount(&quot;%amount%&quot;, arrears);</span>
+
+<span class="nc" id="L709">        List&lt;ChoiceItem&lt;BoycottAction&gt;&gt; choices = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L710">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;payArrears&quot;),</span>
+                BoycottAction.PAY_ARREARS));
+<span class="nc" id="L712">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;boycottedGoods.dumpGoods&quot;),</span>
+                BoycottAction.DUMP_CARGO));
+
+<span class="nc" id="L715">        return getChoice(null, template,</span>
+<span class="nc" id="L716">                         goods.getType(), &quot;cancel&quot;, choices);</span>
+    }
+
+    /**
+     * Gets the user choice when negotiating a purchase from a settlement.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is buying.
+     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; to buy from.
+     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to buy.
+     * @param gold The current negotiated price.
+     * @param canBuy True if buy is a valid option.
+     * @return The chosen action, buy, haggle, or cancel.
+     */
+    public BuyAction getBuyChoice(Unit unit, Settlement settlement,
+                                  Goods goods, int gold, boolean canBuy) {
+<span class="nc" id="L731">        StringTemplate template = StringTemplate.template(&quot;buy.text&quot;)</span>
+<span class="nc" id="L732">            .addStringTemplate(&quot;%nation%&quot;, settlement.getOwner().getNationLabel())</span>
+<span class="nc" id="L733">            .addStringTemplate(&quot;%goods%&quot;, goods.getLabel(true))</span>
+<span class="nc" id="L734">            .addAmount(&quot;%gold%&quot;, gold);</span>
+
+<span class="nc" id="L736">        List&lt;ChoiceItem&lt;BuyAction&gt;&gt; choices = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L737">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;buy.takeOffer&quot;),</span>
+                                     BuyAction.BUY, canBuy));
+<span class="nc" id="L739">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;buy.moreGold&quot;),</span>
+                                     BuyAction.HAGGLE));
+
+<span class="nc" id="L742">        return getChoice(unit.getTile(), template,</span>
+<span class="nc" id="L743">                         goods.getType(), &quot;cancel&quot;, choices);</span>
+    }
+
+    /**
+     * Gets the user choice for claiming a tile.
+     *
+     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to claim.
+     * @param player The &lt;code&gt;Player&lt;/code&gt; that is claiming.
+     * @param price An asking price, if any.
+     * @param owner The &lt;code&gt;Player&lt;/code&gt; that owns the land.
+     * @return The chosen action, accept, steal or cancel.
+     */
+    public ClaimAction getClaimChoice(Tile tile, Player player, int price,
+                                      Player owner) {
+<span class="nc" id="L757">        List&lt;ChoiceItem&lt;ClaimAction&gt;&gt; choices = new ArrayList&lt;&gt;();</span>
+        StringTemplate template;
+<span class="nc bnc" id="L759" title="All 2 branches missed.">        if (owner.hasContacted(player)) {</span>
+<span class="nc" id="L760">            template = StringTemplate.template(&quot;indianLand.text&quot;)</span>
+<span class="nc" id="L761">                .addStringTemplate(&quot;%player%&quot;, owner.getNationLabel());</span>
+<span class="nc" id="L762">            StringTemplate pay = StringTemplate.template(&quot;indianLand.pay&quot;)</span>
+<span class="nc" id="L763">                .addAmount(&quot;%amount%&quot;, price);</span>
+<span class="nc" id="L764">            choices.add(new ChoiceItem&lt;&gt;(Messages.message(pay),</span>
+                                         ClaimAction.ACCEPT,
+<span class="nc" id="L766">                                         player.checkGold(price)));</span>
+<span class="nc" id="L767">        } else {</span>
+<span class="nc" id="L768">            template = StringTemplate.template(&quot;indianLand.unknown&quot;);</span>
+        }
+
+<span class="nc" id="L771">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;indianLand.take&quot;),</span>
+                                     ClaimAction.STEAL));
+
+<span class="nc" id="L774">        return getChoice(tile, template,</span>
+<span class="nc" id="L775">                         owner.getNation(), &quot;indianLand.cancel&quot;, choices);</span>
+    }
+
+    /**
+     * Get the user choice when trading with a native settlement.
+     *
+     * @param settlement The native settlement to trade with.
+     * @param template A &lt;code&gt;StringTemplate&lt;/code&gt; containing the message
+     *     to display.
+     * @param canBuy Show a &quot;buy&quot; option.
+     * @param canSell Show a &quot;sell&quot; option.
+     * @param canGift Show a &quot;gift&quot; option.
+     * @return The chosen action, buy, sell, gift or cancel.
+     */
+    public TradeAction getIndianSettlementTradeChoice(Settlement settlement,
+                                                      StringTemplate template,
+                                                      boolean canBuy,
+                                                      boolean canSell,
+                                                      boolean canGift) {
+
+<span class="nc" id="L795">        ArrayList&lt;ChoiceItem&lt;TradeAction&gt;&gt; choices = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L796" title="All 2 branches missed.">        if (canBuy) {</span>
+<span class="nc" id="L797">            choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;tradeProposition.toBuy&quot;),</span>
+                                         TradeAction.BUY, canBuy));
+        }
+<span class="nc bnc" id="L800" title="All 2 branches missed.">        if (canSell) {</span>
+<span class="nc" id="L801">            choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;tradeProposition.toSell&quot;),</span>
+                                         TradeAction.SELL, canSell));
+        }
+<span class="nc bnc" id="L804" title="All 2 branches missed.">        if (canGift) {</span>
+<span class="nc" id="L805">            choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;tradeProposition.toGift&quot;),</span>
+                                         TradeAction.GIFT, canGift));
+        }
+<span class="nc bnc" id="L808" title="All 2 branches missed.">        if (choices.isEmpty()) return null;</span>
+
+<span class="nc" id="L810">        return getChoice(settlement.getTile(), template,</span>
+                         settlement, &quot;cancel&quot;, choices);
+    }
+
+    /**
+     * Get the user choice of what to do with a missionary at a native
+     * settlement.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; speaking to the settlement.
+     * @param settlement The &lt;code&gt;IndianSettlement&lt;/code&gt; being visited.
+     * @param canEstablish Is establish a valid option.
+     * @param canDenounce Is denounce a valid option.
+     * @return The chosen action, establish mission, denounce, incite
+     *     or cancel.
+     */
+    public MissionaryAction getMissionaryChoice(Unit unit,
+                                                IndianSettlement settlement,
+                                                boolean canEstablish,
+                                                boolean canDenounce) {
+<span class="nc" id="L829">        StringTemplate template = StringTemplate.label(&quot;\n\n&quot;)</span>
+<span class="nc" id="L830">            .addStringTemplate(settlement.getAlarmLevelLabel(unit.getOwner()))</span>
+<span class="nc" id="L831">            .addStringTemplate(StringTemplate</span>
+<span class="nc" id="L832">                .template(&quot;missionarySettlement.question&quot;)</span>
+<span class="nc" id="L833">                .addName(&quot;%settlement%&quot;, settlement.getName()));</span>
+
+<span class="nc" id="L835">        List&lt;ChoiceItem&lt;MissionaryAction&gt;&gt; choices = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L836" title="All 2 branches missed.">        if (canEstablish) {</span>
+<span class="nc" id="L837">            choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;missionarySettlement.establish&quot;),</span>
+                                         MissionaryAction.ESTABLISH_MISSION,
+                                         canEstablish));
+        }
+<span class="nc bnc" id="L841" title="All 2 branches missed.">        if (canDenounce) {</span>
+<span class="nc" id="L842">            choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;missionarySettlement.heresy&quot;),</span>
+                                         MissionaryAction.DENOUNCE_HERESY,
+                                         canDenounce));
+        }
+<span class="nc" id="L846">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;missionarySettlement.incite&quot;),</span>
+                                     MissionaryAction.INCITE_INDIANS));
+
+<span class="nc" id="L849">        return getChoice(unit.getTile(), template,</span>
+                         settlement, &quot;cancel&quot;, choices);
+    }
+
+    /**
+     * Get a name for a new colony for a player.
+     *
+     * @param player The &lt;code&gt;Player&lt;/code&gt; to get the colony name for.
+     * @param tile The &lt;code&gt;Tile&lt;/code&gt; for the new colony.
+     * @return A colony name, or null if the user has reconsidered.
+     */
+    public String getNewColonyName(Player player, Tile tile) {
+<span class="nc" id="L861">        String suggested = player.getSettlementName(null);</span>
+<span class="nc" id="L862">        String name = getInput(tile, StringTemplate</span>
+<span class="nc" id="L863">            .template(&quot;nameColony.text&quot;), suggested,</span>
+            &quot;accept&quot;, &quot;cancel&quot;);
+<span class="nc bnc" id="L865" title="All 2 branches missed.">        if (name == null) {</span>
+            // Cancelled
+<span class="nc bnc" id="L867" title="All 2 branches missed.">        } else if (name.isEmpty()) {</span>
+<span class="nc" id="L868">            showInformationMessage(&quot;enterSomeText&quot;); // 0-length is invalid</span>
+<span class="nc bnc" id="L869" title="All 2 branches missed.">        } else if (player.getSettlementByName(name) != null) {</span>
+            // Must be unique
+<span class="nc" id="L871">            showInformationMessage(tile, StringTemplate</span>
+<span class="nc" id="L872">                .template(&quot;nameColony.notUnique&quot;)</span>
+<span class="nc" id="L873">                .addName(&quot;%name%&quot;, name));</span>
+        } else {
+<span class="nc" id="L875">            return name;</span>
+        }
+<span class="nc" id="L877">        player.putSettlementName(suggested);</span>
+<span class="nc" id="L878">        return null;</span>
+    }
+
+    /**
+     * Get the user choice for what to do with a scout at a foreign colony.
+     *
+     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to be scouted.
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is scouting.
+     * @param neg True if negotation is a valid choice.
+     * @return The selected action, either negotiate, spy, attack or cancel.
+     */
+    public ScoutColonyAction getScoutForeignColonyChoice(Colony colony,
+                                                         Unit unit,
+                                                         boolean neg) {
+<span class="nc" id="L892">        StringTemplate template = StringTemplate.template(&quot;scoutColony.text&quot;)</span>
+<span class="nc" id="L893">            .addStringTemplate(&quot;%unit%&quot;, unit.getLabel(Unit.UnitLabelType.NATIONAL))</span>
+<span class="nc" id="L894">            .addName(&quot;%colony%&quot;, colony.getName());</span>
+
+<span class="nc" id="L896">        List&lt;ChoiceItem&lt;ScoutColonyAction&gt;&gt; choices = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L897">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;scoutColony.negotiate&quot;),</span>
+                                     ScoutColonyAction.FOREIGN_COLONY_NEGOTIATE,
+                                     neg));
+<span class="nc" id="L900">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;scoutColony.spy&quot;),</span>
+                                     ScoutColonyAction.FOREIGN_COLONY_SPY));
+<span class="nc" id="L902">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;scoutColony.attack&quot;),</span>
+                                     ScoutColonyAction.FOREIGN_COLONY_ATTACK));
+
+<span class="nc" id="L905">        return getChoice(unit.getTile(), template,</span>
+                         colony, &quot;cancel&quot;, choices);
+    }
+
+    /**
+     * Get the user choice for what to do at a native settlement.
+     *
+     * @param settlement The &lt;code&gt;IndianSettlement&lt;/code&gt; to be scouted.
+     * @param numberString The number of settlements in the settlement
+     *     owner nation.
+     * @return The chosen action, speak, tribute, attack or cancel.
+     */
+    public ScoutIndianSettlementAction getScoutIndianSettlementChoice(IndianSettlement settlement,
+        String numberString) {
+<span class="nc" id="L919">        final Player player = freeColClient.getMyPlayer();</span>
+<span class="nc" id="L920">        final Player owner = settlement.getOwner();</span>
+
+<span class="nc" id="L922">        StringTemplate template = StringTemplate.label(&quot;&quot;)</span>
+<span class="nc" id="L923">            .addStringTemplate(settlement.getAlarmLevelLabel(player))</span>
+<span class="nc" id="L924">            .addName(&quot;\n\n&quot;)</span>
+<span class="nc" id="L925">            .addStringTemplate(StringTemplate</span>
+<span class="nc" id="L926">                .template(&quot;scoutSettlement.greetings&quot;)</span>
+<span class="nc" id="L927">                .addStringTemplate(&quot;%nation%&quot;, owner.getNationLabel())</span>
+<span class="nc" id="L928">                .addName(&quot;%settlement%&quot;, settlement.getName())</span>
+<span class="nc" id="L929">                .addName(&quot;%number%&quot;, numberString)</span>
+<span class="nc" id="L930">                .add(&quot;%settlementType%&quot;,</span>
+<span class="nc" id="L931">                    ((IndianNationType)owner.getNationType()).getSettlementTypeKey(true)))</span>
+<span class="nc" id="L932">            .addName(&quot; &quot;);</span>
+<span class="nc bnc" id="L933" title="All 2 branches missed.">        if (settlement.getLearnableSkill() != null) {</span>
+<span class="nc" id="L934">            template</span>
+<span class="nc" id="L935">                .addStringTemplate(StringTemplate</span>
+<span class="nc" id="L936">                    .template(&quot;scoutSettlement.skill&quot;)</span>
+<span class="nc" id="L937">                    .addNamed(&quot;%skill%&quot;, settlement.getLearnableSkill()))</span>
+<span class="nc" id="L938">                .addName(&quot; &quot;);</span>
+        }
+<span class="nc" id="L940">        GoodsType[] wantedGoods = settlement.getWantedGoods();</span>
+<span class="nc" id="L941">        int present = 0;</span>
+<span class="nc bnc" id="L942" title="All 2 branches missed.">        for (; present &lt; wantedGoods.length; present++) {</span>
+<span class="nc bnc" id="L943" title="All 2 branches missed.">            if (wantedGoods[present] == null) break;</span>
+        }
+<span class="nc bnc" id="L945" title="All 2 branches missed.">        if (present &gt; 0) {</span>
+<span class="nc" id="L946">            StringTemplate t = StringTemplate.template(&quot;scoutSettlement.trade.&quot;</span>
+<span class="nc" id="L947">                + Integer.toString(present));</span>
+<span class="nc bnc" id="L948" title="All 2 branches missed.">            for (int i = 0; i &lt; present; i++) {</span>
+<span class="nc" id="L949">                String tradeKey = &quot;%goods&quot; + Integer.toString(i+1) + &quot;%&quot;;</span>
+<span class="nc" id="L950">                t.addNamed(tradeKey, wantedGoods[i]);</span>
+            }
+<span class="nc" id="L952">            template.addStringTemplate(t).addName(&quot;\n\n&quot;);</span>
+        }
+
+<span class="nc" id="L955">        List&lt;ChoiceItem&lt;ScoutIndianSettlementAction&gt;&gt; choices</span>
+            = new ArrayList&lt;&gt;();
+<span class="nc" id="L957">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;scoutSettlement.speak&quot;),</span>
+                                     ScoutIndianSettlementAction.INDIAN_SETTLEMENT_SPEAK));
+<span class="nc" id="L959">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;scoutSettlement.tribute&quot;),</span>
+                                     ScoutIndianSettlementAction.INDIAN_SETTLEMENT_TRIBUTE));
+<span class="nc" id="L961">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;scoutSettlement.attack&quot;),</span>
+                                     ScoutIndianSettlementAction.INDIAN_SETTLEMENT_ATTACK));
+
+<span class="nc" id="L964">        return getChoice(settlement.getTile(), template,</span>
+                         settlement, &quot;cancel&quot;, choices);
+    }
+
+    /**
+     * Get the user choice for negotiating a sale to a settlement.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is selling.
+     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; to sell to.
+     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to sell.
+     * @param gold The current negotiated price.
+     * @return The chosen action, sell, gift or haggle, or null.
+     */
+    public SellAction getSellChoice(Unit unit, Settlement settlement,
+                                    Goods goods, int gold) {
+<span class="nc" id="L979">        StringTemplate goodsTemplate = goods.getLabel(true);</span>
+<span class="nc" id="L980">        StringTemplate template = StringTemplate.template(&quot;sell.text&quot;)</span>
+<span class="nc" id="L981">            .addStringTemplate(&quot;%nation%&quot;, settlement.getOwner().getNationLabel())</span>
+<span class="nc" id="L982">            .addStringTemplate(&quot;%goods%&quot;, goodsTemplate)</span>
+<span class="nc" id="L983">            .addAmount(&quot;%gold%&quot;, gold);</span>
+
+<span class="nc" id="L985">        List&lt;ChoiceItem&lt;SellAction&gt;&gt; choices = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L986">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;sell.takeOffer&quot;),</span>
+                                     SellAction.SELL));
+<span class="nc" id="L988">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(&quot;sell.moreGold&quot;),</span>
+                                     SellAction.HAGGLE));
+<span class="nc" id="L990">        choices.add(new ChoiceItem&lt;&gt;(Messages.message(StringTemplate</span>
+<span class="nc" id="L991">                    .template(&quot;sell.gift&quot;)</span>
+<span class="nc" id="L992">                    .addStringTemplate(&quot;%goods%&quot;, goodsTemplate)),</span>
+                SellAction.GIFT));
+
+<span class="nc" id="L995">        return getChoice(unit.getTile(), template,</span>
+<span class="nc" id="L996">                         goods.getType(), &quot;cancel&quot;, choices);</span>
+    }
+
+
+    /**
+     * General modal choice dialog.
+     *
+     * @param tile An optional &lt;code&gt;Tile&lt;/code&gt; to expose.
+     * @param explain An object explaining the choice.
+     * @param cancelKey A key for the &quot;cancel&quot; button.
+     * @param choices A list a &lt;code&gt;ChoiceItem&lt;/code&gt;s to choose from.
+     * @return The selected value of the selected &lt;code&gt;ChoiceItem&lt;/code&gt;,
+     *     or null if cancelled.
+     */
+    public &lt;T&gt; T getChoice(Tile tile, Object explain,
+                           String cancelKey, List&lt;ChoiceItem&lt;T&gt;&gt; choices) {
+<span class="nc" id="L1012">        return null;</span>
+    }
+
+    public &lt;T&gt; T getChoice(Tile tile, Object explain, Unit unit,
+                           String cancelKey, List&lt;ChoiceItem&lt;T&gt;&gt; choices) {
+<span class="nc" id="L1017">        return null;</span>
+    }
+
+    public &lt;T&gt; T getChoice(Tile tile, Object explain, Settlement settlement,
+                           String cancelKey, List&lt;ChoiceItem&lt;T&gt;&gt; choices) {
+<span class="nc" id="L1022">        return null;</span>
+    }
+
+    public &lt;T&gt; T getChoice(Tile tile, Object explain, GoodsType goodsType,
+                           String cancelKey, List&lt;ChoiceItem&lt;T&gt;&gt; choices) {
+<span class="nc" id="L1027">        return null;</span>
+    }
+
+    public &lt;T&gt; T getChoice(Tile tile, Object explain, Nation nation,
+                           String cancelKey, List&lt;ChoiceItem&lt;T&gt;&gt; choices) {
+<span class="nc" id="L1032">        return null;</span>
+    }
+
+    /**
+     * General modal string input dialog.
+     *
+     * @param tile An optional &lt;code&gt;Tile&lt;/code&gt; to expose.
+     * @param template A &lt;code&gt;StringTemplate&lt;/code&gt; explaining the choice.
+     * @param defaultValue The default value to show initially.
+     * @param okKey A key for the &quot;ok&quot; button.
+     * @param cancelKey A key for the &quot;cancel&quot; button.
+     * @return The chosen value.
+     */
+    public String getInput(Tile tile, StringTemplate template,
+                           String defaultValue,
+                           String okKey, String cancelKey) {
+<span class="nc" id="L1048">        return null;</span>
+    }
+
+    public void closeMainPanel() {
+<span class="nc" id="L1052">    }</span>
+
+    public void closeMenus() {
+<span class="nc" id="L1055">    }</span>
+
+    public void closeStatusPanel() {
+<span class="nc" id="L1058">    }</span>
+
+    public boolean containsInGameComponents() {
+<span class="nc" id="L1061">        return false;</span>
+    }
+
+    public LoadingSavegameInfo getLoadingSavegameInfo() {
+<span class="nc" id="L1065">        return null;</span>
+    }
+
+    public boolean isClientOptionsDialogShowing() {
+<span class="nc" id="L1069">        return false;</span>
+    }
+
+    public boolean isMapboardActionsEnabled() {
+<span class="nc" id="L1073">        return false;</span>
+    }
+
+    public boolean isShowingSubPanel() {
+<span class="nc" id="L1077">        return false;</span>
+    }
+
+    public void paintImmediatelyCanvasIn(Rectangle rectangle) {
+<span class="nc" id="L1081">    }</span>
+
+    public void paintImmediatelyCanvasInItsBounds() {
+<span class="nc" id="L1084">    }</span>
+
+    public void refreshPlayersTable() {
+<span class="nc" id="L1087">    }</span>
+
+    public void removeInGameComponents() {
+<span class="nc" id="L1090">    }</span>
+
+    public void requestFocusForSubPanel() {
+<span class="nc" id="L1093">    }</span>
+
+    public boolean requestFocusInWindow() {
+<span class="nc" id="L1096">        return false;</span>
+    }
+
+    public void returnToTitle() {
+<span class="nc" id="L1100">    }</span>
+
+    public void showAboutPanel() {
+<span class="nc" id="L1103">    }</span>
+
+    public void showCaptureGoodsDialog(final Unit unit, List&lt;Goods&gt; gl,
+                                       DialogHandler&lt;List&lt;Goods&gt;&gt; handler) {
+<span class="nc" id="L1107">    }</span>
+
+    public void showChatPanel() {
+<span class="nc" id="L1110">    }</span>
+
+    public void showChooseFoundingFatherDialog(final List&lt;FoundingFather&gt; ffs,
+            DialogHandler&lt;FoundingFather&gt; handler) {
+<span class="nc" id="L1114">    }</span>
+
+    public void showClientOptionsDialog() {
+<span class="nc" id="L1117">    }</span>
+
+    /**
+     * Display the appropriate panel for a given settlement.
+     *
+     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; to display.
+     */
+    void showSettlement(Settlement settlement) {
+<span class="nc bnc" id="L1125" title="All 2 branches missed.">        if (settlement instanceof Colony) {</span>
+<span class="nc bnc" id="L1126" title="All 2 branches missed.">            if (settlement.getOwner().equals(freeColClient.getMyPlayer())) {</span>
+<span class="nc" id="L1127">                showColonyPanel((Colony)settlement, null);</span>
+<span class="nc bnc" id="L1128" title="All 2 branches missed.">            } else if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.MENUS)) {</span>
+<span class="nc" id="L1129">                showForeignColony(settlement);</span>
+            }
+<span class="nc bnc" id="L1131" title="All 2 branches missed.">        } else if (settlement instanceof IndianSettlement) {</span>
+<span class="nc" id="L1132">            showIndianSettlementPanel((IndianSettlement)settlement);</span>
+        } else {
+<span class="nc" id="L1134">            throw new IllegalStateException(&quot;Bogus settlement&quot;);</span>
+        }
+<span class="nc" id="L1136">    }</span>
+
+    protected void showForeignColony(Settlement settlement) {
+<span class="nc" id="L1139">    }</span>
+
+    public void showColonyPanel(Colony colony, Unit unit) {
+<span class="nc" id="L1142">    }</span>
+
+    public void showColopediaPanel(String nodeId) {
+<span class="nc" id="L1145">    }</span>
+
+    public void showCompactLabourReport() {
+<span class="nc" id="L1148">    }</span>
+
+    public void showDeclarationPanel() {
+<span class="nc" id="L1151">    }</span>
+
+    public OptionGroup showDifficultyDialog() {
+<span class="nc" id="L1154">        return null;</span>
+    }
+
+    public void showDumpCargoDialog(Unit unit,
+                                    DialogHandler&lt;List&lt;Goods&gt;&gt; handler) {
+<span class="nc" id="L1159">    }</span>
+
+    public boolean showEditOptionDialog(Option option) {
+<span class="nc" id="L1162">        return false;</span>
+    }
+
+    public void showEmigrationDialog(final Player player,
+                                     final boolean fountainOfYouth,
+                                     DialogHandler&lt;Integer&gt; handler) {
+<span class="nc" id="L1168">    }</span>
+
+    public void showEndTurnDialog(final List&lt;Unit&gt; units,
+                                  DialogHandler&lt;Boolean&gt; handler) {
+<span class="nc" id="L1172">    }</span>
+
+    public void showErrorMessage(StringTemplate template) {
+<span class="nc" id="L1175">    }</span>
+
+    public void showErrorMessage(String messageId) {
+<span class="nc" id="L1178">    }</span>
+
+    public void showErrorMessage(String messageID, String message) {
+<span class="nc" id="L1181">    }</span>
+
+    public void showEuropePanel() {
+<span class="nc" id="L1184">    }</span>
+
+    public void showEventPanel(String header, String image, String footer) {
+<span class="nc" id="L1187">    }</span>
+
+    public void showFindSettlementPanel() {
+<span class="nc" id="L1190">    }</span>
+
+    public OptionGroup showGameOptionsDialog(boolean editable, boolean custom) {
+<span class="nc" id="L1193">        return null;</span>
+    }
+
+    public void showHighScoresPanel(String messageId, List&lt;HighScore&gt; scores) {
+<span class="nc" id="L1197">    }</span>
+
+    public void showIndianSettlementPanel(IndianSettlement indianSettlement) {
+<span class="nc" id="L1200">    }</span>
+
+    public void showInformationMessage(String messageId) {
+<span class="nc" id="L1203">        alertSound();</span>
+<span class="nc" id="L1204">    }</span>
+
+    public void showInformationMessage(StringTemplate template) {
+<span class="nc" id="L1207">        alertSound();</span>
+<span class="nc" id="L1208">    }</span>
+
+    final public void showInformationMessage(Settlement displayObject,
+                                       String messageId) {
+<span class="nc" id="L1212">        showInformationMessage(displayObject, StringTemplate.key(messageId));</span>
+<span class="nc" id="L1213">    }</span>
+
+    public void showInformationMessage(Settlement displayObject,
+                                       StringTemplate template) {
+<span class="nc" id="L1217">        alertSound();</span>
+<span class="nc" id="L1218">    }</span>
+
+    public void showInformationMessage(Unit displayObject,
+                                       StringTemplate template) {
+<span class="nc" id="L1222">        alertSound();</span>
+<span class="nc" id="L1223">    }</span>
+
+    final public void showInformationMessage(Tile displayObject,
+                                       String messageId) {
+<span class="nc" id="L1227">        showInformationMessage(displayObject, StringTemplate.key(messageId));</span>
+<span class="nc" id="L1228">    }</span>
+
+    public void showInformationMessage(Tile displayObject,
+                                       StringTemplate template) {
+<span class="nc" id="L1232">        alertSound();</span>
+<span class="nc" id="L1233">    }</span>
+
+    public void showInformationMessage(FreeColObject displayObject,
+                                       String messageId) {
+<span class="nc" id="L1237">        alertSound();</span>
+<span class="nc" id="L1238">    }</span>
+
+    public void showInformationMessage(FreeColObject displayObject,
+                                       StringTemplate template) {
+<span class="nc" id="L1242">        alertSound();</span>
+<span class="nc" id="L1243">    }</span>
+
+    public File showLoadDialog(File directory) {
+<span class="nc" id="L1246">        return null;</span>
+    }
+
+    final public File showLoadSaveFileDialog() {
+<span class="nc" id="L1250">        File file = showLoadDialog(FreeColDirectories.getSaveDirectory());</span>
+<span class="nc bnc" id="L1251" title="All 4 branches missed.">        if (file != null &amp;&amp; !file.isFile()) {</span>
+<span class="nc" id="L1252">            showErrorMessage(&quot;error.noSuchFile&quot;);</span>
+<span class="nc" id="L1253">            file = null;</span>
+        }
+<span class="nc" id="L1255">        return file;</span>
+    }
+
+    public boolean showLoadingSavegameDialog(boolean publicServer,
+                                             boolean singlePlayer) {
+<span class="nc" id="L1260">        return false;</span>
+    }
+
+    public void showLogFilePanel() {
+<span class="nc" id="L1264">    }</span>
+
+    public void showMainPanel(String userMsg) {
+<span class="nc" id="L1267">    }</span>
+
+    public OptionGroup showMapGeneratorOptionsDialog(boolean editable) {
+<span class="nc" id="L1270">        return null;</span>
+    }
+
+    public Dimension showMapSizeDialog() {
+<span class="nc" id="L1274">        return null;</span>
+    }
+
+    public void showModelMessages(List&lt;ModelMessage&gt; modelMessages) {
+<span class="nc" id="L1278">    }</span>
+
+    public void showMonarchDialog(final MonarchAction action,
+                                  StringTemplate template, String monarchKey,
+                                  DialogHandler&lt;Boolean&gt; handler) {
+<span class="nc" id="L1283">    }</span>
+
+    public void showNamingDialog(StringTemplate template,
+                                 final String defaultName,
+                                 final Unit unit,
+                                 DialogHandler&lt;String&gt; handler) {
+<span class="nc" id="L1289">    }</span>
+
+    public void showFirstContactDialog(final Player player, final Player other,
+                                       final Tile tile, int settlementCount,
+                                       DialogHandler&lt;Boolean&gt; handler) {
+<span class="nc" id="L1294">    }</span>
+
+    public DiplomaticTrade showNegotiationDialog(FreeColGameObject our,
+                                                     FreeColGameObject other,
+                                                     DiplomaticTrade agreement,
+                                                     StringTemplate comment) {
+<span class="nc" id="L1300">        return null;</span>
+    }
+
+    public void showNewPanel() {
+<span class="nc" id="L1304">    }</span>
+
+    public void showNewPanel(Specification specification) {
+<span class="nc" id="L1307">    }</span>
+
+    public void showSpyColonyPanel(final Tile tile, Runnable callback) {
+<span class="nc" id="L1310">    }</span>
+
+    public Parameters showParametersDialog() {
+<span class="nc" id="L1313">        return null;</span>
+    }
+
+    public boolean showPreCombatDialog(Unit attacker,
+                                       FreeColGameObject defender, Tile tile) {
+<span class="nc" id="L1318">        return false;</span>
+    }
+
+    public void showReportCargoPanel() {
+<span class="nc" id="L1322">    }</span>
+
+    public void showReportColonyPanel() {
+<span class="nc" id="L1325">    }</span>
+
+    public void showReportContinentalCongressPanel() {
+<span class="nc" id="L1328">    }</span>
+
+    public void showReportEducationPanel() {
+<span class="nc" id="L1331">    }</span>
+
+    public void showReportExplorationPanel() {
+<span class="nc" id="L1334">    }</span>
+
+    public void showReportForeignAffairPanel() {
+<span class="nc" id="L1337">    }</span>
+
+    public void showReportHistoryPanel() {
+<span class="nc" id="L1340">    }</span>
+
+    public void showReportIndianPanel() {
+<span class="nc" id="L1343">    }</span>
+
+    public void showReportLabourPanel() {
+<span class="nc" id="L1346">    }</span>
+
+    public void showReportMilitaryPanel() {
+<span class="nc" id="L1349">    }</span>
+
+    public void showReportNavalPanel() {
+<span class="nc" id="L1352">    }</span>
+
+    public void showReportProductionPanel() {
+<span class="nc" id="L1355">    }</span>
+
+    public void showReportReligiousPanel() {
+<span class="nc" id="L1358">    }</span>
+
+    public void showReportRequirementsPanel() {
+<span class="nc" id="L1361">    }</span>
+
+    public void showReportTradePanel() {
+<span class="nc" id="L1364">    }</span>
+
+    public void showReportTurnPanel(List&lt;ModelMessage&gt; messages) {
+<span class="nc" id="L1367">    }</span>
+
+    public File showSaveDialog(File directory, String defaultName) {
+<span class="nc" id="L1370">        return null;</span>
+    }
+
+    public Dimension showScaleMapSizeDialog() {
+<span class="nc" id="L1374">        return null;</span>
+    }
+
+    public int showSelectAmountDialog(GoodsType goodsType, int available,
+                                      int defaultAmount, boolean needToPay) {
+<span class="nc" id="L1379">        return -1;</span>
+    }
+
+    public int showSelectTributeAmountDialog(StringTemplate question,
+                                             int maximum) {
+<span class="nc" id="L1384">        return -1;</span>
+    }
+
+    public Location showSelectDestinationDialog(Unit unit) {
+<span class="nc" id="L1388">        return null;</span>
+    }
+
+    public void showStartGamePanel(Game game, Player player,
+                                   boolean singlePlayerMode) {
+<span class="nc" id="L1393">    }</span>
+
+    public void showStatisticsPanel() {
+<span class="nc" id="L1396">    }</span>
+
+    public void showStatusPanel(String message) {
+<span class="nc" id="L1399">    }</span>
+
+    public void showTilePopUpAtSelectedTile() {
+<span class="nc" id="L1402">    }</span>
+
+    public void showTradeRoutePanel(Unit unit) {
+<span class="nc" id="L1405">    }</span>
+
+    public void showVictoryDialog(DialogHandler&lt;Boolean&gt; handler) {
+<span class="nc" id="L1408">    }</span>
+
+    public void updateGameOptions() {
+<span class="nc" id="L1411">    }</span>
+
+    public void updateMapGeneratorOptions() {
+<span class="nc" id="L1414">    }</span>
+
+    public void centerActiveUnit() {
+<span class="nc" id="L1417">    }</span>
+
+    public void changeViewMode(int newViewMode) {
+<span class="nc" id="L1420">    }</span>
+
+    public Unit getActiveUnit() {
+<span class="nc" id="L1423">        return null;</span>
+    }
+
+    public Tile getFocus() {
+<span class="nc" id="L1427">        return null;</span>
+    }
+
+    public Tile getSelectedTile() {
+<span class="nc" id="L1431">        return null;</span>
+    }
+
+    public int getViewMode() {
+<span class="nc" id="L1435">        return -1;</span>
+    }
+
+    public void setFocus(Tile tileToFocus) {
+<span class="nc" id="L1439">    }</span>
+
+    public boolean setSelectedTile(Tile newTileToSelect) {
+<span class="nc" id="L1442">        return true; // Pretending again.</span>
+    }
+
+    public void toggleViewMode() {
+<span class="nc" id="L1446">    }</span>
+
+
+    // Forwarding to SoundController, only for gui classes in need of sound
+
+    /**
+     * Play a sound.
+     *
+     * @param sound The sound resource to play, or if null stop playing.
+     */
+    public void playSound(String sound) {
+<span class="nc" id="L1457">        freeColClient.getSoundController().playSound(sound);</span>
+<span class="nc" id="L1458">    }</span>
+
+    /**
+     * Plays an alert sound for an information message if the
+     * option for it is turned on.
+     */
+    private void alertSound() {
+<span class="nc" id="L1465">        if (freeColClient.getClientOptions()</span>
+<span class="nc bnc" id="L1466" title="All 2 branches missed.">            .getBoolean(ClientOptions.AUDIO_ALERTS)) {</span>
+<span class="nc" id="L1467">            freeColClient.getSoundController()</span>
+<span class="nc" id="L1468">                .playSound(&quot;sound.event.alertSound&quot;);</span>
+        }
+<span class="nc" id="L1470">    }</span>
+
+    /**
+     * Get the label text for the sound player mixer.
+     *
+     * Needed by the audio mixer option UI.
+     *
+     * @return The text.
+     */
+    public String getSoundMixerLabelText() {
+<span class="nc" id="L1480">        return freeColClient.getSoundController().getSoundMixerLabelText();</span>
+    }
+
+    // invoke method forwarding
+
+    /**
+     * Wrapper for SwingUtilities.invokeLater that handles the case
+     * where we are already in the EDT.
+     *
+     * @param runnable A &lt;code&gt;Runnable&lt;/code&gt; to run.
+     */
+    public void invokeNowOrLater(Runnable runnable) {
+<span class="nc bnc" id="L1492" title="All 2 branches missed.">        if (SwingUtilities.isEventDispatchThread()) {</span>
+<span class="nc" id="L1493">            runnable.run();</span>
+        } else {
+<span class="nc" id="L1495">            SwingUtilities.invokeLater(runnable);</span>
+        }
+<span class="nc" id="L1497">    }</span>
+
+    /**
+     * Wrapper for SwingUtilities.invokeAndWait that handles the case
+     * where we are already in the EDT.
+     *
+     * @param runnable A &lt;code&gt;Runnable&lt;/code&gt; to run.
+     */
+    public void invokeNowOrWait(Runnable runnable) {
+<span class="nc bnc" id="L1506" title="All 2 branches missed.">        if (SwingUtilities.isEventDispatchThread()) {</span>
+<span class="nc" id="L1507">            runnable.run();</span>
+        } else {
+            try {
+<span class="nc" id="L1510">                SwingUtilities.invokeAndWait(runnable);</span>
+<span class="nc" id="L1511">            } catch (InterruptedException | InvocationTargetException ex) {</span>
+<span class="nc" id="L1512">                logger.log(Level.WARNING, &quot;Client GUI interaction&quot;, ex);</span>
+<span class="nc" id="L1513">            }</span>
+        }
+<span class="nc" id="L1515">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

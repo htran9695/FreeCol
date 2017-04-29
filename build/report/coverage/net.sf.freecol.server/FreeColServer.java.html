@@ -1,0 +1,1288 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FreeColServer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server</a> &gt; <span class="el_source">FreeColServer.java</span></div><h1>FreeColServer.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server;
+
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.BindException;
+import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.Properties;
+import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.imageio.ImageIO;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+
+import net.sf.freecol.FreeCol;
+import net.sf.freecol.common.FreeColException;
+import net.sf.freecol.common.FreeColSeed;
+import net.sf.freecol.common.debug.FreeColDebugger;
+import net.sf.freecol.common.io.FreeColDirectories;
+import net.sf.freecol.common.io.FreeColSavegameFile;
+import net.sf.freecol.common.io.FreeColXMLReader;
+import net.sf.freecol.common.io.FreeColXMLWriter;
+import net.sf.freecol.common.model.FreeColObject;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.GameOptions;
+import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.Map;
+import net.sf.freecol.common.model.Nation;
+import net.sf.freecol.common.model.NationOptions;
+import net.sf.freecol.common.model.NationOptions.NationState;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Stance;
+import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.Tension;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.networking.Connection;
+import net.sf.freecol.common.networking.DOMMessage;
+import net.sf.freecol.common.option.BooleanOption;
+import net.sf.freecol.common.option.OptionGroup;
+import static net.sf.freecol.common.util.CollectionUtils.*;
+import net.sf.freecol.common.util.LogBuilder;
+import net.sf.freecol.common.util.Utils;
+import net.sf.freecol.server.ai.AIInGameInputHandler;
+import net.sf.freecol.server.ai.AIMain;
+import net.sf.freecol.server.ai.AIPlayer;
+import net.sf.freecol.server.control.Controller;
+import net.sf.freecol.server.control.InGameController;
+import net.sf.freecol.server.control.InGameInputHandler;
+import net.sf.freecol.server.control.PreGameController;
+import net.sf.freecol.server.control.PreGameInputHandler;
+import net.sf.freecol.server.control.UserConnectionHandler;
+import net.sf.freecol.server.generator.MapGenerator;
+import net.sf.freecol.server.generator.SimpleMapGenerator;
+import net.sf.freecol.server.generator.TerrainGenerator;
+import net.sf.freecol.server.model.ServerGame;
+import net.sf.freecol.server.model.ServerIndianSettlement;
+import net.sf.freecol.server.model.ServerModelObject;
+import net.sf.freecol.server.model.ServerPlayer;
+import net.sf.freecol.server.model.TransactionSession;
+import net.sf.freecol.server.networking.DummyConnection;
+import net.sf.freecol.server.networking.Server;
+
+import org.w3c.dom.Element;
+
+
+/**
+ * The main control class for the FreeCol server.  This class both
+ * starts and keeps references to all of the server objects and the
+ * game model objects.
+ *
+ * If you would like to start a new server you just create a new
+ * object of this class.
+ */
+public final class FreeColServer {
+
+<span class="fc" id="L107">    private static final Logger logger = Logger.getLogger(FreeColServer.class.getName());</span>
+
+    public static final String ACTIVE_UNIT_TAG = &quot;activeUnit&quot;;
+    public static final String DEBUG_TAG = &quot;debug&quot;;
+    public static final String RANDOM_STATE_TAG = &quot;randomState&quot;;
+    public static final String OWNER_TAG = &quot;owner&quot;;
+    public static final String PUBLIC_SERVER_TAG = &quot;publicServer&quot;;
+    public static final String SAVED_GAME_TAG = &quot;savedGame&quot;;
+    public static final String SERVER_OBJECTS_TAG = &quot;serverObjects&quot;;
+    public static final String SINGLE_PLAYER_TAG = &quot;singleplayer&quot;;
+
+    private static final int META_SERVER_UPDATE_INTERVAL = 60000;
+
+    /**
+     * The save game format used for saving games.
+     *
+     * Version 7-10 were used in 0.9.x.
+     * Version 11 made a lot of changes and was introduced for the 0.10.0
+     *     series.
+     * Version 12 was introduced with HighSeas post-0.10.1.
+     * Version 13 coincides with the start of the 0.11.x series.
+     *
+     * Please add to this comment if you increase the version.
+     */
+    public static final int SAVEGAME_VERSION = 13;
+
+    /**
+     * The oldest save game format that can still be loaded.
+     * The promise is that FreeCol 0.n.* can load 0.(n-1).* games.
+     *
+     * Revisit the numbering scheme and save compatibility promise
+     * when 1.0 is released?
+     */
+    public static final int MINIMUM_SAVEGAME_VERSION = 11;
+
+    /**
+     * The ruleset to use when loading old format games where a spec
+     * may not be readily available.
+     */
+    public static final String DEFAULT_SPEC = &quot;freecol&quot;;
+
+    /** Games are either starting, ending or being played. */
+<span class="pc" id="L149">    public static enum GameState { STARTING_GAME, IN_GAME, ENDING_GAME }</span>
+
+
+    // Instantiation-time parameters.
+
+    /** Is this a single player game? */
+    private boolean singlePlayer;
+
+    /** Should this game be listed on the meta-server? */
+<span class="fc" id="L158">    private boolean publicServer = false;</span>
+
+    /** The name of this server. */
+    private String name;
+
+    /** The current state of the game. */
+<span class="fc" id="L164">    private GameState gameState = GameState.STARTING_GAME;</span>
+
+    // Networking:
+    private Server server;
+
+    // Controllers
+    private final UserConnectionHandler userConnectionHandler;
+
+    private final PreGameController preGameController;
+
+    private final PreGameInputHandler preGameInputHandler;
+
+    private final InGameInputHandler inGameInputHandler;
+
+    private final InGameController inGameController;
+
+    /** The AI controller. */
+    private AIMain aiMain;
+
+    /** The game underway. */
+    private ServerGame game;
+
+    /** The map generator. */
+<span class="fc" id="L187">    private MapGenerator mapGenerator = null;</span>
+
+    /** The internal provider of random numbers. */
+<span class="fc" id="L190">    private Random random = null;</span>
+
+    /** The game integrity state. */
+<span class="fc" id="L193">    private int integrity = 1;</span>
+
+    /** An active unit specified in a saved game. */
+<span class="fc" id="L196">    private Unit activeUnit = null;</span>
+
+    
+    /**
+     * Starts a new server, with a new game.
+     *
+     * @param publicServer If true, add to the meta-server.
+     * @param singlePlayer True if this is a single player game.
+     * @param specification The &lt;code&gt;Specification&lt;/code&gt; to use in this game.
+     * @param port The TCP port to use for the public socket.
+     * @param name An optional name for the server.
+     * @exception IOException If the public socket cannot be created.
+     */
+    public FreeColServer(boolean publicServer, boolean singlePlayer,
+                         Specification specification, int port, String name)
+<span class="fc" id="L211">        throws IOException {</span>
+<span class="fc" id="L212">        this.publicServer = publicServer;</span>
+<span class="fc" id="L213">        this.singlePlayer = singlePlayer;</span>
+<span class="fc" id="L214">        this.name = name;</span>
+
+<span class="fc" id="L216">        this.server = serverStart(port); // Throws IOException</span>
+
+<span class="fc" id="L218">        this.userConnectionHandler = new UserConnectionHandler(this);</span>
+<span class="fc" id="L219">        this.preGameController = new PreGameController(this);</span>
+<span class="fc" id="L220">        this.preGameInputHandler = new PreGameInputHandler(this);</span>
+<span class="fc" id="L221">        this.inGameInputHandler = new InGameInputHandler(this);</span>
+
+<span class="fc" id="L223">        this.random = new Random(FreeColSeed.getFreeColSeed(true));</span>
+<span class="fc" id="L224">        this.game = new ServerGame(specification);</span>
+<span class="fc" id="L225">        this.game.setNationOptions(new NationOptions(specification));</span>
+<span class="fc" id="L226">        this.game.randomize(random);</span>
+        
+<span class="fc" id="L228">        this.inGameController = new InGameController(this, random);</span>
+<span class="fc" id="L229">        this.mapGenerator = new SimpleMapGenerator(game, random);</span>
+
+<span class="fc" id="L231">        this.publicServer = updateMetaServer(true);</span>
+<span class="fc" id="L232">    }</span>
+
+    /**
+     * Starts a new networked server, initializing from a saved game.
+     *
+     * The specification is usually null, which means it will be
+     * initialized by extracting it from the saved game.  However
+     * MapConverter does call this with an overriding specification.
+     *
+     * @param savegame The file where the game data is located.
+     * @param specification An optional &lt;code&gt;Specification&lt;/code&gt; to use.
+     * @param port The TCP port to use for the public socket.
+     * @param name An optional name for the server.
+     * @exception IOException If save game can not be found.
+     * @exception FreeColException If the savegame could not be loaded.
+     */
+    public FreeColServer(final FreeColSavegameFile savegame, 
+                         Specification specification, int port, String name)
+<span class="fc" id="L250">        throws FreeColException, IOException, XMLStreamException {</span>
+        // publicServer will be read from the saved game
+        // singlePlayer will be read from the saved game
+<span class="fc" id="L253">        this.name = name;</span>
+
+<span class="fc" id="L255">        this.server = serverStart(port); // Throws IOException</span>
+
+<span class="fc" id="L257">        this.userConnectionHandler = new UserConnectionHandler(this);</span>
+<span class="fc" id="L258">        this.preGameController = new PreGameController(this);</span>
+<span class="fc" id="L259">        this.preGameInputHandler = new PreGameInputHandler(this);</span>
+<span class="fc" id="L260">        this.inGameInputHandler = new InGameInputHandler(this);</span>
+
+<span class="fc" id="L262">        this.game = loadGame(savegame, specification, server);</span>
+        // NationOptions will be read from the saved game.
+<span class="fc" id="L264">        TransactionSession.clearAll();</span>
+
+        // Replace the PRNG in the game if it is missing or a command line
+        // option was present.
+<span class="pc bpc" id="L268" title="1 of 2 branches missed.">        long seed = FreeColSeed.getFreeColSeed(this.random == null);</span>
+<span class="pc bpc" id="L269" title="1 of 2 branches missed.">        if (seed != FreeColSeed.DEFAULT_SEED) {</span>
+<span class="fc" id="L270">            this.random = new Random(seed);</span>
+        }
+<span class="fc" id="L272">        this.inGameController = new InGameController(this, random);</span>
+<span class="fc" id="L273">        this.mapGenerator = null;</span>
+
+<span class="fc" id="L275">        this.publicServer = updateMetaServer(true);</span>
+<span class="fc" id="L276">    }</span>
+
+
+    /**
+     * Is the user playing in single player mode?
+     *
+     * @return True if this is a single player game.
+     */
+    public boolean getSinglePlayer() {
+<span class="fc" id="L285">        return this.singlePlayer;</span>
+    }
+
+    /**
+     * Sets the single/multiplayer state of the game.
+     *
+     * @param singlePlayer The new single/multiplayer status.
+     */
+    public void setSinglePlayer(boolean singlePlayer) {
+<span class="fc" id="L294">        this.singlePlayer = singlePlayer;</span>
+<span class="fc" id="L295">    }</span>
+
+    /**
+     * Get the public server state.
+     *
+     * @return The public server state.
+     */
+    public boolean getPublicServer() {
+<span class="nc" id="L303">        return this.publicServer;</span>
+    }
+
+    /**
+     * Sets the public server state.
+     *
+     * @param publicServer The new public server state.
+     */
+    public void setPublicServer(boolean publicServer) {
+<span class="fc" id="L312">        this.publicServer = publicServer;</span>
+<span class="fc" id="L313">    }</span>
+
+    /**
+     * Gets the name of this server.
+     *
+     * @return The name.
+     */
+    public String getName() {
+<span class="nc" id="L321">        return this.name;</span>
+    }
+
+    /**
+     * Sets the name of this server.
+     *
+     * @param name The new name.
+     */
+    public void setName(String name) {
+<span class="nc" id="L330">        this.name = name;</span>
+<span class="nc" id="L331">    }</span>
+
+    /**
+     * Gets the host this server was started on.
+     *
+     * @return The host.
+     */
+    public String getHost() {
+<span class="nc bnc" id="L339" title="All 2 branches missed.">        return (this.server == null) ? null : this.server.getHost();</span>
+    }
+
+    /**
+     * Gets the port this server was started on.
+     *
+     * @return The port.
+     */
+    public int getPort() {
+<span class="nc bnc" id="L348" title="All 2 branches missed.">        return (this.server == null) ? -1 : this.server.getPort();</span>
+    }
+
+
+    /**
+     * Start a Server at port.
+     *
+     * If the port is specified, just try once.
+     *
+     * If the port is unspecified (negative), try multiple times.
+     *
+     * @param firstPort The port to start trying to connect at.
+     * @return A started &lt;code&gt;Server&lt;/code&gt;.
+     * @exception IOException on failure to open the port.
+     */
+    private Server serverStart(int firstPort) throws IOException {
+<span class="pc bpc" id="L364" title="1 of 2 branches missed.">        String host = (this.publicServer) ? &quot;0.0.0.0&quot;</span>
+<span class="fc" id="L365">            : InetAddress.getLoopbackAddress().getHostAddress();</span>
+        int port, tries;
+<span class="pc bpc" id="L367" title="1 of 2 branches missed.">        if (firstPort &lt; 0) {</span>
+<span class="fc" id="L368">            port = FreeCol.getServerPort();</span>
+<span class="fc" id="L369">            tries = 10;</span>
+        } else {
+<span class="nc" id="L371">            port = firstPort;</span>
+<span class="nc" id="L372">            tries = 1;</span>
+        }
+<span class="fc" id="L374">        logger.finest(&quot;serverStart(&quot; + firstPort + &quot;) =&gt; &quot; + port</span>
+            + &quot; x &quot; + tries);
+<span class="pc bpc" id="L376" title="1 of 2 branches missed.">        for (int i = tries; i &gt; 0; i--) {</span>
+            try {
+<span class="fc" id="L378">                server = new Server(this, host, port);</span>
+<span class="fc" id="L379">                server.start();</span>
+<span class="fc" id="L380">                break;</span>
+<span class="nc" id="L381">            } catch (BindException be) {</span>
+<span class="nc bnc" id="L382" title="All 2 branches missed.">                if (i == 1) {</span>
+<span class="nc" id="L383">                    throw new IOException(&quot;Bind exception starting server at: &quot;</span>
+                        + host + &quot;:&quot; + port, be);
+                }
+<span class="nc" id="L386">            } catch (IOException ie) {</span>
+<span class="nc bnc" id="L387" title="All 2 branches missed.">                if (i == 1) throw ie;</span>
+<span class="nc" id="L388">            }</span>
+<span class="nc" id="L389">            port++;</span>
+        }
+<span class="fc" id="L391">        return server;</span>
+    }
+
+
+    /**
+     * Gets the specification from the game run by this server.
+     *
+     * @return The specification from the game.
+     */
+    public Specification getSpecification() {
+<span class="fc" id="L401">        return game.getSpecification();</span>
+    }
+
+    /**
+     * Gets the &lt;code&gt;UserConnectionHandler&lt;/code&gt;.
+     *
+     * @return The &lt;code&gt;UserConnectionHandler&lt;/code&gt; that is beeing used when
+     *         new client connect.
+     */
+    public UserConnectionHandler getUserConnectionHandler() {
+<span class="nc" id="L411">        return userConnectionHandler;</span>
+    }
+
+    /**
+     * Gets the &lt;code&gt;Controller&lt;/code&gt;.
+     *
+     * @return The &lt;code&gt;Controller&lt;/code&gt;.
+     */
+    public Controller getController() {
+<span class="fc bfc" id="L420" title="All 2 branches covered.">        if (getGameState() == GameState.IN_GAME) {</span>
+<span class="fc" id="L421">            return inGameController;</span>
+        } else {
+<span class="fc" id="L423">            return preGameController;</span>
+        }
+    }
+
+    /**
+     * Gets the &lt;code&gt;PreGameInputHandler&lt;/code&gt;.
+     *
+     * @return The &lt;code&gt;PreGameInputHandler&lt;/code&gt;.
+     */
+    public PreGameInputHandler getPreGameInputHandler() {
+<span class="nc" id="L433">        return preGameInputHandler;</span>
+    }
+
+    /**
+     * Gets the &lt;code&gt;InGameInputHandler&lt;/code&gt;.
+     *
+     * @return The &lt;code&gt;InGameInputHandler&lt;/code&gt;.
+     */
+    public InGameInputHandler getInGameInputHandler() {
+<span class="fc" id="L442">        return inGameInputHandler;</span>
+    }
+
+    /**
+     * Gets the controller being used while the game is running.
+     *
+     * @return The controller from making a new turn etc.
+     */
+    public InGameController getInGameController() {
+<span class="fc" id="L451">        return inGameController;</span>
+    }
+
+    /**
+     * Gets the &lt;code&gt;Game&lt;/code&gt; that is being played.
+     *
+     * @return The &lt;code&gt;Game&lt;/code&gt; which is the main class of the game-model
+     *         being used in this game.
+     */
+    public ServerGame getGame() {
+<span class="fc" id="L461">        return game;</span>
+    }
+
+    /**
+     * Sets the &lt;code&gt;Game&lt;/code&gt; that is being played.
+     *
+     * @param game The new &lt;code&gt;Game&lt;/code&gt;.
+     */
+    public void setGame(ServerGame game) {
+<span class="fc" id="L470">        this.game = game;</span>
+<span class="fc" id="L471">    }</span>
+
+    /**
+     * Sets the main AI-object.
+     *
+     * @param aiMain The main AI-object which is responsible for controlling,
+     *            updating and saving the AI objects.
+     */
+    public void setAIMain(AIMain aiMain) {
+<span class="fc" id="L480">        this.aiMain = aiMain;</span>
+<span class="fc" id="L481">    }</span>
+
+    /**
+     * Gets the main AI-object.
+     *
+     * @return The main AI-object which is responsible for controlling, updating
+     *         and saving the AI objects.
+     */
+    public AIMain getAIMain() {
+<span class="fc" id="L490">        return aiMain;</span>
+    }
+
+    /**
+     * Gets the current state of the game.
+     *
+     * @return One of: {@link GameState#STARTING_GAME},
+     *     {@link GameState#IN_GAME} and {@link GameState#ENDING_GAME}.
+     */
+    public GameState getGameState() {
+<span class="fc" id="L500">        return gameState;</span>
+    }
+
+    /**
+     * Sets the current state of the game.
+     *
+     * @param state The new state to be set.  One of:
+     *     {@link GameState#STARTING_GAME}, {@link GameState#IN_GAME}
+     *     and {@link GameState#ENDING_GAME}.
+     */
+    public void setGameState(GameState state) {
+<span class="fc" id="L511">        gameState = state;</span>
+<span class="fc" id="L512">    }</span>
+
+    /**
+     * Gets the network server responsible of handling the connections.
+     *
+     * @return The network server.
+     */
+    public Server getServer() {
+<span class="fc" id="L520">        return server;</span>
+    }
+
+    /**
+     * Gets the integrity check result.
+     *
+     * @return The integrity check result.
+     */
+    public int getIntegrity() {
+<span class="nc" id="L529">        return integrity;</span>
+    }
+
+    /**
+     * Get the map generator.
+     *
+     * @return The &lt;code&gt;MapGenerator&lt;/code&gt;.
+     */
+    public MapGenerator getMapGenerator() {
+<span class="fc" id="L538">        return this.mapGenerator;</span>
+    }
+
+    /**
+     * Set the map generator.
+     *
+     * @param mapGenerator The new &lt;code&gt;MapGenerator&lt;/code&gt;.
+     */
+    public void setMapGenerator(MapGenerator mapGenerator) {
+<span class="fc" id="L547">        this.mapGenerator = mapGenerator;</span>
+<span class="fc" id="L548">    }</span>
+
+    /**
+     * Gets the server random number generator.
+     *
+     * @return The server random number generator.
+     */
+    public Random getServerRandom() {
+<span class="fc" id="L556">        return random;</span>
+    }
+
+    /**
+     * Sets the server random number generator.
+     *
+     * @param random The new random number generator.
+     */
+    public void setServerRandom(Random random) {
+<span class="fc" id="L565">        this.random = random;</span>
+<span class="fc" id="L566">    }</span>
+
+    /**
+     * Gets the active unit specified in a saved game, if any.
+     *
+     * @return The active unit.
+     */
+    public Unit getActiveUnit() {
+<span class="fc" id="L574">        return activeUnit;</span>
+    }
+
+    /**
+     * Gets the active unit specified in a saved game, if any.
+     *
+     * @param unit The active unit to save.
+     */
+    public void setActiveUnit(Unit unit) {
+<span class="nc" id="L583">        activeUnit = unit;</span>
+<span class="nc" id="L584">    }</span>
+
+
+    /**
+     * Sends information about this server to the meta-server.
+     *
+     * Publically visible version, that is called in game.
+     *
+     * @return True if the MetaServer was updated.
+     */
+    public boolean updateMetaServer() {
+<span class="fc" id="L595">        return updateMetaServer(false);</span>
+    }
+
+    /**
+     * Sends information about this server to the meta-server.
+     *
+     * This is the master routine with private `firstTime' access
+     * when called from the constructors.
+     *
+     * @param firstTime Must be true when called for the first time.
+     * @return True if the MetaServer was updated.
+     */
+    private boolean updateMetaServer(boolean firstTime) {
+<span class="pc bpc" id="L608" title="1 of 2 branches missed.">        if (!this.publicServer) return false;</span>
+
+        Connection mc;
+        try {
+<span class="nc" id="L612">            mc = new Connection(FreeCol.META_SERVER_ADDRESS,</span>
+                                FreeCol.META_SERVER_PORT, null,
+                                FreeCol.SERVER_THREAD);
+<span class="nc" id="L615">        } catch (IOException e) {</span>
+<span class="nc" id="L616">            logger.log(Level.WARNING, &quot;Could not connect to meta-server: &quot;,</span>
+                FreeCol.META_SERVER_ADDRESS + &quot;:&quot; + FreeCol.META_SERVER_PORT);
+<span class="nc" id="L618">            this.publicServer = false;</span>
+<span class="nc" id="L619">            return false;</span>
+<span class="nc" id="L620">        }</span>
+
+<span class="nc bnc" id="L622" title="All 2 branches missed.">        String tag = (firstTime) ? &quot;register&quot; : &quot;update&quot;;</span>
+<span class="nc" id="L623">        int port = mc.getSocket().getPort();</span>
+<span class="nc bnc" id="L624" title="All 2 branches missed.">        String addr = (name != null) ? name</span>
+<span class="nc" id="L625">            : (mc.getSocket().getLocalAddress().getHostAddress() + &quot;:&quot; + port);</span>
+<span class="nc" id="L626">        int nPlayers = getNumberOfLivingHumanPlayers();</span>
+<span class="nc bnc" id="L627" title="All 2 branches missed.">        boolean started = gameState != GameState.STARTING_GAME;</span>
+        try {
+<span class="nc" id="L629">            Element reply = mc.ask(DOMMessage.createMessage(tag,</span>
+                    &quot;name&quot;, addr,
+<span class="nc" id="L631">                    &quot;port&quot;, Integer.toString(port),</span>
+<span class="nc" id="L632">                    &quot;slotsAvailable&quot;, Integer.toString(getSlotsAvailable()),</span>
+<span class="nc" id="L633">                    &quot;currentlyPlaying&quot;, Integer.toString(nPlayers),</span>
+<span class="nc" id="L634">                    &quot;isGameStarted&quot;, Boolean.toString(started),</span>
+<span class="nc" id="L635">                    &quot;version&quot;, FreeCol.getVersion(),</span>
+<span class="nc" id="L636">                    &quot;gameState&quot;, Integer.toString(getGameState().ordinal())));</span>
+<span class="nc bnc" id="L637" title="All 2 branches missed.">            if (reply != null</span>
+<span class="nc bnc" id="L638" title="All 2 branches missed.">                &amp;&amp; &quot;noRouteToServer&quot;.equals(reply.getTagName())) {</span>
+<span class="nc" id="L639">                this.publicServer = false;</span>
+<span class="nc" id="L640">                return false;</span>
+            }
+<span class="nc" id="L642">        } catch (IOException ioe) {</span>
+<span class="nc" id="L643">            logger.log(Level.WARNING, &quot;Network error with meta-server:&quot; + addr,</span>
+                ioe);
+<span class="nc" id="L645">            this.publicServer = false;</span>
+<span class="nc" id="L646">            return false;</span>
+        } finally {
+<span class="nc" id="L648">            mc.close();</span>
+<span class="nc" id="L649">        }</span>
+<span class="nc bnc" id="L650" title="All 2 branches missed.">        if (firstTime) {</span>
+            // Starts the metaserver update thread.
+            //
+            // This update is really a &quot;Hi! I am still here!&quot;-message,
+            // since an additional update should be sent when a new
+            // player is added to/removed from this server etc.
+<span class="nc" id="L656">            Timer t = new Timer(true);</span>
+<span class="nc" id="L657">            t.scheduleAtFixedRate(new TimerTask() {</span>
+                    @Override
+                    public void run() {
+<span class="nc bnc" id="L660" title="All 2 branches missed.">                        if (!updateMetaServer()) cancel();</span>
+<span class="nc" id="L661">                    }</span>
+                }, META_SERVER_UPDATE_INTERVAL, META_SERVER_UPDATE_INTERVAL);
+        }
+<span class="nc" id="L664">        return true;</span>
+    }
+
+    /**
+     * Removes this server from the metaserver's list. The information is only
+     * sent if &lt;code&gt;public == true&lt;/code&gt;.
+     *
+     * @return True if the MetaServer was updated.
+     */
+    public boolean removeFromMetaServer() {
+<span class="pc bpc" id="L674" title="1 of 2 branches missed.">        if (!this.publicServer) return false;</span>
+
+<span class="nc" id="L676">        try (</span>
+<span class="nc" id="L677">            Connection mc = new Connection(FreeCol.META_SERVER_ADDRESS,</span>
+                FreeCol.META_SERVER_PORT,
+                null, FreeCol.SERVER_THREAD);
+        ) {
+<span class="nc" id="L681">            mc.send(DOMMessage.createMessage(&quot;remove&quot;,</span>
+<span class="nc" id="L682">                    &quot;port&quot;, Integer.toString(mc.getSocket().getPort())));</span>
+<span class="nc bnc" id="L683" title="All 8 branches missed.">        } catch (IOException ioe) {</span>
+<span class="nc" id="L684">            logger.log(Level.WARNING, &quot;Network error leaving meta-server: &quot;</span>
+                + FreeCol.META_SERVER_ADDRESS + &quot;:&quot; + FreeCol.META_SERVER_PORT,
+                ioe);
+<span class="nc" id="L687">            this.publicServer = false;</span>
+<span class="nc" id="L688">            return false;</span>
+<span class="nc" id="L689">        }</span>
+<span class="nc" id="L690">        return true;</span>
+    }
+
+    /**
+     * Gets the number of player that may connect.
+     *
+     * @return The number of available slots for human players.  This
+     *     number also includes european players currently controlled
+     *     by the AI.
+     */
+    public int getSlotsAvailable() {
+<span class="nc" id="L701">        int n = 0;</span>
+<span class="nc bnc" id="L702" title="All 2 branches missed.">        for (Player player : game.getLiveEuropeanPlayers(null)) {</span>
+<span class="nc" id="L703">            ServerPlayer sp = (ServerPlayer)player;</span>
+<span class="nc bnc" id="L704" title="All 6 branches missed.">            if (!sp.isREF() &amp;&amp; sp.isAI() &amp;&amp; !sp.isConnected()) n++;</span>
+<span class="nc" id="L705">        }</span>
+<span class="nc" id="L706">        return n;</span>
+    }
+
+    /**
+     * Gets the number of human players in this game that is still playing.
+     *
+     * @return The number of living human players.
+     */
+    public int getNumberOfLivingHumanPlayers() {
+<span class="nc" id="L715">        int n = 0;</span>
+<span class="nc bnc" id="L716" title="All 2 branches missed.">        for (Player player : game.getLivePlayers(null)) {</span>
+<span class="nc" id="L717">            ServerPlayer sp = (ServerPlayer)player;</span>
+<span class="nc bnc" id="L718" title="All 4 branches missed.">            if (!sp.isAI() &amp;&amp; sp.isConnected()) n++;</span>
+<span class="nc" id="L719">        }</span>
+<span class="nc" id="L720">        return n;</span>
+    }
+
+    /**
+     * Saves a game.
+     *
+     * @param file The file where the data will be written.
+     * @exception IOException If a problem was encountered while trying
+     *     to open, write or close the file.
+     */
+    public void saveGame(File file, OptionGroup options) throws IOException {
+<span class="fc" id="L731">        saveGame(file, options, null);</span>
+<span class="fc" id="L732">    }</span>
+
+    /**
+     * Save a game from the map editor.
+     *
+     * @param file The file where the data will be written.
+     * @param image A thumbnail image for the map.
+     * @exception IOException If a problem was encountered while trying
+     *     to open, write or close the file.
+     */
+    public void saveMapEditorGame(File file, BufferedImage image) 
+        throws IOException {
+<span class="nc" id="L744">        this.setAIMain(null);</span>
+<span class="nc" id="L745">        saveGame(file, null, image);</span>
+<span class="nc" id="L746">    }</span>
+
+    /**
+     * Saves a game.
+     *
+     * @param file The file where the data will be written.
+     * @param options Optional client options to save in the game.
+     * @param image A thumbnail &lt;code&gt;Image&lt;/code&gt; value to save in the game.
+     * @exception IOException If a problem was encountered while trying
+     *     to open, write or close the file.
+     */
+    public void saveGame(File file, OptionGroup options, BufferedImage image)
+        throws IOException {
+<span class="fc" id="L759">        final ServerGame game = getGame();</span>
+<span class="pc" id="L760">        try (</span>
+<span class="fc" id="L761">            JarOutputStream fos = new JarOutputStream(new FileOutputStream(file));</span>
+        ) {
+<span class="pc bpc" id="L763" title="1 of 2 branches missed.">            if (image != null) {</span>
+<span class="nc" id="L764">                fos.putNextEntry(new JarEntry(FreeColSavegameFile.THUMBNAIL_FILE));</span>
+<span class="nc" id="L765">                ImageIO.write(image, &quot;png&quot;, fos);</span>
+<span class="nc" id="L766">                fos.closeEntry();</span>
+            }
+
+<span class="pc bpc" id="L769" title="1 of 2 branches missed.">            if (options != null) {</span>
+<span class="nc" id="L770">                fos.putNextEntry(new JarEntry(FreeColSavegameFile.CLIENT_OPTIONS));</span>
+<span class="nc" id="L771">                options.save(fos, FreeColXMLWriter.WriteScope.toSave(), true);</span>
+<span class="nc" id="L772">                fos.closeEntry();</span>
+            }
+
+<span class="fc" id="L775">            Properties properties = new Properties();</span>
+<span class="fc" id="L776">            properties.put(&quot;map.width&quot;, Integer.toString(game.getMap().getWidth()));</span>
+<span class="fc" id="L777">            properties.put(&quot;map.height&quot;, Integer.toString(game.getMap().getHeight()));</span>
+<span class="fc" id="L778">            fos.putNextEntry(new JarEntry(FreeColSavegameFile.SAVEGAME_PROPERTIES));</span>
+<span class="fc" id="L779">            properties.store(fos, null);</span>
+<span class="fc" id="L780">            fos.closeEntry();</span>
+
+            // save the actual game data
+<span class="fc" id="L783">            fos.putNextEntry(new JarEntry(FreeColSavegameFile.SAVEGAME_FILE));</span>
+<span class="pc" id="L784">            try (</span>
+<span class="fc" id="L785">                FreeColXMLWriter xw = new FreeColXMLWriter(fos,</span>
+<span class="fc" id="L786">                    FreeColXMLWriter.WriteScope.toSave(), false);</span>
+            ) {
+<span class="fc" id="L788">                xw.writeStartDocument(&quot;UTF-8&quot;, &quot;1.0&quot;);</span>
+
+<span class="fc" id="L790">                xw.writeComment(FreeCol.getConfiguration().toString());</span>
+
+<span class="fc" id="L792">                xw.writeStartElement(SAVED_GAME_TAG);</span>
+
+                // Add the attributes:
+<span class="fc" id="L795">                xw.writeAttribute(OWNER_TAG, FreeCol.getName());</span>
+
+<span class="fc" id="L797">                xw.writeAttribute(PUBLIC_SERVER_TAG, publicServer);</span>
+
+<span class="fc" id="L799">                xw.writeAttribute(SINGLE_PLAYER_TAG, singlePlayer);</span>
+
+<span class="fc" id="L801">                xw.writeAttribute(FreeColSavegameFile.VERSION_TAG,</span>
+                                  SAVEGAME_VERSION);
+
+<span class="fc" id="L804">                xw.writeAttribute(RANDOM_STATE_TAG, Utils.getRandomState(random));</span>
+
+<span class="fc" id="L806">                xw.writeAttribute(DEBUG_TAG, FreeColDebugger.getDebugModes());</span>
+
+<span class="pc bpc" id="L808" title="1 of 2 branches missed.">                if (getActiveUnit() != null) {</span>
+<span class="nc" id="L809">                    xw.writeAttribute(ACTIVE_UNIT_TAG, getActiveUnit());</span>
+                }
+            
+                // Add server side model information:
+<span class="fc" id="L813">                xw.writeStartElement(SERVER_OBJECTS_TAG);</span>
+
+<span class="fc bfc" id="L815" title="All 2 branches covered.">                for (ServerModelObject smo : game.getServerModelObjects()) {</span>
+<span class="fc" id="L816">                    xw.writeStartElement(smo.getServerXMLElementTagName());</span>
+
+<span class="fc" id="L818">                    xw.writeAttribute(FreeColObject.ID_ATTRIBUTE_TAG, smo.getId());</span>
+
+<span class="fc" id="L820">                    xw.writeEndElement();</span>
+<span class="fc" id="L821">                }</span>
+
+<span class="fc" id="L823">                xw.writeEndElement();</span>
+
+<span class="fc" id="L825">                game.toXML(xw); // Add the game</span>
+
+<span class="pc bpc" id="L827" title="1 of 2 branches missed.">                if (aiMain != null) aiMain.toXML(xw); // Add the AIObjects</span>
+
+<span class="fc" id="L829">                xw.writeEndElement();</span>
+<span class="fc" id="L830">                xw.writeEndDocument();</span>
+<span class="fc" id="L831">                xw.flush();</span>
+<span class="pc bpc" id="L832" title="6 of 8 branches missed.">            }</span>
+<span class="fc" id="L833">            fos.closeEntry();</span>
+<span class="pc bpc" id="L834" title="6 of 8 branches missed.">        } catch (XMLStreamException e) {</span>
+<span class="nc" id="L835">            throw new IOException(&quot;Failed to save (XML)&quot;, e);</span>
+<span class="nc" id="L836">        } catch (Exception e) {</span>
+<span class="nc" id="L837">            throw new IOException(&quot;Failed to save&quot;, e);</span>
+<span class="fc" id="L838">        }</span>
+<span class="fc" id="L839">    }</span>
+
+    /**
+     * Loads a game.
+     *
+     * @param fis The file where the game data is located.
+     * @return The game found in the stream.
+     * @exception FreeColException if the savegame contains incompatible data.
+     * @exception IOException if the stream can not be created.
+     * @exception XMLStreamException if there is a problem reading the stream.
+     */
+    public ServerGame loadGame(final FreeColSavegameFile fis)
+        throws IOException, FreeColException, XMLStreamException {
+<span class="fc" id="L852">        return loadGame(fis, null, getServer());</span>
+    }
+
+    /**
+     * Read just the game part from a file.
+     *
+     * When the specification is not supplied, the one found in the saved
+     * game will be used.
+     *
+     * @param file The &lt;code&gt;File&lt;/code&gt; to read from.
+     * @param spec An optional &lt;code&gt;Specification&lt;/code&gt; to use.
+     * @param server Use this (optional) server to load into.
+     * @return The game found in the stream.
+     */
+    public static ServerGame readGame(File file, Specification spec,
+                                      FreeColServer server) {
+<span class="fc" id="L868">        ServerGame g = null;</span>
+        try {
+<span class="fc" id="L870">            g = FreeColServer.readGame(new FreeColSavegameFile(file),</span>
+                                       spec, server);
+<span class="fc" id="L872">            logger.info(&quot;Imported file &quot; + file.getPath());</span>
+<span class="nc" id="L873">        } catch (Exception e) {</span>
+<span class="nc" id="L874">            logger.log(Level.WARNING, &quot;Import failed for &quot; + file.getPath(), e);</span>
+<span class="fc" id="L875">        }</span>
+
+        // If importing as a result of &quot;Start Game&quot; in the map editor,
+        // consume the file.
+<span class="fc" id="L879">        File startGame = FreeColDirectories.getStartMapFile();</span>
+<span class="pc bpc" id="L880" title="1 of 2 branches missed.">        if (startGame != null</span>
+<span class="pc bpc" id="L881" title="1 of 2 branches missed.">            &amp;&amp; startGame.getPath().equals(file.getPath())) {</span>
+<span class="nc" id="L882">            file.delete();</span>
+        }
+<span class="fc" id="L884">        return g;</span>
+    }
+
+    /**
+     * Reads just the game part from a save game from a stream.
+     *
+     * When the specification is not supplied, the one found in the saved
+     * game will be used.
+     *
+     * @param fis The stream to read from.
+     * @param specification An optional &lt;code&gt;Specification&lt;/code&gt; to use.
+     * @param server Use this (optional) server to load into.
+     * @return The game found in the stream.
+     * @exception FreeColException if the format is incompatible.
+     * @exception IOException if the stream can not be created.
+     * @exception XMLStreamException if there is a problem reading the stream.
+     */
+    public static ServerGame readGame(final FreeColSavegameFile fis,
+                                      Specification specification,
+                                      FreeColServer server)
+        throws IOException, FreeColException, XMLStreamException {
+<span class="fc" id="L905">        final int savegameVersion = fis.getSavegameVersion();</span>
+<span class="pc bpc" id="L906" title="1 of 2 branches missed.">        if (savegameVersion &lt; MINIMUM_SAVEGAME_VERSION) {</span>
+<span class="nc" id="L907">            throw new FreeColException(&quot;server.incompatibleVersions&quot;);</span>
+        }
+<span class="fc" id="L909">        logger.info(&quot;Found savegame version &quot; + savegameVersion);</span>
+
+<span class="fc" id="L911">        ServerGame game = null;</span>
+<span class="pc" id="L912">        try (</span>
+<span class="fc" id="L913">            FreeColXMLReader xr = fis.getFreeColXMLReader();</span>
+        ) {
+            // Switch to the read scope that creates server objects.
+<span class="fc" id="L916">            xr.setReadScope(FreeColXMLReader.ReadScope.SERVER);</span>
+            
+<span class="fc" id="L918">            String active = null;</span>
+<span class="fc" id="L919">            xr.nextTag();</span>
+
+<span class="fc bfc" id="L921" title="All 2 branches covered.">            if (server != null) {</span>
+<span class="fc" id="L922">                server.setSinglePlayer(xr.getAttribute(SINGLE_PLAYER_TAG,</span>
+                                                       true));
+
+<span class="fc" id="L925">                server.setPublicServer(xr.getAttribute(PUBLIC_SERVER_TAG,</span>
+                                                       false));
+
+<span class="fc" id="L928">                String r = xr.getAttribute(RANDOM_STATE_TAG, (String)null);</span>
+<span class="fc" id="L929">                server.setServerRandom(Utils.restoreRandomState(r));</span>
+                    
+<span class="fc" id="L931">                FreeColDebugger.setDebugModes(xr.getAttribute(DEBUG_TAG,</span>
+                                                              (String)null));
+
+<span class="fc" id="L934">                active = xr.getAttribute(ACTIVE_UNIT_TAG, (String)null);</span>
+            }
+
+<span class="fc bfc" id="L937" title="All 2 branches covered.">            while (xr.nextTag() != XMLStreamConstants.END_ELEMENT) {</span>
+<span class="fc" id="L938">                final String tag = xr.getLocalName();</span>
+<span class="fc bfc" id="L939" title="All 2 branches covered.">                if (SERVER_OBJECTS_TAG.equals(tag)) { // No longer used</span>
+<span class="fc bfc" id="L940" title="All 2 branches covered.">                    while (xr.nextTag() != XMLStreamConstants.END_ELEMENT) {</span>
+<span class="fc" id="L941">                        xr.nextTag();</span>
+                    }
+
+<span class="fc bfc" id="L944" title="All 2 branches covered.">                } else if (Game.getXMLElementTagName().equals(tag)) {</span>
+                    // Read the game
+<span class="fc" id="L946">                    game = new ServerGame(null, xr, specification);</span>
+<span class="fc" id="L947">                    game.setCurrentPlayer(null);</span>
+<span class="fc bfc" id="L948" title="All 2 branches covered.">                    if (server != null) server.setGame(game);</span>
+
+<span class="pc bpc" id="L950" title="1 of 2 branches missed.">                } else if (AIMain.getXMLElementTagName().equals(tag)) {</span>
+<span class="fc bfc" id="L951" title="All 2 branches covered.">                    if (server == null) break;</span>
+<span class="fc" id="L952">                    server.setAIMain(new AIMain(server, xr));</span>
+
+                } else {
+<span class="nc" id="L955">                    throw new XMLStreamException(&quot;Unknown tag&quot;</span>
+                        + &quot; reading server game: &quot; + tag);
+                }
+<span class="fc" id="L958">            }</span>
+
+<span class="pc bpc" id="L960" title="3 of 6 branches missed.">            if (server != null &amp;&amp; active != null &amp;&amp; game != null) {</span>
+                // Now units are all present, set active unit.
+<span class="nc" id="L962">                Unit u = game.getFreeColGameObject(active, Unit.class);</span>
+<span class="nc" id="L963">                server.setActiveUnit(u);</span>
+            }
+<span class="pc bpc" id="L965" title="6 of 8 branches missed.">        }</span>
+<span class="fc" id="L966">        return game;</span>
+    }
+
+    /**
+     * Loads a game.
+     *
+     * @param fis The file where the game data is located.
+     * @param specification The &lt;code&gt;Specification&lt;/code&gt; to refer to.
+     * @param server The server to connect the AI players to.
+     * @return The new game.
+     * @exception FreeColException if the savegame contains incompatible data.
+     * @exception IOException if the stream can not be created.
+     * @exception XMLStreamException if there a problem reading the stream.
+     */
+    private ServerGame loadGame(final FreeColSavegameFile fis,
+                                Specification specification, Server server)
+        throws FreeColException, IOException, XMLStreamException {
+
+<span class="fc" id="L984">        ServerGame game = readGame(fis, specification, this);</span>
+<span class="fc" id="L985">        gameState = GameState.IN_GAME;</span>
+<span class="fc" id="L986">        integrity = game.checkIntegrity(true);</span>
+<span class="pc bpc" id="L987" title="1 of 2 branches missed.">        if (integrity &lt; 0) {</span>
+<span class="nc" id="L988">            logger.warning(&quot;Game integrity test failed.&quot;);</span>
+        } else {
+<span class="pc bpc" id="L990" title="1 of 2 branches missed.">            logger.info(&quot;Game integrity test &quot;</span>
+                + ((integrity &gt; 0) ? &quot;succeeded&quot; : &quot;failed, but fixed&quot;) + &quot;.&quot;);
+        }
+
+<span class="fc" id="L994">        int savegameVersion = fis.getSavegameVersion();</span>
+        // @compat 0.10.x
+<span class="pc bpc" id="L996" title="1 of 2 branches missed.">        if (savegameVersion &lt; 12) {</span>
+<span class="nc bnc" id="L997" title="All 2 branches missed.">            for (Player p : game.getPlayers()) {</span>
+                // @compat 0.10.5
+<span class="nc bnc" id="L999" title="All 2 branches missed.">                if (p.isIndian()) {</span>
+<span class="nc bnc" id="L1000" title="All 2 branches missed.">                    for (IndianSettlement is : p.getIndianSettlements()) {</span>
+<span class="nc" id="L1001">                        ((ServerIndianSettlement)is).updateMostHated();</span>
+<span class="nc" id="L1002">                    }</span>
+                }
+                // end @compat 0.10.5
+
+<span class="nc bnc" id="L1006" title="All 4 branches missed.">                if (!p.isIndian() &amp;&amp; p.getEurope() != null) {</span>
+<span class="nc" id="L1007">                    p.initializeHighSeas();</span>
+
+<span class="nc bnc" id="L1009" title="All 2 branches missed.">                    for (Unit u : p.getEurope().getUnitList()) {</span>
+                        // Move units to high seas.  Use setLocation()
+                        // so that units are removed from Europe, and
+                        // appear in correct panes in the EuropePanel
+                        // do not set the UnitState, as this clears
+                        // workLeft.
+<span class="nc bnc" id="L1015" title="All 2 branches missed.">                        if (u.getState() == Unit.UnitState.TO_EUROPE) {</span>
+<span class="nc" id="L1016">                            logger.info(&quot;Found unit on way to europe: &quot; + u);</span>
+<span class="nc" id="L1017">                            u.setLocation(p.getHighSeas());//-vis: safe!map</span>
+<span class="nc" id="L1018">                            u.setDestination(p.getEurope());</span>
+<span class="nc bnc" id="L1019" title="All 2 branches missed.">                        } else if (u.getState() == Unit.UnitState.TO_AMERICA) {</span>
+<span class="nc" id="L1020">                            logger.info(&quot;Found unit on way to new world: &quot; + u);</span>
+<span class="nc" id="L1021">                            u.setLocation(p.getHighSeas());//-vis: safe!map</span>
+<span class="nc" id="L1022">                            u.setDestination(game.getMap());</span>
+                        }
+<span class="nc" id="L1024">                    }</span>
+                }
+<span class="nc" id="L1026">            }</span>
+
+<span class="nc bnc" id="L1028" title="All 2 branches missed.">            for (Tile tile : game.getMap().getAllTiles()) {</span>
+<span class="nc" id="L1029">                TerrainGenerator.encodeStyle(tile);</span>
+<span class="nc" id="L1030">            }</span>
+        }
+        // end @compat 0.10.x
+
+        // @compat 0.10.x
+<span class="fc" id="L1035">        game.getMap().resetContiguity();</span>
+        // end @compat
+
+        // @compat 0.10.x
+<span class="fc" id="L1039">        Player unknown = game.getUnknownEnemy();</span>
+<span class="pc bpc" id="L1040" title="1 of 2 branches missed.">        if (unknown == null) {</span>
+<span class="nc" id="L1041">            establishUnknownEnemy(game);</span>
+        } else {
+<span class="fc" id="L1043">            unknown.setName(Nation.UNKNOWN_NATION_ID);</span>
+        }
+        // end @compat
+
+        // Ensure that critical option groups can not be edited.
+<span class="fc" id="L1048">        specification = getSpecification();</span>
+<span class="fc" id="L1049">        specification.disableEditing();</span>
+
+        // AI initialization.
+<span class="fc" id="L1052">        AIMain aiMain = getAIMain();</span>
+<span class="pc bpc" id="L1053" title="1 of 2 branches missed.">        int aiIntegrity = (aiMain == null) ? -1 : aiMain.checkIntegrity(true);</span>
+<span class="pc bpc" id="L1054" title="1 of 2 branches missed.">        if (aiIntegrity &lt; 0) {</span>
+<span class="nc" id="L1055">            aiMain = new AIMain(this);</span>
+<span class="nc" id="L1056">            aiMain.findNewObjects(true);</span>
+<span class="nc" id="L1057">            logger.warning(&quot;AI integrity test failed, replaced AIMain.&quot;);</span>
+        } else {
+<span class="pc bpc" id="L1059" title="1 of 2 branches missed.">            logger.info(&quot;AI integrity test &quot;</span>
+                + ((aiIntegrity &gt; 0) ? &quot;succeeded&quot; : &quot;failed, but fixed&quot;));
+        }
+<span class="fc" id="L1062">        game.setFreeColGameObjectListener(aiMain);</span>
+
+<span class="fc" id="L1064">        Collections.sort(game.getPlayers(), Player.playerComparator);</span>
+<span class="fc bfc" id="L1065" title="All 2 branches covered.">        for (Player player : game.getLivePlayers(null)) {</span>
+<span class="pc bpc" id="L1066" title="1 of 2 branches missed.">            if (player.isAI()) {</span>
+<span class="fc" id="L1067">                ServerPlayer serverPlayer = (ServerPlayer)player;</span>
+<span class="fc" id="L1068">                DummyConnection theConnection</span>
+<span class="fc" id="L1069">                    = new DummyConnection(&quot;Server-Server-&quot; + player.getName(),</span>
+<span class="fc" id="L1070">                        getInGameInputHandler());</span>
+<span class="fc" id="L1071">                DummyConnection aiConnection</span>
+<span class="fc" id="L1072">                    = new DummyConnection(&quot;Server-AI-&quot; + player.getName(),</span>
+                        new AIInGameInputHandler(this, serverPlayer, aiMain));
+<span class="fc" id="L1074">                aiConnection.setConnection(theConnection);</span>
+<span class="fc" id="L1075">                theConnection.setConnection(aiConnection);</span>
+<span class="fc" id="L1076">                server.addDummyConnection(theConnection);</span>
+<span class="fc" id="L1077">                serverPlayer.setConnection(theConnection);</span>
+<span class="fc" id="L1078">                serverPlayer.setConnected(true);</span>
+            }
+<span class="fc bfc" id="L1080" title="All 2 branches covered.">            if (player.isEuropean()) {</span>
+                // The map will be invalid, so trigger a recalculation of the
+                // canSeeTiles, by calling canSee for an arbitrary tile.
+<span class="fc" id="L1083">                player.canSee(game.getMap().getTile(0, 0));</span>
+            }
+<span class="fc" id="L1085">        }</span>
+
+<span class="fc" id="L1087">        return game;</span>
+    }
+
+    /**
+     * Add option to capture units under repair in a colony.
+     * Establish a new unknown enemy player.
+     *
+     * @param game The &lt;code&gt;Game&lt;/code&gt; to establish the enemy within.
+     * @return The new unknown enemy &lt;code&gt;Player&lt;/code&gt;.
+     */
+    private ServerPlayer establishUnknownEnemy(Game game) {
+<span class="fc" id="L1098">        final Specification spec = game.getSpecification();</span>
+
+<span class="fc" id="L1100">        ServerPlayer enemy = new ServerPlayer(game, false,</span>
+<span class="fc" id="L1101">            spec.getNation(Nation.UNKNOWN_NATION_ID), null, null);</span>
+<span class="fc" id="L1102">        game.setUnknownEnemy(enemy);</span>
+<span class="fc" id="L1103">        return enemy;</span>
+    }
+
+    /**
+     * Create an empty map.
+     *
+     * Public for the map generator.
+     *
+     * @param game The &lt;code&gt;Game&lt;/code&gt; to create the map for.
+     * @param width The map width.
+     * @param height The map height.
+     * @return The new empty &lt;code&gt;Map&lt;/code&gt;.
+     */
+    public Map createEmptyMap(Game game, int width, int height) {
+<span class="nc" id="L1117">        return getMapGenerator().createEmptyMap(width, height,</span>
+                                                new LogBuilder(-1));
+    }
+
+    /**
+     * Builds a new game using the parameters that exist in the game
+     * as it stands.
+     *
+     * @return The updated game.
+     * @exception FreeColException on map generation failure.
+     */
+    public Game buildGame() throws FreeColException {
+<span class="fc" id="L1129">        final ServerGame game = getGame();</span>
+<span class="fc" id="L1130">        final Specification spec = game.getSpecification();</span>
+<span class="fc" id="L1131">        final AIMain aiMain = new AIMain(this);</span>
+<span class="fc" id="L1132">        setAIMain(aiMain);</span>
+
+<span class="fc" id="L1134">        List&lt;ServerPlayer&gt; newAI = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L1135">        game.setFreeColGameObjectListener(aiMain);</span>
+        for (Entry&lt;Nation, NationState&gt; entry
+<span class="fc bfc" id="L1137" title="All 2 branches covered.">                 : game.getNationOptions().getNations().entrySet()) {</span>
+<span class="pc bpc" id="L1138" title="1 of 2 branches missed.">            if (entry.getKey().isUnknownEnemy()) continue;</span>
+<span class="fc bfc" id="L1139" title="All 2 branches covered.">            if (entry.getValue() != NationState.NOT_AVAILABLE</span>
+<span class="pc bpc" id="L1140" title="1 of 2 branches missed.">                &amp;&amp; game.getPlayerByNation(entry.getKey()) == null) {</span>
+<span class="fc" id="L1141">                newAI.add(makeAIPlayer(entry.getKey()));</span>
+            }
+<span class="fc" id="L1143">        }</span>
+<span class="fc" id="L1144">        Collections.sort(game.getPlayers(), Player.playerComparator);</span>
+<span class="fc" id="L1145">        game.updatePlayers(newAI);</span>
+
+        // We need a fake unknown enemy player
+<span class="fc" id="L1148">        establishUnknownEnemy(game);</span>
+
+        // Create the map.
+<span class="fc" id="L1151">        LogBuilder lb = new LogBuilder(256);</span>
+<span class="fc" id="L1152">        game.setMap(getMapGenerator().createMap(lb));</span>
+<span class="fc" id="L1153">        lb.log(logger, Level.FINER);</span>
+        
+        // Initial stances and randomizations for all players.
+<span class="fc" id="L1156">        spec.generateDynamicOptions();</span>
+<span class="fc" id="L1157">        Random random = getServerRandom();</span>
+<span class="fc bfc" id="L1158" title="All 2 branches covered.">        for (Player player : game.getLivePlayers(null)) {</span>
+<span class="fc" id="L1159">            ((ServerPlayer)player).randomizeGame(random);</span>
+<span class="fc bfc" id="L1160" title="All 2 branches covered.">            if (player.isIndian()) {</span>
+                // Indian players know about each other, but European colonial
+                // players do not.
+<span class="fc" id="L1163">                final int alarm = (Tension.Level.HAPPY.getLimit()</span>
+<span class="fc" id="L1164">                    + Tension.Level.CONTENT.getLimit()) / 2;</span>
+<span class="fc bfc" id="L1165" title="All 2 branches covered.">                for (Player other : game.getLiveNativePlayers(player)) {</span>
+<span class="fc" id="L1166">                    player.setStance(other, Stance.PEACE);</span>
+<span class="fc bfc" id="L1167" title="All 2 branches covered.">                    for (IndianSettlement is : player.getIndianSettlements()) {</span>
+<span class="fc" id="L1168">                        is.setAlarm(other, new Tension(alarm));</span>
+<span class="fc" id="L1169">                    }</span>
+<span class="fc" id="L1170">                }</span>
+            }
+<span class="fc" id="L1172">        }</span>
+
+        // Ensure that option groups can not be edited any more.
+<span class="fc" id="L1175">        spec.getMapGeneratorOptions().setEditable(false);</span>
+<span class="fc" id="L1176">        spec.getGameOptions().setEditable(false);</span>
+<span class="fc" id="L1177">        spec.getOptionGroup(&quot;difficultyLevels&quot;).setEditable(false);</span>
+
+        // Let the AIMain scan for objects it should be managing.
+<span class="fc" id="L1180">        aiMain.findNewObjects(true);</span>
+
+<span class="fc" id="L1182">        return game;</span>
+    }
+
+    /**
+     * Make a new AI player and add it to the game.
+     *
+     * Public so the controller can add REF players.
+     *
+     * @param nation The &lt;code&gt;Nation&lt;/code&gt; to add.
+     * @return The new AI &lt;code&gt;ServerPlayer&lt;/code&gt;.
+     */
+    public ServerPlayer makeAIPlayer(Nation nation) {
+<span class="fc" id="L1194">        DummyConnection theConnection</span>
+<span class="fc" id="L1195">            = new DummyConnection(&quot;Server connection - &quot; + nation.getId(),</span>
+<span class="fc" id="L1196">                getInGameInputHandler());</span>
+<span class="fc" id="L1197">        ServerPlayer aiPlayer = new ServerPlayer(getGame(), false, nation,</span>
+                                                 null, theConnection);
+<span class="fc" id="L1199">        aiPlayer.setAI(true);</span>
+<span class="fc" id="L1200">        DummyConnection aiConnection</span>
+<span class="fc" id="L1201">            = new DummyConnection(&quot;AI connection - &quot; + nation.getId(),</span>
+<span class="fc" id="L1202">                new AIInGameInputHandler(this, aiPlayer, getAIMain()));</span>
+<span class="fc" id="L1203">        aiConnection.setConnection(theConnection);</span>
+<span class="fc" id="L1204">        theConnection.setConnection(aiConnection);</span>
+<span class="fc" id="L1205">        getServer().addDummyConnection(theConnection);</span>
+
+<span class="fc" id="L1207">        getGame().addPlayer(aiPlayer);</span>
+        // Add to the AI, which was previously deferred because the
+        // player type was unknown.
+<span class="fc" id="L1210">        getAIMain().setFreeColGameObject(aiPlayer.getId(), aiPlayer);</span>
+<span class="fc" id="L1211">        return aiPlayer;</span>
+    }
+
+    /**
+     * Removes automatically created save games.
+     * Call this function to delete the automatically created save games from
+     * a previous game.
+     */
+    public static void removeAutosaves(final String prefix) {
+<span class="nc bnc" id="L1220" title="All 2 branches missed.">        for (File autosaveFile : FreeColDirectories.getAutosaveDirectory().listFiles()) {</span>
+<span class="nc bnc" id="L1221" title="All 2 branches missed.">            if (autosaveFile.getName().startsWith(prefix)) {</span>
+<span class="nc" id="L1222">                autosaveFile.delete();</span>
+            }
+        }
+<span class="nc" id="L1225">    }</span>
+
+    /**
+     * Reveals or hides the entire map for all players.
+     * Debug menu helper.
+     *
+     * @param reveal If true, reveal, if false, hide.
+     */
+    public void exploreMapForAllPlayers(boolean reveal) {
+<span class="nc bnc" id="L1234" title="All 2 branches missed.">        for (Player player : getGame().getLiveEuropeanPlayers(null)) {</span>
+<span class="nc" id="L1235">            ((ServerPlayer)player).exploreMap(reveal);</span>
+<span class="nc" id="L1236">        }</span>
+     
+        // Removes fog of war when revealing the whole map
+        // Restores previous setting when hiding it back again
+<span class="nc" id="L1240">        BooleanOption fogOfWarSetting = game.getSpecification()</span>
+<span class="nc" id="L1241">            .getBooleanOption(GameOptions.FOG_OF_WAR);</span>
+<span class="nc bnc" id="L1242" title="All 2 branches missed.">        if (reveal) {</span>
+<span class="nc" id="L1243">            FreeColDebugger.setNormalGameFogOfWar(fogOfWarSetting.getValue());</span>
+<span class="nc" id="L1244">            fogOfWarSetting.setValue(Boolean.FALSE); </span>
+        } else {
+<span class="nc" id="L1246">            fogOfWarSetting.setValue(FreeColDebugger.getNormalGameFogOfWar());</span>
+        }
+
+<span class="nc bnc" id="L1249" title="All 2 branches missed.">        for (Player player : getGame().getLiveEuropeanPlayers(null)) {</span>
+            try {
+<span class="nc" id="L1251">                ((ServerPlayer)player).getConnection()</span>
+<span class="nc" id="L1252">                    .send(DOMMessage.createMessage(&quot;reconnect&quot;));</span>
+<span class="nc" id="L1253">            } catch (IOException e) {</span>
+<span class="nc" id="L1254">                logger.log(Level.WARNING, &quot;Error sending reconnect.&quot;, e);</span>
+<span class="nc" id="L1255">            }</span>
+<span class="nc" id="L1256">        }</span>
+<span class="nc" id="L1257">    }</span>
+
+    /**
+     * Gets a &lt;code&gt;Player&lt;/code&gt; specified by a connection.
+     *
+     * @param connection The connection to use while searching for a
+     *            &lt;code&gt;ServerPlayer&lt;/code&gt;.
+     * @return The player.
+     */
+    public ServerPlayer getPlayer(Connection connection) {
+<span class="fc" id="L1267">        return (ServerPlayer)find(game.getPlayers(),</span>
+<span class="fc bfc" id="L1268" title="All 2 branches covered.">            p -&gt; ((ServerPlayer)p).getConnection() == connection);</span>
+    }
+
+    /**
+     * Gets the AI player corresponding to a given player.
+     *
+     * @param player The &lt;code&gt;Player&lt;/code&gt; to look up.
+     * @return The corresponding AI player, or null if not found.
+     */
+    public AIPlayer getAIPlayer(Player player) {
+<span class="nc" id="L1278">        return getAIMain().getAIPlayer(player);</span>
+    }
+
+    /**
+     * Shut down this FreeColServer.
+     */
+    public void shutdown() {
+<span class="nc" id="L1285">        server.shutdown();</span>
+<span class="nc" id="L1286">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

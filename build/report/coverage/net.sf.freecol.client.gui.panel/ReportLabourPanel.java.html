@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReportLabourPanel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.client.gui.panel</a> &gt; <span class="el_source">ReportLabourPanel.java</span></div><h1>ReportLabourPanel.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.client.gui.panel;
+
+import java.awt.AlphaComposite;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Composite;
+import java.awt.event.ActionEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.swing.AbstractAction;
+import javax.swing.Action;
+import javax.swing.DefaultListModel;
+import javax.swing.ImageIcon;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JPanel;
+import javax.swing.KeyStroke;
+import javax.swing.ListCellRenderer;
+import javax.swing.ListSelectionModel;
+import net.miginfocom.swing.MigLayout;
+
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.TypeCountMap;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.UnitType;
+
+
+/**
+ * This panel displays the Labour Report.
+ */
+public final class ReportLabourPanel extends ReportPanel {
+
+    /** An individual unit type panel. */
+    private class LabourUnitPanel extends JPanel {
+
+        public boolean selected;
+        public final UnitType unitType;
+
+
+<span class="nc" id="L69">        public LabourUnitPanel(UnitType unitType, int count) {</span>
+<span class="nc" id="L70">            this.unitType = unitType;</span>
+<span class="nc" id="L71">            setOpaque(false);</span>
+<span class="nc" id="L72">            setLayout(new MigLayout(&quot;wrap 2&quot;, &quot;[60, right][left]&quot;));</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">            add(new JLabel(new ImageIcon(getImageLibrary().getSmallUnitImage(</span>
+                    unitType, (count == 0)))),
+                &quot;spany 2&quot;);
+<span class="nc" id="L76">            add(new JLabel(Messages.getName(unitType)));</span>
+<span class="nc" id="L77">            add(new JLabel(Integer.toString(count)));</span>
+<span class="nc" id="L78">        }</span>
+
+
+        @Override
+        public void paint(Graphics g) {
+<span class="nc bnc" id="L83" title="All 2 branches missed.">            if (selected) {</span>
+<span class="nc" id="L84">                Graphics2D g2d = (Graphics2D) g;</span>
+<span class="nc" id="L85">                Composite oldComposite = g2d.getComposite();</span>
+<span class="nc" id="L86">                Color oldColor = g2d.getColor();</span>
+<span class="nc" id="L87">                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.1f));</span>
+<span class="nc" id="L88">                g2d.setColor(Color.BLACK);</span>
+<span class="nc" id="L89">                g2d.fillRect(0, 0, getWidth(), getHeight());</span>
+<span class="nc" id="L90">                g2d.setComposite(oldComposite);</span>
+<span class="nc" id="L91">                g2d.setColor(oldColor);</span>
+            }
+<span class="nc" id="L93">            super.paint(g);</span>
+<span class="nc" id="L94">        }</span>
+    }
+
+    /** A renderer for the labour unit panels. */
+<span class="nc" id="L98">    private static class LabourUnitPanelRenderer</span>
+        implements ListCellRenderer&lt;LabourUnitPanel&gt; {
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Component getListCellRendererComponent(JList&lt;? extends LabourUnitPanel&gt; list,
+                                                      LabourUnitPanel value,
+                                                      int index,
+                                                      boolean isSelected,
+                                                      boolean cellHasFocus) {
+<span class="nc" id="L110">            value.selected = isSelected;</span>
+<span class="nc" id="L111">            return value;</span>
+        }
+    }
+
+
+    /** The map of unit type to location and count. */
+    private final Map&lt;UnitType, Map&lt;Location, Integer&gt;&gt; data;
+
+    /** A map of count by unit type. */
+    private final TypeCountMap&lt;UnitType&gt; unitCount;
+
+    /** The player colonies. */
+    private final List&lt;Colony&gt; colonies;
+
+    /** A list of panels for the unit types. */
+<span class="nc" id="L126">    private JList&lt;LabourUnitPanel&gt; panelList = null;</span>
+
+
+    /**
+     * The constructor that will add the items to this panel.
+     */
+    public ReportLabourPanel(FreeColClient freeColClient) {
+<span class="nc" id="L133">        super(freeColClient, &quot;reportLabourAction&quot;);</span>
+
+<span class="nc" id="L135">        this.data = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L136">        this.unitCount = new TypeCountMap&lt;&gt;();</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        for (Unit unit : getMyPlayer().getUnits()) {</span>
+<span class="nc" id="L138">            UnitType type = unit.getType();</span>
+<span class="nc" id="L139">            this.unitCount.incrementCount(type, 1);</span>
+<span class="nc" id="L140">            Map&lt;Location, Integer&gt; unitMap = this.data.get(type);</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">            if (unitMap == null) {</span>
+<span class="nc" id="L142">                unitMap = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L143">                this.data.put(type, unitMap);</span>
+            }
+
+<span class="nc" id="L146">            Location location = unit.getLocation();</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">            if (location == null) {</span>
+<span class="nc" id="L148">                logger.warning(&quot;Unit has null location: &quot; + unit);</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">            } else if (location.getSettlement() != null) {</span>
+<span class="nc" id="L150">                location = location.getSettlement();</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">            } else if (unit.isInEurope()) {</span>
+<span class="nc" id="L152">                location = getMyPlayer().getEurope();</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">            } else if (location.getTile() != null) {</span>
+<span class="nc" id="L154">                location = location.getTile();</span>
+            }
+<span class="nc" id="L156">            Integer count = unitMap.get(location);</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">            if (count == null) {</span>
+<span class="nc" id="L158">                unitMap.put(location, 1);</span>
+            } else {
+<span class="nc" id="L160">                unitMap.put(location, count + 1);</span>
+            }
+<span class="nc" id="L162">        }</span>
+
+<span class="nc" id="L164">        this.colonies = freeColClient.getMySortedColonies();</span>
+
+<span class="nc" id="L166">        DefaultListModel&lt;LabourUnitPanel&gt; model</span>
+            = new DefaultListModel&lt;&gt;();
+<span class="nc bnc" id="L168" title="All 2 branches missed.">        for (UnitType unitType : getSpecification().getUnitTypeList()) {</span>
+<span class="nc bnc" id="L169" title="All 4 branches missed.">            if (unitType.isPerson() &amp;&amp; unitType.isAvailableTo(getMyPlayer())) {</span>
+<span class="nc" id="L170">                int count = this.unitCount.getCount(unitType);</span>
+<span class="nc" id="L171">                model.addElement(new LabourUnitPanel(unitType, count));</span>
+            }
+<span class="nc" id="L173">        }</span>
+<span class="nc" id="L174">        Action selectAction = new AbstractAction() {</span>
+                @Override
+                public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L177">                    showDetails();</span>
+<span class="nc" id="L178">                }</span>
+            };
+<span class="nc" id="L180">        Action quitAction = new AbstractAction() {</span>
+                @Override
+                public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L183">                    getGUI().removeFromCanvas(ReportLabourPanel.this);</span>
+<span class="nc" id="L184">                }</span>
+            };
+
+        // Add all the components
+<span class="nc" id="L188">        this.panelList = new JList&lt;&gt;(model);</span>
+<span class="nc" id="L189">        this.panelList.getInputMap()</span>
+<span class="nc" id="L190">            .put(KeyStroke.getKeyStroke(&quot;ENTER&quot;), &quot;select&quot;);</span>
+<span class="nc" id="L191">        this.panelList.getActionMap().put(&quot;select&quot;, selectAction);</span>
+<span class="nc" id="L192">        this.panelList.getInputMap()</span>
+<span class="nc" id="L193">            .put(KeyStroke.getKeyStroke(&quot;ESCAPE&quot;), &quot;quit&quot;);</span>
+<span class="nc" id="L194">        this.panelList.getActionMap().put(&quot;quit&quot;, quitAction);</span>
+<span class="nc" id="L195">        this.panelList.addMouseListener(new MouseAdapter() {</span>
+                @Override
+                public void mouseClicked(MouseEvent e) {
+<span class="nc bnc" id="L198" title="All 2 branches missed.">                    if (e.getClickCount() == 2) {</span>
+<span class="nc" id="L199">                        showDetails();</span>
+                    }
+<span class="nc" id="L201">                }</span>
+            });
+<span class="nc" id="L203">        this.panelList.setOpaque(false);</span>
+<span class="nc" id="L204">        this.panelList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);</span>
+<span class="nc" id="L205">        this.panelList.setLayoutOrientation(JList.HORIZONTAL_WRAP);</span>
+<span class="nc" id="L206">        this.panelList.setVisibleRowCount(-1);</span>
+<span class="nc" id="L207">        this.panelList.setCellRenderer(new LabourUnitPanelRenderer());</span>
+
+<span class="nc" id="L209">        this.scrollPane.setViewportView(this.panelList);</span>
+<span class="nc" id="L210">    }</span>
+
+    private void showDetails() {
+<span class="nc" id="L213">        UnitType unitType = panelList.getSelectedValue()</span>
+            .unitType;
+<span class="nc" id="L215">        getGUI().showReportLabourDetailPanel(unitType, this.data,</span>
+                                             this.unitCount, this.colonies);
+<span class="nc" id="L217">    }</span>
+
+
+    // Interface ActionListener
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L227">        final String command = ae.getActionCommand();</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">        if (OK.equals(command)) {</span>
+<span class="nc" id="L229">            super.actionPerformed(ae);</span>
+        } else {
+<span class="nc" id="L231">            UnitType unitType = getSpecification().getUnitType(command);</span>
+<span class="nc" id="L232">            getGUI().showReportLabourDetailPanel(unitType, this.data,</span>
+                this.unitCount, this.colonies);
+        }
+<span class="nc" id="L235">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

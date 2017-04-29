@@ -1,0 +1,494 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FreeColDialog.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.client.gui.panel</a> &gt; <span class="el_source">FreeColDialog.java</span></div><h1>FreeColDialog.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.client.gui.panel;
+
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Point;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.swing.ImageIcon;
+import javax.swing.JComponent;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
+
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.control.InGameController;
+import net.sf.freecol.client.gui.ChoiceItem;
+import net.sf.freecol.client.gui.ImageLibrary;
+import net.sf.freecol.client.gui.SwingGUI;
+import net.sf.freecol.client.gui.plaf.FreeColOptionPaneUI;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.StringTemplate;
+
+
+/**
+ * Superclass for all dialogs in FreeCol.
+ */
+public class FreeColDialog&lt;T&gt; extends JDialog implements PropertyChangeListener {
+
+<span class="nc" id="L66">    private static final Logger logger = Logger.getLogger(FreeColDialog.class.getName());</span>
+
+<span class="nc" id="L68">    public static enum DialogType {</span>
+<span class="nc" id="L69">        PLAIN,</span>
+<span class="nc" id="L70">        QUESTION,</span>
+    };
+
+    /** The enclosing client. */
+    protected final FreeColClient freeColClient;
+
+    /** Is this dialog modal? */
+    protected boolean modal;
+
+    /** The options to choose from. */
+    protected List&lt;ChoiceItem&lt;T&gt;&gt; options;
+
+    /** The JOptionPane to embed in this dialog. */
+    private JOptionPane pane;
+
+
+    /**
+     * Protected constructor for the subclass panels.
+     *
+     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+     * @param frame The owner frame.
+     */
+    protected FreeColDialog(FreeColClient freeColClient, JFrame frame) {
+<span class="nc" id="L93">        super(frame);</span>
+
+<span class="nc" id="L95">        this.freeColClient = freeColClient;</span>
+<span class="nc" id="L96">    }</span>
+
+    /**
+     * Full constructor for canvas to build a dialog in one hit (supplying
+     * the getResponse() implementation).
+     *
+     * Much of this was extracted from the source for
+     * JOptionPane.createDialog.  We needed a way to control modality.
+     *
+     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+     * @param frame The owner frame.
+     * @param type The &lt;code&gt;DialogType&lt;/code&gt; to create.
+     * @param modal Should this dialog be modal?
+     * @param obj The main object that explains the choice for the user,
+     *     usually just a string, but may be more complex.
+     * @param icon An optional icon to display.
+     * @param options A list of options to choose from.
+     */
+    public FreeColDialog(FreeColClient freeColClient, JFrame frame,
+            DialogType type, boolean modal, Object obj, ImageIcon icon,
+            List&lt;ChoiceItem&lt;T&gt;&gt; options) {
+<span class="nc" id="L117">        this(freeColClient, frame);</span>
+
+<span class="nc" id="L119">        initializeDialog(frame, type, modal, obj, icon, options);</span>
+<span class="nc" id="L120">    }</span>
+
+
+    /**
+     * Select the default option from the supplied options.
+     *
+     * @param options A list of options to choose from.
+     * @return The option to select initially.
+     */
+    private int selectDefault(List&lt;ChoiceItem&lt;T&gt;&gt; options) {
+<span class="nc" id="L130">        int def = -1, can = -1, ok = -1, i = 0;</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">        for (ChoiceItem&lt;T&gt; ci : options) {</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">            if (ci.isDefault()) def = i;</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">            else if (ci.isCancel()) can = i;</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">            else if (ci.isOK()) ok = i;</span>
+<span class="nc" id="L135">            i++;</span>
+<span class="nc" id="L136">        }</span>
+<span class="nc bnc" id="L137" title="All 6 branches missed.">        return (def &gt;= 0) ? def : (can &gt;= 0) ? can : (ok &gt;= 0) ? ok</span>
+<span class="nc" id="L138">            : options.size() - 1;</span>
+    }
+
+    /**
+     * Collect the enabled options and return as an array so as to be able
+     * to pass to the JOptionPane constructor.
+     *
+     * @return An array of enabled options.
+     */
+    private Object[] selectOptions() {
+<span class="nc" id="L148">        return this.options.stream().filter(ChoiceItem::isEnabled).toArray();</span>
+    }
+
+    /**
+     * Complete the initialization.  Useful for subclasses that need
+     * to construct a non-trivial object to display in the JOptionPane.
+     *
+     * @param frame The owner frame.
+     * @param type The &lt;code&gt;DialogType&lt;/code&gt; to create.
+     * @param modal Should this dialog be modal?
+     * @param obj The main object that explains the choice for the user,
+     *     usually just a string, but may be more complex.
+     * @param icon An optional icon to display.
+     * @param options A list of options to choose from.
+     */
+    protected final void initializeDialog(JFrame frame,
+            DialogType type, boolean modal, Object obj, ImageIcon icon,
+            List&lt;ChoiceItem&lt;T&gt;&gt; options) {
+<span class="nc" id="L166">        this.modal = modal;</span>
+<span class="nc" id="L167">        this.options = options;</span>
+<span class="nc" id="L168">        int paneType = JOptionPane.QUESTION_MESSAGE;</span>
+<span class="nc bnc" id="L169" title="All 3 branches missed.">        switch (type) {</span>
+<span class="nc" id="L170">        case PLAIN:    paneType = JOptionPane.PLAIN_MESSAGE; break;</span>
+<span class="nc" id="L171">        case QUESTION: paneType = JOptionPane.QUESTION_MESSAGE; break;</span>
+        }
+<span class="nc" id="L173">        int def = selectDefault(options);</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        ChoiceItem&lt;T&gt; ci = (def &gt;= 0) ? options.get(def) : null;</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">        if (obj instanceof StringTemplate) {</span>
+<span class="nc" id="L176">            obj = Utility.localizedTextArea((StringTemplate)obj);</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        } else if(obj instanceof String) {</span>
+<span class="nc" id="L178">            obj = Utility.getDefaultTextArea((String)obj);</span>
+        }
+<span class="nc" id="L180">        this.pane = new JOptionPane(obj, paneType, JOptionPane.DEFAULT_OPTION,</span>
+<span class="nc" id="L181">                                    icon, selectOptions(), ci);</span>
+<span class="nc" id="L182">        this.pane.setBorder(Utility.DIALOG_BORDER);</span>
+<span class="nc" id="L183">        this.pane.setOpaque(false);</span>
+<span class="nc" id="L184">        this.pane.setName(&quot;FreeColDialog&quot;);</span>
+<span class="nc" id="L185">        this.pane.setValue(JOptionPane.UNINITIALIZED_VALUE);</span>
+<span class="nc" id="L186">        this.pane.addPropertyChangeListener(this);</span>
+<span class="nc" id="L187">        this.pane.setSize(this.pane.getPreferredSize());</span>
+<span class="nc" id="L188">        setComponentOrientation(this.pane.getComponentOrientation());</span>
+
+<span class="nc" id="L190">        Container contentPane = getContentPane();</span>
+<span class="nc" id="L191">        contentPane.add(this.pane);</span>
+<span class="nc" id="L192">        setSize(getPreferredSize());</span>
+<span class="nc" id="L193">        setResizable(false);</span>
+<span class="nc" id="L194">        setUndecorated(true);</span>
+<span class="nc" id="L195">        setModal(modal);</span>
+
+<span class="nc" id="L197">        setSubcomponentsNotOpaque(this.pane);</span>
+        try { // Layout failures might not get logged.
+<span class="nc" id="L199">            pack();</span>
+<span class="nc" id="L200">        } catch (Exception e) {</span>
+<span class="nc" id="L201">            logger.log(Level.WARNING, &quot;Packing failure&quot;, e);</span>
+<span class="nc" id="L202">        }</span>
+<span class="nc" id="L203">        setLocationRelativeTo(frame);</span>
+
+<span class="nc" id="L205">        WindowAdapter adapter = new WindowAdapter() {</span>
+<span class="nc" id="L206">                private boolean gotFocus = false;</span>
+
+                @Override
+                public void windowClosing(WindowEvent we) {
+<span class="nc bnc" id="L210" title="All 2 branches missed.">                    if (!FreeColDialog.this.responded()) {</span>
+<span class="nc" id="L211">                        FreeColDialog.this.setValue(null);</span>
+                    }
+<span class="nc" id="L213">                }</span>
+                @Override
+                public void windowGainedFocus(WindowEvent we) {
+<span class="nc bnc" id="L216" title="All 2 branches missed.">                    if (!gotFocus) { // Once window gets focus, initialize.</span>
+<span class="nc" id="L217">                        FreeColDialog.this.pane.selectInitialValue();</span>
+<span class="nc" id="L218">                        gotFocus = true;</span>
+                    }
+<span class="nc" id="L220">                }</span>
+            };
+<span class="nc" id="L222">        addWindowListener(adapter);</span>
+<span class="nc" id="L223">        addWindowFocusListener(adapter);</span>
+
+<span class="nc" id="L225">        addComponentListener(new ComponentAdapter() {</span>
+                @Override
+                public void componentShown(ComponentEvent ce) {
+                    // Reset value to ensure closing works properly.
+<span class="nc" id="L229">                    FreeColDialog.this.pane</span>
+<span class="nc" id="L230">                        .setValue(JOptionPane.UNINITIALIZED_VALUE);</span>
+<span class="nc" id="L231">                }</span>
+            });
+
+<span class="nc" id="L234">        addMouseListener(new MouseAdapter() {</span>
+                private Point loc;
+
+                //@Override
+                //public void mouseDragged(MouseEvent e) {}
+
+                //@Override
+                //public void mouseMoved(MouseEvent e) {}
+
+                @Override
+                public void mousePressed(MouseEvent e) {
+<span class="nc" id="L245">                    loc = SwingUtilities</span>
+<span class="nc" id="L246">                        .convertPoint((Component)e.getSource(),</span>
+<span class="nc" id="L247">                            e.getX(), e.getY(), null);</span>
+<span class="nc" id="L248">                }</span>
+
+                @Override
+                public void mouseReleased(MouseEvent e) {
+<span class="nc bnc" id="L252" title="All 2 branches missed.">                    if (loc == null) return;</span>
+<span class="nc" id="L253">                    Point now = SwingUtilities</span>
+<span class="nc" id="L254">                        .convertPoint((Component)e.getSource(),</span>
+<span class="nc" id="L255">                            e.getX(), e.getY(), null);</span>
+<span class="nc" id="L256">                    int dx = now.x - loc.x;</span>
+<span class="nc" id="L257">                    int dy = now.y - loc.y;</span>
+<span class="nc" id="L258">                    Point p = FreeColDialog.this.getLocation();</span>
+<span class="nc" id="L259">                    FreeColDialog.this.setLocation(p.x + dx, p.y + dy);</span>
+<span class="nc" id="L260">                    loc = null;</span>
+<span class="nc" id="L261">                }</span>
+            });
+<span class="nc" id="L263">    }</span>
+
+    public static void setSubcomponentsNotOpaque(JComponent j) {
+<span class="nc" id="L266">        synchronized(j.getTreeLock()) {</span>
+<span class="nc" id="L267">            iterateOverOpaqueLayersComponents(j);</span>
+<span class="nc" id="L268">        }</span>
+<span class="nc" id="L269">    }</span>
+
+    private static void iterateOverOpaqueLayersComponents(JComponent j){   
+<span class="nc bnc" id="L272" title="All 4 branches missed.">        if (j instanceof JPanel || j instanceof JOptionPane) {            </span>
+<span class="nc" id="L273">           Component[] componentes = j.getComponents();            </span>
+<span class="nc bnc" id="L274" title="All 2 branches missed.">           for (Component componente : componentes) {</span>
+<span class="nc" id="L275">               setOpaqueLayerRecursive(componente);</span>
+           }
+        }    
+<span class="nc" id="L278">    }</span>
+
+    private static void setOpaqueLayerRecursive(Component opaqueComponent) {
+<span class="nc bnc" id="L281" title="All 4 branches missed.">        if (opaqueComponent instanceof JTextArea ||</span>
+            opaqueComponent instanceof JLabel) {
+<span class="nc bnc" id="L283" title="All 2 branches missed.">            if (opaqueComponent.isOpaque()) {</span>
+<span class="nc" id="L284">                ((JComponent) opaqueComponent).setOpaque(false);</span>
+            }
+<span class="nc bnc" id="L286" title="All 2 branches missed.">        } else if (opaqueComponent instanceof JPanel) {</span>
+<span class="nc" id="L287">            JComponent panel = (JComponent)opaqueComponent;</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">            if (panel.isOpaque()) {</span>
+<span class="nc" id="L289">                panel.setOpaque(false);</span>
+            }
+<span class="nc" id="L291">            iterateOverOpaqueLayersComponents(panel);</span>
+        }
+<span class="nc" id="L293">    }</span>
+
+    /**
+     * Get the FreeColClient.
+     *
+     * @return The &lt;code&gt;FreeColClient&lt;/code&gt;.
+     */
+    protected FreeColClient getFreeColClient() {
+<span class="nc" id="L301">        return freeColClient;</span>
+    }
+
+    /**
+     * Get the GUI.
+     *
+     * @return The &lt;code&gt;GUI&lt;/code&gt;.
+     */
+    protected SwingGUI getGUI() {
+<span class="nc" id="L310">        return (SwingGUI)freeColClient.getGUI();</span>
+    }
+
+    /**
+     * Get the client controller.
+     *
+     * @return The client &lt;code&gt;InGameController&lt;/code&gt;.
+     */
+    protected InGameController igc() {
+<span class="nc" id="L319">        return freeColClient.getInGameController();</span>
+    }
+
+    /**
+     * Get the Image library.
+     *
+     * @return The &lt;code&gt;ImageLibrary&lt;/code&gt;.
+     */
+    protected ImageLibrary getImageLibrary() {
+<span class="nc" id="L328">        return getGUI().getImageLibrary();</span>
+    }
+
+    /**
+     * Get the game.
+     *
+     * @return The &lt;code&gt;Game&lt;/code&gt;.
+     */
+    protected Game getGame() {
+<span class="nc" id="L337">        return freeColClient.getGame();</span>
+    }
+
+    /**
+     * Gets the specification.
+     *
+     * @return The specification from the game.
+     */
+    protected Specification getSpecification() {
+<span class="nc" id="L346">        return getGame().getSpecification();</span>
+    }
+
+    /**
+     * Get the player.
+     *
+     * @return The current &lt;code&gt;Player&lt;/code&gt;.
+     */
+    protected Player getMyPlayer() {
+<span class="nc" id="L355">        return freeColClient.getMyPlayer();</span>
+    }
+
+    /**
+     * Get the response that was set by {@link JOptionPane#setValue} and
+     * clean up the dialog.  Used by implementors of getResponse().
+     *
+     * @return The pane value.
+     */
+    protected Object getValue() {
+<span class="nc" id="L365">        Object value = pane.getValue();</span>
+<span class="nc" id="L366">        dispose(); // Pane will now be null following removeNotify().</span>
+<span class="nc" id="L367">        return value;</span>
+    }
+
+    /**
+     * Set the value of this dialog.
+     *
+     * @param value The new value.
+     */
+    protected synchronized void setValue(Object value) {
+<span class="nc" id="L376">        this.pane.setValue(value);</span>
+<span class="nc" id="L377">    }</span>
+
+    /**
+     * Has this dialog been given a response.
+     *
+     * @return True if the dialog has a response.
+     */
+    public synchronized boolean responded() {
+<span class="nc bnc" id="L385" title="All 2 branches missed.">        return this.pane != null</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">            &amp;&amp; this.pane.getValue() != JOptionPane.UNINITIALIZED_VALUE;</span>
+    }
+
+    /**
+     * Get the response from this dialog.
+     *
+     * @return The response from this dialog.
+     */
+    public T getResponse() {
+<span class="nc bnc" id="L395" title="All 2 branches missed.">        if (responded()) {</span>
+<span class="nc" id="L396">            Object value = getValue();</span>
+<span class="nc bnc" id="L397" title="All 2 branches missed.">            for (ChoiceItem&lt;T&gt; ci : this.options) {</span>
+<span class="nc bnc" id="L398" title="All 2 branches missed.">                if (ci.equals(value)) return ci.getObject();</span>
+<span class="nc" id="L399">            }</span>
+        }
+<span class="nc" id="L401">        return null;</span>
+    }
+
+    /**
+     * Is this a modal dialog?
+     *
+     * @return True if this is a modal dialog.
+     */
+    @Override
+    public boolean isModal() {
+<span class="nc" id="L411">        return modal;</span>
+    }
+
+    /**
+     * Create a list of choices.
+     *
+     * @return An empty list of choices.
+     */
+    public static &lt;T&gt; List&lt;ChoiceItem&lt;T&gt;&gt; choices() {
+<span class="nc" id="L420">        return new ArrayList&lt;&gt;();</span>
+    }
+
+
+    // Interface PropertyChangeListener
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void propertyChange(PropertyChangeEvent e) {
+        // Let the defaultCloseOperation handle the closing if the
+        // user closed the window without selecting a button (in which
+        // case the new value will be null).  Otherwise, close the dialog.
+<span class="nc bnc" id="L434" title="All 2 branches missed.">        if (this.isVisible()</span>
+<span class="nc bnc" id="L435" title="All 2 branches missed.">            &amp;&amp; e.getSource() == pane</span>
+<span class="nc bnc" id="L436" title="All 2 branches missed.">            &amp;&amp; (JOptionPane.VALUE_PROPERTY.equals(e.getPropertyName())</span>
+<span class="nc bnc" id="L437" title="All 2 branches missed.">                || JOptionPane.INPUT_VALUE_PROPERTY.equals(e.getPropertyName()))</span>
+<span class="nc bnc" id="L438" title="All 2 branches missed.">            &amp;&amp; e.getNewValue() != null</span>
+<span class="nc bnc" id="L439" title="All 2 branches missed.">            &amp;&amp; e.getNewValue() != JOptionPane.UNINITIALIZED_VALUE) {</span>
+<span class="nc" id="L440">            this.setVisible(false);</span>
+        }
+<span class="nc" id="L442">    }</span>
+
+
+    // Override Dialog
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setVisible(boolean val) {
+<span class="nc bnc" id="L452" title="All 2 branches missed.">        if (val) this.pane.selectInitialValue();</span>
+<span class="nc" id="L453">        super.setVisible(val); // This is where the thread blocks when modal.</span>
+<span class="nc" id="L454">    }</span>
+
+
+    // Override Component
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void removeNotify() {
+<span class="nc" id="L464">        super.removeNotify();</span>
+
+<span class="nc" id="L466">        getGUI().dialogRemove(FreeColDialog.this);</span>
+
+<span class="nc" id="L468">        removeAll();</span>
+<span class="nc bnc" id="L469" title="All 2 branches missed.">        if (this.pane != null) {</span>
+<span class="nc" id="L470">            this.pane.removePropertyChangeListener(this);</span>
+<span class="nc" id="L471">            this.pane = null;</span>
+        }
+
+<span class="nc bnc" id="L474" title="All 2 branches missed.">        for (MouseListener listener : getMouseListeners()) {</span>
+<span class="nc" id="L475">            removeMouseListener(listener);</span>
+        }
+<span class="nc" id="L477">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void requestFocus() {
+<span class="nc bnc" id="L484" title="All 2 branches missed.">        if (this.pane != null</span>
+<span class="nc bnc" id="L485" title="All 2 branches missed.">            &amp;&amp; this.pane.getUI() instanceof FreeColOptionPaneUI) {</span>
+<span class="nc" id="L486">            Component c = ((FreeColOptionPaneUI)this.pane.getUI())</span>
+<span class="nc" id="L487">                .getInitialFocusComponent();</span>
+<span class="nc bnc" id="L488" title="All 2 branches missed.">            if (c != null) {</span>
+<span class="nc" id="L489">                c.requestFocus();</span>
+            }
+        }
+<span class="nc" id="L492">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

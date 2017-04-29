@@ -1,0 +1,616 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HighScore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.model</a> &gt; <span class="el_source">HighScore.java</span></div><h1>HighScore.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.model;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+
+import net.sf.freecol.FreeCol;
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.io.FreeColDirectories;
+import net.sf.freecol.common.io.FreeColXMLReader;
+import net.sf.freecol.common.io.FreeColXMLWriter;
+
+import org.w3c.dom.Element;
+
+
+/**
+ * A FreeCol high score record.
+ */
+public class HighScore extends FreeColObject {
+
+<span class="nc" id="L52">    private static final Logger logger = Logger.getLogger(HighScore.class.getName());</span>
+
+    /** The number of high scores to allow in the high scores list. */
+    public static final int NUMBER_OF_HIGH_SCORES = 10;
+
+    /**
+     * On retirement, an object will be named in honour of the
+     * player.  The nature of the object depends on the player's score.
+     */
+<span class="nc" id="L61">    public static enum ScoreLevel {</span>
+<span class="nc" id="L62">        CONTINENT(40000),</span>
+<span class="nc" id="L63">        COUNTRY(35000),</span>
+<span class="nc" id="L64">        STATE(30000),</span>
+<span class="nc" id="L65">        CITY(25000),</span>
+<span class="nc" id="L66">        MOUNTAIN_RANGE(20000),</span>
+<span class="nc" id="L67">        RIVER(15000),</span>
+<span class="nc" id="L68">        INSTITUTE(12000),</span>
+<span class="nc" id="L69">        UNIVERSITY(10000),</span>
+<span class="nc" id="L70">        STREET(8000),</span>
+<span class="nc" id="L71">        SCHOOL(7000),</span>
+<span class="nc" id="L72">        BIRD_OF_PREY(6000),</span>
+<span class="nc" id="L73">        TREE(5000),</span>
+<span class="nc" id="L74">        FLOWER(4000),</span>
+<span class="nc" id="L75">        RODENT(3200),</span>
+<span class="nc" id="L76">        FOUL_SMELLING_PLANT(2400),</span>
+<span class="nc" id="L77">        POISONOUS_PLANT(1600),</span>
+<span class="nc" id="L78">        SLIME_MOLD_BEETLE(800),</span>
+<span class="nc" id="L79">        BLOOD_SUCKING_INSECT(400),</span>
+<span class="nc" id="L80">        INFECTIOUS_DISEASE(200),</span>
+<span class="nc" id="L81">        PARASITIC_WORM(0);</span>
+
+        private final int minimumScore;
+
+
+<span class="nc" id="L86">        ScoreLevel(int minimumScore) {</span>
+<span class="nc" id="L87">            this.minimumScore = minimumScore;</span>
+<span class="nc" id="L88">        }</span>
+
+        public int getMinimumScore() {
+<span class="nc" id="L91">            return minimumScore;</span>
+        }
+    }
+
+    /** The format to use for dates.  Almost ISO8601. */
+<span class="nc" id="L96">    private static final SimpleDateFormat dateFormat</span>
+        = new SimpleDateFormat(&quot;yyyy-MM-dd HH:mm:ssZ&quot;);
+
+    /** The turn in which independence was granted. */
+<span class="nc" id="L100">    private int independenceTurn = -1;</span>
+
+    /** The name of the human player. */
+    private String playerName;
+
+    /** The nation that retired. */
+    private String nationId;
+
+    /** The nation type that retired. */
+    private String nationTypeId;
+
+    /** The high score. */
+    private int score;
+
+    /** The ScoreLevel/title for this score. */
+    private ScoreLevel level;
+
+    /** The name given to the new independent nation. */
+    private String nationName;
+
+    /** The difficulty level of this game. */
+    private String difficulty;
+
+    /** The final number of units. */
+    private int units;
+
+    /** The final number of colonies. */
+    private int colonies;
+
+    /** The name for the New World. */
+    private String newLandName;
+
+    /** The date for this score. */
+    private Date date;
+    
+    /** The turn when the player retired. */
+    private int retirementTurn;
+
+
+    /**
+     * Create a new high score record.
+     *
+     * @param player The &lt;code&gt;Player&lt;/code&gt; the score is for.
+     * @param theDate The &lt;code&gt;Data&lt;/code&gt; the score is created.
+     */
+<span class="nc" id="L145">    public HighScore(Player player, Date theDate) {</span>
+<span class="nc" id="L146">        Game game = player.getGame();</span>
+<span class="nc" id="L147">        date = theDate;</span>
+<span class="nc" id="L148">        retirementTurn = game.getTurn().getNumber();</span>
+<span class="nc" id="L149">        score = player.getScore();</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        for (ScoreLevel someLevel : ScoreLevel.values()) {</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">            if (score &gt;= someLevel.getMinimumScore()) {</span>
+<span class="nc" id="L152">                level = someLevel;</span>
+<span class="nc" id="L153">                break;</span>
+            }
+        }
+<span class="nc" id="L156">        playerName = player.getName();</span>
+<span class="nc" id="L157">        nationId = player.getNationId();</span>
+<span class="nc" id="L158">        nationTypeId = player.getNationType().getId();</span>
+<span class="nc" id="L159">        colonies = player.getColonies().size();</span>
+<span class="nc" id="L160">        units = player.getUnits().size();</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        if (player.getPlayerType() == Player.PlayerType.INDEPENDENT) {</span>
+<span class="nc" id="L162">            independenceTurn = game.getTurn().getNumber();</span>
+<span class="nc" id="L163">            nationName = player.getIndependentNationName();</span>
+        } else {
+<span class="nc" id="L165">            independenceTurn = -1;</span>
+        }
+<span class="nc" id="L167">        difficulty = game.getSpecification().getDifficultyLevel();</span>
+<span class="nc" id="L168">        newLandName = player.getNewLandName();</span>
+<span class="nc" id="L169">    }</span>
+
+    /**
+     * Create a new &lt;code&gt;HighScore&lt;/code&gt; by reading a stream.
+     *
+     * @param xr The &lt;code&gt;FreeColXMLReader&lt;/code&gt; to read.
+     * @exception XMLStreamException if there is a problem reading the stream.
+     */
+<span class="nc" id="L177">    public HighScore(FreeColXMLReader xr) throws XMLStreamException {</span>
+<span class="nc" id="L178">        readFromXML(xr);</span>
+<span class="nc" id="L179">    }</span>
+
+    /**
+     * Create a new &lt;code&gt;HighScore&lt;/code&gt; by reading an element.
+     *
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to read.
+     */
+<span class="nc" id="L186">    public HighScore(Element element) {</span>
+<span class="nc" id="L187">        readFromXMLElement(element);</span>
+<span class="nc" id="L188">    }</span>
+
+
+    /**
+     * Get the turn independence occurs.
+     *
+     * @return The independence turn.
+     */
+    public final int getIndependenceTurn() {
+<span class="nc" id="L197">        return independenceTurn;</span>
+    }
+
+    /**
+     * Get the turn the player retired.
+     *
+     * @return The retirement turn.
+     */
+    public final int getRetirementTurn() {
+<span class="nc" id="L206">        return retirementTurn;</span>
+    }
+
+    /**
+     * Get the player name.
+     *
+     * @return The player name.
+     */
+    public final String getPlayerName() {
+<span class="nc" id="L215">        return playerName;</span>
+    }
+
+    /**
+     * Get the nation identifier.
+     *
+     * @return The nation identifier.
+     */
+    public final String getNationId() {
+<span class="nc" id="L224">        return nationId;</span>
+    }
+
+    /**
+     * Get the nation type identifier.
+     *
+     * @return The nation type identifier.
+     */
+    public final String getNationTypeId() {
+<span class="nc" id="L233">        return nationTypeId;</span>
+    }
+
+    /**
+     * Get the final score.
+     *
+     * @return The score.
+     */
+    public final int getScore() {
+<span class="nc" id="L242">        return score;</span>
+    }
+
+    /**
+     * Get the &lt;code&gt;ScoreLevel&lt;/code&gt; corresponding to the score.
+     *
+     * @return The score level.
+     */
+    public final ScoreLevel getLevel() {
+<span class="nc" id="L251">        return level;</span>
+    }
+
+    /**
+     * Get the original nation localized name key.
+     *
+     * @return The old name key.
+     */
+    public final String getOldNationNameKey() {
+<span class="nc" id="L260">        return Messages.nameKey(nationId);</span>
+    }
+
+    /**
+     * Get the independent nation name.
+     *
+     * @return The independent nation name.
+     */
+    public final String getNationLabel() {
+<span class="nc" id="L269">        return nationName;</span>
+    }
+
+    /**
+     * Get the name given to the New World.
+     *
+     * @return The new land name.
+     */
+    public final String getNewLandName() {
+<span class="nc" id="L278">        return newLandName;</span>
+    }
+
+    /**
+     * Get the game difficulty key.
+     *
+     * @return The game difficulty key.
+     */
+    public final String getDifficulty() {
+<span class="nc" id="L287">        return difficulty;</span>
+    }
+
+    /**
+     * Get number of units.
+     *
+     * @return The number of units.
+     */
+    public final int getUnits() {
+<span class="nc" id="L296">        return units;</span>
+    }
+
+    /**
+     * Get the number of colonies.
+     *
+     * @return The number of colonies.
+     */
+    public final int getColonies() {
+<span class="nc" id="L305">        return colonies;</span>
+    }
+
+    /**
+     * Get the &lt;code&gt;Date&lt;/code&gt; the score was achieved.
+     *
+     * @return The score &lt;code&gt;Date&lt;/code&gt;.
+     */
+    public final Date getDate() {
+<span class="nc" id="L314">        return date;</span>
+    }
+
+
+    // Utilities for manipulating lists of high scores, and serialization
+    // with the high scores file.
+
+    private static final String HIGH_SCORES_TAG = &quot;highScores&quot;;
+
+    /**
+     * Tidy a list of scores into canonical form.  That is, sorted and
+     * with no more that NUMBER_OF_HIGH_SCORES members.
+     *
+     * @param scores The list of &lt;code&gt;HighScore&lt;/code&gt;s to operate on.
+     */
+    private static void tidyScores(List&lt;HighScore&gt; scores) {
+<span class="nc bnc" id="L330" title="All 2 branches missed.">        if (scores.size() &gt; NUMBER_OF_HIGH_SCORES) {</span>
+<span class="nc" id="L331">            scores = scores.subList(0, NUMBER_OF_HIGH_SCORES - 1);</span>
+        }
+<span class="nc" id="L333">        Collections.sort(scores);</span>
+<span class="nc" id="L334">    }</span>
+
+    /**
+     * Can a given score be added to a high score list.
+     *
+     * @param score The score to check.
+     * @param scores A list of &lt;code&gt;HighScore&lt;/code&gt; to check against.
+     * @return True if the given score can be added to the list.
+     */
+    public static boolean checkHighScore(int score, List&lt;HighScore&gt; scores) {
+<span class="nc bnc" id="L344" title="All 2 branches missed.">        return /*!FreeColDebugger.isInDebugMode()</span>
+                 &amp;&amp; */score &gt;= 0
+<span class="nc bnc" id="L346" title="All 2 branches missed.">            &amp;&amp; (scores.size() &lt; NUMBER_OF_HIGH_SCORES</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">                || score &gt; scores.get(scores.size()-1).getScore());</span>
+    }
+
+    /**
+     * Tries to adds a new high score for player.
+     *
+     * @param player The &lt;code&gt;Player&lt;/code&gt; to add a high score for.
+     * @return True if the score was high enough to be added to the
+     *     high score list.
+     */
+    public static boolean newHighScore(Player player) {
+<span class="nc" id="L358">        List&lt;HighScore&gt; scores = loadHighScores();</span>
+<span class="nc bnc" id="L359" title="All 2 branches missed.">        if (!checkHighScore(player.getScore(), scores)) return false;</span>
+<span class="nc" id="L360">        HighScore hs = new HighScore(player, new Date());</span>
+<span class="nc" id="L361">        scores.add(hs);</span>
+<span class="nc" id="L362">        tidyScores(scores);</span>
+<span class="nc" id="L363">        return saveHighScores(scores);</span>
+    }
+
+    /**
+     * Load the high scores.
+     *
+     * @return A list of &lt;code&gt;HighScore&lt;/code&gt;s from the high score file.
+     */
+    public static List&lt;HighScore&gt; loadHighScores() {
+<span class="nc" id="L372">        List&lt;HighScore&gt; scores = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L373">        File hsf = FreeColDirectories.getHighScoreFile();</span>
+<span class="nc bnc" id="L374" title="All 2 branches missed.">        if (!hsf.exists()) {</span>
+            try {
+<span class="nc" id="L376">                hsf.createNewFile();</span>
+<span class="nc" id="L377">                saveHighScores(scores);</span>
+<span class="nc" id="L378">                logger.info(&quot;Created empty high score file: &quot; + hsf.getPath());</span>
+<span class="nc" id="L379">            } catch (IOException ioe) {</span>
+<span class="nc" id="L380">                scores = null;</span>
+<span class="nc" id="L381">                logger.log(Level.WARNING, &quot;Unable to create high score file: &quot;</span>
+<span class="nc" id="L382">                           + hsf.getPath(), ioe);</span>
+<span class="nc" id="L383">            }</span>
+<span class="nc" id="L384">            return scores;</span>
+        }
+
+<span class="nc" id="L387">        try (</span>
+<span class="nc" id="L388">            FileInputStream fis = new FileInputStream(hsf);</span>
+<span class="nc" id="L389">            FreeColXMLReader xr = new FreeColXMLReader(fis);</span>
+        ) {
+<span class="nc" id="L391">            xr.nextTag();</span>
+
+<span class="nc bnc" id="L393" title="All 2 branches missed.">            while (xr.nextTag() != XMLStreamConstants.END_ELEMENT) {</span>
+<span class="nc" id="L394">                final String tag = xr.getLocalName();</span>
+<span class="nc bnc" id="L395" title="All 2 branches missed.">                if (HighScore.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L396">                    scores.add(new HighScore(xr));</span>
+                }
+<span class="nc" id="L398">            }</span>
+<span class="nc bnc" id="L399" title="All 16 branches missed.">        } catch (Exception e) { // Do not crash on high score fail.</span>
+<span class="nc" id="L400">            logger.log(Level.WARNING, &quot;Error loading high scores.&quot;, e);</span>
+<span class="nc" id="L401">        }</span>
+<span class="nc" id="L402">        tidyScores(scores);</span>
+<span class="nc" id="L403">        return scores;</span>
+    }
+
+    /**
+     * Saves high scores.
+     *
+     * @param scores The list of &lt;code&gt;HighScore&lt;/code&gt;s to save.
+     * @return True if the high scores were saved to the high score file.
+     */
+    public static boolean saveHighScores(List&lt;HighScore&gt; scores) {
+<span class="nc" id="L413">        boolean ret = false;</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">        if (scores == null) return false;</span>
+<span class="nc" id="L415">        tidyScores(scores);</span>
+
+<span class="nc" id="L417">        File hsf = FreeColDirectories.getHighScoreFile();</span>
+<span class="nc" id="L418">        try (</span>
+<span class="nc" id="L419">            FileOutputStream fos = new FileOutputStream(hsf);</span>
+<span class="nc" id="L420">            FreeColXMLWriter xw = new FreeColXMLWriter(fos,</span>
+<span class="nc" id="L421">                FreeColXMLWriter.WriteScope.toSave(), true);</span>
+        ) {
+<span class="nc" id="L423">            ret = true;</span>
+<span class="nc" id="L424">            xw.writeStartDocument(&quot;UTF-8&quot;, &quot;1.0&quot;);</span>
+<span class="nc" id="L425">            xw.writeStartElement(HIGH_SCORES_TAG);</span>
+<span class="nc" id="L426">            int count = 0;</span>
+<span class="nc bnc" id="L427" title="All 2 branches missed.">            for (HighScore score : scores) {</span>
+<span class="nc" id="L428">                score.toXML(xw);</span>
+<span class="nc" id="L429">                count++;</span>
+<span class="nc" id="L430">            }</span>
+<span class="nc" id="L431">            xw.writeEndElement();</span>
+<span class="nc" id="L432">            xw.writeEndDocument();</span>
+<span class="nc" id="L433">            xw.flush();</span>
+<span class="nc bnc" id="L434" title="All 16 branches missed.">        } catch (FileNotFoundException fnfe) {</span>
+<span class="nc" id="L435">            logger.log(Level.WARNING, &quot;Failed to open high scores file.&quot;, fnfe);</span>
+<span class="nc" id="L436">            ret = false;</span>
+<span class="nc" id="L437">        } catch (IOException ioe) {</span>
+<span class="nc" id="L438">            logger.log(Level.WARNING, &quot;Error creating FreeColXMLWriter.&quot;, ioe);</span>
+<span class="nc" id="L439">            ret = false;</span>
+<span class="nc" id="L440">        } catch (XMLStreamException xse) {</span>
+<span class="nc" id="L441">            logger.log(Level.WARNING, &quot;Failed to write high scores file.&quot;, xse);</span>
+<span class="nc" id="L442">            ret = false;</span>
+<span class="nc" id="L443">        }</span>
+<span class="nc" id="L444">        return ret;</span>
+    }
+
+
+    // Override FreeColObject
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int compareTo(FreeColObject other) {
+<span class="nc" id="L455">        int cmp = 0;</span>
+<span class="nc bnc" id="L456" title="All 2 branches missed.">        if (other instanceof HighScore) {</span>
+<span class="nc" id="L457">            HighScore hs = (HighScore)other;</span>
+<span class="nc" id="L458">            cmp = hs.getScore() - getScore();</span>
+        }
+<span class="nc bnc" id="L460" title="All 2 branches missed.">        if (cmp == 0) cmp = super.compareTo(other);</span>
+<span class="nc" id="L461">        return cmp;</span>
+    }
+
+
+    // Serialization.
+    // High scores are only FreeColObjects so that they can be c-s serialized,
+    // they do not have ids.
+
+
+    private static final String COLONIES_TAG = &quot;colonies&quot;;
+    private static final String DATE_TAG = &quot;date&quot;;
+    private static final String DIFFICULTY_TAG = &quot;difficulty&quot;;
+    private static final String INDEPENDENCE_TURN_TAG = &quot;independenceTurn&quot;;
+    private static final String LEVEL_TAG = &quot;level&quot;;
+    private static final String NATION_ID_TAG = &quot;nationId&quot;;
+    private static final String NATION_NAME_TAG = &quot;nationName&quot;;
+    private static final String NATION_TYPE_ID_TAG = &quot;nationTypeId&quot;;
+    private static final String NEW_LAND_NAME_TAG = &quot;newLandName&quot;;
+    private static final String PLAYER_NAME_TAG = &quot;playerName&quot;;
+    private static final String RETIREMENT_TURN_TAG = &quot;retirementTurn&quot;;
+    private static final String SCORE_TAG = &quot;score&quot;;
+    private static final String UNITS_TAG = &quot;units&quot;;
+    // @compat 0.10.7
+    private static final String OLD_NATION_ID_TAG = &quot;nationID&quot;;
+    private static final String OLD_NATION_TYPE_ID_TAG = &quot;nationTypeID&quot;;
+    // end @compat
+
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+        // HighScores do not have ids, no super.writeAttributes().
+
+<span class="nc" id="L496">        long l = date.getTime();</span>
+<span class="nc" id="L497">        xw.writeAttribute(DATE_TAG, l);</span>
+
+<span class="nc" id="L499">        xw.writeAttribute(RETIREMENT_TURN_TAG, retirementTurn);</span>
+
+<span class="nc" id="L501">        xw.writeAttribute(INDEPENDENCE_TURN_TAG, independenceTurn);</span>
+
+<span class="nc" id="L503">        xw.writeAttribute(PLAYER_NAME_TAG, playerName);</span>
+
+<span class="nc" id="L505">        xw.writeAttribute(NATION_ID_TAG, nationId);</span>
+
+<span class="nc" id="L507">        xw.writeAttribute(NATION_TYPE_ID_TAG, nationTypeId);</span>
+
+<span class="nc" id="L509">        xw.writeAttribute(SCORE_TAG, score);</span>
+
+<span class="nc" id="L511">        xw.writeAttribute(LEVEL_TAG, level.toString());</span>
+
+<span class="nc bnc" id="L513" title="All 2 branches missed.">        if (nationName != null) {</span>
+<span class="nc" id="L514">            xw.writeAttribute(NATION_NAME_TAG, nationName);</span>
+        }
+
+<span class="nc bnc" id="L517" title="All 2 branches missed.">        if (newLandName != null) {</span>
+<span class="nc" id="L518">            xw.writeAttribute(NEW_LAND_NAME_TAG, newLandName);</span>
+        }
+
+<span class="nc" id="L521">        xw.writeAttribute(DIFFICULTY_TAG, difficulty);</span>
+
+<span class="nc" id="L523">        xw.writeAttribute(UNITS_TAG, units);</span>
+
+<span class="nc" id="L525">        xw.writeAttribute(COLONIES_TAG, colonies);</span>
+<span class="nc" id="L526">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+        // HighScores do not have ids, no super.readAttributes().
+
+<span class="nc" id="L535">        date = null;</span>
+        try {
+<span class="nc" id="L537">            long l = xr.getAttribute(DATE_TAG, -1L);</span>
+<span class="nc bnc" id="L538" title="All 2 branches missed.">            if (l &gt;= 0) date = new Date(l);</span>
+<span class="nc" id="L539">        } catch (Exception e) {</span>
+<span class="nc" id="L540">            logger.log(Level.WARNING, &quot;Bad long date&quot;, e);</span>
+<span class="nc" id="L541">        }</span>
+        // Early 0.11.x had a bug that wrote date as a float
+<span class="nc bnc" id="L543" title="All 2 branches missed.">        if (date == null) {</span>
+            try {
+<span class="nc" id="L545">                float f = xr.getAttribute(DATE_TAG, -1.0f);</span>
+<span class="nc bnc" id="L546" title="All 4 branches missed.">                if (f &gt;= 0.0 &amp;&amp; f &lt; Long.MAX_VALUE) {</span>
+<span class="nc" id="L547">                    date = new Date(new Float(f).longValue());</span>
+                }
+<span class="nc" id="L549">            } catch (Exception e) {</span>
+<span class="nc" id="L550">                logger.log(Level.WARNING, &quot;Bad float date&quot;, e);</span>
+<span class="nc" id="L551">            }</span>
+        } 
+        // @compat 0.10.x
+        // Serializing the long as of 0.11.x
+<span class="nc bnc" id="L555" title="All 2 branches missed.">        if (date == null) {</span>
+<span class="nc" id="L556">            String str = xr.getAttribute(DATE_TAG, &quot;2014-07-01 00:00:00+0000&quot;);</span>
+            try {
+<span class="nc" id="L558">                date = dateFormat.parse(str);</span>
+<span class="nc" id="L559">            } catch (Exception e) {</span>
+<span class="nc" id="L560">                logger.log(Level.WARNING, &quot;Bad date: &quot; + str, e);</span>
+<span class="nc" id="L561">            }</span>
+        }
+        // end @compat
+<span class="nc bnc" id="L564" title="All 2 branches missed.">        if (date == null) date = new Date(); // Give up</span>
+        
+<span class="nc" id="L566">        retirementTurn = xr.getAttribute(RETIREMENT_TURN_TAG, 0);</span>
+
+<span class="nc" id="L568">        independenceTurn = xr.getAttribute(INDEPENDENCE_TURN_TAG, 0);</span>
+
+<span class="nc" id="L570">        playerName = xr.getAttribute(PLAYER_NAME_TAG, &quot;anonymous&quot;);</span>
+
+<span class="nc" id="L572">        nationId = xr.getAttribute(NATION_ID_TAG,</span>
+            // @compat 0.10.7
+<span class="nc" id="L574">            xr.getAttribute(OLD_NATION_ID_TAG,</span>
+            // end @compat
+                &quot;model.nation.dutch&quot;));
+
+<span class="nc" id="L578">        nationTypeId = xr.getAttribute(NATION_TYPE_ID_TAG,</span>
+            // @compat 0.10.7
+<span class="nc" id="L580">            xr.getAttribute(OLD_NATION_TYPE_ID_TAG,</span>
+            // end @compat
+                &quot;model.nationType.trade&quot;));
+
+<span class="nc" id="L584">        score = xr.getAttribute(SCORE_TAG, 0);</span>
+
+<span class="nc" id="L586">        level = xr.getAttribute(LEVEL_TAG, ScoreLevel.class,</span>
+                                ScoreLevel.PARASITIC_WORM);
+
+<span class="nc" id="L589">        nationName = xr.getAttribute(NATION_NAME_TAG, &quot;Freedonia&quot;);</span>
+
+<span class="nc" id="L591">        newLandName = xr.getAttribute(NEW_LAND_NAME_TAG, &quot;New World&quot;);</span>
+        
+<span class="nc" id="L593">        difficulty = xr.getAttribute(DIFFICULTY_TAG,</span>
+<span class="nc" id="L594">                                     FreeCol.getDifficulty());</span>
+
+<span class="nc" id="L596">        units = xr.getAttribute(UNITS_TAG, 0);</span>
+
+<span class="nc" id="L598">        colonies = xr.getAttribute(COLONIES_TAG, 0);</span>
+<span class="nc" id="L599">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+<span class="nc" id="L605">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
+
+    /**
+     * Gets the tag name of the root element representing this object.
+     *
+     * @return &quot;highScore&quot;.
+     */
+    public static String getXMLElementTagName() {
+<span class="nc" id="L613">        return &quot;highScore&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SoundPlayer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.sound</a> &gt; <span class="el_source">SoundPlayer.java</span></div><h1>SoundPlayer.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.sound;
+
+import java.beans.PropertyChangeEvent;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.FloatControl;
+import javax.sound.sampled.Mixer;
+import javax.sound.sampled.SourceDataLine;
+
+import net.sf.freecol.FreeCol;
+import net.sf.freecol.common.option.AudioMixerOption;
+import net.sf.freecol.common.option.AudioMixerOption.MixerWrapper;
+import net.sf.freecol.common.option.PercentageOption;
+
+
+/**
+ * Stripped down class for playing sound.
+ */
+public class SoundPlayer {
+
+<span class="fc" id="L49">    private static final Logger logger = Logger.getLogger(SoundPlayer.class.getName());</span>
+
+    private Mixer mixer;
+    private int volume;
+    private final SoundPlayerThread soundPlayerThread;
+
+
+    /**
+     * Creates a sound player.
+     *
+     * @param mixerOption The option for setting the mixer to use.
+     * @param volumeOption The volume option to use when playing audio.
+     */
+    public SoundPlayer(AudioMixerOption mixerOption,
+<span class="fc" id="L63">                       PercentageOption volumeOption) {</span>
+<span class="fc" id="L64">        setMixer(mixerOption.getValue());</span>
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">        if (mixer == null) {</span>
+<span class="nc" id="L66">            throw new IllegalStateException(&quot;Mixer unavailable.&quot;);</span>
+        }
+<span class="fc" id="L68">        mixerOption.addPropertyChangeListener((PropertyChangeEvent e) -&gt; {</span>
+<span class="nc" id="L69">                setMixer((MixerWrapper)e.getNewValue());</span>
+<span class="nc" id="L70">            });</span>
+<span class="fc" id="L71">        setVolume(volumeOption.getValue());</span>
+<span class="fc" id="L72">        volumeOption.addPropertyChangeListener((PropertyChangeEvent e) -&gt; {</span>
+<span class="nc" id="L73">                setVolume((Integer)e.getNewValue());</span>
+<span class="nc" id="L74">            });</span>
+<span class="fc" id="L75">        soundPlayerThread = new SoundPlayerThread();</span>
+<span class="fc" id="L76">        soundPlayerThread.start();</span>
+<span class="fc" id="L77">    }</span>
+
+    /**
+     * Gets an audio input stream given a file, hopefully containing audio data.
+     *
+     * @param file The &lt;code&gt;File&lt;/code&gt; to test.
+     * @return An &lt;code&gt;AudioInputStream&lt;/code&gt;, or null on failure.
+     * @throws Exception if the file does not contain valid audio.
+     */
+    public static AudioInputStream getAudioInputStream(File file)
+        throws Exception {
+        AudioInputStream in;
+<span class="pc bpc" id="L89" title="1 of 2 branches missed.">        if (file.getName().endsWith(&quot;.ogg&quot;)) {</span>
+            // We used to use tritonus to provide ogg (strictly,
+            // Vorbis-audio-in-ogg-container) decoding to the Java
+            // sound system.  It was buggy and appears to be
+            // unmaintained since 2009.  So now for ogg we have our
+            // own jorbis-based decoder.
+<span class="fc" id="L95">            in = new OggVorbisDecoderFactory().getOggStream(file);</span>
+        } else {
+<span class="nc" id="L97">            in = AudioSystem.getAudioInputStream(file);</span>
+        }
+<span class="fc" id="L99">        return in;</span>
+    }
+
+    /**
+     * Gets the mixer.
+     *
+     * @return The current mixer.
+     */
+    public Mixer getMixer () {
+<span class="fc" id="L108">        return mixer;</span>
+    }
+
+    private void setMixer(MixerWrapper mw) {
+        try {
+<span class="fc" id="L113">            mixer = AudioSystem.getMixer(mw.getMixerInfo());</span>
+<span class="nc" id="L114">        } catch (Exception e) {</span>
+<span class="nc" id="L115">            logger.log(Level.WARNING, &quot;Could not set mixer&quot;, e);</span>
+<span class="nc" id="L116">            mixer = null;</span>
+<span class="fc" id="L117">        }</span>
+<span class="fc" id="L118">    }</span>
+
+    /**
+     * Gets the volume.
+     *
+     * @return The current volume.
+     */
+    public int getVolume() {
+<span class="nc" id="L126">        return volume;</span>
+    }
+
+    private void setVolume(int volume) {
+<span class="fc" id="L130">        this.volume = volume;</span>
+<span class="fc" id="L131">    }</span>
+
+    /**
+     * Plays a file once.
+     *
+     * @param file The &lt;code&gt;File&lt;/code&gt; to be played.
+     */
+    public void playOnce(File file) {
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">        if (getMixer() == null) return; // Fail faster.</span>
+        try {
+<span class="fc" id="L141">            soundPlayerThread.add(getAudioInputStream(file));</span>
+<span class="fc" id="L142">            soundPlayerThread.awaken();</span>
+<span class="nc" id="L143">        } catch (Exception e) {</span>
+<span class="nc" id="L144">            logger.log(Level.WARNING, &quot;Unable to play: &quot; + file.getName(), e);</span>
+<span class="fc" id="L145">        }</span>
+<span class="fc" id="L146">    }</span>
+
+    /**
+     * Stops the current sound.
+     */
+    public void stop() {
+<span class="fc" id="L152">        soundPlayerThread.stopPlaying();</span>
+<span class="fc" id="L153">        soundPlayerThread.awaken();</span>
+<span class="fc" id="L154">    }</span>
+
+    /**
+     * Thread for playing sound files.
+     */
+    private class SoundPlayerThread extends Thread {
+
+        private static final int BUFSIZ = 8192;
+
+<span class="fc" id="L163">        private final byte[] data = new byte[BUFSIZ];</span>
+
+<span class="fc" id="L165">        private final List&lt;AudioInputStream&gt; playList = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L167">        private boolean playDone = true;</span>
+
+
+
+<span class="fc" id="L171">        public SoundPlayerThread() {</span>
+<span class="fc" id="L172">            super(FreeCol.CLIENT_THREAD + &quot;SoundPlayer&quot;);</span>
+<span class="fc" id="L173">        }</span>
+
+        private synchronized void awaken() {
+<span class="fc" id="L176">            notify();</span>
+<span class="fc" id="L177">        }</span>
+
+        private synchronized void goToSleep() throws InterruptedException {
+<span class="fc" id="L180">            wait();</span>
+<span class="fc" id="L181">        }</span>
+
+        public synchronized boolean keepPlaying() {
+<span class="fc bfc" id="L184" title="All 2 branches covered.">            return !playDone;</span>
+        }
+
+        public synchronized void startPlaying() {
+<span class="fc" id="L188">            playDone = false;</span>
+<span class="fc" id="L189">        }</span>
+
+        public synchronized void stopPlaying() {
+<span class="fc" id="L192">            playDone = true;</span>
+<span class="fc" id="L193">        }</span>
+
+        public synchronized void add(AudioInputStream ais) {
+<span class="fc" id="L196">            playList.add(ais);</span>
+<span class="fc" id="L197">        }</span>
+
+        @Override
+        public void run() {
+            for (;;) {
+<span class="fc bfc" id="L202" title="All 2 branches covered.">                if (playList.isEmpty()) {</span>
+                    try {
+<span class="fc" id="L204">                        goToSleep();</span>
+<span class="nc" id="L205">                    } catch (InterruptedException e) {</span>
+<span class="nc" id="L206">                        continue;</span>
+<span class="fc" id="L207">                    }</span>
+                } else {
+<span class="pc" id="L209">                    try (</span>
+<span class="fc" id="L210">                        AudioInputStream in = playList.remove(0);</span>
+                    ) {
+<span class="fc" id="L212">                        playSound(in);</span>
+<span class="pc bpc" id="L213" title="6 of 8 branches missed.">                    } catch (IOException e) {</span>
+<span class="nc" id="L214">                        logger.log(Level.WARNING, &quot;Failure playing audio.&quot;, e);</span>
+<span class="pc" id="L215">                    }</span>
+                }
+            }
+        }
+
+        private void sleep(int t) {
+<span class="nc" id="L221">            try { Thread.sleep(t); } catch (InterruptedException e) {}</span>
+<span class="nc" id="L222">        }</span>
+
+        private void setVolume(SourceDataLine line, int vol) {
+<span class="fc" id="L225">            FloatControl.Type type</span>
+<span class="pc bpc" id="L226" title="1 of 2 branches missed.">                = (line.isControlSupported(FloatControl.Type.VOLUME))</span>
+                ? FloatControl.Type.VOLUME
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">                : (line.isControlSupported(FloatControl.Type.MASTER_GAIN))</span>
+                ? FloatControl.Type.MASTER_GAIN
+                : null;
+<span class="pc bpc" id="L231" title="1 of 2 branches missed.">            if (type == null) {</span>
+<span class="nc" id="L232">                logger.warning(&quot;No volume or master gain controls.&quot;);</span>
+<span class="nc" id="L233">                return;</span>
+            }
+            FloatControl control;
+            try {
+<span class="fc" id="L237">                control = (FloatControl)line.getControl(type);</span>
+<span class="nc" id="L238">            } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L239">                return; // Should not happen</span>
+<span class="fc" id="L240">            }</span>
+            //
+            // The units of MASTER_GAIN seem to consistently be dB, but
+            // in the case of VOLUME this is unclear (there is even a query
+            // to that effect in the source).  getUnits() says &quot;pulseaudio
+            // units&quot; on my boxen, and the PulseAudio doco talks about dB
+            // so for now we are assuming that the controls we are using
+            // are both logarithmic:
+            //
+            //   gain = A.log_10(k.vol)
+            // So scale vol &lt;= 1 to gain_min and vol &gt;= 100 to gain_max
+            //   gain_min = A.log_10(k.1)
+            //   gain_max = A.log_10(k.100)
+            // Solving for A,k yields:
+            //   A = (gain_max - gain_min)/2
+            //   k = 10^(gain_min/A)
+            // =&gt;
+            //   gain = gain_min + (gain_max - gain_min)/2 * log_10(vol)
+            //
+<span class="fc" id="L259">            float min = control.getMinimum();</span>
+<span class="fc" id="L260">            float max = control.getMaximum();</span>
+<span class="pc bpc" id="L261" title="2 of 4 branches missed.">            float gain = (vol &lt;= 0) ? min</span>
+                : (vol &gt;= 100) ? max
+<span class="fc" id="L263">                : min + 0.5f * (max - min) * (float)Math.log10(vol);</span>
+            try {
+<span class="fc" id="L265">                control.setValue(gain);</span>
+<span class="fc" id="L266">                logger.finest(&quot;Using volume &quot; + vol + &quot;%, &quot;</span>
+<span class="fc" id="L267">                    + control.getUnits() + &quot;=&quot; + gain</span>
+                    + &quot; control=&quot; + type);
+<span class="nc" id="L269">            } catch (Exception e) {</span>
+<span class="nc" id="L270">                logger.log(Level.WARNING, &quot;Could not set volume &quot;</span>
+                    + &quot; (control=&quot; + type + &quot; in [&quot; + min + &quot;,&quot; + max + &quot;])&quot;
+<span class="nc" id="L272">                    + &quot; to &quot; + gain + control.getUnits(), e);</span>
+<span class="fc" id="L273">            }</span>
+<span class="fc" id="L274">        }</span>
+
+        private SourceDataLine openLine(AudioFormat audioFormat) {
+<span class="fc" id="L277">            SourceDataLine line = null;</span>
+<span class="fc" id="L278">            DataLine.Info info = new DataLine.Info(SourceDataLine.class,</span>
+                                                   audioFormat);
+<span class="pc bpc" id="L280" title="1 of 2 branches missed.">            if (!mixer.isLineSupported(info)) {</span>
+<span class="nc" id="L281">                logger.log(Level.WARNING, &quot;Mixer does not support &quot; + info);</span>
+<span class="nc" id="L282">                return null;</span>
+            }
+            try {
+<span class="fc" id="L285">                line = (SourceDataLine)mixer.getLine(info);</span>
+<span class="fc" id="L286">                line.open(audioFormat, BUFSIZ);</span>
+<span class="fc" id="L287">                line.start();</span>
+<span class="fc" id="L288">                setVolume(line, volume);</span>
+<span class="nc" id="L289">            } catch (Exception e) {</span>
+<span class="nc" id="L290">                logger.log(Level.WARNING, &quot;Can not open SourceDataLine&quot;, e);</span>
+<span class="nc" id="L291">                return null;</span>
+<span class="fc" id="L292">            }</span>
+<span class="fc" id="L293">            return line;</span>
+        }
+
+        /**
+         * Play a sound.
+         *
+         * @param in The &lt;code&gt;AudioInputStream&lt;/code&gt; to play.
+         * @return True if the stream was played without incident.
+         */
+        private boolean playSound(AudioInputStream in) throws IOException {
+<span class="fc" id="L303">            boolean ret = false;</span>
+
+<span class="fc" id="L305">            SourceDataLine line = openLine(in.getFormat());</span>
+<span class="pc bpc" id="L306" title="1 of 2 branches missed.">            if (line == null) return false;</span>
+            try {
+<span class="fc" id="L308">                startPlaying();</span>
+                int rd;
+<span class="pc bpc" id="L310" title="1 of 4 branches missed.">                while (keepPlaying() &amp;&amp; (rd = in.read(data)) &gt; 0) {</span>
+<span class="fc" id="L311">                    line.write(data, 0, rd);</span>
+                }
+<span class="fc" id="L313">                ret = true;</span>
+            } finally {
+<span class="pc" id="L315">                stopPlaying();</span>
+<span class="pc" id="L316">                line.drain();</span>
+<span class="pc" id="L317">                line.stop();</span>
+<span class="pc" id="L318">                line.close();</span>
+<span class="fc" id="L319">            }</span>
+<span class="fc" id="L320">            return ret;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

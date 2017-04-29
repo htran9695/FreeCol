@@ -1,0 +1,572 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BuildColonyMission.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.ai.mission</a> &gt; <span class="el_source">BuildColonyMission.java</span></div><h1>BuildColonyMission.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.ai.mission;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.xml.stream.XMLStreamException;
+
+import net.sf.freecol.common.io.FreeColXMLReader;
+import net.sf.freecol.common.io.FreeColXMLWriter;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.PathNode;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.pathfinding.CostDecider;
+import net.sf.freecol.common.model.pathfinding.CostDeciders;
+import net.sf.freecol.common.model.pathfinding.GoalDecider;
+import net.sf.freecol.common.model.pathfinding.GoalDeciders;
+import net.sf.freecol.common.networking.NetworkConstants;
+import net.sf.freecol.common.util.LogBuilder;
+import static net.sf.freecol.common.util.RandomUtils.*;
+import net.sf.freecol.server.ai.AIColony;
+import net.sf.freecol.server.ai.AIMain;
+import net.sf.freecol.server.ai.AIMessage;
+import net.sf.freecol.server.ai.AIUnit;
+import net.sf.freecol.server.ai.EuropeanAIPlayer;
+
+
+/**
+ * Mission for building a &lt;code&gt;Colony&lt;/code&gt;.
+ *
+ * @see net.sf.freecol.common.model.Colony Colony
+ */
+public class BuildColonyMission extends Mission {
+
+<span class="nc" id="L56">    private static final Logger logger = Logger.getLogger(BuildColonyMission.class.getName());</span>
+
+    /** The tag for this mission. */
+    private static final String tag = &quot;AI colony builder&quot;;
+
+    /**
+     * The target of this mission.  It can either be a Tile where a
+     * Colony should be built, or an existing connected Colony owned
+     * by this player to go to before retargeting.
+     */
+    private Location target;
+
+    /** The value of a target &lt;code&gt;Tile&lt;/code&gt;. */
+    private int colonyValue;
+
+
+    /**
+     * Creates a mission for the given &lt;code&gt;AIUnit&lt;/code&gt;.
+     *
+     * @param aiMain The main AI-object.
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
+     * @param target The target &lt;code&gt;Location&lt;/code&gt; for this mission.
+     */
+    public BuildColonyMission(AIMain aiMain, AIUnit aiUnit, Location target) {
+<span class="nc" id="L80">        super(aiMain, aiUnit, target);</span>
+<span class="nc" id="L81">    }</span>
+
+    /**
+     * Creates a new &lt;code&gt;BuildColonyMission&lt;/code&gt; and reads the given
+     * element.
+     *
+     * @param aiMain The main AI-object.
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
+     * @param xr The input stream containing the XML.
+     * @throws XMLStreamException if a problem was encountered during parsing.
+     * @see net.sf.freecol.server.ai.AIObject#readFromXML
+     */
+    public BuildColonyMission(AIMain aiMain, AIUnit aiUnit,
+                              FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L95">        super(aiMain, aiUnit);</span>
+
+<span class="nc" id="L97">        readFromXML(xr);</span>
+<span class="nc" id="L98">    }</span>
+
+
+    /**
+     * Get the colony value for a tile.
+     *
+     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to test.
+     * @return The colony value for this player.
+     */
+    private int getColonyValue(Tile tile) {
+<span class="nc" id="L108">        final Player owner = getAIUnit().getUnit().getOwner();</span>
+<span class="nc" id="L109">        return owner.getColonyValue(tile);</span>
+    }
+
+    /**
+     * Extract a valid target for this mission from a path.
+     *
+     * @param aiUnit A &lt;code&gt;AIUnit&lt;/code&gt; to perform the mission.
+     * @param path A &lt;code&gt;PathNode&lt;/code&gt; to extract a target from,
+     *     (uses the unit location if null).
+     * @return A target for this mission, or null if none found.
+     */
+    public static Location extractTarget(AIUnit aiUnit, PathNode path) {
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (path == null) return null;</span>
+<span class="nc" id="L122">        final Location loc = path.getLastNode().getLocation();</span>
+<span class="nc" id="L123">        Tile tile = loc.getTile();</span>
+<span class="nc" id="L124">        Colony colony = loc.getColony();</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        return (invalidReason(aiUnit, tile) == null) ? tile</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">            : (invalidReason(aiUnit, colony) == null) ? colony</span>
+            : null;
+    }
+
+    /**
+     * Gets the value of a path to a colony building site.
+     *
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to build the colony.
+     * @param path The &lt;code&gt;PathNode&lt;/code&gt; to check.
+     * @return A score for the target.
+     */
+    public static float scorePath(AIUnit aiUnit, PathNode path) {
+        Location loc;
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (path == null</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">            || !((loc = extractTarget(aiUnit, path)) instanceof Tile)) </span>
+<span class="nc" id="L141">            return Integer.MIN_VALUE;</span>
+
+<span class="nc" id="L143">        final Tile tile = (Tile)loc;</span>
+<span class="nc" id="L144">        final Player player = aiUnit.getUnit().getOwner();</span>
+<span class="nc" id="L145">        float turns = path.getTotalTurns() + 1.0f;</span>
+<span class="nc" id="L146">        return player.getColonyValue(tile) / turns;</span>
+    }
+
+    /**
+     * Gets a &lt;code&gt;GoalDecider&lt;/code&gt; for finding the best colony
+     * &lt;code&gt;Tile&lt;/code&gt;, optionally falling back to the nearest colony.
+     *
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; that is searching.
+     * @param deferOK Enable colony fallback.
+     * @return A suitable &lt;code&gt;GoalDecider&lt;/code&gt;.
+     */
+    private static GoalDecider getGoalDecider(final AIUnit aiUnit,
+                                              boolean deferOK) {
+<span class="nc" id="L159">        GoalDecider gd = new GoalDecider() {</span>
+<span class="nc" id="L160">                private PathNode bestPath = null;</span>
+<span class="nc" id="L161">                private float bestValue = 0f;</span>
+
+                @Override
+<span class="nc" id="L164">                public PathNode getGoal() { return bestPath; }</span>
+                @Override
+<span class="nc" id="L166">                public boolean hasSubGoals() { return true; }</span>
+                @Override
+                public boolean check(Unit u, PathNode path) {
+<span class="nc" id="L169">                    Location loc = extractTarget(aiUnit, path);</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">                    if (loc instanceof Tile) {</span>
+<span class="nc" id="L171">                        float value = scorePath(aiUnit, path);</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">                        if (bestValue &lt; value) {</span>
+<span class="nc" id="L173">                            bestValue = value;</span>
+<span class="nc" id="L174">                            bestPath = path;</span>
+<span class="nc" id="L175">                            return true;</span>
+                        }
+                    }
+<span class="nc" id="L178">                    return false;</span>
+                }
+            };
+<span class="nc bnc" id="L181" title="All 2 branches missed.">        return (deferOK) ? GoalDeciders.getComposedGoalDecider(false, gd,</span>
+<span class="nc" id="L182">            GoalDeciders.getOurClosestSettlementGoalDecider())</span>
+            : gd;
+    }
+
+    /**
+     * Finds a site for a new colony.  Favour closer sites.
+     *
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to execute this mission.
+     * @param range An upper bound on the number of moves.
+     * @param deferOK Enables deferring to a fallback colony.
+     * @return A path to the new target, or null if none found.
+     */
+    public static PathNode findTargetPath(AIUnit aiUnit, int range,
+                                          boolean deferOK) {
+<span class="nc bnc" id="L196" title="All 2 branches missed.">        if (invalidAIUnitReason(aiUnit) != null) return null;</span>
+<span class="nc" id="L197">        final Unit unit = aiUnit.getUnit();</span>
+<span class="nc" id="L198">        final Location start = unit.getPathStartLocation();</span>
+<span class="nc" id="L199">        final Unit carrier = unit.getCarrier();</span>
+<span class="nc" id="L200">        final GoalDecider gd = getGoalDecider(aiUnit, deferOK);</span>
+        final CostDecider standardCd
+<span class="nc" id="L202">            = CostDeciders.avoidSettlementsAndBlockingUnits();</span>
+
+        // Try for something sensible nearby.
+<span class="nc" id="L205">        return unit.search(start, gd, standardCd, range, carrier);</span>
+    }
+
+    /**
+     * Finds a site for a new colony or a backup colony to go to.
+     *
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to find a colony site with.
+     * @param range An upper bound on the number of moves.
+     * @param deferOK Enables deferring to a fallback colony.
+     * @return A new target for this mission.
+     */
+    public static Location findTarget(AIUnit aiUnit, int range,
+                                      boolean deferOK) {
+<span class="nc" id="L218">        PathNode path = findTargetPath(aiUnit, range, deferOK);</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">        return (path != null) ? extractTarget(aiUnit, path)</span>
+<span class="nc" id="L220">            : Location.upLoc(findCircleTarget(aiUnit,</span>
+<span class="nc" id="L221">                    getGoalDecider(aiUnit, deferOK), range*3, deferOK));</span>
+    }
+
+    /**
+     * Why would this mission be invalid with the given unit?
+     *
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to test.
+     * @return A reason why the mission would be invalid with the unit,
+     *     or null if none found.
+     */
+    private static String invalidMissionReason(AIUnit aiUnit) {
+<span class="nc" id="L232">        String reason = invalidAIUnitReason(aiUnit);</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">        return (reason != null)</span>
+            ? reason
+<span class="nc bnc" id="L235" title="All 2 branches missed.">            : (!aiUnit.getUnit().getOwner().canBuildColonies())</span>
+            ? &quot;player-not-a-colony-founder&quot;
+<span class="nc bnc" id="L237" title="All 2 branches missed.">            : (!aiUnit.getUnit().getType().canBuildColony())</span>
+            ? &quot;unit-not-a-colony-founder&quot;
+            : null;
+    }
+
+    /**
+     * Why is this mission invalid with a given colony target?
+     *
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+     * @param colony The potential target &lt;code&gt;Colony&lt;/code&gt;.
+     * @return A reason for mission invalidity, or null if none found.
+     */
+    private static String invalidColonyReason(AIUnit aiUnit, Colony colony) {
+<span class="nc" id="L250">        return invalidTargetReason(colony, aiUnit.getUnit().getOwner());</span>
+    }
+
+    /**
+     * Why is this mission invalid with a given tile target?
+     *
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+     * @param tile The potential target &lt;code&gt;Tile&lt;/code&gt;.
+     * @return A reason for mission invalidity, or null if none found.
+     */
+    private static String invalidTileReason(AIUnit aiUnit, Tile tile) {
+<span class="nc" id="L261">        Player owner = aiUnit.getUnit().getOwner();</span>
+<span class="nc" id="L262">        Player.NoClaimReason reason</span>
+<span class="nc" id="L263">            = owner.canClaimToFoundSettlementReason(tile);</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">        switch (reason) {</span>
+        case NONE: case NATIVES:
+<span class="nc" id="L266">            return null;</span>
+        default:
+            break;
+        }
+<span class="nc" id="L270">        return &quot;target-&quot; + reason;</span>
+    }
+
+    /**
+     * Why would this mission be invalid with the given AI unit and location?
+     *
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+     * @param loc The &lt;code&gt;Location&lt;/code&gt; to check.
+     * @return A reason for invalidity, or null if none found.
+     */
+    public static String invalidReason(AIUnit aiUnit, Location loc) {
+<span class="nc" id="L281">        String reason = invalidMissionReason(aiUnit);</span>
+<span class="nc bnc" id="L282" title="All 4 branches missed.">        return (reason != null) ? reason</span>
+            : (loc instanceof Colony)
+<span class="nc bnc" id="L284" title="All 2 branches missed.">            ? invalidColonyReason(aiUnit, (Colony)loc)</span>
+            : (loc instanceof Tile) 
+<span class="nc" id="L286">            ? invalidTileReason(aiUnit, (Tile)loc)</span>
+            : Mission.TARGETINVALID;
+    }
+
+    /**
+     * Why would this mission be invalid with the given AI unit?
+     *
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+     * @return A reason for mission invalidity, or null if none found.
+     */
+    public static String invalidReason(AIUnit aiUnit) {
+<span class="nc" id="L297">        return invalidMissionReason(aiUnit);</span>
+    }
+
+      
+    // Implement Mission
+    //   Inherit dispose, getTransportDestination, isOneTime
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int getBaseTransportPriority() {
+<span class="nc" id="L309">        return NORMAL_TRANSPORT_PRIORITY + 10;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Location getTarget() {
+<span class="nc" id="L317">        return target;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setTarget(Location target) {
+<span class="nc bnc" id="L325" title="All 6 branches missed.">        if (target == null</span>
+            || target instanceof Colony || target instanceof Tile) {
+<span class="nc" id="L327">            this.target = target;</span>
+<span class="nc bnc" id="L328" title="All 2 branches missed.">            this.colonyValue = (target instanceof Tile)</span>
+<span class="nc" id="L329">                ? getColonyValue((Tile)target)</span>
+                : -1;
+        }
+<span class="nc" id="L332">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Location findTarget() {
+<span class="nc" id="L339">        return findTarget(getAIUnit(), 5, true);</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String invalidReason() {
+<span class="nc" id="L347">        return invalidReason(getAIUnit(), target);</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Mission doMission(LogBuilder lb) {
+<span class="nc" id="L355">        lb.add(tag);</span>
+<span class="nc" id="L356">        final AIMain aiMain = getAIMain();</span>
+<span class="nc" id="L357">        final AIUnit aiUnit = getAIUnit();</span>
+<span class="nc" id="L358">        final Unit unit = getUnit();</span>
+<span class="nc" id="L359">        final Player player = unit.getOwner();</span>
+<span class="nc" id="L360">        final EuropeanAIPlayer euaip = getEuropeanAIPlayer();</span>
+
+<span class="nc" id="L362">        boolean retarget = false;</span>
+<span class="nc" id="L363">        String reason = invalidReason();</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">        if (isTargetReason(reason)) {</span>
+            // Allow target invalidation by another builder succeeding, and
+            // continue on to the target as an intermediate colony.
+            Colony c;
+<span class="nc bnc" id="L368" title="All 2 branches missed.">            if (target instanceof Tile</span>
+<span class="nc bnc" id="L369" title="All 2 branches missed.">                &amp;&amp; (c = target.getColony()) != null</span>
+<span class="nc bnc" id="L370" title="All 2 branches missed.">                &amp;&amp; player.owns(c)) {</span>
+                // Favour improving colony center.
+<span class="nc" id="L372">                Mission m = euaip.getPioneeringMission(aiUnit, c.getTile());</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">                if (m != null) return lbDrop(lb, &quot;, improving with &quot;, m);</span>
+                // Just go to the colony.
+<span class="nc" id="L375">                setTarget(c);</span>
+<span class="nc" id="L376">                return lbRetarget(lb);</span>
+            }
+<span class="nc bnc" id="L378" title="All 2 branches missed.">        } else if (reason != null) {</span>
+<span class="nc" id="L379">            return lbFail(lb, false, reason);</span>
+        } else { // Target valid, but has it devalued?
+<span class="nc bnc" id="L381" title="All 2 branches missed.">            if (target instanceof Tile) {</span>
+<span class="nc" id="L382">                int newValue = getColonyValue((Tile)target);</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">                if (newValue &lt; colonyValue) {</span>
+<span class="nc" id="L384">                    reason = &quot;target tile &quot; + target.toShortString()</span>
+                        + &quot; value &quot; + colonyValue + &quot; -&gt; &quot; + newValue;
+<span class="nc" id="L386">                    retarget = true;</span>
+                }
+            }
+        }
+<span class="nc bnc" id="L390" title="All 2 branches missed.">        if (retarget) return retargetMission(reason, lb);</span>
+
+        for (;;) {
+            // Go there.
+<span class="nc" id="L394">            Unit.MoveType mt = travelToTarget(getTarget(),</span>
+<span class="nc" id="L395">                CostDeciders.avoidSettlementsAndBlockingUnits(), lb);</span>
+<span class="nc bnc" id="L396" title="All 4 branches missed.">            switch (mt) {</span>
+            case MOVE: // Arrived
+<span class="nc" id="L398">                break;</span>
+
+            case MOVE_HIGH_SEAS: case MOVE_NO_MOVES:
+            case MOVE_NO_REPAIR: case MOVE_ILLEGAL:
+<span class="nc" id="L402">                return lbWait(lb);</span>
+
+            case MOVE_NO_ACCESS_EMBARK: case MOVE_NO_TILE:
+<span class="nc" id="L405">                return this;</span>
+
+            default:
+<span class="nc" id="L408">                return lbMove(lb, mt);</span>
+            }
+
+<span class="nc" id="L411">            lbAt(lb);</span>
+<span class="nc bnc" id="L412" title="All 2 branches missed.">            if (getTarget() instanceof Colony) {</span>
+                // If arrived at the target colony it is time to retarget
+                // another building site, unless the existing one is small
+                // or nothing is found.
+<span class="nc" id="L416">                Colony colony = (Colony)getTarget();</span>
+
+                // Improve colony center?
+<span class="nc" id="L419">                Mission m</span>
+<span class="nc" id="L420">                    = euaip.getPioneeringMission(aiUnit, colony.getTile());</span>
+<span class="nc bnc" id="L421" title="All 2 branches missed.">                if (m != null) return lbDrop(lb, &quot;, improving with &quot;, m);</span>
+
+                // Colony too small?
+<span class="nc bnc" id="L424" title="All 2 branches missed.">                if (colony.getUnitCount() &lt;= 1) {</span>
+<span class="nc" id="L425">                    setTarget(colony);</span>
+<span class="nc" id="L426">                    return lbDrop(lb, &quot;, join small colony&quot;);</span>
+                }
+
+                // Find a real tile target?
+                Location newTarget;
+<span class="nc bnc" id="L431" title="All 2 branches missed.">                if ((newTarget = findTarget(aiUnit, 5, false)) != null) {</span>
+<span class="nc" id="L432">                    setTarget(newTarget);</span>
+<span class="nc" id="L433">                    return lbRetarget(lb);</span>
+                }
+
+                // Go to the nearest smaller colony?
+<span class="nc" id="L437">                Colony best = null;</span>
+<span class="nc" id="L438">                int bestValue = INFINITY;</span>
+<span class="nc bnc" id="L439" title="All 2 branches missed.">                for (Colony c : player.getColonies()) {</span>
+<span class="nc bnc" id="L440" title="All 2 branches missed.">                    if (c == colony) continue;</span>
+<span class="nc bnc" id="L441" title="All 2 branches missed.">                    if (c.getUnitCount() &lt; colony.getUnitCount()) continue;</span>
+<span class="nc" id="L442">                    PathNode path = unit.findPath(c);</span>
+<span class="nc bnc" id="L443" title="All 4 branches missed.">                    if (path != null &amp;&amp; path.getTotalTurns() &lt; bestValue) {</span>
+<span class="nc" id="L444">                        bestValue = path.getTotalTurns();</span>
+<span class="nc" id="L445">                        best = c;</span>
+                    }
+<span class="nc" id="L447">                }</span>
+<span class="nc bnc" id="L448" title="All 2 branches missed.">                if (best != null) {</span>
+<span class="nc" id="L449">                    lb.add(&quot;, going to smaller &quot;, best.getUnitCount(), &quot;&lt;&quot;,</span>
+<span class="nc" id="L450">                        colony.getUnitCount(), &quot; colony&quot;);</span>
+<span class="nc" id="L451">                    setTarget(best);</span>
+<span class="nc" id="L452">                    return lbRetarget(lb);</span>
+                }
+
+                // Just join up then.
+<span class="nc" id="L456">                return lbDrop(lb, &quot;, joining&quot;);</span>
+            }
+
+<span class="nc bnc" id="L459" title="All 2 branches missed.">            if (!(getTarget() instanceof Tile)) {</span>
+<span class="nc" id="L460">                return lbFail(lb, false, &quot;bogus target &quot;, getTarget());</span>
+            }
+<span class="nc" id="L462">            Tile tile = (Tile)getTarget();</span>
+            // Check that the unit has moves left, which are required
+            // for building.
+<span class="nc bnc" id="L465" title="All 2 branches missed.">            if (unit.getMovesLeft() &lt;= 0) {</span>
+<span class="nc" id="L466">                return lbWait(lb, &quot;, waiting to build at &quot;, tile);</span>
+            }
+
+<span class="nc bnc" id="L469" title="All 2 branches missed.">            if (tile.getOwner() == null) {</span>
+                ; // All is well
+<span class="nc bnc" id="L471" title="All 2 branches missed.">            } else if (player.owns(tile)) { // Already ours, clear users</span>
+<span class="nc" id="L472">                Colony colony = (Colony)tile.getOwningSettlement();</span>
+<span class="nc bnc" id="L473" title="All 2 branches missed.">                if (colony != null) {</span>
+<span class="nc" id="L474">                    logger.warning(&quot;Building on colony tile: &quot; + tile);</span>
+<span class="nc" id="L475">                    return lbFail(lb, false, &quot;building on colony tile &quot;, tile);</span>
+                }
+<span class="nc" id="L477">            } else {</span>
+                // Not our tile, so claim it first.  Fail if someone
+                // has claimed the tile and will not sell.  Otherwise
+                // try to buy it or steal it.
+<span class="nc" id="L481">                int price = player.getLandPrice(tile);</span>
+<span class="nc bnc" id="L482" title="All 2 branches missed.">                boolean fail = price &lt; 0;</span>
+<span class="nc bnc" id="L483" title="All 4 branches missed.">                if (price &gt; 0 &amp;&amp; !player.checkGold(price)) {</span>
+<span class="nc bnc" id="L484" title="All 2 branches missed.">                    if (randomInt(logger, &quot;Land gold?&quot;, getAIRandom(), 4) == 0) {</span>
+<span class="nc" id="L485">                        lb.add(&quot;, &quot;);</span>
+<span class="nc" id="L486">                        euaip.cheatGold(price, lb);</span>
+<span class="nc" id="L487">                        lb.add(&quot; to buy &quot;, tile);</span>
+                    }
+                }
+<span class="nc bnc" id="L490" title="All 2 branches missed.">                if (price &gt;= 0) {</span>
+<span class="nc bnc" id="L491" title="All 4 branches missed.">                    fail = !AIMessage.askClaimLand(tile, aiUnit,</span>
+<span class="nc bnc" id="L492" title="All 2 branches missed.">                        ((price == 0) ? 0 : (player.checkGold(price)) ? price</span>
+                            : NetworkConstants.STEAL_LAND))
+<span class="nc bnc" id="L494" title="All 2 branches missed.">                        || !player.owns(tile);</span>
+                }
+<span class="nc bnc" id="L496" title="All 2 branches missed.">                if (fail) return retargetMission(&quot;tile-claim-at-&quot; + tile, lb);</span>
+<span class="nc" id="L497">                lb.add(&quot;, claimed colony tile&quot;);</span>
+            }
+
+            // Log the colony values so we can improve things
+<span class="nc bnc" id="L501" title="All 2 branches missed.">            if (logger.isLoggable(Level.FINE)) {</span>
+<span class="nc" id="L502">                LogBuilder l2 = new LogBuilder(64);</span>
+<span class="nc" id="L503">                l2.add(tag, &quot; score-at-foundation &quot;, tile, &quot;:&quot;);</span>
+<span class="nc bnc" id="L504" title="All 2 branches missed.">                for (Double d : player.getAllColonyValues(tile)) {</span>
+<span class="nc" id="L505">                    l2.add(&quot; &quot;, d);</span>
+<span class="nc" id="L506">                }</span>
+<span class="nc" id="L507">                l2.log(logger, Level.FINE);</span>
+            }
+            
+            // Clear to build the colony.
+<span class="nc bnc" id="L511" title="All 2 branches missed.">            if (AIMessage.askBuildColony(aiUnit, Player.ASSIGN_SETTLEMENT_NAME)</span>
+<span class="nc bnc" id="L512" title="All 2 branches missed.">                &amp;&amp; tile.getColony() != null) {</span>
+<span class="nc" id="L513">                Colony colony = tile.getColony();</span>
+<span class="nc" id="L514">                AIColony aiColony = aiMain.getAIColony(colony);</span>
+<span class="nc" id="L515">                aiColony.requestRearrange();</span>
+<span class="nc" id="L516">                Mission m = euaip.getWorkInsideColonyMission(aiUnit, aiColony);</span>
+<span class="nc bnc" id="L517" title="All 2 branches missed.">                return lbDone(lb, m != null, colony);</span>
+            }
+<span class="nc" id="L519">            return lbFail(lb, false, &quot;build at &quot;, tile);</span>
+        }
+    }
+
+
+    // Serialization
+
+    private static final String TARGET_TAG = &quot;target&quot;;
+
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="nc" id="L534">        super.writeAttributes(xw);</span>
+
+<span class="nc bnc" id="L536" title="All 2 branches missed.">        if (target != null) {</span>
+<span class="nc" id="L537">            xw.writeAttribute(TARGET_TAG, target.getId());</span>
+
+<span class="nc bnc" id="L539" title="All 2 branches missed.">            if (colonyValue &gt; 0) {</span>
+<span class="nc" id="L540">                xw.writeAttribute(VALUE_TAG, colonyValue);</span>
+            }
+        }
+<span class="nc" id="L543">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L550">        super.readAttributes(xr);</span>
+
+<span class="nc" id="L552">        target = xr.getLocationAttribute(getGame(), TARGET_TAG, false);</span>
+
+<span class="nc" id="L554">        colonyValue = xr.getAttribute(VALUE_TAG, -1);</span>
+<span class="nc" id="L555">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+<span class="nc" id="L561">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
+
+    /**
+     * Gets the tag name of the root element representing this object.
+     *
+     * @return &quot;buildColonyMission&quot;.
+     */
+    public static String getXMLElementTagName() {
+<span class="nc" id="L569">        return &quot;buildColonyMission&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

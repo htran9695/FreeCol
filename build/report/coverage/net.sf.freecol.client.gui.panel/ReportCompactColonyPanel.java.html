@@ -1,0 +1,1137 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReportCompactColonyPanel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.client.gui.panel</a> &gt; <span class="el_source">ReportCompactColonyPanel.java</span></div><h1>ReportCompactColonyPanel.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.client.gui.panel;
+
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.HashMap;
+import java.util.List;
+import java.util.function.BinaryOperator;
+
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JSeparator;
+import javax.swing.SwingConstants;
+
+import net.miginfocom.swing.MigLayout;
+
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.gui.ImageLibrary;
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.AbstractGoods;
+import net.sf.freecol.common.model.BuildableType;
+import net.sf.freecol.common.model.Building;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.Colony.TileImprovementSuggestion;
+import net.sf.freecol.common.model.ExportData;
+import net.sf.freecol.common.model.FreeColObject;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.GoodsContainer;
+import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.Market;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.ProductionInfo;
+import net.sf.freecol.common.model.Region;
+import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.StringTemplate;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TileImprovementType;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.UnitType;
+import net.sf.freecol.common.model.WorkLocation;
+import net.sf.freecol.common.model.WorkLocation.Suggestion;
+import net.sf.freecol.common.resources.ResourceManager;
+import static net.sf.freecol.common.util.CollectionUtils.*;
+
+
+/**
+ * This panel displays the compact colony report.
+ */
+public final class ReportCompactColonyPanel extends ReportPanel
+    implements ActionListener {
+
+    /** Container class for all the information about a colony. */
+    private static class ColonySummary {
+
+        /** Types of production for a given goods type. */
+<span class="nc" id="L85">        public static enum ProductionStatus {</span>
+<span class="nc" id="L86">            FAIL,        // Negative production and below low alarm level</span>
+<span class="nc" id="L87">            BAD,         // Negative production</span>
+<span class="nc" id="L88">            NONE,        // No production at all</span>
+<span class="nc" id="L89">            ZERO,        // Production == consumption</span>
+<span class="nc" id="L90">            GOOD,        // Positive production</span>
+<span class="nc" id="L91">            EXPORT,      // Positive production and exporting</span>
+<span class="nc" id="L92">            EXCESS,      // Positive production and above high alarm level</span>
+<span class="nc" id="L93">            OVERFLOW,    // Positive production and above capacity</span>
+<span class="nc" id="L94">            PRODUCTION,  // Positive production but could produce more</span>
+<span class="nc" id="L95">            CONSUMPTION, // Positive production but could consume more</span>
+        };
+
+<span class="nc" id="L98">        public static BinaryOperator&lt;GoodsProduction&gt; goodsProductionAccumulator</span>
+            = (g1, g2) -&gt; {
+<span class="nc" id="L100">                g1.amount += g2.amount;</span>
+<span class="nc bnc" id="L101" title="All 8 branches missed.">                g1.status = (g1.status == ProductionStatus.NONE</span>
+                        &amp;&amp; g2.status == ProductionStatus.NONE)
+                    ? ProductionStatus.NONE
+                    : (g1.amount &lt; 0) ? ProductionStatus.BAD
+                    : (g1.amount &gt; 0) ? ProductionStatus.GOOD
+                    : ProductionStatus.ZERO;
+<span class="nc" id="L107">                g1.extra = 0;</span>
+<span class="nc" id="L108">                return g1;</span>
+            };
+
+        /** Container class for goods production. */
+        public static class GoodsProduction {
+
+            public int amount;
+            public ProductionStatus status;
+            public int extra;
+
+            public GoodsProduction(int amount, ProductionStatus status,
+<span class="nc" id="L119">                                   int extra) {</span>
+<span class="nc" id="L120">                this.amount = amount;</span>
+<span class="nc" id="L121">                this.status = status;</span>
+<span class="nc" id="L122">                this.extra = extra;</span>
+<span class="nc" id="L123">            }</span>
+        };
+
+
+        /** The colony being summarized. */
+        public final Colony colony;
+
+        /** The level of teaching-building. */
+        public final int schoolLevel;
+
+        /** Possible tile improvements. */
+<span class="nc" id="L134">        public final List&lt;TileImprovementSuggestion&gt; tileSuggestions</span>
+            = new ArrayList&lt;&gt;();
+
+        /** Famine warning required? */
+        public final boolean famine;
+
+        /**
+         * Turns to new colonist if positive, no colonist if zero,
+         * -turns-1 to starvation if negative.
+         */
+        public final int newColonist;
+
+        /** Current production bonus. */
+        public final int bonus;
+        
+        /** Preferred size change. */
+        public final int sizeChange;
+
+        /** Goods production. */
+<span class="nc" id="L153">        public final Map&lt;GoodsType, GoodsProduction&gt; production</span>
+            = new HashMap&lt;&gt;();
+
+        /** Teacher units mapped to turns to complete. */
+<span class="nc" id="L157">        public final Map&lt;Unit, Integer&gt; teachers = new HashMap&lt;&gt;();</span>
+        /** Units present that are not working. */
+<span class="nc" id="L159">        public final List&lt;Unit&gt; notWorking = new ArrayList&lt;&gt;();</span>
+        /** Units present that might be working. */
+<span class="nc" id="L161">        public final List&lt;UnitType&gt; couldWork = new ArrayList&lt;&gt;();</span>
+        /** Suggested better unit use. */
+<span class="nc" id="L163">        public final Map&lt;UnitType, Suggestion&gt; improve = new HashMap&lt;&gt;();</span>
+        /** Suggested new unit use. */
+<span class="nc" id="L165">        public final Map&lt;UnitType, Suggestion&gt; want = new HashMap&lt;&gt;();</span>
+        
+        /** Currently building. */
+        public final BuildableType build;
+        public final int completeTurns;
+        public final AbstractGoods needed;
+
+
+        /**
+         * Create the colony summary.
+         *
+         * @param colony The &lt;code&gt;Colony&lt;/code&gt; to summarize.
+         * @param goodsTypes A list of &lt;code&gt;GoodsType&lt;/code&gt;s to include
+         *     in the summary.
+         */
+<span class="nc" id="L180">        public ColonySummary(Colony colony, List&lt;GoodsType&gt; goodsTypes) {</span>
+<span class="nc" id="L181">            this.colony = colony;</span>
+
+<span class="nc" id="L183">            WorkLocation school</span>
+<span class="nc" id="L184">                = colony.getWorkLocationWithAbility(Ability.TEACH);</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">            this.schoolLevel = (school instanceof Building)</span>
+<span class="nc" id="L186">                ? ((Building)school).getLevel() : 0;</span>
+                
+<span class="nc" id="L188">            final Specification spec = colony.getSpecification();</span>
+<span class="nc" id="L189">            final Player owner = colony.getOwner();</span>
+<span class="nc" id="L190">            final GoodsType foodType = spec.getPrimaryFoodType();</span>
+
+<span class="nc" id="L192">            this.tileSuggestions.clear();</span>
+<span class="nc" id="L193">            this.tileSuggestions.addAll(colony.getTileImprovementSuggestions());</span>
+
+<span class="nc" id="L195">            int starve = colony.getStarvationTurns();</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">            if (starve &lt; 0) {</span>
+<span class="nc" id="L197">                this.famine = false;</span>
+<span class="nc" id="L198">                this.newColonist = colony.getNewColonistTurns();</span>
+            } else {
+<span class="nc bnc" id="L200" title="All 2 branches missed.">                this.famine = starve &lt;= Colony.FAMINE_TURNS;</span>
+<span class="nc" id="L201">                this.newColonist = -starve - 1;</span>
+            }
+
+<span class="nc" id="L204">            this.bonus = colony.getProductionBonus();</span>
+            
+<span class="nc" id="L206">            this.sizeChange = colony.getPreferredSizeChange();</span>
+
+<span class="nc bnc" id="L208" title="All 2 branches missed.">            for (GoodsType gt : goodsTypes) produce(gt);</span>
+                
+<span class="nc bnc" id="L210" title="All 2 branches missed.">            for (Unit u : colony.getTile().getUnitList()) {</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">                if (u.getState() != Unit.UnitState.FORTIFIED</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">                    &amp;&amp; u.getState() != Unit.UnitState.SENTRY) {</span>
+<span class="nc" id="L213">                    this.notWorking.add(u);</span>
+                }
+<span class="nc" id="L215">            }</span>
+
+            // Collect the types of the units at work in the colony
+            // (colony tiles and buildings) that are suboptimal (and
+            // are not just temporarily there because they are being
+            // taught), the types for sites that really need a new
+            // unit, the teachers, and the units that are not working.
+            //
+            // FIXME: this needs to be merged with the requirements
+            // checking code, but that in turn should be opened up
+            // so the AI can use it...
+<span class="nc bnc" id="L226" title="All 2 branches missed.">            for (WorkLocation wl : colony.getAvailableWorkLocations()) {</span>
+<span class="nc bnc" id="L227" title="All 2 branches missed.">                if (!wl.canBeWorked()) continue;</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">                if (wl.canTeach()) {</span>
+<span class="nc bnc" id="L229" title="All 2 branches missed.">                    for (Unit u : wl.getUnitList()) {</span>
+<span class="nc" id="L230">                        teachers.put(u, u.getNeededTurnsOfTraining()</span>
+<span class="nc" id="L231">                            - u.getTurnsOfTraining());</span>
+<span class="nc" id="L232">                    }</span>
+<span class="nc" id="L233">                    continue;</span>
+                }
+
+                // Check if the units are working.
+<span class="nc bnc" id="L237" title="All 2 branches missed.">                for (Unit u : wl.getUnitList()) {</span>
+<span class="nc bnc" id="L238" title="All 4 branches missed.">                    if (u.getTeacher() == null &amp;&amp; u.getWorkType() == null) {</span>
+<span class="nc" id="L239">                        this.notWorking.add(u);</span>
+                    }
+<span class="nc" id="L241">                }</span>
+
+                // Add work location suggestions.
+                for (Entry&lt;Unit, Suggestion&gt; e
+<span class="nc bnc" id="L245" title="All 2 branches missed.">                         : wl.getSuggestions().entrySet()) {</span>
+<span class="nc" id="L246">                    Unit u = e.getKey();</span>
+<span class="nc" id="L247">                    Suggestion s = e.getValue();</span>
+<span class="nc" id="L248">                    UnitType expert = spec.getExpertForProducing(s.goodsType);</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">                    if (u == null) {</span>
+<span class="nc" id="L250">                        addSuggestion(this.want, expert, s);</span>
+                    } else {
+<span class="nc" id="L252">                        addSuggestion(this.improve, expert, s);</span>
+                    }
+<span class="nc" id="L254">                }</span>
+<span class="nc" id="L255">            }</span>
+            
+            // Make a list of unit types that are not working at their
+            // speciality, including the units just standing around.
+<span class="nc bnc" id="L259" title="All 2 branches missed.">            for (Unit u : this.notWorking) {</span>
+<span class="nc" id="L260">                GoodsType t = u.getWorkType();</span>
+<span class="nc" id="L261">                WorkLocation wl = u.getWorkLocation();</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">                if (wl == null) continue;</span>
+<span class="nc" id="L263">                GoodsType w = wl.getWorkFor(u);</span>
+<span class="nc bnc" id="L264" title="All 4 branches missed.">                if (w == null || w != t) this.couldWork.add(u.getType());</span>
+<span class="nc" id="L265">            }</span>
+
+<span class="nc" id="L267">            this.build = colony.getCurrentlyBuilding();</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">            if (this.build == null) {</span>
+<span class="nc" id="L269">                this.completeTurns = -1;</span>
+<span class="nc" id="L270">                this.needed = null;</span>
+            } else {
+<span class="nc" id="L272">                AbstractGoods needed = new AbstractGoods();</span>
+<span class="nc" id="L273">                this.completeTurns = colony.getTurnsToComplete(build, needed);</span>
+<span class="nc bnc" id="L274" title="All 2 branches missed.">                this.needed = (this.completeTurns &lt; 0) ? needed : null;</span>
+            }
+<span class="nc" id="L276">        }</span>
+
+        /**
+         * Set the production map values for the given goods type.
+         *
+         * @param goodsType The &lt;code&gt;GoodsType&lt;/code&gt; to use.
+         */
+        private void produce(GoodsType goodsType) {
+<span class="nc" id="L284">            final ExportData exportData = colony.getExportData(goodsType);</span>
+<span class="nc" id="L285">            final int adjustment = colony.getWarehouseCapacity()</span>
+                / GoodsContainer.CARGO_SIZE;
+<span class="nc" id="L287">            final int low = exportData.getLowLevel() * adjustment;</span>
+<span class="nc" id="L288">            final int high = exportData.getHighLevel() * adjustment;</span>
+<span class="nc" id="L289">            final int amount = colony.getGoodsCount(goodsType);</span>
+<span class="nc" id="L290">            int p = colony.getAdjustedNetProductionOf(goodsType);</span>
+
+            ProductionStatus status;
+            AbstractGoods deficit;
+<span class="nc" id="L294">            int extra = 0;</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">            if (p &lt; 0) {</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">                status = (amount &lt; low) ? ProductionStatus.FAIL</span>
+                    : ProductionStatus.BAD;
+<span class="nc" id="L298">                extra = -amount / p + 1;</span>
+<span class="nc bnc" id="L299" title="All 4 branches missed.">            } else if (p == 0 &amp;&amp; !colony.isProducing(goodsType)) {</span>
+<span class="nc" id="L300">                status = ProductionStatus.NONE;</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">            } else if (p == 0) {</span>
+<span class="nc" id="L302">                status = ProductionStatus.ZERO;</span>
+<span class="nc" id="L303">                extra = 0;</span>
+<span class="nc" id="L304">                deficit = null;</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">                for (WorkLocation wl : colony.getWorkLocationsForProducing(goodsType)) {</span>
+<span class="nc" id="L306">                    ProductionInfo pi = colony.getProductionInfo(wl);</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">                    if (pi == null) continue;</span>
+<span class="nc" id="L308">                    deficit = AbstractGoods.findByType(goodsType,</span>
+<span class="nc" id="L309">                        pi.getConsumptionDeficit());</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">                    if (deficit != null) {</span>
+<span class="nc" id="L311">                        status = ProductionStatus.CONSUMPTION;</span>
+<span class="nc" id="L312">                        extra = deficit.getAmount();</span>
+<span class="nc" id="L313">                        break;</span>
+                    }
+<span class="nc" id="L315">                }</span>
+<span class="nc bnc" id="L316" title="All 2 branches missed.">            } else if (exportData.getExported()) {</span>
+<span class="nc" id="L317">                status = ProductionStatus.EXPORT;</span>
+<span class="nc" id="L318">                extra = exportData.getExportLevel();</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">            } else if (goodsType.limitIgnored()) {</span>
+<span class="nc" id="L320">                status = ProductionStatus.GOOD;</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">            } else if (amount + p &gt; colony.getWarehouseCapacity()) {</span>
+<span class="nc" id="L322">                status = ProductionStatus.OVERFLOW;</span>
+<span class="nc" id="L323">                extra = amount + p - colony.getWarehouseCapacity();</span>
+<span class="nc bnc" id="L324" title="All 2 branches missed.">            } else if (amount &gt;= high) {</span>
+<span class="nc" id="L325">                status = ProductionStatus.EXCESS;</span>
+<span class="nc" id="L326">                extra = (colony.getWarehouseCapacity() - amount) / p;</span>
+            } else {
+<span class="nc" id="L328">                status = ProductionStatus.GOOD;</span>
+<span class="nc" id="L329">                extra = 0;</span>
+<span class="nc" id="L330">                deficit = null;</span>
+<span class="nc bnc" id="L331" title="All 2 branches missed.">                for (WorkLocation wl : colony.getWorkLocationsForProducing(goodsType)) {</span>
+<span class="nc" id="L332">                    ProductionInfo pi = colony.getProductionInfo(wl);</span>
+<span class="nc bnc" id="L333" title="All 2 branches missed.">                    if (pi == null) continue;</span>
+<span class="nc" id="L334">                    deficit = AbstractGoods.findByType(goodsType,</span>
+<span class="nc" id="L335">                        pi.getProductionDeficit());</span>
+<span class="nc bnc" id="L336" title="All 2 branches missed.">                    if (deficit != null) {</span>
+<span class="nc" id="L337">                        status = ProductionStatus.PRODUCTION;</span>
+<span class="nc" id="L338">                        extra = deficit.getAmount();</span>
+<span class="nc" id="L339">                        break;</span>
+                    }
+<span class="nc" id="L341">                }</span>
+            }
+<span class="nc" id="L343">            this.production.put(goodsType,</span>
+                new GoodsProduction(p, status, extra));
+<span class="nc" id="L345">        }</span>
+
+        private void addSuggestion(Map&lt;UnitType, Suggestion&gt; suggestions,
+            UnitType expert, Suggestion suggestion) {
+<span class="nc bnc" id="L349" title="All 4 branches missed.">            if (suggestion == null || expert == null) return;</span>
+<span class="nc" id="L350">            Suggestion now = suggestions.get(expert);</span>
+<span class="nc bnc" id="L351" title="All 4 branches missed.">            if (now == null || now.amount &lt; suggestion.amount) {</span>
+<span class="nc" id="L352">                suggestions.put(expert, suggestion);</span>
+            }
+<span class="nc" id="L354">        }</span>
+    };
+
+    private static final String BUILDQUEUE = &quot;buildQueue.&quot;;
+    private static final String cAlarmKey = &quot;color.report.colony.alarm&quot;;
+    private static final String cWarnKey = &quot;color.report.colony.warning&quot;;
+    private static final String cPlainKey = &quot;color.report.colony.plain&quot;;
+    private static final String cExportKey = &quot;color.report.colony.export&quot;;
+    private static final String cGoodKey = &quot;color.report.colony.good&quot;;
+<span class="nc" id="L363">    private static Color cAlarm = null;</span>
+    private static Color cWarn;
+    private static Color cPlain;
+    private static Color cExport;
+    private static Color cGood;
+
+    private final Specification spec;
+    private final ImageLibrary lib;
+<span class="nc" id="L371">    private final List&lt;List&lt;Colony&gt;&gt; colonies = new ArrayList&lt;&gt;();</span>
+    private final Market market;
+<span class="nc" id="L373">    private final List&lt;GoodsType&gt; goodsTypes = new ArrayList&lt;&gt;();</span>
+
+
+    /**
+     * Creates a compact colony report.
+     *
+     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+     */
+    public ReportCompactColonyPanel(FreeColClient freeColClient) {
+<span class="nc" id="L382">        super(freeColClient, &quot;reportColonyAction&quot;);</span>
+
+<span class="nc" id="L384">        final Player player = getMyPlayer();</span>
+<span class="nc" id="L385">        final Comparator&lt;Colony&gt; colonyComparator = freeColClient</span>
+<span class="nc" id="L386">            .getClientOptions().getColonyComparator();</span>
+<span class="nc" id="L387">        final Comparator&lt;List&lt;Colony&gt;&gt; firstColonyComparator</span>
+<span class="nc" id="L388">            = new Comparator&lt;List&lt;Colony&gt;&gt;() {</span>
+                @Override
+                public int compare(List&lt;Colony&gt; l1, List&lt;Colony&gt; l2) {
+<span class="nc" id="L391">                    return colonyComparator.compare(l1.get(0), l2.get(0));</span>
+                }
+            };
+
+<span class="nc" id="L395">        this.spec = getSpecification();</span>
+<span class="nc" id="L396">        this.lib = getImageLibrary();</span>
+        
+        // Sort the colonies by continent.
+<span class="nc" id="L399">        final Map&lt;Integer, List&lt;Colony&gt;&gt; continents = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">        for (Colony c : freeColClient.getMySortedColonies()) {</span>
+<span class="nc bnc" id="L401" title="All 2 branches missed.">            if (c.getUnitCount() &gt; 0) {</span>
+                // Do not include colonies that have been abandoned
+                // but are still on the colonies list.
+<span class="nc" id="L404">                appendToMapList(continents, c.getTile().getContiguity(), c);</span>
+            }
+<span class="nc" id="L406">        }</span>
+        for (Entry&lt;Integer, List&lt;Colony&gt;&gt; e 
+<span class="nc bnc" id="L408" title="All 2 branches missed.">                 : mapEntriesByValue(continents, firstColonyComparator)) {</span>
+<span class="nc" id="L409">            this.colonies.add(e.getValue());</span>
+<span class="nc" id="L410">        }</span>
+
+<span class="nc" id="L412">        this.market = player.getMarket();</span>
+
+<span class="nc" id="L414">        this.goodsTypes.addAll(spec.getGoodsTypeList());</span>
+<span class="nc" id="L415">        Iterator&lt;GoodsType&gt; gti = goodsTypes.iterator();</span>
+<span class="nc bnc" id="L416" title="All 2 branches missed.">        while (gti.hasNext()) {</span>
+<span class="nc" id="L417">            GoodsType gt = gti.next();</span>
+<span class="nc bnc" id="L418" title="All 4 branches missed.">            if (!gt.isStorable() || gt.isTradeGoods()) gti.remove();</span>
+<span class="nc" id="L419">        }</span>
+<span class="nc" id="L420">        Collections.sort(this.goodsTypes, GoodsType.goodsTypeComparator);</span>
+
+<span class="nc" id="L422">        loadResources();</span>
+
+<span class="nc" id="L424">        update();</span>
+<span class="nc" id="L425">    }</span>
+
+    private synchronized void loadResources() {
+<span class="nc bnc" id="L428" title="All 2 branches missed.">        if (cAlarm != null) return;</span>
+
+<span class="nc bnc" id="L430" title="All 2 branches missed.">        cAlarm = (ResourceManager.hasColorResource(cAlarmKey))</span>
+<span class="nc" id="L431">            ? ResourceManager.getColor(cAlarmKey)</span>
+            : Color.RED;
+<span class="nc bnc" id="L433" title="All 2 branches missed.">        cWarn = (ResourceManager.hasColorResource(cWarnKey))</span>
+<span class="nc" id="L434">            ? ResourceManager.getColor(cWarnKey)</span>
+            : Color.MAGENTA;
+<span class="nc bnc" id="L436" title="All 2 branches missed.">        cPlain = (ResourceManager.hasColorResource(cPlainKey))</span>
+<span class="nc" id="L437">            ? ResourceManager.getColor(cPlainKey)</span>
+            : Color.DARK_GRAY;
+<span class="nc bnc" id="L439" title="All 2 branches missed.">        cExport = (ResourceManager.hasColorResource(cExportKey))</span>
+<span class="nc" id="L440">            ? ResourceManager.getColor(cExportKey)</span>
+            : Color.GREEN;
+<span class="nc bnc" id="L442" title="All 2 branches missed.">        cGood = (ResourceManager.hasColorResource(cGoodKey))</span>
+<span class="nc" id="L443">            ? ResourceManager.getColor(cGoodKey)</span>
+            : Color.BLUE;
+<span class="nc" id="L445">    }</span>
+
+
+    private static StringTemplate stpl(String messageId) {
+<span class="nc bnc" id="L449" title="All 2 branches missed.">        return (Messages.containsKey(messageId))</span>
+<span class="nc" id="L450">            ? StringTemplate.template(messageId)</span>
+            : null;
+    }
+
+    private static StringTemplate stpld(String messageId) {
+<span class="nc" id="L455">        messageId = Messages.descriptionKey(messageId);</span>
+<span class="nc" id="L456">        return stpl(messageId);</span>
+    }
+
+    private JLabel newLabel(String h, ImageIcon i, Color c) {
+<span class="nc" id="L460">        JLabel l = new JLabel(h, i, SwingConstants.CENTER);</span>
+<span class="nc bnc" id="L461" title="All 2 branches missed.">        l.setForeground((c == null) ? Color.BLACK : c);</span>
+<span class="nc" id="L462">        return l;</span>
+    }
+
+    private JLabel newLabel(String h, ImageIcon i, Color c, StringTemplate t) {
+<span class="nc bnc" id="L466" title="All 4 branches missed.">        if (h != null &amp;&amp; Messages.containsKey(h)) h = Messages.message(h);</span>
+<span class="nc" id="L467">        JLabel l = newLabel(h, i, c);</span>
+<span class="nc bnc" id="L468" title="All 2 branches missed.">        if (t != null) Utility.localizeToolTip(l, t);</span>
+<span class="nc" id="L469">        return l;</span>
+    }
+
+    private JButton newButton(String action, String h, ImageIcon i,
+                              Color c, StringTemplate t) {
+<span class="nc bnc" id="L474" title="All 4 branches missed.">        if (h != null &amp;&amp; Messages.containsKey(h)) h = Messages.message(h);</span>
+<span class="nc" id="L475">        JButton b = Utility.getLinkButton(h, i, action);</span>
+<span class="nc bnc" id="L476" title="All 2 branches missed.">        b.setForeground((c == null) ? Color.BLACK : c);</span>
+<span class="nc bnc" id="L477" title="All 2 branches missed.">        if (t != null) Utility.localizeToolTip(b, t);</span>
+<span class="nc" id="L478">        b.addActionListener(this);</span>
+<span class="nc" id="L479">        return b;</span>
+    }
+
+    private void addTogether(List&lt;? extends JComponent&gt; components) {
+<span class="nc bnc" id="L483" title="All 2 branches missed.">        if (components.isEmpty()) {</span>
+<span class="nc" id="L484">            reportPanel.add(new JLabel());</span>
+<span class="nc" id="L485">            return;</span>
+        }
+<span class="nc bnc" id="L487" title="All 2 branches missed.">        String layout = (components.size() &gt; 1) ? &quot;split &quot; + components.size()</span>
+            : null;
+<span class="nc bnc" id="L489" title="All 2 branches missed.">        for (JComponent jc : components) {</span>
+<span class="nc" id="L490">            reportPanel.add(jc, layout);</span>
+<span class="nc" id="L491">            layout = null;</span>
+<span class="nc" id="L492">        }</span>
+<span class="nc" id="L493">    }</span>
+
+    /**
+     * Update a single colony.
+     *
+     * @param s The &lt;code&gt;ColonySummary&lt;/code&gt; to update from.
+     */
+    private void updateColony(ColonySummary s) {
+<span class="nc" id="L501">        final String cac = s.colony.getId();</span>
+<span class="nc" id="L502">        final UnitType defaultUnitType</span>
+<span class="nc" id="L503">            = spec.getDefaultUnitType(s.colony.getOwner());</span>
+<span class="nc" id="L504">        List&lt;JComponent&gt; buttons = new ArrayList&lt;&gt;();</span>
+        JButton b;
+        Color c;
+        StringTemplate t;
+
+        // Field: A button for the colony.
+        // Colour: bonus in {-2,2} =&gt; {alarm, warn, plain, export, good}
+        // Font: Bold if famine is threatening.
+<span class="nc bnc" id="L512" title="All 8 branches missed.">        c = (s.bonus &lt;= -2) ? cAlarm</span>
+            : (s.bonus == -1) ? cWarn
+            : (s.bonus == 0) ? cPlain
+            : (s.bonus == 1) ? cExport
+            : cGood;
+<span class="nc" id="L517">        b = newButton(cac, s.colony.getName(), null, c, null);</span>
+<span class="nc bnc" id="L518" title="All 2 branches missed.">        if (s.famine) b.setFont(b.getFont().deriveFont(Font.BOLD));</span>
+<span class="nc" id="L519">        reportPanel.add(b, &quot;newline&quot;);</span>
+
+        // Field: The number of colonists that can be added to a
+        // colony without damaging the production bonus, unless
+        // the colony is inefficient in which case add the number
+        // of colonists to remove to fix the inefficiency.
+        // Colour: Blue if efficient/Red if inefficient.
+<span class="nc bnc" id="L526" title="All 2 branches missed.">        if (s.sizeChange &lt; 0) {</span>
+<span class="nc" id="L527">            c = cAlarm;</span>
+<span class="nc" id="L528">            t = stpld(&quot;report.colony.shrinking&quot;)</span>
+<span class="nc" id="L529">                    .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L530">                    .addAmount(&quot;%amount%&quot;, -s.sizeChange);</span>
+<span class="nc" id="L531">            b = newButton(cac, Integer.toString(-s.sizeChange), null, c, t);</span>
+<span class="nc bnc" id="L532" title="All 2 branches missed.">        } else if (s.sizeChange &gt; 0) {</span>
+<span class="nc" id="L533">            c = cGood;</span>
+<span class="nc" id="L534">            t = stpld(&quot;report.colony.growing&quot;)</span>
+<span class="nc" id="L535">                    .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L536">                    .addAmount(&quot;%amount%&quot;, s.sizeChange);</span>
+<span class="nc" id="L537">            b = newButton(cac, Integer.toString(s.sizeChange), null, c, t);</span>
+        } else {
+<span class="nc" id="L539">            b = null;</span>
+        }
+<span class="nc bnc" id="L541" title="All 2 branches missed.">        reportPanel.add((b == null) ? new JLabel() : b);</span>
+
+        // Field: The number of potential colony tiles that need
+        // exploring.
+        // Colour: Always cAlarm
+<span class="nc" id="L546">        int n = 0;</span>
+<span class="nc bnc" id="L547" title="All 2 branches missed.">        for (TileImprovementSuggestion tis : s.tileSuggestions) {</span>
+<span class="nc bnc" id="L548" title="All 2 branches missed.">            if (tis.isExploration()) n++;</span>
+<span class="nc" id="L549">        }</span>
+<span class="nc bnc" id="L550" title="All 2 branches missed.">        if (n &gt; 0) {</span>
+<span class="nc" id="L551">            t = stpld(&quot;report.colony.exploring&quot;)</span>
+<span class="nc" id="L552">                    .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L553">                    .addAmount(&quot;%amount%&quot;, n);</span>
+<span class="nc" id="L554">            b = newButton(cac, Integer.toString(n), null, cAlarm, t);</span>
+        } else {
+<span class="nc" id="L556">            b = null;</span>
+        }
+<span class="nc bnc" id="L558" title="All 2 branches missed.">        reportPanel.add((b == null) ? new JLabel() : b);</span>
+
+        // Fields: The number of existing colony tiles that would
+        // benefit from improvements.
+        // Colour: Always cAlarm
+        // Font: Bold if one of the tiles is the colony center.
+<span class="nc bnc" id="L564" title="All 2 branches missed.">        for (TileImprovementType ti : spec.getTileImprovementTypeList()) {</span>
+<span class="nc bnc" id="L565" title="All 2 branches missed.">            if (ti.isNatural()) continue;</span>
+<span class="nc" id="L566">            n = 0;</span>
+<span class="nc" id="L567">            boolean center = false; </span>
+<span class="nc bnc" id="L568" title="All 2 branches missed.">            for (TileImprovementSuggestion tis : s.tileSuggestions) {</span>
+<span class="nc bnc" id="L569" title="All 2 branches missed.">                if (tis.tileImprovementType == ti) {</span>
+<span class="nc" id="L570">                    n++;</span>
+<span class="nc bnc" id="L571" title="All 2 branches missed.">                    if (tis.tile == s.colony.getTile()) center = true;</span>
+                }
+<span class="nc" id="L573">            }</span>
+<span class="nc bnc" id="L574" title="All 2 branches missed.">            if (n &gt; 0) {</span>
+<span class="nc" id="L575">                c = cAlarm;</span>
+<span class="nc bnc" id="L576" title="All 2 branches missed.">                if (n == 1) {</span>
+<span class="nc" id="L577">                    TileImprovementSuggestion tis = s.tileSuggestions.get(0);</span>
+<span class="nc bnc" id="L578" title="All 2 branches missed.">                    for (Unit u : tis.tile.getUnitList()) {</span>
+<span class="nc bnc" id="L579" title="All 2 branches missed.">                        if (u.getState() == Unit.UnitState.IMPROVING</span>
+<span class="nc bnc" id="L580" title="All 2 branches missed.">                            &amp;&amp; u.getWorkImprovement() != null</span>
+<span class="nc bnc" id="L581" title="All 2 branches missed.">                            &amp;&amp; u.getWorkImprovement().getType()</span>
+                                == tis.tileImprovementType) {
+<span class="nc" id="L583">                            c = cWarn; // Work is underway</span>
+<span class="nc" id="L584">                            break;</span>
+                        }
+<span class="nc" id="L586">                    }</span>
+<span class="nc" id="L587">                    t = stpld(&quot;report.colony.tile.&quot; + ti.getSuffix()</span>
+                              + &quot;.specific&quot;)
+<span class="nc" id="L589">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L590">                        .addStringTemplate(&quot;%location%&quot;,</span>
+<span class="nc" id="L591">                            tis.tile.getColonyTileLocationLabel(s.colony));</span>
+<span class="nc" id="L592">                } else {</span>
+<span class="nc" id="L593">                    t = stpld(&quot;report.colony.tile.&quot; + ti.getSuffix())</span>
+<span class="nc" id="L594">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L595">                        .addAmount(&quot;%amount%&quot;, n);</span>
+                }
+<span class="nc" id="L597">                b = newButton(cac, Integer.toString(n), null, c, t);</span>
+<span class="nc bnc" id="L598" title="All 2 branches missed.">                if (center) b.setFont(b.getFont().deriveFont(Font.BOLD));</span>
+            } else {
+<span class="nc" id="L600">                b = null;</span>
+            }
+<span class="nc bnc" id="L602" title="All 2 branches missed.">            reportPanel.add((b == null) ? new JLabel() : b);</span>
+<span class="nc" id="L603">        }</span>
+
+        // Fields: The net production of each storable+non-trade-goods
+        // goods type.
+        // Colour: cAlarm if too low, cWarn if negative, empty if no
+        // production, cPlain if production balanced at zero,
+        // otherwise must be positive, wherein cExport
+        // if exported, cAlarm if too high, else cGood.
+<span class="nc bnc" id="L611" title="All 2 branches missed.">        for (GoodsType gt : this.goodsTypes) {</span>
+<span class="nc" id="L612">            final ColonySummary.GoodsProduction gp = s.production.get(gt);</span>
+<span class="nc bnc" id="L613" title="All 11 branches missed.">            switch (gp.status) {</span>
+            case FAIL:
+<span class="nc" id="L615">                c = cAlarm;</span>
+<span class="nc" id="L616">                t = stpld(&quot;report.colony.production.low&quot;)</span>
+<span class="nc" id="L617">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L618">                        .addNamed(&quot;%goods%&quot;, gt)</span>
+<span class="nc" id="L619">                        .addAmount(&quot;%amount%&quot;, -gp.amount)</span>
+<span class="nc" id="L620">                        .addAmount(&quot;%turns%&quot;, gp.extra);</span>
+<span class="nc" id="L621">                break;</span>
+            case BAD:
+<span class="nc" id="L623">                c = cWarn;</span>
+<span class="nc" id="L624">                t = stpld(&quot;report.colony.production&quot;)</span>
+<span class="nc" id="L625">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L626">                        .addNamed(&quot;%goods%&quot;, gt)</span>
+<span class="nc" id="L627">                        .addAmount(&quot;%amount%&quot;, gp.amount);</span>
+<span class="nc" id="L628">                break;</span>
+            case NONE:
+<span class="nc" id="L630">                c = null;</span>
+<span class="nc" id="L631">                t = null;</span>
+<span class="nc" id="L632">                break;</span>
+            case ZERO:
+<span class="nc" id="L634">                c = cPlain;</span>
+<span class="nc" id="L635">                t = stpld(&quot;report.colony.production&quot;)</span>
+<span class="nc" id="L636">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L637">                        .addNamed(&quot;%goods%&quot;, gt)</span>
+<span class="nc" id="L638">                        .addAmount(&quot;%amount%&quot;, gp.amount);</span>
+<span class="nc" id="L639">                break;</span>
+            case GOOD:
+<span class="nc" id="L641">                c = cGood;</span>
+<span class="nc" id="L642">                t = stpld(&quot;report.colony.production&quot;)</span>
+<span class="nc" id="L643">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L644">                        .addNamed(&quot;%goods%&quot;, gt)</span>
+<span class="nc" id="L645">                        .addAmount(&quot;%amount%&quot;, gp.amount);</span>
+<span class="nc" id="L646">                break;</span>
+            case EXPORT:
+<span class="nc" id="L648">                c = cExport;</span>
+<span class="nc" id="L649">                t = stpld(&quot;report.colony.production.export&quot;)</span>
+<span class="nc" id="L650">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L651">                        .addNamed(&quot;%goods%&quot;, gt)</span>
+<span class="nc" id="L652">                        .addAmount(&quot;%amount%&quot;, gp.amount)</span>
+<span class="nc" id="L653">                        .addAmount(&quot;%export%&quot;, gp.extra);</span>
+<span class="nc" id="L654">                break;</span>
+            case EXCESS:
+<span class="nc" id="L656">                c = cWarn;</span>
+<span class="nc" id="L657">                t = stpld(&quot;report.colony.production.high&quot;)</span>
+<span class="nc" id="L658">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L659">                        .addNamed(&quot;%goods%&quot;, gt)</span>
+<span class="nc" id="L660">                        .addAmount(&quot;%amount%&quot;, gp.amount)</span>
+<span class="nc" id="L661">                        .addAmount(&quot;%turns%&quot;, gp.extra);</span>
+<span class="nc" id="L662">                break;</span>
+            case OVERFLOW:
+<span class="nc" id="L664">                c = cAlarm;</span>
+<span class="nc" id="L665">                t = stpld(&quot;report.colony.production.waste&quot;)</span>
+<span class="nc" id="L666">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L667">                        .addNamed(&quot;%goods%&quot;, gt)</span>
+<span class="nc" id="L668">                        .addAmount(&quot;%amount%&quot;, gp.amount)</span>
+<span class="nc" id="L669">                        .addAmount(&quot;%waste%&quot;, gp.extra);</span>
+<span class="nc" id="L670">                break;</span>
+            case PRODUCTION:
+<span class="nc" id="L672">                c = cWarn;</span>
+<span class="nc" id="L673">                t = stpld(&quot;report.colony.production.maxProduction&quot;)</span>
+<span class="nc" id="L674">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L675">                        .addNamed(&quot;%goods%&quot;, gt)</span>
+<span class="nc" id="L676">                        .addAmount(&quot;%amount%&quot;, gp.amount)</span>
+<span class="nc" id="L677">                        .addAmount(&quot;%more%&quot;, gp.extra);</span>
+<span class="nc" id="L678">                break;</span>
+            case CONSUMPTION:
+<span class="nc" id="L680">                c = cWarn;</span>
+<span class="nc" id="L681">                t = stpld(&quot;report.colony.production.maxConsumption&quot;)</span>
+<span class="nc" id="L682">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L683">                        .addNamed(&quot;%goods%&quot;, gt)</span>
+<span class="nc" id="L684">                        .addAmount(&quot;%amount%&quot;, gp.amount)</span>
+<span class="nc" id="L685">                        .addAmount(&quot;%more%&quot;, gp.extra);</span>
+<span class="nc" id="L686">                break;</span>
+            default:
+<span class="nc" id="L688">                throw new IllegalStateException(&quot;Bogus status: &quot; + gp.status);</span>
+            }
+<span class="nc bnc" id="L690" title="All 2 branches missed.">            reportPanel.add((c == null) ? new JLabel()</span>
+<span class="nc" id="L691">                : newButton(cac, Integer.toString(gp.amount), null, c, t));</span>
+<span class="nc" id="L692">        }</span>
+
+        // Field: New colonist arrival or famine warning.
+        // Colour: cGood if arriving eventually, blank if not enough food
+        // to grow, cWarn if negative, cAlarm if famine soon.
+<span class="nc bnc" id="L697" title="All 2 branches missed.">        if (s.newColonist &gt; 0) {</span>
+<span class="nc" id="L698">            t = stpld(&quot;report.colony.arriving&quot;)</span>
+<span class="nc" id="L699">                    .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L700">                    .addNamed(&quot;%unit%&quot;, defaultUnitType)</span>
+<span class="nc" id="L701">                    .addAmount(&quot;%turns%&quot;, s.newColonist);</span>
+<span class="nc" id="L702">            b = newButton(cac, Integer.toString(s.newColonist), null,</span>
+                          cGood, t);
+<span class="nc bnc" id="L704" title="All 2 branches missed.">        } else if (s.newColonist &lt; 0) {</span>
+<span class="nc bnc" id="L705" title="All 2 branches missed.">            c = (s.famine) ? cAlarm : cWarn;</span>
+<span class="nc" id="L706">            t = stpld(&quot;report.colony.starving&quot;)</span>
+<span class="nc" id="L707">                    .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L708">                    .addAmount(&quot;%turns%&quot;, -s.newColonist);</span>
+<span class="nc" id="L709">            b = newButton(cac, Integer.toString(-s.newColonist), null,</span>
+                          c, t);
+<span class="nc bnc" id="L711" title="All 2 branches missed.">            if (s.famine) b.setFont(b.getFont().deriveFont(Font.BOLD));</span>
+        } else {
+<span class="nc" id="L713">            b = null;</span>
+        }
+<span class="nc bnc" id="L715" title="All 2 branches missed.">        reportPanel.add((b == null) ? new JLabel() : b);</span>
+
+        // Field: What is currently being built (clickable if on the
+        // buildqueue) and the turns until it completes, including
+        // units being taught, or blank if nothing queued.
+        // Colour: cWarn if no construction is occurring, cGood with
+        // turns if completing, cAlarm with turns if will block, turns
+        // indicates when blocking occurs.
+        // Font: Bold if blocked right now.
+<span class="nc" id="L724">        final String qac = BUILDQUEUE + cac;</span>
+<span class="nc bnc" id="L725" title="All 2 branches missed.">        if (s.build != null) {</span>
+<span class="nc" id="L726">            int turns = s.completeTurns;</span>
+<span class="nc" id="L727">            String name = Messages.getName(s.build);</span>
+<span class="nc bnc" id="L728" title="All 2 branches missed.">            if (turns == FreeColObject.UNDEFINED) {</span>
+<span class="nc" id="L729">                t = stpld(&quot;report.colony.making.noconstruction&quot;)</span>
+<span class="nc" id="L730">                        .addName(&quot;%colony%&quot;, s.colony.getName());</span>
+<span class="nc" id="L731">                b = newButton(qac, name, null, cWarn, t);</span>
+<span class="nc bnc" id="L732" title="All 2 branches missed.">            } else if (turns &gt;= 0) {</span>
+<span class="nc" id="L733">                t = stpld(&quot;report.colony.making.constructing&quot;)</span>
+<span class="nc" id="L734">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L735">                        .addNamed(&quot;%buildable%&quot;, s.build)</span>
+<span class="nc" id="L736">                        .addAmount(&quot;%turns%&quot;, turns);</span>
+<span class="nc" id="L737">                b = newButton(qac, name + &quot; &quot; + Integer.toString(turns), null,</span>
+                              cGood, t);
+<span class="nc bnc" id="L739" title="All 2 branches missed.">            } else if (turns &lt; 0) {</span>
+<span class="nc" id="L740">                turns = -(turns + 1);</span>
+<span class="nc" id="L741">                t = stpld(&quot;report.colony.making.blocking&quot;)</span>
+<span class="nc" id="L742">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L743">                        .addAmount(&quot;%amount%&quot;, s.needed.getAmount())</span>
+<span class="nc" id="L744">                        .addNamed(&quot;%goods%&quot;, s.needed.getType())</span>
+<span class="nc" id="L745">                        .addNamed(&quot;%buildable%&quot;, s.build)</span>
+<span class="nc" id="L746">                        .addAmount(&quot;%turns%&quot;, turns);</span>
+<span class="nc" id="L747">                b = newButton(qac, name + &quot; &quot; + Integer.toString(turns),</span>
+                              null, cAlarm, t);
+<span class="nc bnc" id="L749" title="All 2 branches missed.">                if (turns == 0) b.setFont(b.getFont().deriveFont(Font.BOLD));</span>
+            }
+<span class="nc" id="L751">            buttons.add(b);</span>
+        }
+
+        // Field: What is being trained, including shadow units for vacant
+        // places.
+        // Colour: cAlarm if completion is blocked, otherwise cPlain.
+<span class="nc" id="L757">        int empty = 0;</span>
+<span class="nc" id="L758">        Building school = s.colony.getWorkLocationWithAbility(Ability.TEACH,</span>
+                                                              Building.class);
+<span class="nc bnc" id="L760" title="All 2 branches missed.">        if (school != null) empty = school.getType().getWorkPlaces();</span>
+        for (Entry&lt;Unit, Integer&gt; e
+<span class="nc bnc" id="L762" title="All 2 branches missed.">                 : mapEntriesByValue(s.teachers, descendingIntegerComparator)) {</span>
+<span class="nc" id="L763">            Unit u = e.getKey();</span>
+<span class="nc" id="L764">            ImageIcon ii</span>
+<span class="nc" id="L765">                = new ImageIcon(this.lib.getTinyUnitImage(u.getType(), false));</span>
+<span class="nc bnc" id="L766" title="All 2 branches missed.">            if (e.getValue() &lt;= 0) {</span>
+<span class="nc" id="L767">                t = stpld(&quot;report.colony.making.noteach&quot;)</span>
+<span class="nc" id="L768">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L769">                        .addStringTemplate(&quot;%teacher%&quot;,</span>
+<span class="nc" id="L770">                            u.getLabel(Unit.UnitLabelType.NATIONAL));</span>
+<span class="nc" id="L771">                b = newButton(cac, Integer.toString(0), ii, cAlarm, t);</span>
+            } else {
+<span class="nc" id="L773">                t = stpld(&quot;report.colony.making.educating&quot;)</span>
+<span class="nc" id="L774">                        .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L775">                        .addStringTemplate(&quot;%teacher%&quot;,</span>
+<span class="nc" id="L776">                            u.getLabel(Unit.UnitLabelType.NATIONAL))</span>
+<span class="nc" id="L777">                        .addAmount(&quot;%turns%&quot;, e.getValue());</span>
+<span class="nc" id="L778">                b = newButton(cac, Integer.toString(e.getValue()), ii,</span>
+                              cPlain, t);
+            }
+<span class="nc" id="L781">            buttons.add(b);</span>
+<span class="nc" id="L782">            empty--;</span>
+<span class="nc" id="L783">        }</span>
+
+<span class="nc bnc" id="L785" title="All 2 branches missed.">        if (empty &gt; 0) {</span>
+<span class="nc" id="L786">            final ImageIcon emptyIcon</span>
+<span class="nc" id="L787">                = new ImageIcon(this.lib.getTinyUnitImage(defaultUnitType, true));</span>
+<span class="nc" id="L788">            t = stpld(&quot;report.colony.making.educationVacancy&quot;)</span>
+<span class="nc" id="L789">                    .addName(&quot;%colony%&quot;, s.colony.getName())</span>
+<span class="nc" id="L790">                    .addAmount(&quot;%number%&quot;, empty);</span>
+<span class="nc bnc" id="L791" title="All 2 branches missed.">            for (; empty &gt; 0; empty--) {</span>
+<span class="nc" id="L792">                buttons.add(newButton(cac, &quot;&quot;, emptyIcon, cPlain, t));</span>
+            }
+        }
+<span class="nc" id="L795">        addTogether(buttons);</span>
+
+        // Field: The units that could be upgraded, followed by the units
+        // that could be added.
+<span class="nc bnc" id="L799" title="All 4 branches missed.">        if (s.improve.isEmpty() &amp;&amp; s.want.isEmpty()) {</span>
+<span class="nc" id="L800">            reportPanel.add(new JLabel());</span>
+        } else {
+<span class="nc" id="L802">            buttons.clear();</span>
+<span class="nc" id="L803">            buttons.addAll(unitButtons(s.improve, s.couldWork, s.colony));</span>
+<span class="nc" id="L804">            buttons.add(new JLabel(&quot;/&quot;));</span>
+            // Prefer to suggest an improvement over and addition.
+<span class="nc bnc" id="L806" title="All 2 branches missed.">            for (UnitType ut : s.improve.keySet()) s.want.remove(ut);</span>
+<span class="nc" id="L807">            buttons.addAll(unitButtons(s.want, s.couldWork, s.colony));</span>
+<span class="nc" id="L808">            addTogether(buttons);</span>
+        }
+
+        // TODO: notWorking?
+<span class="nc" id="L812">    }</span>
+    
+    private List&lt;JButton&gt; unitButtons(final Map&lt;UnitType, Suggestion&gt; suggestions,
+                                      List&lt;UnitType&gt; have, Colony colony) {
+<span class="nc" id="L816">        final String cac = colony.getId();</span>
+<span class="nc" id="L817">        List&lt;JButton&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L818">        List&lt;UnitType&gt; types = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L819">        types.addAll(suggestions.keySet());</span>
+<span class="nc" id="L820">        Collections.sort(types, new Comparator&lt;UnitType&gt;() {</span>
+                @Override
+                public int compare(UnitType t1, UnitType t2) {
+<span class="nc" id="L823">                    Suggestion s1 = suggestions.get(t1);</span>
+<span class="nc" id="L824">                    Suggestion s2 = suggestions.get(t2);</span>
+<span class="nc" id="L825">                    return Suggestion.descendingAmountComparator.compare(s1, s2);</span>
+                }
+            });
+<span class="nc bnc" id="L828" title="All 2 branches missed.">        for (UnitType type : types) {</span>
+<span class="nc" id="L829">            boolean present = have.contains(type);</span>
+<span class="nc" id="L830">            Suggestion suggestion = suggestions.get(type);</span>
+<span class="nc" id="L831">            String label = Integer.toString(suggestion.amount);</span>
+<span class="nc" id="L832">            ImageIcon icon</span>
+<span class="nc" id="L833">                = new ImageIcon(this.lib.getTinyUnitImage(type, false));</span>
+<span class="nc bnc" id="L834" title="All 2 branches missed.">            StringTemplate tip = (suggestion.oldType == null)</span>
+<span class="nc" id="L835">                ? stpld(&quot;report.colony.wanting&quot;)</span>
+<span class="nc" id="L836">                    .addName(&quot;%colony%&quot;, colony.getName())</span>
+<span class="nc" id="L837">                    .addNamed(&quot;%unit%&quot;, type)</span>
+<span class="nc" id="L838">                    .addStringTemplate(&quot;%location%&quot;,</span>
+<span class="nc" id="L839">                        suggestion.workLocation.getLabel())</span>
+<span class="nc" id="L840">                    .addNamed(&quot;%goods%&quot;, suggestion.goodsType)</span>
+<span class="nc" id="L841">                    .addAmount(&quot;%amount%&quot;, suggestion.amount)</span>
+<span class="nc" id="L842">                : stpld(&quot;report.colony.improving&quot;)</span>
+<span class="nc" id="L843">                    .addName(&quot;%colony%&quot;, colony.getName())</span>
+<span class="nc" id="L844">                    .addNamed(&quot;%oldUnit%&quot;, suggestion.oldType)</span>
+<span class="nc" id="L845">                    .addNamed(&quot;%unit%&quot;, type)</span>
+<span class="nc" id="L846">                    .addStringTemplate(&quot;%location%&quot;,</span>
+<span class="nc" id="L847">                        suggestion.workLocation.getLabel())</span>
+<span class="nc" id="L848">                    .addNamed(&quot;%goods%&quot;, suggestion.goodsType)</span>
+<span class="nc" id="L849">                    .addAmount(&quot;%amount%&quot;, suggestion.amount);</span>
+<span class="nc bnc" id="L850" title="All 2 branches missed.">            JButton b = newButton(cac, label, icon,</span>
+                                  (present) ? cGood : cPlain, tip);
+<span class="nc bnc" id="L852" title="All 2 branches missed.">            if (present) b.setFont(b.getFont().deriveFont(Font.BOLD));</span>
+<span class="nc" id="L853">            result.add(b);</span>
+<span class="nc" id="L854">        }</span>
+<span class="nc" id="L855">        return result;</span>
+    }
+
+    /**
+     * Update several colonies.
+     *
+     * @param summaries A list of &lt;code&gt;ColonySummary&lt;/code&gt;s to update from.
+     */
+    private void updateCombinedColonies(List&lt;ColonySummary&gt; summaries) {
+        JLabel l;
+        Color c;
+        StringTemplate t;
+
+<span class="nc" id="L868">        reportPanel.add(new JSeparator(JSeparator.HORIZONTAL),</span>
+                        &quot;newline, span, growx&quot;);
+
+        // Accumulate all the summaries
+<span class="nc" id="L872">        Map&lt;Region, Integer&gt; rRegionMap = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L873">        List&lt;TileImprovementSuggestion&gt; rTileSuggestions = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L874">        int rFamine = 0, rBonus = 0, rSizeChange = 0,</span>
+<span class="nc" id="L875">            teacherLen = 0, improveLen = 0;</span>
+<span class="nc" id="L876">        double rNewColonist = 0.0;</span>
+<span class="nc" id="L877">        Map&lt;GoodsType, ColonySummary.GoodsProduction&gt; rProduction</span>
+            = new HashMap&lt;&gt;();
+<span class="nc" id="L879">        Map&lt;UnitType, Integer&gt; rTeachers = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L880">        List&lt;Unit&gt; rNotWorking = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L881">        List&lt;UnitType&gt; rCouldWork = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L882">        Map&lt;UnitType, Integer&gt; rImprove = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L883">        Map&lt;GoodsType, Double&gt; rNeeded = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L884" title="All 2 branches missed.">        for (ColonySummary s : summaries) {</span>
+<span class="nc" id="L885">            accumulateToMap(rRegionMap, s.colony.getTile().getRegion(), 1,</span>
+                            integerAccumulator);
+<span class="nc" id="L887">            rTileSuggestions.addAll(s.tileSuggestions);</span>
+<span class="nc bnc" id="L888" title="All 2 branches missed.">            if (s.famine) rFamine++;</span>
+<span class="nc bnc" id="L889" title="All 2 branches missed.">            if (s.newColonist &gt; 0) rNewColonist += s.newColonist;</span>
+<span class="nc" id="L890">            rBonus += s.bonus;</span>
+<span class="nc" id="L891">            rSizeChange += s.sizeChange;</span>
+<span class="nc" id="L892">            accumulateMap(rProduction, s.production,</span>
+                          ColonySummary.goodsProductionAccumulator);
+<span class="nc" id="L894">            teacherLen = Math.max(teacherLen, s.teachers.size());</span>
+<span class="nc bnc" id="L895" title="All 2 branches missed.">            for (Unit u : s.teachers.keySet()) {</span>
+<span class="nc" id="L896">                accumulateToMap(rTeachers, u.getType(), 1, integerAccumulator);</span>
+<span class="nc" id="L897">            }</span>
+<span class="nc" id="L898">            rNotWorking.addAll(s.notWorking);</span>
+<span class="nc" id="L899">            rCouldWork.addAll(s.couldWork);</span>
+<span class="nc" id="L900">            improveLen = Math.max(improveLen, s.improve.size() + s.want.size());</span>
+<span class="nc bnc" id="L901" title="All 2 branches missed.">            for (UnitType ut : s.improve.keySet()) {</span>
+<span class="nc" id="L902">                accumulateToMap(rImprove, ut, 1, integerAccumulator);</span>
+<span class="nc" id="L903">            }</span>
+<span class="nc bnc" id="L904" title="All 2 branches missed.">            for (UnitType ut : s.want.keySet()) {</span>
+<span class="nc" id="L905">                accumulateToMap(rImprove, ut, 1, integerAccumulator);</span>
+<span class="nc" id="L906">            }</span>
+<span class="nc bnc" id="L907" title="All 4 branches missed.">            if (s.needed != null &amp;&amp; s.needed.getType().isStorable()) {</span>
+<span class="nc" id="L908">                accumulateToMap(rNeeded, s.needed.getType(),</span>
+<span class="nc" id="L909">                    (double)s.needed.getAmount() / s.completeTurns,</span>
+                    doubleAccumulator);
+            }
+<span class="nc" id="L912">        }</span>
+<span class="nc" id="L913">        rNewColonist = Math.round(rNewColonist / summaries.size());</span>
+
+        // Field: A label for the most settled region in the list.
+        // Colour: Plain
+<span class="nc" id="L917">        t = mapEntriesByValue(rRegionMap, descendingIntegerComparator)</span>
+<span class="nc" id="L918">            .get(0).getKey().getLabel();</span>
+<span class="nc" id="L919">        reportPanel.add(newLabel(Messages.message(t), null, cPlain,</span>
+<span class="nc" id="L920">                                 stpld(&quot;report.colony.name.summary&quot;)),</span>
+                        &quot;newline&quot;);
+
+        // Field: The total of the size change field.
+        // Colour: cGood if efficient/cAlarm if inefficient.
+<span class="nc bnc" id="L925" title="All 2 branches missed.">        reportPanel.add(newLabel(Integer.toString(rSizeChange), null,</span>
+                                 (rSizeChange &lt; 0) ? cAlarm : cGood,
+<span class="nc" id="L927">                                 stpld(&quot;report.colony.growing.summary&quot;)));</span>
+
+        // Field: The number of potential colony tiles that need
+        // exploring.
+        // Colour: cAlarm
+<span class="nc" id="L932">        List&lt;Tile&gt; tiles = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L933" title="All 2 branches missed.">        for (TileImprovementSuggestion tis : rTileSuggestions) {</span>
+<span class="nc bnc" id="L934" title="All 4 branches missed.">            if (tis.isExploration() &amp;&amp; !tiles.contains(tis.tile)) {</span>
+<span class="nc" id="L935">                tiles.add(tis.tile);</span>
+            }
+<span class="nc" id="L937">        }</span>
+<span class="nc bnc" id="L938" title="All 2 branches missed.">        reportPanel.add((tiles.isEmpty()) ? new JLabel()</span>
+<span class="nc" id="L939">            : newLabel(Integer.toString(tiles.size()), null, cAlarm,</span>
+<span class="nc" id="L940">                       stpld(&quot;report.colony.exploring.summary&quot;)));</span>
+
+        // Fields: The number of existing colony tiles that would
+        // benefit from improvements.
+        // Colour: cAlarm
+<span class="nc bnc" id="L945" title="All 2 branches missed.">        for (TileImprovementType ti : spec.getTileImprovementTypeList()) {</span>
+<span class="nc bnc" id="L946" title="All 2 branches missed.">            if (ti.isNatural()) continue;</span>
+<span class="nc" id="L947">            tiles.clear();</span>
+<span class="nc bnc" id="L948" title="All 2 branches missed.">            for (TileImprovementSuggestion tis : rTileSuggestions) {</span>
+<span class="nc bnc" id="L949" title="All 2 branches missed.">                if (tis.tileImprovementType == ti</span>
+<span class="nc bnc" id="L950" title="All 2 branches missed.">                    &amp;&amp; !tiles.contains(tis.tile)) {</span>
+<span class="nc" id="L951">                    tiles.add(tis.tile);</span>
+                }
+<span class="nc" id="L953">            }</span>
+<span class="nc bnc" id="L954" title="All 2 branches missed.">            reportPanel.add((tiles.isEmpty()) ? new JLabel()</span>
+<span class="nc" id="L955">                : newLabel(Integer.toString(tiles.size()), null, cAlarm,</span>
+<span class="nc" id="L956">                           stpld(&quot;report.colony.tile.&quot; + ti.getSuffix()</span>
+                               + &quot;.summary&quot;)));
+<span class="nc" id="L958">        }</span>
+
+        // Fields: The net production of each storable+non-trade-goods
+        // goods type.
+        // Colour: cWarn if negative, empty if no production,
+        // cPlain if production balanced at zero, otherwise cGood.
+<span class="nc bnc" id="L964" title="All 2 branches missed.">        for (GoodsType gt : this.goodsTypes) {</span>
+<span class="nc" id="L965">            final ColonySummary.GoodsProduction gp = rProduction.get(gt);</span>
+<span class="nc bnc" id="L966" title="All 5 branches missed.">            switch (gp.status) {</span>
+            case BAD:
+<span class="nc" id="L968">                c = cWarn;</span>
+<span class="nc" id="L969">                break;</span>
+            case NONE:
+<span class="nc" id="L971">                c = null;</span>
+<span class="nc" id="L972">                break;</span>
+            case ZERO:
+<span class="nc" id="L974">                c = cPlain;</span>
+<span class="nc" id="L975">                break;</span>
+            case GOOD:
+<span class="nc" id="L977">                c = cGood;</span>
+<span class="nc" id="L978">                break;</span>
+            default:
+<span class="nc" id="L980">                throw new IllegalStateException(&quot;Bogus status: &quot; + gp.status);</span>
+            }
+<span class="nc bnc" id="L982" title="All 2 branches missed.">            reportPanel.add((c == null) ? new JLabel()</span>
+<span class="nc" id="L983">                : newLabel(Integer.toString(gp.amount), null, c,</span>
+<span class="nc" id="L984">                    stpld(&quot;report.colony.production.summary&quot;)</span>
+<span class="nc" id="L985">                        .addNamed(&quot;%goods%&quot;, gt)));</span>
+<span class="nc" id="L986">        }</span>
+
+        // Field: New colonist arrival or famine warning.
+        // Colour: cWarn if negative, else cGood
+<span class="nc bnc" id="L990" title="All 2 branches missed.">        reportPanel.add(newLabel(Integer.toString((int)rNewColonist), null,</span>
+                                 (rNewColonist &lt; 0) ? cWarn : cGood,
+<span class="nc" id="L992">                                 stpld(&quot;report.colony.arriving.summary&quot;)));</span>
+
+        // Field: The required goods rates.
+        // Colour: cPlain
+<span class="nc" id="L996">        List&lt;JLabel&gt; labels = new ArrayList&lt;&gt;();</span>
+        for (Entry&lt;GoodsType, Double&gt; e
+<span class="nc bnc" id="L998" title="All 2 branches missed.">                 : mapEntriesByValue(rNeeded, descendingDoubleComparator)) {</span>
+<span class="nc" id="L999">            labels.add(newLabel(String.format(&quot;%4.1f %s&quot;, e.getValue(),</span>
+<span class="nc" id="L1000">                                              Messages.getName(e.getKey())),</span>
+                                null, cPlain,
+<span class="nc" id="L1002">                                stpld(&quot;report.colony.making.summary&quot;)</span>
+<span class="nc" id="L1003">                                    .addNamed(&quot;%goods%&quot;, e.getKey())));</span>
+<span class="nc" id="L1004">        }</span>
+
+        // Field: What is being trained (attached to previous)
+        // Colour: cPlain.
+<span class="nc" id="L1008">        teacherLen = Math.max(3, teacherLen); // Always some room here</span>
+<span class="nc" id="L1009">        labels.addAll(unitTypeLabels(rTeachers, teacherLen,</span>
+<span class="nc" id="L1010">                stpld(&quot;report.colony.making.educating.summary&quot;)));</span>
+<span class="nc" id="L1011">        addTogether(labels);</span>
+
+        // Field: The units that could be upgraded, followed by the units
+        // that could be added.
+<span class="nc" id="L1015">        addTogether(unitTypeLabels(rImprove, improveLen,</span>
+<span class="nc" id="L1016">                stpld(&quot;report.colony.improving.summary&quot;)));</span>
+<span class="nc" id="L1017">    }</span>
+
+    private List&lt;JLabel&gt; unitTypeLabels(Map&lt;UnitType, Integer&gt; unitTypeMap,
+                                        int maxSize, StringTemplate t) {
+<span class="nc" id="L1021">        List&lt;JLabel&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L1022">        int n = 0;</span>
+        for (Entry&lt;UnitType, Integer&gt; e
+<span class="nc bnc" id="L1024" title="All 2 branches missed.">                 : mapEntriesByValue(unitTypeMap, descendingIntegerComparator)) {</span>
+<span class="nc" id="L1025">            ImageIcon icon</span>
+<span class="nc" id="L1026">                = new ImageIcon(this.lib.getTinyUnitImage(e.getKey(), false));</span>
+<span class="nc" id="L1027">            result.add(newLabel(Integer.toString(e.getValue()), icon,</span>
+                                cPlain, t));
+<span class="nc bnc" id="L1029" title="All 2 branches missed.">            if (++n &gt;= maxSize) break;</span>
+<span class="nc" id="L1030">        }</span>
+        
+<span class="nc" id="L1032">        return result;</span>
+    }                
+        
+    /**
+     * Display the header area for the concise panel.
+     *
+     * @param market A &lt;code&gt;Market&lt;/code&gt; to check goods arrears
+     *     status with.
+     */
+    private void conciseHeaders(Market market) {
+<span class="nc" id="L1042">        reportPanel.add(new JSeparator(JSeparator.HORIZONTAL),</span>
+                        &quot;newline, span, growx&quot;);
+
+<span class="nc" id="L1045">        reportPanel.add(newLabel(&quot;report.colony.name.header&quot;, null, null,</span>
+<span class="nc" id="L1046">                                 stpld(&quot;report.colony.name&quot;)),</span>
+                        &quot;newline&quot;);
+<span class="nc" id="L1048">        reportPanel.add(newLabel(&quot;report.colony.grow.header&quot;, null, null,</span>
+<span class="nc" id="L1049">                                 stpld(&quot;report.colony.grow&quot;)));</span>
+<span class="nc" id="L1050">        reportPanel.add(newLabel(&quot;report.colony.explore.header&quot;, null, null,</span>
+<span class="nc" id="L1051">                                 stpld(&quot;report.colony.explore&quot;)));</span>
+<span class="nc bnc" id="L1052" title="All 2 branches missed.">        for (TileImprovementType ti : this.spec.getTileImprovementTypeList()) {</span>
+<span class="nc bnc" id="L1053" title="All 2 branches missed.">            if (ti.isNatural()) continue;</span>
+<span class="nc" id="L1054">            String key = &quot;report.colony.tile.&quot; + ti.getSuffix() + &quot;.header&quot;;</span>
+<span class="nc" id="L1055">            reportPanel.add(newLabel(key, null, null, stpld(key)));</span>
+<span class="nc" id="L1056">        }</span>
+<span class="nc bnc" id="L1057" title="All 2 branches missed.">        for (GoodsType gt : this.goodsTypes) {</span>
+<span class="nc" id="L1058">            ImageIcon icon = new ImageIcon(this.lib.getSmallIconImage(gt));</span>
+<span class="nc" id="L1059">            JLabel l = newLabel(null, icon, null,</span>
+<span class="nc" id="L1060">                                stpl(&quot;report.colony.production.header&quot;)</span>
+<span class="nc" id="L1061">                                    .addNamed(&quot;%goods%&quot;, gt));</span>
+<span class="nc bnc" id="L1062" title="All 4 branches missed.">            l.setEnabled(market == null || market.getArrears(gt) &lt;= 0);</span>
+<span class="nc" id="L1063">            reportPanel.add(l);</span>
+<span class="nc" id="L1064">        }</span>
+
+<span class="nc" id="L1066">        final UnitType type = spec.getDefaultUnitType(market.getOwner());</span>
+<span class="nc" id="L1067">        ImageIcon colonistIcon</span>
+<span class="nc" id="L1068">            = new ImageIcon(this.lib.getTinyUnitImage(type, false));</span>
+<span class="nc" id="L1069">        reportPanel.add(newLabel(null, colonistIcon, null,</span>
+<span class="nc" id="L1070">                                 stpld(&quot;report.colony.birth&quot;)));</span>
+<span class="nc" id="L1071">        reportPanel.add(newLabel(&quot;report.colony.making.header&quot;, null, null,</span>
+<span class="nc" id="L1072">                                 stpld(&quot;report.colony.making&quot;)));</span>
+<span class="nc" id="L1073">        reportPanel.add(newLabel(&quot;report.colony.improve.header&quot;, null, null,</span>
+<span class="nc" id="L1074">                                 stpld(&quot;report.colony.improve&quot;)));</span>
+
+<span class="nc" id="L1076">        reportPanel.add(new JSeparator(JSeparator.HORIZONTAL),</span>
+                        &quot;newline, span, growx&quot;);
+<span class="nc" id="L1078">    }</span>
+
+    /**
+     * Update the panel.
+     */
+    private void update() {
+<span class="nc" id="L1084">        reportPanel.removeAll();</span>
+
+        // Define the layout, with a column for each goods type.
+<span class="nc" id="L1087">        String cols = &quot;[l][c][c][c]&quot;;</span>
+<span class="nc bnc" id="L1088" title="All 2 branches missed.">        for (int i = 0; i &lt; this.goodsTypes.size(); i++) cols += &quot;[c]&quot;;</span>
+<span class="nc" id="L1089">        cols += &quot;[c][c][l][l][l]&quot;;</span>
+<span class="nc" id="L1090">        reportPanel.setLayout(new MigLayout(&quot;fillx, insets 0, gap 0 0&quot;,</span>
+                                            cols, &quot;&quot;));
+
+<span class="nc" id="L1093">        conciseHeaders(this.market);</span>
+<span class="nc" id="L1094">        List&lt;ColonySummary&gt; summaries = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L1095" title="All 2 branches missed.">        for (List&lt;Colony&gt; cs : this.colonies) {</span>
+<span class="nc" id="L1096">            summaries.clear();</span>
+<span class="nc bnc" id="L1097" title="All 2 branches missed.">            for (Colony c : cs) {</span>
+<span class="nc" id="L1098">                ColonySummary s = new ColonySummary(c, this.goodsTypes);</span>
+<span class="nc" id="L1099">                summaries.add(s);</span>
+<span class="nc" id="L1100">                updateColony(s);</span>
+<span class="nc" id="L1101">            }</span>
+<span class="nc bnc" id="L1102" title="All 2 branches missed.">            if (cs.size() &gt; 1) {</span>
+<span class="nc" id="L1103">                updateCombinedColonies(summaries);</span>
+            }
+<span class="nc" id="L1105">            conciseHeaders(this.market);</span>
+<span class="nc" id="L1106">        }</span>
+<span class="nc" id="L1107">    }</span>
+
+
+    // Interface ActionListener
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L1117">        final Game game = getGame();</span>
+<span class="nc" id="L1118">        String command = ae.getActionCommand();</span>
+<span class="nc bnc" id="L1119" title="All 2 branches missed.">        if (command.startsWith(BUILDQUEUE)) {</span>
+<span class="nc" id="L1120">            command = command.substring(BUILDQUEUE.length());</span>
+<span class="nc" id="L1121">            Colony colony = game.getFreeColGameObject(command, Colony.class);</span>
+<span class="nc bnc" id="L1122" title="All 2 branches missed.">            if (colony != null) {</span>
+<span class="nc" id="L1123">                getGUI().showBuildQueuePanel(colony, () -&gt; { update(); });</span>
+<span class="nc" id="L1124">                return;</span>
+            }
+<span class="nc" id="L1126">        } else {</span>
+<span class="nc" id="L1127">            Colony colony = game.getFreeColGameObject(command, Colony.class);</span>
+<span class="nc bnc" id="L1128" title="All 2 branches missed.">            if (colony != null) {</span>
+<span class="nc" id="L1129">                getGUI().showColonyPanel2(colony, null)</span>
+<span class="nc" id="L1130">                    .addClosingCallback(() -&gt; { update(); });</span>
+<span class="nc" id="L1131">                return;</span>
+            }
+        }
+<span class="nc" id="L1134">        super.actionPerformed(ae);</span>
+<span class="nc" id="L1135">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

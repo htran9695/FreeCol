@@ -1,0 +1,1640 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SwingGUI.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.client.gui</a> &gt; <span class="el_source">SwingGUI.java</span></div><h1>SwingGUI.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.client.gui;
+
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.DisplayMode;
+import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.HeadlessException;
+import java.awt.MouseInfo;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.image.BufferedImage;
+import java.beans.PropertyChangeEvent;
+import java.io.File;
+import java.io.InputStream;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.logging.Level;
+
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
+import javax.swing.JLabel;
+import javax.swing.JWindow;
+import javax.swing.Timer;
+import javax.swing.filechooser.FileFilter;
+
+import net.sf.freecol.client.ClientOptions;
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.gui.animation.Animations;
+import net.sf.freecol.client.gui.panel.ColonyPanel;
+import net.sf.freecol.client.gui.panel.ColorChooserPanel;
+import net.sf.freecol.client.gui.panel.CornerMapControls;
+import net.sf.freecol.client.gui.panel.FreeColDialog;
+import net.sf.freecol.client.gui.panel.LabourData.UnitData;
+import net.sf.freecol.client.gui.panel.MapControls;
+import net.sf.freecol.client.gui.panel.Parameters;
+import net.sf.freecol.client.gui.panel.TradeRoutePanel;
+import net.sf.freecol.client.gui.panel.Utility;
+import net.sf.freecol.client.gui.plaf.FreeColLookAndFeel;
+import net.sf.freecol.client.gui.video.VideoComponent;
+import net.sf.freecol.client.gui.video.VideoListener;
+import net.sf.freecol.common.FreeColException;
+import net.sf.freecol.common.ServerInfo;
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.DiplomaticTrade;
+import net.sf.freecol.common.model.Europe;
+import net.sf.freecol.common.model.FoundingFather;
+import net.sf.freecol.common.model.FreeColGameObject;
+import net.sf.freecol.common.model.FreeColObject;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Goods;
+import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.HighScore;
+import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.ModelMessage;
+import net.sf.freecol.common.model.Monarch.MonarchAction;
+import net.sf.freecol.common.model.Nation;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Settlement;
+import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.StringTemplate;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TileType;
+import net.sf.freecol.common.model.TradeRoute;
+import net.sf.freecol.common.model.TypeCountMap;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.UnitType;
+import net.sf.freecol.common.model.WorkLocation;
+import net.sf.freecol.common.option.BooleanOption;
+import net.sf.freecol.common.option.LanguageOption;
+import net.sf.freecol.common.option.LanguageOption.Language;
+import net.sf.freecol.common.option.Option;
+import net.sf.freecol.common.option.OptionGroup;
+import net.sf.freecol.common.resources.ResourceManager;
+import net.sf.freecol.common.resources.Video;
+
+import static net.sf.freecol.common.util.StringUtils.lastPart;
+
+
+/**
+ * A wrapper providing functionality for the overall GUI using Java Swing.
+ */
+public class SwingGUI extends GUI {
+
+    private final GraphicsDevice graphicsDevice;
+
+    /**
+     * This is the TileViewer instance used to paint the map tiles
+     * in the ColonyPanel and other panels.  It should not be scaled
+     * along with the default MapViewer.
+     */
+    private TileViewer tileViewer;
+
+    /**
+     * The MapViewer instance used by canvas to paint the main map.
+     * This does need to be scaled.
+     */
+    private MapViewer mapViewer;
+
+    /** The canvas that implements much of the functionality. */
+    private Canvas canvas;
+
+    private MapControls mapControls;
+
+    private JWindow splash;
+
+
+    /**
+     * Create the GUI.
+     *
+     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+     * @param scaleFactor The scale factor for the GUI.
+     */
+    public SwingGUI(FreeColClient freeColClient, float scaleFactor) {
+<span class="nc" id="L145">        super(freeColClient, scaleFactor);</span>
+<span class="nc" id="L146">        graphicsDevice = getGoodGraphicsDevice();</span>
+<span class="nc" id="L147">        logger.info(&quot;GUI constructed using scale factor &quot; + scaleFactor);</span>
+<span class="nc" id="L148">    }</span>
+
+
+    // Simple accessors
+
+    public Canvas getCanvas() {
+<span class="nc" id="L154">        return canvas;</span>
+    }
+
+    public ImageLibrary getTileImageLibrary() {
+<span class="nc" id="L158">        return tileViewer.getImageLibrary();</span>
+    }
+
+    @Override
+    public boolean isWindowed() {
+<span class="nc" id="L163">        return canvas.isWindowed();</span>
+    }
+
+    // Initialization related methods
+
+    /** 
+     * Swing system and look-and-feel initialization.
+     * 
+     * @param fontName An optional font name to be used.
+     */
+    @Override
+    public void installLookAndFeel(String fontName) throws FreeColException {
+<span class="nc" id="L175">        FreeColLookAndFeel fclaf = new FreeColLookAndFeel();</span>
+<span class="nc" id="L176">        FreeColLookAndFeel.install(fclaf);</span>
+<span class="nc" id="L177">        Font font = FontLibrary.createMainFont(</span>
+<span class="nc" id="L178">            fontName, imageLibrary.getScaleFactor());</span>
+<span class="nc" id="L179">        FreeColLookAndFeel.installFont(font);</span>
+<span class="nc" id="L180">        Utility.initStyleContext(font);</span>
+<span class="nc" id="L181">    }</span>
+
+    /**
+     * Quit the GUI.  All that is required is to exit the full screen.
+     */
+    @Override
+    public void quit() throws Exception {
+<span class="nc bnc" id="L188" title="All 2 branches missed.">        if (canvas != null) {</span>
+<span class="nc" id="L189">            canvas.quit();</span>
+        }
+<span class="nc" id="L191">    }</span>
+
+    /**
+     * In game initializations.
+     * Called from PreGameController.startGame().
+     *
+     * @param tile An initial &lt;code&gt;Tile&lt;/code&gt; to select.
+     */
+    @Override
+    public void initializeInGame(Tile tile) {
+<span class="nc" id="L201">        canvas.initializeInGame();</span>
+<span class="nc" id="L202">        enableMapControls(freeColClient.getClientOptions()</span>
+<span class="nc" id="L203">            .getBoolean(ClientOptions.DISPLAY_MAP_CONTROLS));</span>
+<span class="nc" id="L204">        setSelectedTile(tile);</span>
+<span class="nc" id="L205">    }</span>
+
+    /**
+     * Set up the mouse listeners for the canvas and map viewer.
+     */
+    @Override
+    public void setupMouseListeners() {
+<span class="nc" id="L212">        canvas.setupMouseListeners();</span>
+<span class="nc" id="L213">    }</span>
+
+    /**
+     * Display the splash screen.
+     *
+     * @param splashStream A stream to read the splash image from.
+     */
+    @Override
+    public void displaySplashScreen(final InputStream splashStream) {
+<span class="nc" id="L222">        splash = null;</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">        if (splashStream == null) return;</span>
+        try {
+<span class="nc" id="L225">            BufferedImage im = ImageIO.read(splashStream);</span>
+<span class="nc" id="L226">            splash = new JWindow(graphicsDevice.getDefaultConfiguration());</span>
+<span class="nc" id="L227">            splash.getContentPane().add(new JLabel(new ImageIcon(im)));</span>
+<span class="nc" id="L228">            splash.pack();</span>
+<span class="nc" id="L229">            Point start = splash.getLocation();</span>
+<span class="nc" id="L230">            DisplayMode dm = graphicsDevice.getDisplayMode();</span>
+<span class="nc" id="L231">            splash.setLocation(start.x + dm.getWidth()/2 - splash.getWidth() / 2,</span>
+<span class="nc" id="L232">                start.y + dm.getHeight()/2 - splash.getHeight() / 2);</span>
+<span class="nc" id="L233">            splash.setVisible(true);</span>
+<span class="nc" id="L234">        } catch (Exception e) {</span>
+<span class="nc" id="L235">            logger.log(Level.WARNING, &quot;Splash fail&quot;, e);</span>
+<span class="nc" id="L236">            splash = null;</span>
+<span class="nc" id="L237">        }</span>
+<span class="nc" id="L238">    }</span>
+
+    /**
+     * Hide the splash screen.
+     */
+    @Override
+    public void hideSplashScreen() {
+<span class="nc bnc" id="L245" title="All 2 branches missed.">        if (splash != null) {</span>
+<span class="nc" id="L246">            splash.setVisible(false);</span>
+<span class="nc" id="L247">            splash.dispose();</span>
+<span class="nc" id="L248">            splash = null;</span>
+        }
+<span class="nc" id="L250">    }</span>
+
+    /**
+     * Shows the &lt;code&gt;VideoPanel&lt;/code&gt;.
+     *
+     * @param userMsg An optional user message.
+     */
+    @Override
+    public void showOpeningVideo(final String userMsg) {
+<span class="nc" id="L259">        canvas.closeMenus();</span>
+<span class="nc" id="L260">        final Video video = ResourceManager.getVideo(&quot;video.opening&quot;);</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">        boolean muteAudio = !freeColClient.getSoundController().canPlaySound();</span>
+<span class="nc" id="L262">        final VideoComponent vp = new VideoComponent(video, muteAudio);</span>
+
+<span class="nc" id="L264">        final class AbortListener implements ActionListener, KeyListener, MouseListener, VideoListener {</span>
+
+<span class="nc" id="L266">            private Timer t = null;</span>
+
+            @Override
+            public void keyPressed(KeyEvent e) {
+<span class="nc" id="L270">            }</span>
+
+            @Override
+            public void keyReleased(KeyEvent e1) {
+<span class="nc" id="L274">                execute();</span>
+<span class="nc" id="L275">            }</span>
+
+            @Override
+            public void keyTyped(KeyEvent e2) {
+<span class="nc" id="L279">            }</span>
+
+            @Override
+            public void mouseClicked(MouseEvent e3) {
+<span class="nc" id="L283">                execute();</span>
+<span class="nc" id="L284">            }</span>
+
+            @Override
+            public void mouseEntered(MouseEvent e4) {
+<span class="nc" id="L288">            }</span>
+
+            @Override
+            public void mouseExited(MouseEvent e5) {
+<span class="nc" id="L292">            }</span>
+
+            @Override
+            public void mousePressed(MouseEvent e6) {
+<span class="nc" id="L296">            }</span>
+
+            @Override
+            public void mouseReleased(MouseEvent e7) {
+<span class="nc" id="L300">            }</span>
+
+            @Override
+            public void stopped() {
+<span class="nc" id="L304">                execute();</span>
+<span class="nc" id="L305">            }</span>
+
+            @Override
+            public void actionPerformed(ActionEvent ae8) {
+<span class="nc" id="L309">                execute();</span>
+<span class="nc" id="L310">            }</span>
+
+            private void setTimer(Timer t1) {
+<span class="nc" id="L313">                this.t = t1;</span>
+<span class="nc" id="L314">            }</span>
+
+            private void execute() {
+<span class="nc" id="L317">                canvas.removeKeyListener(this);</span>
+<span class="nc" id="L318">                canvas.removeMouseListener(this);</span>
+<span class="nc" id="L319">                vp.removeMouseListener(this);</span>
+                //vp.removeVideoListener(this);
+<span class="nc" id="L321">                vp.stop();</span>
+<span class="nc" id="L322">                canvas.remove(vp);</span>
+<span class="nc bnc" id="L323" title="All 2 branches missed.">                if (t != null) {</span>
+<span class="nc" id="L324">                    t.stop();</span>
+                }
+<span class="nc" id="L326">                playSound(&quot;sound.intro.general&quot;);</span>
+<span class="nc" id="L327">                showMainPanel(userMsg);</span>
+<span class="nc" id="L328">            }</span>
+        }
+<span class="nc" id="L330">        AbortListener l = new AbortListener();</span>
+<span class="nc" id="L331">        vp.addMouseListener(l);</span>
+        //vp.addVideoListener(l);
+<span class="nc" id="L333">        canvas.showVideoComponent(vp, l, l);</span>
+<span class="nc" id="L334">        vp.play();</span>
+        // Cortado applet is failing to quit when finished, make sure it
+        // eventually gets kicked.  Change the magic number if we
+        // change the opening video length.
+<span class="nc" id="L338">        Timer t2 = new Timer(80000, l);</span>
+<span class="nc" id="L339">        l.setTimer(t2);</span>
+<span class="nc" id="L340">        t2.setRepeats(false);</span>
+<span class="nc" id="L341">        t2.start();</span>
+<span class="nc" id="L342">    }</span>
+
+    /**
+     * Get a good screen device for starting FreeCol.
+     *
+     * @return A screen device, or null if none available
+     *     (as in headless mode).
+     */
+    private static GraphicsDevice getGoodGraphicsDevice() {
+        try {
+<span class="nc" id="L352">            return MouseInfo.getPointerInfo().getDevice();</span>
+<span class="nc" id="L353">        } catch (HeadlessException he) {}</span>
+
+        try {
+            final GraphicsEnvironment lge
+<span class="nc" id="L357">                = GraphicsEnvironment.getLocalGraphicsEnvironment();</span>
+<span class="nc" id="L358">            return lge.getDefaultScreenDevice();</span>
+<span class="nc" id="L359">        } catch (HeadlessException he) {}</span>
+
+<span class="nc" id="L361">        FreeColClient.fatal(&quot;Could not find a GraphicsDevice!&quot;);</span>
+<span class="nc" id="L362">        return null;</span>
+    }
+
+    /**
+     * Starts the GUI by creating and displaying the GUI-objects.
+     *
+     * @param desiredWindowSize The desired size of the GUI window.
+     */
+    @Override
+    public void startGUI(final Dimension desiredWindowSize) {
+<span class="nc" id="L372">        final ClientOptions opts = freeColClient.getClientOptions();</span>
+
+        // Work around a Java 2D bug that seems to be X11 specific.
+        // According to:
+        //   http://www.oracle.com/technetwork/java/javase/index-142560.html
+        //
+        //   ``The use of pixmaps typically results in better
+        //     performance. However, in certain cases, the opposite is true.''
+        //
+        // The standard workaround is to use -Dsun.java2d.pmoffscreen=false,
+        // but this is too hard for some users, so provide an option to
+        // do it easily.  However respect the initial value if present.
+        //
+        // Remove this if Java 2D is ever fixed.  DHYB.
+        //
+<span class="nc" id="L387">        final String pmoffscreen = &quot;sun.java2d.pmoffscreen&quot;;</span>
+<span class="nc" id="L388">        BooleanOption usePixmaps</span>
+<span class="nc" id="L389">            = (BooleanOption) opts.getOption(ClientOptions.USE_PIXMAPS);</span>
+<span class="nc" id="L390">        String pmoffscreenValue = System.getProperty(pmoffscreen);</span>
+<span class="nc bnc" id="L391" title="All 2 branches missed.">        if (pmoffscreenValue == null) {</span>
+<span class="nc" id="L392">            System.setProperty(pmoffscreen, usePixmaps.getValue().toString());</span>
+<span class="nc" id="L393">            logger.info(pmoffscreen + &quot; using client option: &quot;</span>
+<span class="nc" id="L394">                + usePixmaps.getValue());</span>
+        } else {
+<span class="nc" id="L396">            usePixmaps.setValue(Boolean.valueOf(pmoffscreenValue));</span>
+<span class="nc" id="L397">            logger.info(pmoffscreen + &quot; overrides client option: &quot;</span>
+                + pmoffscreenValue);
+        }
+<span class="nc" id="L400">        usePixmaps.addPropertyChangeListener((PropertyChangeEvent e) -&gt; {</span>
+<span class="nc" id="L401">                String newValue = e.getNewValue().toString();</span>
+<span class="nc" id="L402">                System.setProperty(pmoffscreen, newValue);</span>
+<span class="nc" id="L403">                logger.info(&quot;Set &quot; + pmoffscreen + &quot; to: &quot; + newValue);</span>
+<span class="nc" id="L404">            });</span>
+
+<span class="nc" id="L406">        this.mapViewer = new MapViewer(freeColClient);</span>
+<span class="nc" id="L407">        this.canvas = new Canvas(freeColClient, graphicsDevice, this,</span>
+                                 desiredWindowSize, mapViewer);
+<span class="nc" id="L409">        this.tileViewer = new TileViewer(freeColClient);</span>
+
+        // Now that there is a canvas, prepare for language changes.
+<span class="nc" id="L412">        LanguageOption o = (LanguageOption)freeColClient.getClientOptions()</span>
+<span class="nc" id="L413">            .getOption(ClientOptions.LANGUAGE);</span>
+<span class="nc" id="L414">        o.addPropertyChangeListener((PropertyChangeEvent e) -&gt; {</span>
+<span class="nc" id="L415">                Language language = (Language)e.getNewValue();</span>
+<span class="nc" id="L416">                logger.info(&quot;Set language to: &quot; + language);</span>
+<span class="nc bnc" id="L417" title="All 2 branches missed.">                if (Messages.AUTOMATIC.equalsIgnoreCase(language.getKey())) {</span>
+<span class="nc" id="L418">                    showInformationMessage(&quot;info.autodetectLanguageSelected&quot;);</span>
+                } else {
+<span class="nc" id="L420">                    Locale l = language.getLocale();</span>
+<span class="nc" id="L421">                    Messages.loadMessageBundle(l);</span>
+<span class="nc" id="L422">                    Messages.loadModMessageBundle(l);</span>
+<span class="nc" id="L423">                    showInformationMessage(StringTemplate</span>
+<span class="nc" id="L424">                        .template(&quot;info.newLanguageSelected&quot;)</span>
+<span class="nc" id="L425">                        .addName(&quot;%language%&quot;, l.getDisplayName()));</span>
+                }
+<span class="nc" id="L427">            });</span>
+
+<span class="nc" id="L429">        logger.info(&quot;GUI created.&quot;);</span>
+<span class="nc" id="L430">        logger.info(&quot;Starting in Move Units View Mode&quot;);</span>
+<span class="nc" id="L431">    }</span>
+
+    /**
+     * Change the windowed mode.
+     */
+    @Override
+    public void changeWindowedMode() {
+<span class="nc" id="L438">        canvas.changeWindowedMode();</span>
+<span class="nc" id="L439">    }</span>
+
+    /**
+     * Start the GUI for the map editor.
+     */
+    @Override
+    public void startMapEditorGUI() {
+<span class="nc" id="L446">        canvas.startMapEditorGUI();</span>
+<span class="nc" id="L447">    }</span>
+
+
+    // Non-trivial public routines.
+
+    /**
+     * Start/stop the goto path display.
+     */
+    @Override
+    public void activateGotoPath() {
+<span class="nc" id="L457">        Unit unit = getActiveUnit();</span>
+
+        // Action should be disabled if there is no active unit, but make sure
+<span class="nc bnc" id="L460" title="All 2 branches missed.">        if (unit == null) return;</span>
+
+        // Enter &quot;goto mode&quot; if not already activated; otherwise cancel it
+<span class="nc bnc" id="L463" title="All 2 branches missed.">        if (canvas.isGotoStarted()) {</span>
+<span class="nc" id="L464">            canvas.stopGoto();</span>
+        } else {
+<span class="nc" id="L466">            canvas.startGoto();</span>
+
+            // Draw the path to the current mouse position, if the
+            // mouse is over the screen; see also
+            // CanvasMouseMotionListener.
+<span class="nc" id="L471">            Point pt = canvas.getMousePosition();</span>
+<span class="nc bnc" id="L472" title="All 2 branches missed.">            if (pt != null) {</span>
+<span class="nc" id="L473">                Tile tile = canvas.convertToMapTile(pt.x, pt.y);</span>
+<span class="nc bnc" id="L474" title="All 4 branches missed.">                if (tile != null &amp;&amp; unit.getTile() != tile) {</span>
+<span class="nc" id="L475">                    canvas.setGotoPath(unit.findPath(tile));</span>
+                }
+            }
+        }
+<span class="nc" id="L479">    }</span>
+
+    /**
+     * Stop the goto path display.
+     */
+    @Override
+    public void clearGotoPath() {
+<span class="nc" id="L486">        Unit unit = getActiveUnit();</span>
+
+        // Action should be disabled if there is no active unit, but make sure
+<span class="nc bnc" id="L489" title="All 2 branches missed.">        if (unit == null) return;</span>
+<span class="nc" id="L490">        canvas.stopGoto();</span>
+<span class="nc" id="L491">    }</span>
+
+    /**
+     * Tells the map controls that a chat message was received.
+     *
+     * @param player The player who sent the chat message.
+     * @param message The chat message.
+     * @param privateChat 'true' if the message is a private one, 'false'
+     *            otherwise.
+     * @see GUIMessage
+     */
+    @Override
+    public void displayChatMessage(Player player, String message,
+                                   boolean privateChat) {
+<span class="nc" id="L505">        canvas.displayChatMessage(new GUIMessage(</span>
+<span class="nc" id="L506">            player.getName() + &quot;: &quot; + message, player.getNationColor()));</span>
+<span class="nc" id="L507">    }</span>
+
+    /**
+     * Refresh the GUI.
+     */
+    @Override
+    public void refresh() {
+<span class="nc" id="L514">        mapViewer.forceReposition();</span>
+<span class="nc" id="L515">        canvas.refresh();</span>
+<span class="nc" id="L516">    }</span>
+
+    /**
+     * Refreshes the screen at the specified Tile.
+     *
+     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to refresh.
+     */
+    public void refreshTile(Tile tile) {
+<span class="nc bnc" id="L524" title="All 4 branches missed.">        if (tile.getX() &gt;= 0 &amp;&amp; tile.getY() &gt;= 0) {</span>
+<span class="nc" id="L525">            canvas.repaint(mapViewer.calculateTileBounds(tile));</span>
+        }
+<span class="nc" id="L527">    }</span>
+
+    /**
+     * Reset the menu bar.
+     */
+    @Override
+    public void resetMenuBar() {
+<span class="nc" id="L534">        freeColClient.updateActions();</span>
+<span class="nc" id="L535">        canvas.resetMenuBar();</span>
+<span class="nc" id="L536">    }</span>
+
+    @Override
+    protected void resetMapZoom() {
+<span class="nc" id="L540">        super.resetMapZoom();</span>
+<span class="nc" id="L541">        mapViewer.resetMapScale();</span>
+<span class="nc" id="L542">        refresh();</span>
+<span class="nc" id="L543">    }</span>
+
+    @Override
+    public boolean canZoomInMap() {
+<span class="nc bnc" id="L547" title="All 2 branches missed.">        return !mapViewer.isAtMaxMapScale();</span>
+    }
+
+    @Override
+    public boolean canZoomOutMap() {
+<span class="nc bnc" id="L552" title="All 2 branches missed.">        return !mapViewer.isAtMinMapScale();</span>
+    }
+
+    @Override
+    public void zoomInMap() {
+<span class="nc" id="L557">        super.zoomInMap();</span>
+<span class="nc" id="L558">        mapViewer.increaseMapScale();</span>
+<span class="nc" id="L559">        refresh();</span>
+<span class="nc" id="L560">    }</span>
+
+    @Override
+    public void zoomOutMap() {
+<span class="nc" id="L564">        super.zoomOutMap();</span>
+<span class="nc" id="L565">        mapViewer.decreaseMapScale();</span>
+<span class="nc" id="L566">        refresh();</span>
+<span class="nc" id="L567">    }</span>
+
+    /**
+     * Set the active unit.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to activate.
+     * @return True if the focus was set.
+     */
+    @Override
+    public boolean setActiveUnit(Unit unit) {
+<span class="nc" id="L577">        boolean result = mapViewer.setActiveUnit(unit);</span>
+<span class="nc" id="L578">        updateMapControls();</span>
+<span class="nc" id="L579">        updateMenuBar();</span>
+<span class="nc bnc" id="L580" title="All 4 branches missed.">        if (unit != null &amp;&amp; !freeColClient.getMyPlayer().owns(unit)) {</span>
+<span class="nc" id="L581">            canvas.refresh();</span>
+        }
+<span class="nc" id="L583">        return result;</span>
+    }
+
+    /**
+     * Update the menu bar.
+     *
+     * Always update the actions first so that the enabled/disabled
+     * state is correct.
+     */
+    @Override
+    public void updateMenuBar() {
+<span class="nc" id="L594">        freeColClient.updateActions();</span>
+<span class="nc" id="L595">        canvas.updateMenuBar();</span>
+<span class="nc" id="L596">    }</span>
+
+
+    // Animation handling
+
+    /**
+     * Require the given tile to be in the onScreen()-area.
+     *
+     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to check.
+     * @return True if the focus was set.
+     */
+    public boolean requireFocus(Tile tile) {
+        // Account for the ALWAYS_CENTER client option.
+<span class="nc" id="L609">        boolean required = freeColClient.getClientOptions()</span>
+<span class="nc" id="L610">            .getBoolean(ClientOptions.ALWAYS_CENTER);</span>
+<span class="nc bnc" id="L611" title="All 6 branches missed.">        if ((required &amp;&amp; tile != getFocus()) || !mapViewer.onScreen(tile)) {</span>
+<span class="nc" id="L612">            setFocusImmediately(tile);</span>
+<span class="nc" id="L613">            return true;</span>
+        }
+<span class="nc" id="L615">        return false;</span>
+    }
+        
+    /**
+     * Animate a unit attack.
+     *
+     * @param attacker The attacking &lt;code&gt;Unit&lt;/code&gt;.
+     * @param defender The defending &lt;code&gt;Unit&lt;/code&gt;.
+     * @param attackerTile The &lt;code&gt;Tile&lt;/code&gt; to show the attacker on.
+     * @param defenderTile The &lt;code&gt;Tile&lt;/code&gt; to show the defender on.
+     * @param success Did the attack succeed?
+     */
+    @Override
+    public void animateUnitAttack(Unit attacker, Unit defender,
+                                  Tile attackerTile, Tile defenderTile,
+                                  boolean success) {
+<span class="nc" id="L631">        requireFocus(attackerTile);</span>
+<span class="nc" id="L632">        Animations.unitAttack(freeColClient, attacker, defender,</span>
+                              attackerTile, defenderTile, success);
+<span class="nc" id="L634">    }</span>
+
+    /**
+     * Animate a unit move.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is moving.
+     * @param srcTile The &lt;code&gt;Tile&lt;/code&gt; the unit starts at.
+     * @param dstTile The &lt;code&gt;Tile&lt;/code&gt; the unit moves to.
+     */
+    @Override
+    public void animateUnitMove(Unit unit, Tile srcTile, Tile dstTile) {
+<span class="nc" id="L645">        requireFocus(srcTile);</span>
+<span class="nc" id="L646">        Animations.unitMove(freeColClient, unit, srcTile, dstTile);</span>
+<span class="nc" id="L647">    }</span>
+
+
+    // MapControls handling
+
+    /**
+     * Enable the map controls.
+     *
+     * Called from the MapControlsAction.
+     *
+     * @param enable If true then enable.
+     */
+    @Override
+    public void enableMapControls(boolean enable) {
+        // Always instantiate in game.
+<span class="nc bnc" id="L662" title="All 4 branches missed.">        if (enable &amp;&amp; mapControls == null) {</span>
+<span class="nc" id="L663">            String className = freeColClient.getClientOptions()</span>
+<span class="nc" id="L664">                .getString(ClientOptions.MAP_CONTROLS);</span>
+            try {
+<span class="nc" id="L666">                final String panelName = &quot;net.sf.freecol.client.gui.panel.&quot;</span>
+<span class="nc" id="L667">                    + lastPart(className, &quot;.&quot;);</span>
+<span class="nc" id="L668">                Class&lt;?&gt; controls = Class.forName(panelName);</span>
+<span class="nc" id="L669">                mapControls = (MapControls)controls</span>
+<span class="nc" id="L670">                    .getConstructor(FreeColClient.class)</span>
+<span class="nc" id="L671">                    .newInstance(freeColClient);</span>
+<span class="nc" id="L672">                logger.info(&quot;Instantiated &quot; + panelName);</span>
+<span class="nc" id="L673">            } catch (Exception e) {</span>
+<span class="nc" id="L674">                logger.log(Level.INFO, &quot;Fallback to CornerMapControls from &quot;</span>
+                    + className, e);
+<span class="nc" id="L676">                mapControls = new CornerMapControls(freeColClient);</span>
+<span class="nc" id="L677">            }</span>
+<span class="nc bnc" id="L678" title="All 2 branches missed.">            if (mapControls != null) {</span>
+<span class="nc" id="L679">                mapControls.addToComponent(canvas);</span>
+<span class="nc" id="L680">                mapControls.update();</span>
+            }
+<span class="nc bnc" id="L682" title="All 4 branches missed.">        } else if (!enable &amp;&amp; mapControls != null) {</span>
+<span class="nc" id="L683">            mapControls.removeFromComponent(canvas);</span>
+<span class="nc" id="L684">            mapControls = null;</span>
+        }
+<span class="nc" id="L686">    }</span>
+
+    @Override
+    public void updateMapControls() {
+<span class="nc bnc" id="L690" title="All 2 branches missed.">        if (mapControls != null) mapControls.update();</span>
+<span class="nc" id="L691">    }</span>
+
+    public void updateMapControlsInCanvas() {
+<span class="nc bnc" id="L694" title="All 2 branches missed.">        if (mapControls == null) return;</span>
+<span class="nc" id="L695">        mapControls.removeFromComponent(canvas);</span>
+<span class="nc" id="L696">        mapControls.addToComponent(canvas);</span>
+<span class="nc" id="L697">    }</span>
+
+    @Override
+    public void zoomInMapControls() {
+<span class="nc bnc" id="L701" title="All 2 branches missed.">        if (mapControls == null) return;</span>
+<span class="nc" id="L702">        mapControls.zoomIn();</span>
+<span class="nc" id="L703">    }</span>
+
+    @Override
+    public void zoomOutMapControls() {
+<span class="nc bnc" id="L707" title="All 2 branches missed.">        if (mapControls == null) return;</span>
+<span class="nc" id="L708">        mapControls.zoomOut();</span>
+<span class="nc" id="L709">    }</span>
+
+    @Override
+    public boolean canZoomInMapControls() {
+<span class="nc bnc" id="L713" title="All 4 branches missed.">        return mapControls != null &amp;&amp; mapControls.canZoomInMapControls();</span>
+    }
+
+    @Override
+    public boolean canZoomOutMapControls() {
+<span class="nc bnc" id="L718" title="All 4 branches missed.">        return mapControls != null &amp;&amp; mapControls.canZoomOutMapControls();</span>
+    }
+
+    @Override
+    public void miniMapToggleViewControls() {
+<span class="nc bnc" id="L723" title="All 2 branches missed.">        if (mapControls == null) return;</span>
+<span class="nc" id="L724">        mapControls.toggleView();</span>
+<span class="nc" id="L725">    }</span>
+
+    @Override
+    public void miniMapToggleFogOfWarControls() {
+<span class="nc bnc" id="L729" title="All 2 branches missed.">        if (mapControls == null) return;</span>
+<span class="nc" id="L730">        mapControls.toggleFogOfWar();</span>
+<span class="nc" id="L731">    }</span>
+
+
+    // Dialogs that return values
+
+    /**
+     * Simple modal confirmation dialog.
+     *
+     * @param textKey A string to use as the message key.
+     * @param okKey A key for the &quot;ok&quot; button.
+     * @param cancelKey A key for the &quot;cancel&quot; button.
+     * @return True if the &quot;ok&quot; button was selected.
+     */
+    @Override
+    public boolean confirm(String textKey, String okKey, String cancelKey) {
+<span class="nc" id="L746">        return canvas.showConfirmDialog(null, Messages.message(textKey),</span>
+            null, okKey, cancelKey);
+    }
+
+    /**
+     * General modal confirmation dialog.
+     *
+     * @param tile An optional &lt;code&gt;Tile&lt;/code&gt; to expose.
+     * @param template The &lt;code&gt;StringTemplate&lt;/code&gt; explaining the choice.
+     * @param okKey A key for the &quot;ok&quot; button.
+     * @param cancelKey A key for the &quot;cancel&quot; button.
+     * @return True if the &quot;ok&quot; button was selected.
+     */
+    @Override
+    public boolean confirm(Tile tile, StringTemplate template,
+                           String okKey, String cancelKey) {
+<span class="nc" id="L762">        return canvas.showConfirmDialog(tile,</span>
+<span class="nc" id="L763">            Utility.localizedTextArea(template), null, okKey, cancelKey);</span>
+    }
+
+    /**
+     * General modal confirmation dialog.
+     *
+     * @param tile An optional &lt;code&gt;Tile&lt;/code&gt; to expose.
+     * @param template The &lt;code&gt;StringTemplate&lt;/code&gt; explaining the choice.
+     * @param unit An optional unit to make an icon for the dialog from.
+     * @param okKey A key for the &quot;ok&quot; button.
+     * @param cancelKey A key for the &quot;cancel&quot; button.
+     * @return True if the &quot;ok&quot; button was selected.
+     */
+    @Override
+    public boolean confirm(Tile tile, StringTemplate template, Unit unit,
+                           String okKey, String cancelKey) {
+<span class="nc" id="L779">        return canvas.showConfirmDialog(tile,</span>
+<span class="nc" id="L780">            Utility.localizedTextArea(template),</span>
+<span class="nc" id="L781">            new ImageIcon(imageLibrary.getUnitImage(unit)),</span>
+            okKey, cancelKey);
+    }
+
+    @Override
+    public boolean confirm(Tile tile, StringTemplate template,
+                           Settlement settlement,
+                           String okKey, String cancelKey) {
+<span class="nc" id="L789">        return canvas.showConfirmDialog(tile,</span>
+<span class="nc" id="L790">            Utility.localizedTextArea(template),</span>
+<span class="nc" id="L791">            new ImageIcon(imageLibrary.getSettlementImage(settlement)),</span>
+            okKey, cancelKey);
+    }
+
+    @Override
+    public boolean confirm(Tile tile, StringTemplate template,
+                           GoodsType goodsType,
+                           String okKey, String cancelKey) {
+<span class="nc" id="L799">        return canvas.showConfirmDialog(tile,</span>
+<span class="nc" id="L800">            Utility.localizedTextArea(template),</span>
+<span class="nc" id="L801">            new ImageIcon(imageLibrary.getIconImage(goodsType)),</span>
+            okKey, cancelKey);
+    }
+
+    /**
+     * Confirm declaration of independence.
+     *
+     * @return A list of new nation and country names.
+     */
+    @Override
+    public List&lt;String&gt; confirmDeclaration() {
+<span class="nc" id="L812">        return canvas.showConfirmDeclarationDialog();</span>
+    }
+
+    /**
+     * General modal choice dialog.
+     *
+     * @param tile An optional &lt;code&gt;Tile&lt;/code&gt; to expose.
+     * @param explain An object explaining the choice.
+     * @param cancelKey A key for the &quot;cancel&quot; button.
+     * @param choices A list a &lt;code&gt;ChoiceItem&lt;/code&gt;s to choose from.
+     * @return The selected value of the selected &lt;code&gt;ChoiceItem&lt;/code&gt;,
+     *     or null if cancelled.
+     */
+    @Override
+    public &lt;T&gt; T getChoice(Tile tile, Object explain,
+                           String cancelKey, List&lt;ChoiceItem&lt;T&gt;&gt; choices) {
+<span class="nc" id="L828">        return canvas.showChoiceDialog(tile, explain,</span>
+            null, cancelKey, choices);
+    }
+
+    @Override
+    public &lt;T&gt; T getChoice(Tile tile, Object explain, Unit unit,
+                           String cancelKey, List&lt;ChoiceItem&lt;T&gt;&gt; choices) {
+<span class="nc" id="L835">        return canvas.showChoiceDialog(tile, explain,</span>
+<span class="nc" id="L836">            new ImageIcon(imageLibrary.getUnitImage(unit)),</span>
+            cancelKey, choices);
+    }
+
+    @Override
+    public &lt;T&gt; T getChoice(Tile tile, Object explain, Settlement settlement,
+                           String cancelKey, List&lt;ChoiceItem&lt;T&gt;&gt; choices) {
+<span class="nc" id="L843">        return canvas.showChoiceDialog(tile, explain,</span>
+<span class="nc" id="L844">            new ImageIcon(imageLibrary.getSettlementImage(settlement)),</span>
+            cancelKey, choices);
+    }
+
+    @Override
+    public &lt;T&gt; T getChoice(Tile tile, Object explain, GoodsType goodsType,
+                           String cancelKey, List&lt;ChoiceItem&lt;T&gt;&gt; choices) {
+<span class="nc" id="L851">        return canvas.showChoiceDialog(tile, explain,</span>
+<span class="nc" id="L852">            new ImageIcon(imageLibrary.getIconImage(goodsType)),</span>
+            cancelKey, choices);
+    }
+
+    @Override
+    public &lt;T&gt; T getChoice(Tile tile, Object explain, Nation nation,
+                           String cancelKey, List&lt;ChoiceItem&lt;T&gt;&gt; choices) {
+<span class="nc" id="L859">        return canvas.showChoiceDialog(tile, explain,</span>
+<span class="nc" id="L860">            new ImageIcon(imageLibrary.getMiscIconImage(nation)),</span>
+            cancelKey, choices);
+    }
+
+    /**
+     * General modal string input dialog.
+     *
+     * @param tile An optional &lt;code&gt;Tile&lt;/code&gt; to expose.
+     * @param template A &lt;code&gt;StringTemplate&lt;/code&gt; explaining the choice.
+     * @param defaultValue The default value to show initially.
+     * @param okKey A key for the &quot;ok&quot; button.
+     * @param cancelKey A key for the &quot;cancel&quot; button.
+     * @return The chosen value.
+     */
+    @Override
+    public String getInput(Tile tile, StringTemplate template,
+                           String defaultValue,
+                           String okKey, String cancelKey) {
+<span class="nc" id="L878">        return canvas.showInputDialog(tile, template, defaultValue,</span>
+                                      okKey, cancelKey);
+    }
+
+
+    // Trivial delegations to Canvas
+
+    @Override
+    public void closeMainPanel() {
+<span class="nc" id="L887">        canvas.closeMainPanel();</span>
+<span class="nc" id="L888">    }</span>
+
+    @Override
+    public void closeMenus() {
+<span class="nc" id="L892">        canvas.closeMenus();</span>
+<span class="nc" id="L893">    }</span>
+
+    @Override
+    public void closeStatusPanel() {
+<span class="nc" id="L897">        canvas.closeStatusPanel();</span>
+<span class="nc" id="L898">    }</span>
+
+    @Override
+    public boolean containsInGameComponents() {
+<span class="nc" id="L902">        return canvas.containsInGameComponents();</span>
+    }
+
+    public void dialogRemove(FreeColDialog&lt;?&gt; fcd) {
+<span class="nc" id="L906">        canvas.dialogRemove(fcd);</span>
+<span class="nc" id="L907">    }</span>
+
+    /**
+     * Show the appropriate panel for an object.
+     *
+     * TODO: Improve OO.
+     *
+     * @param fco The &lt;code&gt;FreeColObject&lt;/code&gt; to display.
+     */
+    public void displayObject(FreeColObject fco) {
+<span class="nc bnc" id="L917" title="All 2 branches missed.">        if (fco instanceof Colony) {</span>
+<span class="nc" id="L918">            canvas.showColonyPanel((Colony)fco, null);</span>
+<span class="nc bnc" id="L919" title="All 2 branches missed.">        } else if (fco instanceof Europe) {</span>
+<span class="nc" id="L920">            canvas.showEuropePanel();</span>
+<span class="nc bnc" id="L921" title="All 2 branches missed.">        } else if (fco instanceof IndianSettlement) {</span>
+<span class="nc" id="L922">            canvas.showIndianSettlementPanel((IndianSettlement)fco);</span>
+<span class="nc bnc" id="L923" title="All 2 branches missed.">        } else if (fco instanceof Tile) {</span>
+<span class="nc" id="L924">            setFocus((Tile)fco);</span>
+<span class="nc bnc" id="L925" title="All 2 branches missed.">        } else if (fco instanceof Unit) {</span>
+<span class="nc" id="L926">            Location loc = ((Unit)fco).up();</span>
+<span class="nc bnc" id="L927" title="All 2 branches missed.">            if (loc instanceof Colony) {</span>
+<span class="nc" id="L928">                canvas.showColonyPanel((Colony)loc, (Unit)fco);</span>
+            } else {
+<span class="nc" id="L930">                displayObject((FreeColObject)loc);</span>
+            }
+<span class="nc bnc" id="L932" title="All 2 branches missed.">        } else if (fco instanceof WorkLocation) {</span>
+<span class="nc" id="L933">            canvas.showColonyPanel(((WorkLocation)fco).getColony(), null);</span>
+        }
+<span class="nc" id="L935">    }</span>
+
+    @Override
+    public LoadingSavegameInfo getLoadingSavegameInfo() {
+<span class="nc" id="L939">        return canvas.getLoadingSavegameDialog().getInfo();</span>
+    }
+
+    @Override
+    public boolean isClientOptionsDialogShowing() {
+<span class="nc bnc" id="L944" title="All 4 branches missed.">        return canvas!=null &amp;&amp; canvas.isClientOptionsDialogShowing();</span>
+    }
+
+    @Override
+    public boolean isMapboardActionsEnabled() {
+<span class="nc bnc" id="L949" title="All 4 branches missed.">        return canvas!=null &amp;&amp; canvas.isMapboardActionsEnabled();</span>
+    }
+
+    @Override
+    public boolean isShowingSubPanel() {
+<span class="nc bnc" id="L954" title="All 4 branches missed.">        return canvas!=null &amp;&amp; canvas.isShowingSubPanel();</span>
+    }
+
+    @Override
+    public void paintImmediatelyCanvasIn(Rectangle rectangle) {
+<span class="nc" id="L959">        canvas.paintImmediately(rectangle);</span>
+<span class="nc" id="L960">    }</span>
+
+    @Override
+    public void paintImmediatelyCanvasInItsBounds() {
+<span class="nc" id="L964">        canvas.paintImmediately(canvas.getBounds());</span>
+<span class="nc" id="L965">    }</span>
+
+    @Override
+    public void refreshPlayersTable() {
+<span class="nc" id="L969">        canvas.refreshPlayersTable();</span>
+<span class="nc" id="L970">    }</span>
+
+    public void removeFromCanvas(Component component) {
+<span class="nc" id="L973">        canvas.remove(component);</span>
+<span class="nc" id="L974">    }</span>
+
+    @Override
+    public void removeInGameComponents() {
+<span class="nc" id="L978">        canvas.removeInGameComponents();</span>
+<span class="nc" id="L979">    }</span>
+
+    public void removeTradeRoutePanel(TradeRoutePanel panel) {
+<span class="nc" id="L982">        canvas.removeTradeRoutePanel(panel);</span>
+<span class="nc" id="L983">    }</span>
+
+    @Override
+    public void requestFocusForSubPanel() {
+<span class="nc" id="L987">        canvas.getShowingSubPanel().requestFocus();</span>
+<span class="nc" id="L988">    }</span>
+
+    @Override
+    public boolean requestFocusInWindow() {
+<span class="nc" id="L992">        return canvas.requestFocusInWindow();</span>
+    }
+
+    public void restoreSavedSize(Component comp, int w, int h) {
+<span class="nc" id="L996">        canvas.restoreSavedSize(comp, new Dimension(w, h));</span>
+<span class="nc" id="L997">    }</span>
+
+    public void restoreSavedSize(Component comp, Dimension size) {
+<span class="nc" id="L1000">        canvas.restoreSavedSize(comp, size);</span>
+<span class="nc" id="L1001">    }</span>
+
+    @Override
+    public void returnToTitle() {
+<span class="nc" id="L1005">        canvas.returnToTitle();</span>
+<span class="nc" id="L1006">        playSound(&quot;sound.intro.general&quot;);</span>
+<span class="nc" id="L1007">    }</span>
+
+    @Override
+    public void showAboutPanel() {
+<span class="nc" id="L1011">        canvas.showAboutPanel();</span>
+<span class="nc" id="L1012">    }</span>
+
+    public void showBuildQueuePanel(Colony colony) {
+<span class="nc" id="L1015">        canvas.showBuildQueuePanel(colony);</span>
+<span class="nc" id="L1016">    }</span>
+
+    public void showBuildQueuePanel(Colony colony, Runnable callBack) {
+<span class="nc" id="L1019">        canvas.showBuildQueuePanel(colony, callBack);</span>
+<span class="nc" id="L1020">    }</span>
+
+    @Override
+    public void showCaptureGoodsDialog(final Unit unit, List&lt;Goods&gt; gl,
+                                       DialogHandler&lt;List&lt;Goods&gt;&gt; handler) {
+<span class="nc" id="L1025">        canvas.showCaptureGoodsDialog(unit, gl, handler);</span>
+<span class="nc" id="L1026">    }</span>
+
+    @Override
+    public void showChatPanel() {
+<span class="nc" id="L1030">        canvas.showChatPanel();</span>
+<span class="nc" id="L1031">    }</span>
+
+    @Override
+    public void showChooseFoundingFatherDialog(final List&lt;FoundingFather&gt; ffs,
+                DialogHandler&lt;FoundingFather&gt; handler) {
+<span class="nc" id="L1036">        canvas.showChooseFoundingFatherDialog(ffs, handler);</span>
+<span class="nc" id="L1037">    }</span>
+
+    @Override
+    public void showClientOptionsDialog() {
+<span class="nc" id="L1041">        OptionGroup group = null;</span>
+        try {
+<span class="nc" id="L1043">            group = canvas.showClientOptionsDialog();</span>
+        } finally {
+<span class="nc bnc" id="L1045" title="All 4 branches missed.">            if (group != null) {</span>
+<span class="nc" id="L1046">                resetMenuBar();</span>
+                // Immediately redraw the minimap if that was updated.
+<span class="nc" id="L1048">                updateMapControls();</span>
+            }
+        }
+<span class="nc bnc" id="L1051" title="All 2 branches missed.">        if (!freeColClient.isInGame()) showMainPanel(null);</span>
+<span class="nc" id="L1052">    }</span>
+
+    @Override
+    protected void showForeignColony(Settlement settlement) {
+<span class="nc" id="L1056">        canvas.showForeignColony(settlement);</span>
+<span class="nc" id="L1057">    }</span>
+
+    @Override
+    public void showColonyPanel(Colony colony, Unit unit) {
+<span class="nc" id="L1061">        canvas.showColonyPanel(colony, unit);</span>
+<span class="nc" id="L1062">    }</span>
+
+    public ColonyPanel showColonyPanel2(Colony colony, Unit unit) {
+<span class="nc" id="L1065">        return canvas.showColonyPanel(colony, unit);</span>
+    }
+
+    @Override
+    public void showColopediaPanel(String nodeId) {
+<span class="nc" id="L1070">        canvas.showColopediaPanel(nodeId);</span>
+<span class="nc" id="L1071">    }</span>
+
+    public ColorChooserPanel showColorChooserPanel(ActionListener al) {
+<span class="nc" id="L1074">        return canvas.showColorChooserPanel(al);</span>
+    }
+
+    @Override
+    public void showCompactLabourReport() {
+<span class="nc" id="L1079">        canvas.showCompactLabourReport();</span>
+<span class="nc" id="L1080">    }</span>
+
+    public void showCompactLabourReport(UnitData unitData) {
+<span class="nc" id="L1083">        canvas.showCompactLabourReport(unitData);</span>
+<span class="nc" id="L1084">    }</span>
+
+    @Override
+    public void showDeclarationPanel() {
+<span class="nc" id="L1088">        canvas.showDeclarationPanel();</span>
+<span class="nc" id="L1089">    }</span>
+
+    /**
+     * Display a difficulty dialog allowing only viewing of game options.
+     *
+     * @return The resulting &lt;code&gt;OptionGroup&lt;/code&gt;.
+     */
+    @Override
+    public OptionGroup showDifficultyDialog() {
+<span class="nc" id="L1098">        Game game = freeColClient.getGame();</span>
+<span class="nc" id="L1099">        Specification spec = game.getSpecification();</span>
+<span class="nc" id="L1100">        return canvas.showDifficultyDialog(spec,</span>
+<span class="nc" id="L1101">            spec.getDifficultyOptionGroup(), false);</span>
+    }
+
+    public OptionGroup showDifficultyDialog(Specification spec,
+                                            OptionGroup group) {
+<span class="nc" id="L1106">        return canvas.showDifficultyDialog(spec, group, group.isEditable());</span>
+    }
+
+    @Override
+    public void showDumpCargoDialog(Unit unit,
+                                    DialogHandler&lt;List&lt;Goods&gt;&gt; handler) {
+<span class="nc" id="L1112">        canvas.showDumpCargoDialog(unit, handler);</span>
+<span class="nc" id="L1113">    }</span>
+
+    @Override
+    public boolean showEditOptionDialog(Option option) {
+<span class="nc" id="L1117">        return canvas.showEditOptionDialog(option);</span>
+    }
+
+    @Override
+    public void showEmigrationDialog(final Player player,
+                                     final boolean fountainOfYouth,
+                                     DialogHandler&lt;Integer&gt; handler) {
+<span class="nc" id="L1124">        canvas.showEmigrationDialog(player, fountainOfYouth, handler);</span>
+<span class="nc" id="L1125">    }</span>
+
+    @Override
+    public void showEndTurnDialog(final List&lt;Unit&gt; units,
+                                  DialogHandler&lt;Boolean&gt; handler) {
+<span class="nc" id="L1130">        canvas.showEndTurnDialog(units, handler);</span>
+<span class="nc" id="L1131">    }</span>
+
+    @Override
+    public void showErrorMessage(StringTemplate template) {
+<span class="nc" id="L1135">        canvas.showErrorMessage(Messages.message(template));</span>
+<span class="nc" id="L1136">    }</span>
+
+    @Override
+    public void showErrorMessage(String messageId) {
+<span class="nc" id="L1140">        canvas.showErrorMessage(messageId);</span>
+<span class="nc" id="L1141">    }</span>
+
+    @Override
+    public void showErrorMessage(String messageID, String message) {
+<span class="nc" id="L1145">        canvas.showErrorMessage(messageID, message);</span>
+<span class="nc" id="L1146">    }</span>
+
+    @Override
+    public void showEuropePanel() {
+<span class="nc" id="L1150">        canvas.showEuropePanel();</span>
+<span class="nc" id="L1151">    }</span>
+
+    @Override
+    public void showEventPanel(String header, String image, String footer) {
+<span class="nc" id="L1155">        canvas.showEventPanel(header, image, footer);</span>
+<span class="nc" id="L1156">    }</span>
+
+    @Override
+    public void showFindSettlementPanel() {
+<span class="nc" id="L1160">        canvas.showFindSettlementPanel();</span>
+<span class="nc" id="L1161">    }</span>
+
+    @Override
+    public OptionGroup showGameOptionsDialog(boolean editable, boolean custom) {
+<span class="nc" id="L1165">        return canvas.showGameOptionsDialog(editable, custom);</span>
+    }
+
+    @Override
+    public void showHighScoresPanel(String messageId, List&lt;HighScore&gt; scores) {
+<span class="nc" id="L1170">        canvas.showHighScoresPanel(messageId, scores);</span>
+<span class="nc" id="L1171">    }</span>
+
+    @Override
+    public void showIndianSettlementPanel(IndianSettlement indianSettlement) {
+<span class="nc" id="L1175">        canvas.showIndianSettlementPanel(indianSettlement);</span>
+<span class="nc" id="L1176">    }</span>
+
+    @Override
+    public void showInformationMessage(String messageId) {
+<span class="nc" id="L1180">        super.showInformationMessage(messageId);</span>
+<span class="nc" id="L1181">        canvas.showInformationMessage(null, null, null, StringTemplate.key(messageId));</span>
+<span class="nc" id="L1182">    }</span>
+
+    @Override
+    public void showInformationMessage(StringTemplate template) {
+<span class="nc" id="L1186">        super.showInformationMessage(template);</span>
+<span class="nc" id="L1187">        canvas.showInformationMessage(null, null, null, template);</span>
+<span class="nc" id="L1188">    }</span>
+
+    @Override
+    public void showInformationMessage(Settlement displayObject,
+                                       StringTemplate template) {
+<span class="nc" id="L1193">        super.showInformationMessage(displayObject, template);</span>
+<span class="nc" id="L1194">        ImageIcon icon = null;</span>
+<span class="nc" id="L1195">        Tile tile = null;</span>
+<span class="nc bnc" id="L1196" title="All 2 branches missed.">        if(displayObject != null) {</span>
+<span class="nc" id="L1197">            icon = new ImageIcon(imageLibrary.getSettlementImage(displayObject));</span>
+<span class="nc" id="L1198">            tile = displayObject.getTile();</span>
+        }
+<span class="nc" id="L1200">        canvas.showInformationMessage(displayObject, tile, icon, template);</span>
+<span class="nc" id="L1201">    }</span>
+
+    @Override
+    public void showInformationMessage(Unit displayObject,
+                                       StringTemplate template) {
+<span class="nc" id="L1206">        super.showInformationMessage(displayObject, template);</span>
+<span class="nc" id="L1207">        ImageIcon icon = null;</span>
+<span class="nc" id="L1208">        Tile tile = null;</span>
+<span class="nc bnc" id="L1209" title="All 2 branches missed.">        if(displayObject != null) {</span>
+<span class="nc" id="L1210">            icon = new ImageIcon(imageLibrary.getUnitImage(displayObject));</span>
+<span class="nc" id="L1211">            tile = displayObject.getTile();</span>
+        }
+<span class="nc" id="L1213">        canvas.showInformationMessage(displayObject, tile, icon, template);</span>
+<span class="nc" id="L1214">    }</span>
+
+    @Override
+    public void showInformationMessage(Tile displayObject,
+                                       StringTemplate template) {
+<span class="nc" id="L1219">        super.showInformationMessage(displayObject, template);</span>
+<span class="nc" id="L1220">        canvas.showInformationMessage(displayObject, displayObject, null, template);</span>
+<span class="nc" id="L1221">    }</span>
+
+    @Override
+    public void showInformationMessage(FreeColObject displayObject,
+                                       String messageId) {
+<span class="nc" id="L1226">        super.showInformationMessage(displayObject, messageId);</span>
+<span class="nc" id="L1227">        canvas.showInformationMessage(displayObject, StringTemplate.key(messageId));</span>
+<span class="nc" id="L1228">    }</span>
+
+    @Override
+    public void showInformationMessage(FreeColObject displayObject,
+                                       StringTemplate template) {
+<span class="nc" id="L1233">        super.showInformationMessage(displayObject, template);</span>
+<span class="nc" id="L1234">        canvas.showInformationMessage(displayObject, template);</span>
+<span class="nc" id="L1235">    }</span>
+
+    @Override
+    public File showLoadDialog(File directory) {
+<span class="nc" id="L1239">        return canvas.showLoadDialog(directory, null);</span>
+    }
+
+    public File showLoadDialog(File directory, FileFilter[] fileFilters) {
+<span class="nc" id="L1243">        return canvas.showLoadDialog(directory, fileFilters);</span>
+    }
+
+    @Override
+    public boolean showLoadingSavegameDialog(boolean publicServer,
+                                             boolean singlePlayer) {
+<span class="nc" id="L1249">        return canvas.showLoadingSavegameDialog(publicServer, singlePlayer);</span>
+    }
+
+    @Override
+    public void showLogFilePanel() {
+<span class="nc" id="L1254">        canvas.showLogFilePanel();</span>
+<span class="nc" id="L1255">    }</span>
+
+    @Override
+    public void showMainPanel(String userMsg) {
+<span class="nc" id="L1259">        canvas.showMainPanel(userMsg);</span>
+<span class="nc" id="L1260">    }</span>
+
+    @Override
+    public OptionGroup showMapGeneratorOptionsDialog(boolean editable) {
+<span class="nc" id="L1264">        return canvas.showMapGeneratorOptionsDialog(editable);</span>
+    }
+
+    @Override
+    public Dimension showMapSizeDialog() {
+<span class="nc" id="L1269">        return canvas.showMapSizeDialog();</span>
+    }
+
+    @Override
+    public void showModelMessages(List&lt;ModelMessage&gt; modelMessages) {
+<span class="nc" id="L1274">        canvas.showModelMessages(modelMessages);</span>
+<span class="nc" id="L1275">    }</span>
+
+    @Override
+    public void showMonarchDialog(final MonarchAction action,
+                                  StringTemplate template, String monarchKey,
+                                  DialogHandler&lt;Boolean&gt; handler) {
+<span class="nc" id="L1281">        canvas.showMonarchDialog(action, template, monarchKey, handler);</span>
+<span class="nc" id="L1282">    }</span>
+
+    @Override
+    public void showNamingDialog(StringTemplate template,
+                                      final String defaultName,
+                                      final Unit unit,
+                                      DialogHandler&lt;String&gt; handler) {
+<span class="nc" id="L1289">        canvas.showNamingDialog(template, defaultName, unit, handler);</span>
+<span class="nc" id="L1290">    }</span>
+
+    @Override
+    public void showFirstContactDialog(final Player player, final Player other,
+                                       final Tile tile, int settlementCount,
+                                       DialogHandler&lt;Boolean&gt; handler) {
+<span class="nc" id="L1296">        canvas.showFirstContactDialog(player, other, tile, settlementCount,</span>
+                                      handler);
+<span class="nc" id="L1298">    }</span>
+
+    @Override
+    public DiplomaticTrade showNegotiationDialog(FreeColGameObject our,
+                                                     FreeColGameObject other,
+                                                     DiplomaticTrade agreement,
+                                                     StringTemplate comment) {
+<span class="nc" id="L1305">        return canvas.showNegotiationDialog(our, other, agreement, comment);</span>
+    }
+
+    @Override
+    public void showNewPanel() {
+<span class="nc" id="L1310">        canvas.showNewPanel(null);</span>
+<span class="nc" id="L1311">    }</span>
+
+    @Override
+    public void showNewPanel(Specification specification) {
+<span class="nc" id="L1315">        canvas.showNewPanel(specification);</span>
+<span class="nc" id="L1316">    }</span>
+
+    @Override
+    public void showSpyColonyPanel(final Tile tile, Runnable callback) {
+<span class="nc" id="L1320">        ColonyPanel panel = canvas.showSpyColonyPanel(tile);</span>
+<span class="nc" id="L1321">        panel.addClosingCallback(callback);</span>
+<span class="nc" id="L1322">    }</span>
+
+    @Override
+    public Parameters showParametersDialog() {
+<span class="nc" id="L1326">        return canvas.showParametersDialog();</span>
+    }
+
+    @Override
+    public boolean showPreCombatDialog(Unit attacker,
+                                       FreeColGameObject defender, Tile tile) {
+<span class="nc" id="L1332">        return canvas.showPreCombatDialog(attacker, defender, tile);</span>
+    }
+
+    public void showPurchasePanel() {
+<span class="nc" id="L1336">        canvas.showPurchasePanel();</span>
+<span class="nc" id="L1337">    }</span>
+
+    public void showRecruitPanel() {
+<span class="nc" id="L1340">        canvas.showRecruitPanel();</span>
+<span class="nc" id="L1341">    }</span>
+
+    @Override
+    public void showReportCargoPanel() {
+<span class="nc" id="L1345">        canvas.showReportCargoPanel();</span>
+<span class="nc" id="L1346">    }</span>
+
+    @Override
+    public void showReportColonyPanel() {
+<span class="nc" id="L1350">        canvas.showReportColonyPanel();</span>
+<span class="nc" id="L1351">    }</span>
+
+    @Override
+    public void showReportContinentalCongressPanel() {
+<span class="nc" id="L1355">        canvas.showReportContinentalCongressPanel();</span>
+<span class="nc" id="L1356">    }</span>
+
+    @Override
+    public void showReportEducationPanel() {
+<span class="nc" id="L1360">        canvas.showReportEducationPanel();</span>
+<span class="nc" id="L1361">    }</span>
+
+    @Override
+    public void showReportExplorationPanel() {
+<span class="nc" id="L1365">        canvas.showReportExplorationPanel();</span>
+<span class="nc" id="L1366">    }</span>
+
+    @Override
+    public void showReportForeignAffairPanel() {
+<span class="nc" id="L1370">        canvas.showReportForeignAffairPanel();</span>
+<span class="nc" id="L1371">    }</span>
+
+    @Override
+    public void showReportHistoryPanel() {
+<span class="nc" id="L1375">        canvas.showReportHistoryPanel();</span>
+<span class="nc" id="L1376">    }</span>
+
+    @Override
+    public void showReportIndianPanel() {
+<span class="nc" id="L1380">        canvas.showReportIndianPanel();</span>
+<span class="nc" id="L1381">    }</span>
+
+    public void showReportLabourDetailPanel(UnitType unitType,
+            Map&lt;UnitType, Map&lt;Location, Integer&gt;&gt; data,
+            TypeCountMap&lt;UnitType&gt; unitCount, List&lt;Colony&gt; colonies) {
+<span class="nc" id="L1386">        canvas.showReportLabourDetailPanel(unitType, data, unitCount,</span>
+                                           colonies);
+<span class="nc" id="L1388">    }</span>
+
+    @Override
+    public void showReportLabourPanel() {
+<span class="nc" id="L1392">        canvas.showReportLabourPanel();</span>
+<span class="nc" id="L1393">    }</span>
+
+    @Override
+    public void showReportMilitaryPanel() {
+<span class="nc" id="L1397">        canvas.showReportMilitaryPanel();</span>
+<span class="nc" id="L1398">    }</span>
+
+    @Override
+    public void showReportNavalPanel() {
+<span class="nc" id="L1402">        canvas.showReportNavalPanel();</span>
+<span class="nc" id="L1403">    }</span>
+
+    @Override
+    public void showReportProductionPanel() {
+<span class="nc" id="L1407">        canvas.showReportProductionPanel();</span>
+<span class="nc" id="L1408">    }</span>
+
+    @Override
+    public void showReportReligiousPanel() {
+<span class="nc" id="L1412">        canvas.showReportReligiousPanel();</span>
+<span class="nc" id="L1413">    }</span>
+
+    @Override
+    public void showReportRequirementsPanel() {
+<span class="nc" id="L1417">        canvas.showReportRequirementsPanel();</span>
+<span class="nc" id="L1418">    }</span>
+
+    @Override
+    public void showReportTradePanel() {
+<span class="nc" id="L1422">        canvas.showReportTradePanel();</span>
+<span class="nc" id="L1423">    }</span>
+
+    @Override
+    public void showReportTurnPanel(List&lt;ModelMessage&gt; messages) {
+<span class="nc" id="L1427">        canvas.showReportTurnPanel(messages);</span>
+<span class="nc" id="L1428">    }</span>
+
+    @Override
+    public File showSaveDialog(File directory, String defaultName) {
+<span class="nc" id="L1432">        return canvas.showSaveDialog(directory, null, defaultName);</span>
+    }
+
+    public File showSaveDialog(File directory, FileFilter[] fileFilters,
+                               String defaultName) {
+<span class="nc" id="L1437">        return canvas.showSaveDialog(directory, fileFilters, defaultName);</span>
+    }
+
+    @Override
+    public Dimension showScaleMapSizeDialog() {
+<span class="nc" id="L1442">        return canvas.showScaleMapSizeDialog();</span>
+    }
+
+    @Override
+    public int showSelectAmountDialog(GoodsType goodsType, int available,
+                                      int defaultAmount, boolean needToPay) {
+<span class="nc" id="L1448">        return canvas.showSelectAmountDialog(goodsType, available,</span>
+                                             defaultAmount, needToPay);
+    }
+
+    @Override
+    public int showSelectTributeAmountDialog(StringTemplate question,
+                                             int maximum) {
+<span class="nc" id="L1455">        return canvas.showSelectTributeAmountDialog(question, maximum);</span>
+    }
+
+    @Override
+    public Location showSelectDestinationDialog(Unit unit) {
+<span class="nc" id="L1460">        return canvas.showSelectDestinationDialog(unit);</span>
+    }
+
+    public void showServerListPanel(List&lt;ServerInfo&gt; serverList) {
+<span class="nc" id="L1464">        canvas.showServerListPanel(serverList);</span>
+<span class="nc" id="L1465">    }</span>
+
+    @Override
+    public void showStartGamePanel(Game game, Player player,
+                                   boolean singlePlayerMode) {
+<span class="nc" id="L1470">        canvas.showStartGamePanel(game, player, singlePlayerMode);</span>
+<span class="nc" id="L1471">    }</span>
+
+    @Override
+    public void showStatisticsPanel() {
+<span class="nc" id="L1475">        canvas.showStatisticsPanel();</span>
+<span class="nc" id="L1476">    }</span>
+
+    @Override
+    public void showStatusPanel(String message) {
+<span class="nc" id="L1480">        canvas.showStatusPanel(message);</span>
+<span class="nc" id="L1481">    }</span>
+
+    public void showTilePanel(Tile tile) {
+<span class="nc" id="L1484">        canvas.showTilePanel(tile);</span>
+<span class="nc" id="L1485">    }</span>
+
+    @Override
+    public void showTilePopUpAtSelectedTile() {
+<span class="nc" id="L1489">        Tile tile = mapViewer.getSelectedTile();</span>
+<span class="nc" id="L1490">        Point point = mapViewer.calculateTilePosition(tile);</span>
+<span class="nc" id="L1491">        canvas.showTilePopup(tile, point.x+mapViewer.getTileWidth(), point.y);</span>
+<span class="nc" id="L1492">    }</span>
+
+    @Override
+    public void showTradeRoutePanel(Unit unit) {
+<span class="nc" id="L1496">        canvas.showTradeRoutePanel(unit);</span>
+<span class="nc" id="L1497">    }</span>
+
+    public void showTradeRouteInputPanel(TradeRoute newRoute,
+                                         Runnable callBack) {
+<span class="nc" id="L1501">        canvas.showTradeRouteInputPanel(newRoute, callBack);</span>
+<span class="nc" id="L1502">    }</span>
+
+    public void showTrainPanel() {
+<span class="nc" id="L1505">        canvas.showTrainPanel();</span>
+<span class="nc" id="L1506">    }</span>
+
+    @Override
+    public void showVictoryDialog(DialogHandler&lt;Boolean&gt; handler) {
+<span class="nc" id="L1510">        canvas.showVictoryDialog(handler);</span>
+<span class="nc" id="L1511">    }</span>
+
+    public boolean showWarehouseDialog(Colony colony) {
+<span class="nc" id="L1514">        return canvas.showWarehouseDialog(colony);</span>
+    }
+
+    public void showWorkProductionPanel(Unit unit) {
+<span class="nc" id="L1518">        canvas.showWorkProductionPanel(unit);</span>
+<span class="nc" id="L1519">    }</span>
+
+    public void updateEuropeanSubpanels() {
+<span class="nc" id="L1522">        canvas.updateEuropeanSubpanels();</span>
+<span class="nc" id="L1523">    }</span>
+
+    @Override
+    public void updateGameOptions() {
+<span class="nc" id="L1527">        canvas.updateGameOptions();</span>
+<span class="nc" id="L1528">    }</span>
+
+    @Override
+    public void updateMapGeneratorOptions() {
+<span class="nc" id="L1532">        canvas.updateMapGeneratorOptions();</span>
+<span class="nc" id="L1533">    }</span>
+
+    // Trivial delegations to MapViewer
+
+    @Override
+    public void centerActiveUnit() {
+<span class="nc" id="L1539">        mapViewer.centerActiveUnit();</span>
+<span class="nc" id="L1540">    }</span>
+
+    @Override
+    public void changeViewMode(int newViewMode) {
+<span class="nc" id="L1544">        mapViewer.changeViewMode(newViewMode);</span>
+<span class="nc" id="L1545">    }</span>
+
+    public Point calculateUnitLabelPositionInTile(int labelWidth,int labelHeight,
+                                                  Point tileP) {
+<span class="nc" id="L1549">        return mapViewer.calculateUnitLabelPositionInTile(</span>
+            labelWidth, labelHeight, tileP);
+    }
+
+    public void executeWithUnitOutForAnimation(final Unit unit,
+                                               final Tile sourceTile,
+                                               final OutForAnimationCallback r) {
+<span class="nc" id="L1556">        mapViewer.executeWithUnitOutForAnimation(unit, sourceTile, r);</span>
+<span class="nc" id="L1557">    }</span>
+
+    @Override
+    public Unit getActiveUnit() {
+<span class="nc bnc" id="L1561" title="All 2 branches missed.">        return mapViewer==null ? null : mapViewer.getActiveUnit();</span>
+    }
+
+    @Override
+    public Tile getFocus() {
+<span class="nc" id="L1566">        return mapViewer.getFocus();</span>
+    }
+
+    public float getMapScale() {
+<span class="nc" id="L1570">        return mapViewer.getImageLibrary().getScaleFactor();</span>
+    }
+
+    @Override
+    public Tile getSelectedTile() {
+<span class="nc" id="L1575">        return mapViewer.getSelectedTile();</span>
+    }
+
+    public Rectangle getTileBounds(Tile tile) {
+<span class="nc" id="L1579">        return mapViewer.calculateTileBounds(tile);</span>
+    }
+
+    public Point getTilePosition(Tile tile) {
+<span class="nc" id="L1583">        return mapViewer.calculateTilePosition(tile);</span>
+    }
+
+    @Override
+    public int getViewMode() {
+<span class="nc" id="L1588">        return mapViewer.getViewMode();</span>
+    }
+
+    @Override
+    public void setFocus(Tile tileToFocus) {
+<span class="nc" id="L1593">        mapViewer.setFocus(tileToFocus);</span>
+<span class="nc" id="L1594">        canvas.refresh();</span>
+<span class="nc" id="L1595">    }</span>
+
+    public void setFocusImmediately(Tile tileToFocus) {
+<span class="nc" id="L1598">        mapViewer.setFocus(tileToFocus);</span>
+<span class="nc" id="L1599">        Dimension size = canvas.getSize();</span>
+<span class="nc" id="L1600">        canvas.paintImmediately(0, 0, size.width, size.height);</span>
+<span class="nc" id="L1601">    }</span>
+
+    @Override
+    public boolean setSelectedTile(Tile newTileToSelect) {
+<span class="nc" id="L1605">        boolean result = mapViewer.setSelectedTile(newTileToSelect);</span>
+<span class="nc" id="L1606">        updateMapControls();</span>
+<span class="nc" id="L1607">        updateMenuBar();</span>
+<span class="nc" id="L1608">        return result;</span>
+    }
+
+    @Override
+    public void toggleViewMode() {
+<span class="nc" id="L1613">        mapViewer.toggleViewMode();</span>
+<span class="nc" id="L1614">    }</span>
+
+    // Forwarding to tileViewer
+
+    public static BufferedImage createTileImageWithOverlayAndForest(
+            TileType type, Dimension size) {
+<span class="nc" id="L1620">        return TileViewer.createTileImageWithOverlayAndForest(type, size);</span>
+    }
+
+    public BufferedImage createTileImageWithBeachBorderAndItems(Tile tile) {
+<span class="nc" id="L1624">        return tileViewer.createTileImageWithBeachBorderAndItems(tile);</span>
+    }
+
+    public BufferedImage createTileImage(Tile tile) {
+<span class="nc" id="L1628">        return tileViewer.createTileImage(tile);</span>
+    }
+
+    public BufferedImage createColonyTileImage(Tile tile, Colony colony) {
+<span class="nc" id="L1632">        return tileViewer.createColonyTileImage(tile, colony);</span>
+    }
+
+    public void displayColonyTiles(Graphics2D g, Tile[][] tiles, Colony colony) {
+<span class="nc" id="L1636">        tileViewer.displayColonyTiles(g, tiles, colony);</span>
+<span class="nc" id="L1637">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SellMessage.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.networking</a> &gt; <span class="el_source">SellMessage.java</span></div><h1>SellMessage.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.networking;
+
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Goods;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Settlement;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.server.FreeColServer;
+import net.sf.freecol.server.model.ServerIndianSettlement;
+import net.sf.freecol.server.model.ServerPlayer;
+
+import org.w3c.dom.Element;
+
+
+/**
+ * The message sent when selling at an IndianSettlement.
+ */
+public class SellMessage extends DOMMessage {
+
+    /** The object identifier of the unit that is selling. */
+    private final String unitId;
+
+    /** The object identifier of the settlement that is buying. */
+    private final String settlementId;
+
+    /** The goods to be sold. */
+    private final Goods goods;
+
+    /** The sale price. */
+    private final String goldString;
+
+
+    /**
+     * Create a new &lt;code&gt;SellMessage&lt;/code&gt;.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is trading.
+     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
+     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to sell.
+     * @param gold The price of the goods.
+     */
+    public SellMessage(Unit unit, Settlement settlement, Goods goods,
+                       int gold) {
+<span class="nc" id="L62">        super(getXMLElementTagName());</span>
+
+<span class="nc" id="L64">        this.unitId = unit.getId();</span>
+<span class="nc" id="L65">        this.settlementId = settlement.getId();</span>
+<span class="nc" id="L66">        this.goods = goods;</span>
+<span class="nc" id="L67">        this.goldString = Integer.toString(gold);</span>
+<span class="nc" id="L68">    }</span>
+
+    /**
+     * Create a new &lt;code&gt;SellMessage&lt;/code&gt; from a
+     * supplied element.
+     *
+     * @param game The &lt;code&gt;Game&lt;/code&gt; this message belongs to.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to use to create the message.
+     */
+    public SellMessage(Game game, Element element) {
+<span class="nc" id="L78">        super(getXMLElementTagName());</span>
+
+<span class="nc" id="L80">        this.unitId = element.getAttribute(&quot;unit&quot;);</span>
+<span class="nc" id="L81">        this.settlementId = element.getAttribute(&quot;settlement&quot;);</span>
+<span class="nc" id="L82">        this.goods = new Goods(game,</span>
+<span class="nc" id="L83">            DOMMessage.getChildElement(element, Goods.getXMLElementTagName()));</span>
+<span class="nc" id="L84">        this.goldString = element.getAttribute(&quot;gold&quot;);</span>
+<span class="nc" id="L85">    }</span>
+
+
+    // Public interface
+
+    /**
+     * What is the price currently negotiated for this transaction?
+     *
+     * @return The current price.
+     */
+    public int getGold() {
+        try {
+<span class="nc" id="L97">            return Integer.parseInt(goldString);</span>
+<span class="nc" id="L98">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L99">            return -1;</span>
+        }
+    }
+
+
+    /**
+     * Handle a &quot;sell&quot;-message.
+     *
+     * @param server The &lt;code&gt;FreeColServer&lt;/code&gt; handling the message.
+     * @param player The &lt;code&gt;Player&lt;/code&gt; the message applies to.
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; message was received on.
+     * @return An update as a result of the sale, or an error
+     *      &lt;code&gt;Element&lt;/code&gt; on failure.
+     */
+    public Element handle(FreeColServer server, Player player,
+                          Connection connection) {
+<span class="nc" id="L115">        final ServerPlayer serverPlayer = server.getPlayer(connection);</span>
+
+        Unit unit;
+        try {
+<span class="nc" id="L119">            unit = player.getOurFreeColGameObject(unitId, Unit.class);</span>
+<span class="nc" id="L120">        } catch (Exception e) {</span>
+<span class="nc" id="L121">            return DOMMessage.clientError(e.getMessage());</span>
+<span class="nc" id="L122">        }</span>
+
+        ServerIndianSettlement settlement;
+        try {
+<span class="nc" id="L126">            settlement = (ServerIndianSettlement)unit.getAdjacentIndianSettlementSafely(settlementId);</span>
+<span class="nc" id="L127">        } catch (Exception e) {</span>
+<span class="nc" id="L128">            return DOMMessage.clientError(e.getMessage());</span>
+<span class="nc" id="L129">        }</span>
+
+        // Make sure we are trying to sell something that is there
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (goods.getLocation() != unit) {</span>
+<span class="nc" id="L133">            return DOMMessage.clientError(&quot;Goods &quot; + goods.getId()</span>
+                + &quot; is not with unit &quot; + unitId);
+        }
+
+<span class="nc" id="L137">        int gold = getGold();</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">        if (gold &lt; 0) return DOMMessage.clientError(&quot;Bad gold: &quot; + goldString);</span>
+
+        // Proceed to sell
+<span class="nc" id="L141">        return server.getInGameController()</span>
+<span class="nc" id="L142">            .sellToSettlement(serverPlayer, unit, settlement, goods, gold);</span>
+    }
+
+    /**
+     * Convert this SellMessage to XML.
+     *
+     * @return The XML representation of this message.
+     */
+    @Override
+    public Element toXMLElement() {
+<span class="nc" id="L152">        Element result = createMessage(getXMLElementTagName(),</span>
+            &quot;unit&quot;, unitId,
+            &quot;settlement&quot;, settlementId,
+            &quot;gold&quot;, goldString);
+<span class="nc" id="L156">        result.appendChild(goods.toXMLElement(result.getOwnerDocument()));</span>
+<span class="nc" id="L157">        return result;</span>
+    }
+
+    /**
+     * The tag name of the root element representing this object.
+     *
+     * @return &quot;sell&quot;.
+     */
+    public static String getXMLElementTagName() {
+<span class="fc" id="L166">        return &quot;sell&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

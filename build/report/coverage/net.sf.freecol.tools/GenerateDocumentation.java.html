@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenerateDocumentation.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.tools</a> &gt; <span class="el_source">GenerateDocumentation.java</span></div><h1>GenerateDocumentation.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.tools;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.FilenameFilter;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.transform.Result;
+import javax.xml.transform.Source;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.StringTemplate;
+
+
+/**
+ * Generate some documentation.
+ */
+<span class="nc" id="L46">public class GenerateDocumentation {</span>
+
+<span class="nc" id="L48">    private static final File STRING_DIRECTORY =</span>
+        new File(&quot;data/strings&quot;);
+<span class="nc" id="L50">    private static final File RULE_DIRECTORY =</span>
+        new File(&quot;data/rules/classic&quot;);
+    private static final String XSL = &quot;specification.xsl&quot;;
+    
+<span class="nc" id="L54">    private static final File DESTINATION_DIRECTORY =</span>
+        new File(&quot;doc&quot;);
+
+<span class="nc" id="L57">    private static final Map&lt;String, String&gt; resources = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L59">    private static final String[] sourceFiles</span>
+<span class="nc" id="L60">        = STRING_DIRECTORY.list(new FilenameFilter() {</span>
+            @Override
+            public boolean accept(File dir, String name) {
+<span class="nc" id="L63">                return name.matches(&quot;FreeColMessages.*\\.properties&quot;);</span>
+            }
+        });
+
+
+
+
+    public static void main(String[] args) throws Exception {
+<span class="nc" id="L71">        System.setProperty(&quot;jaxp.debug&quot;, &quot;1&quot;);</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        if (args.length &gt; 0) {</span>
+<span class="nc" id="L73">            Arrays.sort(args);</span>
+        }
+<span class="nc" id="L75">        readResources();</span>
+        //generateTMX();
+<span class="nc" id="L77">        generateDocumentation(args);</span>
+<span class="nc" id="L78">    }</span>
+
+    private static void readResources() {
+<span class="nc" id="L81">        System.out.println(&quot;Processing source file: resources.properties&quot;);</span>
+<span class="nc" id="L82">        File sourceFile = new File(RULE_DIRECTORY, &quot;resources.properties&quot;);</span>
+<span class="nc" id="L83">        try (</span>
+<span class="nc" id="L84">            FileReader fileReader = new FileReader(sourceFile);</span>
+<span class="nc" id="L85">            BufferedReader bufferedReader = new BufferedReader(fileReader);</span>
+        ) {
+<span class="nc" id="L87">            String line = bufferedReader.readLine();</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">            while (line != null) {</span>
+<span class="nc" id="L89">                int index = line.indexOf('=');</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">                if (index &gt;= 0) {</span>
+<span class="nc" id="L91">                    String key = line.substring(0, index).trim();</span>
+<span class="nc" id="L92">                    String value = line.substring(index + 1).trim();</span>
+<span class="nc" id="L93">                    resources.put(key, value);</span>
+                }
+<span class="nc" id="L95">                line = bufferedReader.readLine();</span>
+<span class="nc" id="L96">            }</span>
+<span class="nc bnc" id="L97" title="All 16 branches missed.">        } catch (Exception e) {</span>
+<span class="nc" id="L98">            e.printStackTrace();</span>
+<span class="nc" id="L99">        }</span>
+<span class="nc" id="L100">    }</span>
+
+
+    private static void generateTMX() {
+
+<span class="nc" id="L105">        Map&lt;String, Map&lt;String, String&gt;&gt; translations = new HashMap&lt;&gt;();</span>
+
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        for (String name : sourceFiles) {</span>
+
+<span class="nc" id="L109">            System.out.println(&quot;Processing source file: &quot; + name);</span>
+
+<span class="nc" id="L111">            String languageCode = name.substring(15, name.length() - 11);</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">            if (languageCode.isEmpty()) {</span>
+<span class="nc" id="L113">                languageCode = &quot;en&quot;;</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">            } else if ('_' == languageCode.charAt(0)) {</span>
+<span class="nc" id="L115">                languageCode = languageCode.substring(1);</span>
+            } else {
+                // don't know what to do
+                continue;
+            }
+
+<span class="nc" id="L121">            File sourceFile = new File(STRING_DIRECTORY, name);</span>
+
+<span class="nc" id="L123">            try (</span>
+<span class="nc" id="L124">                FileReader fileReader = new FileReader(sourceFile);</span>
+<span class="nc" id="L125">                BufferedReader bufferedReader = new BufferedReader(fileReader);</span>
+            ) {
+<span class="nc" id="L127">                String line = bufferedReader.readLine();</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">                while (line != null) {</span>
+<span class="nc" id="L129">                    int index = line.indexOf('=');</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">                    if (index &gt;= 0) {</span>
+<span class="nc" id="L131">                        String key = line.substring(0, index).trim();</span>
+<span class="nc" id="L132">                        String value = line.substring(index + 1).trim()</span>
+<span class="nc" id="L133">                            .replace(&quot;&lt;&quot;, &quot;&amp;lt;&quot;).replace(&quot;&gt;&quot;, &quot;&amp;gt;&quot;).replace(&quot;&amp;&quot;, &quot;&amp;amp;&quot;);</span>
+<span class="nc" id="L134">                        Map&lt;String, String&gt; map = translations.get(key);</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">                        if (map == null) {</span>
+<span class="nc" id="L136">                            map = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L137">                            translations.put(key, map);</span>
+                        }
+<span class="nc" id="L139">                        map.put(languageCode, value);</span>
+                    }
+<span class="nc" id="L141">                    line = bufferedReader.readLine();</span>
+<span class="nc" id="L142">                }</span>
+<span class="nc bnc" id="L143" title="All 16 branches missed.">            } catch (Exception e) {</span>
+                // forget it
+<span class="nc" id="L145">            }</span>
+        }
+<span class="nc" id="L147">        File destinationFile = new File(DESTINATION_DIRECTORY, &quot;freecol.tmx&quot;);</span>
+<span class="nc" id="L148">        try (</span>
+<span class="nc" id="L149">            FileWriter out = new FileWriter(destinationFile);</span>
+        ) {
+<span class="nc" id="L151">            out.write(&quot;&lt;?xml version =\&quot;1.0\&quot; encoding=\&quot;UTF-8\&quot;?&gt;\n&quot;);</span>
+<span class="nc" id="L152">            out.write(&quot;&lt;tmx version=\&quot;1.4b\&quot;&gt;\n&quot;);</span>
+<span class="nc" id="L153">            out.write(&quot;&lt;body&gt;\n&quot;);</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">            for (Map.Entry&lt;String, Map&lt;String, String&gt;&gt; tu : translations.entrySet()) {</span>
+<span class="nc" id="L155">                out.write(&quot;  &lt;tu tuid=\&quot;&quot; + tu.getKey() + &quot;\&quot;&gt;\n&quot;);</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">                for (Map.Entry&lt;String, String&gt; tuv : tu.getValue().entrySet()) {</span>
+<span class="nc" id="L157">                    out.write(&quot;    &lt;tuv xml:lang=\&quot;&quot; + tuv.getKey() + &quot;\&quot;&gt;\n&quot;);</span>
+<span class="nc" id="L158">                    out.write(&quot;      &lt;seg&gt;&quot; + tuv.getValue() + &quot;&lt;/seg&gt;\n&quot;);</span>
+<span class="nc" id="L159">                    out.write(&quot;    &lt;/tuv&gt;\n&quot;);</span>
+<span class="nc" id="L160">                }</span>
+<span class="nc" id="L161">                out.write(&quot;  &lt;/tu&gt;\n&quot;);</span>
+<span class="nc" id="L162">            }</span>
+<span class="nc" id="L163">            out.write(&quot;&lt;/body&gt;\n&quot;);</span>
+<span class="nc" id="L164">            out.write(&quot;&lt;/tmx&gt;\n&quot;);</span>
+<span class="nc" id="L165">            out.flush();</span>
+<span class="nc bnc" id="L166" title="All 8 branches missed.">        } catch (Exception e) {</span>
+<span class="nc" id="L167">            e.printStackTrace();</span>
+<span class="nc" id="L168">        }</span>
+<span class="nc" id="L169">    }</span>
+
+    public static void generateDocumentation(String[] languages) {
+<span class="nc bnc" id="L172" title="All 2 branches missed.">        for (String name : sourceFiles) {</span>
+
+<span class="nc" id="L174">            String languageCode = name.substring(15, name.length() - 11);</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">            if (languageCode.isEmpty()) {</span>
+<span class="nc" id="L176">                languageCode = &quot;en&quot;;</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">            } else if ('_' == languageCode.charAt(0)) {</span>
+<span class="nc" id="L178">                languageCode = languageCode.substring(1);</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">                if (&quot;qqq&quot;.equals(languageCode)) {</span>
+<span class="nc" id="L180">                    System.out.println(&quot;Skipping language code 'qqq'&quot;);</span>
+<span class="nc" id="L181">                    continue;</span>
+                }
+            } else {
+                // don't know what to do
+                continue;
+            }
+<span class="nc bnc" id="L187" title="All 2 branches missed.">            if (languages.length == 0</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">                || Arrays.binarySearch(languages, languageCode) &gt;= 0) {</span>
+<span class="nc" id="L189">                System.out.println(&quot;Generating localized documentation for language code &quot;</span>
+                                   + languageCode);
+
+<span class="nc" id="L192">                Messages.loadMessageBundle(Messages.getLocale(languageCode));</span>
+                try {
+<span class="nc" id="L194">                    TransformerFactory factory = TransformerFactory.newInstance();</span>
+<span class="nc" id="L195">                    Source xsl = new StreamSource(new File(&quot;doc&quot;, XSL));</span>
+                    Transformer stylesheet;
+                    try {
+<span class="nc" id="L198">                        stylesheet = factory.newTransformer(xsl);</span>
+<span class="nc" id="L199">                    } catch (TransformerException tce) {</span>
+<span class="nc" id="L200">                        System.err.println(&quot;Problem with &quot; + XSL + &quot; at: &quot;</span>
+<span class="nc" id="L201">                            + tce.getLocationAsString());</span>
+<span class="nc" id="L202">                        tce.printStackTrace();</span>
+<span class="nc" id="L203">                        continue;</span>
+<span class="nc" id="L204">                    }</span>
+
+<span class="nc" id="L206">                    Source request  = new StreamSource(new File(RULE_DIRECTORY, &quot;specification.xml&quot;));</span>
+<span class="nc" id="L207">                    Result response = new StreamResult(new File(DESTINATION_DIRECTORY, &quot;specification_&quot;</span>
+                                                                + languageCode + &quot;.html&quot;));
+<span class="nc" id="L209">                    stylesheet.transform(request, response);</span>
+                }
+<span class="nc" id="L211">                catch (TransformerException e) {</span>
+<span class="nc" id="L212">                    e.printStackTrace();</span>
+<span class="nc" id="L213">                }</span>
+            }
+        }
+<span class="nc" id="L216">    }</span>
+
+    public static String getResource(String key) {
+<span class="nc" id="L219">        return resources.get(key);</span>
+    }
+
+    public static String localize(String template) {
+<span class="nc" id="L223">        return Messages.message(template);</span>
+    }
+
+    public static String localize(String template, String key, String number) {
+<span class="nc" id="L227">        double num = Double.parseDouble(number);</span>
+<span class="nc" id="L228">        StringTemplate stringTemplate = StringTemplate.template(template)</span>
+<span class="nc" id="L229">            .addAmount(key, num);</span>
+<span class="nc" id="L230">        return Messages.message(stringTemplate);</span>
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

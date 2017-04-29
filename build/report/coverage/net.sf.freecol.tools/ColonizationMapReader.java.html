@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ColonizationMapReader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.tools</a> &gt; <span class="el_source">ColonizationMapReader.java</span></div><h1>ColonizationMapReader.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.tools;
+
+import java.io.RandomAccessFile;
+import java.util.Arrays;
+
+
+/**
+ * Just pass the name of a Colonization map file (with extension &quot;.MP&quot;).
+ *
+ * The map file starts with a six-byte header. Byte zero encodes the
+ * map width, byte two encodes the map height. The function of the
+ * other bytes is unknown, their values, however, are fixed. The
+ * header is followed by three &quot;layers&quot;, each the size of the map. The
+ * first &quot;layer&quot; encodes the terrain type. The function of the other
+ * layers is unknown. They are filled with zero bytes.
+ *
+ * It seems that the least significant three bits encode the basic
+ * terrain type, the next two bits encode the forest overlay and
+ * the special tile types ice, ocean and sea lanes. The three most
+ * significant bits encode combinations of the hill, mountain and
+ * river overlays.
+ *
+ * bits 0-2: tile type
+ * bit 3 (8): forest
+ * bit 4 (16): forest
+ * bits 3+4 (24): special, values larger than 26 are not defined
+ *
+ * bits 5-7: overlays
+ * 0: nothing
+ * 1: hill
+ * 2: minor river
+ * 3: hill + minor river (extremely rare)
+ * 4: nothing
+ * 5: mountain
+ * 6: major river
+ * 7: mountain + major river (never seen)
+ *
+ *
+ */
+<span class="nc" id="L59">public class ColonizationMapReader {</span>
+
+    public static final int WIDTH = 0;
+    public static final int HEIGHT = 2;
+
+<span class="nc" id="L64">    private static final char[] tiletypes = {</span>
+        't', // 0x00 tundra
+        'd', // 0x01 desert
+        'p', // 0x02 plains
+        'r', // 0x03 prairie
+        'g', // 0x04 grassland
+        'v', // 0x05 savannah
+        'm', // 0x06 marsh
+        's', // 0x07 swamp
+
+        'B', // 0x08 boreal (tundra with forest)
+        'S', // 0x09 scrub (desert with forest)
+        'M', // 0x0a mixed (plains with forest)
+        'L', // 0x0b broadleaf (prairie with forest)
+        'C', // 0x0c conifer (grassland with forest)
+        'T', // 0x0d tropical (savannah with forest)
+        'W', // 0x0e wetland (marsh with forest)
+        'R', // 0x0f rain (swamp with forest)
+
+        'B', // 0x10 boreal (tundra with forest)
+        'S', // 0x11 scrub (desert with forest)
+        'M', // 0x12 mixed (plains with forest)
+        'L', // 0x13 broadleaf (prairie with forest)
+        'C', // 0x14 conifer (grassland with forest)
+        'T', // 0x15 tropical (savannah with forest)
+        'W', // 0x16 wetland (marsh with forest)
+        'R', // 0x17 rain (swamp with forest)
+
+        '_', // 0x18 ice
+        '.', // 0x19 ocean
+        ':', // 0x1a sea lane
+        '?', // undefined
+        '?', // undefined
+        '?', // undefined
+        '?', // undefined
+        '?', // undefined
+    };
+
+
+<span class="nc" id="L103">    private static final byte[] header = {</span>
+        58, 0, 72, 0, 4, 0
+    };
+    private static byte[] layer1;
+
+    public static void main(String[] args) throws Exception {
+
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (&quot;--palette&quot;.equals(args[0])) {</span>
+<span class="nc" id="L111">            RandomAccessFile writer = new RandomAccessFile(args[1], &quot;rw&quot;);</span>
+<span class="nc" id="L112">            byte width = 58;</span>
+<span class="nc" id="L113">            byte height = 72;</span>
+<span class="nc" id="L114">            int size = width * height * 3 + header.length;</span>
+<span class="nc" id="L115">            layer1 = new byte[size];</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">            for (int i = 0; i &lt; header.length; i++) {</span>
+<span class="nc" id="L117">                layer1[i] = header[i];</span>
+            }
+<span class="nc" id="L119">            Arrays.fill(layer1, header.length, header.length + width * height, (byte) 25); // fill with ocean</span>
+<span class="nc" id="L120">            int ROWS = 32;</span>
+<span class="nc" id="L121">            int COLUMNS = 8;</span>
+<span class="nc" id="L122">            int offset = header.length + width + 1;</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">            for (int y = 0; y &lt; ROWS; y++) {</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">                for (int x = 0; x &lt; COLUMNS; x++) {</span>
+<span class="nc" id="L125">                    byte value = (byte) (COLUMNS * y + x);</span>
+<span class="nc bnc" id="L126" title="All 4 branches missed.">                    if ((value &amp; 24) == 24 &amp;&amp; x &gt; 2) {</span>
+                        // undefined
+<span class="nc" id="L128">                        value = 26;</span>
+                    }
+<span class="nc" id="L130">                    layer1[offset + x] = value;</span>
+                }
+<span class="nc" id="L132">                offset += width;</span>
+            }
+<span class="nc" id="L134">            writer.write(layer1);</span>
+<span class="nc" id="L135">        } else {</span>
+<span class="nc" id="L136">            RandomAccessFile reader = new RandomAccessFile(args[0], &quot;r&quot;);</span>
+<span class="nc" id="L137">            reader.read(header);</span>
+
+<span class="nc" id="L139">            System.out.println(String.format(&quot;Map width:  %02d&quot;, (int) header[WIDTH]));</span>
+<span class="nc" id="L140">            System.out.println(String.format(&quot;Map height: %02d&quot;, (int) header[HEIGHT]));</span>
+
+<span class="nc" id="L142">            int size = header[WIDTH] * header[HEIGHT];</span>
+<span class="nc" id="L143">            layer1 = new byte[size];</span>
+<span class="nc" id="L144">            reader.read(layer1);</span>
+
+<span class="nc" id="L146">            int index = 0;</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">            for (int y = 0; y &lt; header[HEIGHT]; y++) {</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">                for (int x = 0; x &lt; header[WIDTH]; x++) {</span>
+<span class="nc" id="L149">                    int decimal = layer1[index] &amp; 0xff;</span>
+<span class="nc" id="L150">                    char terrain = tiletypes[decimal &amp; 31];</span>
+<span class="nc" id="L151">                    int overlay = decimal &gt;&gt; 5;</span>
+<span class="nc bnc" id="L152" title="All 7 branches missed.">                    switch(overlay) {</span>
+<span class="nc" id="L153">                    case 1: terrain = '^'; // hill</span>
+<span class="nc" id="L154">                        break;</span>
+<span class="nc" id="L155">                    case 2: terrain = '~'; // minor river</span>
+<span class="nc" id="L156">                        break;</span>
+<span class="nc" id="L157">                    case 3: terrain = 'x'; // hill + minor river</span>
+<span class="nc" id="L158">                        break;</span>
+<span class="nc" id="L159">                    case 5: terrain = '*'; // mountain</span>
+<span class="nc" id="L160">                        break;</span>
+<span class="nc" id="L161">                    case 6: terrain = '='; // major river</span>
+<span class="nc" id="L162">                        break;</span>
+<span class="nc" id="L163">                    case 7: terrain = 'X'; // mountain + major river</span>
+<span class="nc" id="L164">                        break;</span>
+                    default:
+                        break;
+                    };
+<span class="nc" id="L168">                    System.out.print(terrain);</span>
+<span class="nc" id="L169">                    index++;</span>
+                }
+<span class="nc" id="L171">                System.out.println(&quot;\n&quot;);</span>
+            }
+<span class="nc" id="L173">            System.out.println(&quot;\n&quot;);</span>
+        }
+<span class="nc" id="L175">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

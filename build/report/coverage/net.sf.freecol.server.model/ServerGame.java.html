@@ -1,0 +1,476 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ServerGame.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.model</a> &gt; <span class="el_source">ServerGame.java</span></div><h1>ServerGame.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.model;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Random;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+import javax.xml.stream.XMLStreamException;
+
+import net.sf.freecol.common.i18n.NameCache;
+import net.sf.freecol.common.io.FreeColXMLReader;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.Europe;
+import net.sf.freecol.common.model.Event;
+import net.sf.freecol.common.model.FreeColGameObject;
+import net.sf.freecol.common.model.FreeColGameObjectListener;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.GameOptions;
+import net.sf.freecol.common.model.HighSeas;
+import net.sf.freecol.common.model.HistoryEvent;
+import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.Limit;
+import net.sf.freecol.common.model.ModelMessage;
+import net.sf.freecol.common.model.Ownable;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.SimpleCombatModel;
+import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.StringTemplate;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.UnitTypeChange.ChangeType;
+import static net.sf.freecol.common.util.CollectionUtils.*;
+import net.sf.freecol.common.util.LogBuilder;
+import net.sf.freecol.server.control.ChangeSet;
+import net.sf.freecol.server.control.ChangeSet.ChangePriority;
+import net.sf.freecol.server.control.ChangeSet.See;
+
+
+/**
+ * The server representation of the game.
+ */
+public class ServerGame extends Game implements ServerModelObject {
+
+<span class="fc" id="L70">    private static final Logger logger = Logger.getLogger(ServerGame.class.getName());</span>
+
+    /** Timestamp of last move, if any.  Do not serialize. */
+<span class="fc" id="L73">    private long lastTime = -1L;</span>
+
+
+    /**
+     * Creates a new game model.
+     *
+     * @param specification The &lt;code&gt;Specification&lt;/code&gt; to use in this game.
+     * @see net.sf.freecol.server.FreeColServer
+     */
+    public ServerGame(Specification specification) {
+<span class="fc" id="L83">        super(specification);</span>
+
+<span class="fc" id="L85">        this.combatModel = new SimpleCombatModel();</span>
+<span class="fc" id="L86">        currentPlayer = null;</span>
+<span class="fc" id="L87">    }</span>
+
+    /**
+     * Initiate a new &lt;code&gt;ServerGame&lt;/code&gt; with information from a
+     * saved game.
+     *
+     * @param freeColGameObjectListener A listener that should be monitoring
+     *     this &lt;code&gt;Game&lt;/code&gt;.
+     * @param xr The input stream containing the XML.
+     * @param specification The &lt;code&gt;Specification&lt;/code&gt; to use in this game.
+     * @exception XMLStreamException if an error occurred during parsing.
+     * @see net.sf.freecol.server.FreeColServer#loadGame
+     */
+    public ServerGame(FreeColGameObjectListener freeColGameObjectListener,
+                      FreeColXMLReader xr, Specification specification)
+        throws XMLStreamException {
+<span class="fc" id="L103">        this(specification);</span>
+
+<span class="fc" id="L105">        this.freeColGameObjectListener = freeColGameObjectListener;</span>
+<span class="fc" id="L106">        this.setGame(this);</span>
+<span class="fc" id="L107">        readFromXML(xr);</span>
+<span class="fc" id="L108">    }</span>
+
+
+    /**
+     * Get a list of connected server players, optionally excluding
+     * supplied ones.
+     *
+     * @param serverPlayers The &lt;code&gt;ServerPlayer&lt;/code&gt;s to exclude.
+     * @return A list of all connected server players, with exclusions.
+     */
+    public List&lt;ServerPlayer&gt; getConnectedPlayers(ServerPlayer... serverPlayers) {
+<span class="fc" id="L119">        return getLivePlayers(null).stream()</span>
+<span class="fc" id="L120">            .map(p -&gt; (ServerPlayer)p)</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">            .filter(sp -&gt; sp.isConnected()</span>
+<span class="fc bfc" id="L122" title="All 4 branches covered.">                &amp;&amp; none(serverPlayers, s -&gt; s == sp))</span>
+<span class="fc" id="L123">            .collect(Collectors.toList());</span>
+    }
+
+    /**
+     * Send a change set to all live players, and optional extras.
+     *
+     * @param cs The &lt;code&gt;ChangeSet&lt;/code&gt; to send.
+     * @param serverPlayers Optional extra &lt;code&gt;ServerPlayer&lt;/code&gt;s
+     *     to include (useful when a player dies).
+     */
+    public void sendToAll(ChangeSet cs, ServerPlayer... serverPlayers) {
+<span class="fc" id="L134">        List&lt;ServerPlayer&gt; live = getConnectedPlayers();</span>
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        for (ServerPlayer sp : serverPlayers) {</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">            if (!live.contains(sp)) live.add(sp);</span>
+        }
+<span class="fc" id="L138">        sendToList(live, cs);</span>
+<span class="fc" id="L139">    }</span>
+    
+    /**
+     * Send a change set to all players, optionally excluding one.
+     *
+     * @param serverPlayer A &lt;code&gt;ServerPlayer&lt;/code&gt; to exclude.
+     * @param cs The &lt;code&gt;ChangeSet&lt;/code&gt; encapsulating the update.
+     */
+    public void sendToOthers(ServerPlayer serverPlayer, ChangeSet cs) {
+<span class="fc" id="L148">        sendToList(getConnectedPlayers(serverPlayer), cs);</span>
+<span class="fc" id="L149">    }</span>
+
+    /**
+     * Send a change set to a list of players.
+     *
+     * @param serverPlayers The list of &lt;code&gt;ServerPlayer&lt;/code&gt;s to send to.
+     */
+    public void sendToList(List&lt;ServerPlayer&gt; serverPlayers, ChangeSet cs) {
+<span class="fc bfc" id="L157" title="All 2 branches covered.">        for (ServerPlayer s : serverPlayers) s.send(cs);</span>
+<span class="fc" id="L158">    }</span>
+    
+
+    /**
+     * Makes a trivial server object in this game given a server object tag
+     * and an identifier.
+     *
+     * @param type The server object tag.
+     * @param id The object identifier.
+     * @return A trivial server object.
+     */
+    private Object makeServerObject(String type, String id)
+        throws ClassNotFoundException, IllegalAccessException,
+               InstantiationException, InvocationTargetException,
+               NoSuchMethodException {
+<span class="nc" id="L173">        type = &quot;net.sf.freecol.server.model.&quot;</span>
+<span class="nc" id="L174">            + type.substring(0,1).toUpperCase() + type.substring(1);</span>
+<span class="nc" id="L175">        Class&lt;?&gt; c = Class.forName(type);</span>
+<span class="nc" id="L176">        return c.getConstructor(Game.class, String.class)</span>
+<span class="nc" id="L177">            .newInstance(this, id);</span>
+    }
+
+    /**
+     * Collects a list of all the ServerModelObjects in this game.
+     *
+     * @return A list of all the ServerModelObjects in this game.
+     */
+    public List&lt;ServerModelObject&gt; getServerModelObjects() {
+<span class="fc" id="L186">        List&lt;ServerModelObject&gt; objs = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L187" title="All 2 branches covered.">        for (FreeColGameObject fcgo : getFreeColGameObjects()) {</span>
+<span class="fc bfc" id="L188" title="All 2 branches covered.">            if (fcgo instanceof ServerModelObject) {</span>
+<span class="fc" id="L189">                objs.add((ServerModelObject)fcgo);</span>
+            }
+<span class="fc" id="L191">        }</span>
+<span class="fc" id="L192">        return objs;</span>
+    }
+
+    /**
+     * Update the players.
+     *
+     * @param players A list of new &lt;code&gt;ServerPlayer&lt;/code&gt;s.
+     */
+    public void updatePlayers(List&lt;ServerPlayer&gt; players) {
+<span class="fc" id="L201">        ChangeSet cs = new ChangeSet();</span>
+<span class="fc bfc" id="L202" title="All 2 branches covered.">        for (ServerPlayer sp : players) cs.addPlayer(sp);</span>
+<span class="fc" id="L203">        sendToAll(cs);</span>
+<span class="fc" id="L204">    }</span>
+
+    /**
+     * Get a unique identifier to identify a &lt;code&gt;FreeColGameObject&lt;/code&gt;.
+     * 
+     * @return A unique identifier.
+     */
+    @Override
+    public String getNextId() {
+<span class="fc" id="L213">        String id = Integer.toString(nextId);</span>
+<span class="fc" id="L214">        nextId++;</span>
+<span class="fc" id="L215">        return id;</span>
+    }
+
+    /**
+     * Randomize a new game.
+     *
+     * @param random A pseudo-random number source.
+     */
+    public void randomize(Random random) {
+<span class="pc bpc" id="L224" title="1 of 2 branches missed.">        if (random != null) NameCache.requireCitiesOfCibola(random);</span>
+<span class="fc" id="L225">    }</span>
+
+    /**
+     * Checks if anybody has won this game.
+     *
+     * @return The &lt;code&gt;Player&lt;/code&gt; who has won the game or null if none.
+     */
+    public Player checkForWinner() {
+<span class="nc" id="L233">        final Specification spec = getSpecification();</span>
+<span class="nc bnc" id="L234" title="All 2 branches missed.">        if (spec.getBoolean(GameOptions.VICTORY_DEFEAT_REF)) {</span>
+<span class="nc" id="L235">            Player winner = find(getLiveEuropeanPlayers(null),</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">                p -&gt; p.getPlayerType() == Player.PlayerType.INDEPENDENT);</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">            if (winner != null) return winner;</span>
+        }
+<span class="nc bnc" id="L239" title="All 2 branches missed.">        if (spec.getBoolean(GameOptions.VICTORY_DEFEAT_EUROPEANS)) {</span>
+<span class="nc" id="L240">            List&lt;Player&gt; winners = getLiveEuropeanPlayers(null).stream()</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">                .filter(p -&gt; !p.isREF())</span>
+<span class="nc" id="L242">                .collect(Collectors.toList());</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">            if (winners.size() == 1) return winners.get(0);</span>
+        }
+<span class="nc bnc" id="L245" title="All 2 branches missed.">        if (spec.getBoolean(GameOptions.VICTORY_DEFEAT_HUMANS)) {</span>
+<span class="nc" id="L246">            List&lt;Player&gt; winners = getLiveEuropeanPlayers(null).stream()</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">                .filter(p -&gt; !p.isAI())</span>
+<span class="nc" id="L248">                .collect(Collectors.toList());</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">            if (winners.size() == 1) return winners.get(0);</span>
+        }
+<span class="nc" id="L251">        return null;</span>
+    }
+
+
+    /**
+     * Is the next player in a new turn?
+     */
+    public boolean isNextPlayerInNewTurn() {
+<span class="nc" id="L259">        Player nextPlayer = getNextPlayer();</span>
+<span class="nc bnc" id="L260" title="All 4 branches missed.">        return players.indexOf(currentPlayer) &gt; players.indexOf(nextPlayer)</span>
+            || currentPlayer == nextPlayer;
+    }
+
+
+    /**
+     * Change to the next turn for this game.
+     *
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     */
+    public void csNextTurn(ChangeSet cs) {
+<span class="nc" id="L271">        String duration = null;</span>
+<span class="nc" id="L272">        long now = new Date().getTime();</span>
+<span class="nc bnc" id="L273" title="All 2 branches missed.">        if (lastTime &gt;= 0) {</span>
+<span class="nc" id="L274">            duration = &quot;, previous turn duration = &quot; + (now - lastTime) + &quot;ms&quot;;</span>
+        }
+<span class="nc" id="L276">        lastTime = now;</span>
+
+<span class="nc" id="L278">        TransactionSession.completeAll(cs);</span>
+<span class="nc" id="L279">        setTurn(getTurn().next());</span>
+<span class="nc" id="L280">        logger.finest(&quot;Turn is now &quot; + getTurn() + duration);</span>
+<span class="nc" id="L281">        cs.addTrivial(See.all(), &quot;newTurn&quot;, ChangePriority.CHANGE_NORMAL,</span>
+<span class="nc" id="L282">                      &quot;turn&quot;, Integer.toString(getTurn().getNumber()));</span>
+<span class="nc" id="L283">    }</span>
+
+    /**
+     * Build the updates for a new turn for all the players in this game.
+     *
+     * @param random A &lt;code&gt;Random&lt;/code&gt; number source.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     */
+    @Override
+    public void csNewTurn(Random random, LogBuilder lb, ChangeSet cs) {
+<span class="fc" id="L294">        lb.add(&quot;GAME &quot;, getId(), &quot;, &quot;);</span>
+<span class="fc bfc" id="L295" title="All 2 branches covered.">        for (Player player : getLivePlayers(null)) {</span>
+<span class="fc" id="L296">            ((ServerPlayer)player).csNewTurn(random, lb, cs);</span>
+<span class="fc" id="L297">        }</span>
+
+<span class="fc" id="L299">        final Specification spec = getSpecification();</span>
+<span class="fc" id="L300">        Event succession = spec.getEvent(&quot;model.event.spanishSuccession&quot;);</span>
+<span class="pc bpc" id="L301" title="2 of 4 branches missed.">        if (succession != null &amp;&amp; !getSpanishSuccession()) {</span>
+<span class="fc" id="L302">            ServerPlayer loser = csSpanishSuccession(cs, lb, succession);</span>
+            // TODO: send update to loser.  It will not see anything
+            // because it is no longer a live player.
+            // if (loser != null) sendElement(loser, cs);
+        }
+<span class="fc" id="L307">    }</span>
+
+    /**
+     * Checks for and if necessary performs the War of Spanish
+     * Succession changes.
+     *
+     * Visibility changes for the winner, loser is killed/irrelevant.
+     *
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @param event The Spanish Succession &lt;code&gt;Event&lt;/code&gt;.
+     * @return The &lt;code&gt;ServerPlayer&lt;/code&gt; that is eliminated if
+     *     any, or null if none found.
+     */
+    private ServerPlayer csSpanishSuccession(ChangeSet cs, LogBuilder lb,
+                                             Event event) {
+<span class="fc" id="L323">        Limit yearLimit</span>
+<span class="fc" id="L324">            = event.getLimit(&quot;model.limit.spanishSuccession.year&quot;);</span>
+<span class="pc bpc" id="L325" title="1 of 2 branches missed.">        if (!yearLimit.evaluate(this)) return null;</span>
+
+<span class="nc" id="L327">        Limit weakLimit</span>
+<span class="nc" id="L328">            = event.getLimit(&quot;model.limit.spanishSuccession.weakestPlayer&quot;);</span>
+<span class="nc" id="L329">        Limit strongLimit</span>
+<span class="nc" id="L330">            = event.getLimit(&quot;model.limit.spanishSuccession.strongestPlayer&quot;);</span>
+<span class="nc" id="L331">        Map&lt;Player, Integer&gt; scores = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L332">        boolean ready = false;</span>
+<span class="nc bnc" id="L333" title="All 2 branches missed.">        for (Player player : getLiveEuropeanPlayers(null)) {</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">            if (player.isREF()) continue;</span>
+<span class="nc" id="L335">            ready |= strongLimit.evaluate(player);</span>
+            // Human players can trigger the event, but only transfer assets
+            // between AI players.
+<span class="nc bnc" id="L338" title="All 2 branches missed.">            if (player.isAI()) { </span>
+<span class="nc" id="L339">                scores.put(player, player.getSpanishSuccessionScore());</span>
+            }
+<span class="nc" id="L341">        }</span>
+<span class="nc bnc" id="L342" title="All 2 branches missed.">        if (!ready) return null; // No player meets the support limit.</span>
+
+<span class="nc" id="L344">        int bestScore = Integer.MIN_VALUE;</span>
+<span class="nc" id="L345">        int worstScore = Integer.MAX_VALUE;</span>
+<span class="nc" id="L346">        Player weakestAIPlayer = null;</span>
+<span class="nc" id="L347">        Player strongestAIPlayer = null;</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">        for (Entry&lt;Player, Integer&gt; entry : scores.entrySet()) {</span>
+<span class="nc" id="L349">            Player player = entry.getKey();</span>
+<span class="nc" id="L350">            int score = entry.getValue();</span>
+<span class="nc bnc" id="L351" title="All 4 branches missed.">            if (worstScore &gt; score &amp;&amp; weakLimit.evaluate(player)) {</span>
+<span class="nc" id="L352">                worstScore = score;</span>
+<span class="nc" id="L353">                weakestAIPlayer = player;</span>
+            }
+<span class="nc bnc" id="L355" title="All 2 branches missed.">            if (bestScore &lt; score) {</span>
+<span class="nc" id="L356">                bestScore = score;</span>
+<span class="nc" id="L357">                strongestAIPlayer = player;</span>
+            }
+<span class="nc" id="L359">        }</span>
+<span class="nc bnc" id="L360" title="All 6 branches missed.">        if (weakestAIPlayer == null</span>
+            || strongestAIPlayer == null
+<span class="nc" id="L362">            || weakestAIPlayer == strongestAIPlayer) return null;</span>
+
+<span class="nc" id="L364">        lb.add(&quot;Spanish succession scores[&quot;);</span>
+<span class="nc bnc" id="L365" title="All 2 branches missed.">        for (Entry&lt;Player, Integer&gt; entry : scores.entrySet()) {</span>
+<span class="nc" id="L366">            lb.add(&quot; &quot;, entry.getKey().getName(), &quot;=&quot;, entry.getValue());</span>
+<span class="nc" id="L367">        }</span>
+<span class="nc" id="L368">        lb.add(&quot; ]=&gt; &quot;, weakestAIPlayer.getName(),</span>
+<span class="nc" id="L369">               &quot; cedes to &quot;, strongestAIPlayer.getName(), &quot;:&quot;);</span>
+<span class="nc" id="L370">        List&lt;Tile&gt; tiles = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L371">        ServerPlayer strongest = (ServerPlayer)strongestAIPlayer;</span>
+<span class="nc" id="L372">        ServerPlayer weakest = (ServerPlayer)weakestAIPlayer;</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">        for (Player player : getLiveNativePlayers(null)) {</span>
+<span class="nc bnc" id="L374" title="All 2 branches missed.">            for (IndianSettlement is : player.getIndianSettlements()) {</span>
+<span class="nc bnc" id="L375" title="All 2 branches missed.">                if (!is.hasMissionary(weakest)) continue;</span>
+<span class="nc" id="L376">                lb.add(&quot; &quot;, is.getName(), &quot;(mission)&quot;);</span>
+<span class="nc" id="L377">                is.getTile().cacheUnseen(strongest);//+til</span>
+<span class="nc" id="L378">                tiles.add(is.getTile());</span>
+<span class="nc" id="L379">                is.setContacted(strongest);//-til</span>
+<span class="nc" id="L380">                ServerUnit missionary = (ServerUnit)is.getMissionary();</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">                if (weakest.csChangeOwner(missionary, strongest,</span>
+                        ChangeType.CAPTURE, null, cs)) {//-vis(both),-til
+<span class="nc" id="L383">                    is.getTile().updateIndianSettlement(strongest);</span>
+<span class="nc" id="L384">                    cs.add(See.perhaps().always(strongest), is);</span>
+                }
+<span class="nc" id="L386">            }</span>
+<span class="nc" id="L387">        }</span>
+<span class="nc bnc" id="L388" title="All 2 branches missed.">        for (Colony colony : weakest.getColonies()) {</span>
+<span class="nc bnc" id="L389" title="All 2 branches missed.">            for (Tile t : colony.getOwnedTiles()) {</span>
+<span class="nc" id="L390">                t.cacheUnseen();//+til</span>
+<span class="nc" id="L391">                tiles.add(t);</span>
+<span class="nc" id="L392">            }</span>
+<span class="nc" id="L393">            ((ServerColony)colony).csChangeOwner(strongest,</span>
+                                                 cs);//-vis(both),-til
+<span class="nc" id="L395">            cs.add(See.only(strongest),</span>
+<span class="nc" id="L396">                strongest.exploreForSettlement(colony));</span>
+<span class="nc" id="L397">            lb.add(&quot; &quot;, colony.getName());</span>
+<span class="nc" id="L398">        }</span>
+<span class="nc bnc" id="L399" title="All 2 branches missed.">        for (Unit unit : weakest.getUnits()) {</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">            if (weakest.csChangeOwner(unit, strongest, </span>
+                    ChangeType.CAPTURE, null, cs)) { //-vis(both)
+<span class="nc" id="L402">                unit.setMovesLeft(0);</span>
+<span class="nc" id="L403">                unit.setState(Unit.UnitState.ACTIVE);</span>
+<span class="nc" id="L404">                lb.add(&quot; &quot;, unit.getId());</span>
+<span class="nc bnc" id="L405" title="All 2 branches missed.">                if (unit.getLocation() instanceof Europe) {</span>
+<span class="nc" id="L406">                    unit.setLocation(strongestAIPlayer.getEurope());//-vis</span>
+<span class="nc" id="L407">                    cs.add(See.only(strongest), unit);</span>
+<span class="nc bnc" id="L408" title="All 2 branches missed.">                } else if (unit.getLocation() instanceof HighSeas) {</span>
+<span class="nc" id="L409">                    unit.setLocation(strongestAIPlayer.getHighSeas());//-vis</span>
+<span class="nc" id="L410">                    cs.add(See.only(strongest), unit);</span>
+<span class="nc bnc" id="L411" title="All 2 branches missed.">                } else if (unit.getLocation() instanceof Tile) {</span>
+<span class="nc" id="L412">                    Tile tile = unit.getTile();</span>
+<span class="nc bnc" id="L413" title="All 2 branches missed.">                    if (!tiles.contains(tile)) tiles.add(tile);</span>
+                }
+            }
+<span class="nc" id="L416">        }</span>
+
+<span class="nc" id="L418">        StringTemplate loser = weakestAIPlayer.getNationLabel();</span>
+<span class="nc" id="L419">        StringTemplate winner = strongestAIPlayer.getNationLabel();</span>
+<span class="nc" id="L420">        cs.addMessage(See.all(),</span>
+            new ModelMessage(ModelMessage.MessageType.FOREIGN_DIPLOMACY,
+                &quot;model.game.spanishSuccession&quot;,
+                strongestAIPlayer)
+<span class="nc" id="L424">                .addStringTemplate(&quot;%loserNation%&quot;, loser)</span>
+<span class="nc" id="L425">                .addStringTemplate(&quot;%nation%&quot;, winner));</span>
+<span class="nc" id="L426">        cs.addGlobalHistory(this,</span>
+<span class="nc" id="L427">            new HistoryEvent(getTurn(),</span>
+                HistoryEvent.HistoryEventType.SPANISH_SUCCESSION, null)
+<span class="nc" id="L429">                .addStringTemplate(&quot;%loserNation%&quot;, loser)</span>
+<span class="nc" id="L430">                .addStringTemplate(&quot;%nation%&quot;, winner));</span>
+<span class="nc" id="L431">        setSpanishSuccession(true);</span>
+<span class="nc" id="L432">        cs.addPartial(See.all(), this, &quot;spanishSuccession&quot;);</span>
+<span class="nc" id="L433">        cs.add(See.perhaps(), tiles);</span>
+        
+<span class="nc" id="L435">        weakest.csKill(cs);//+vis(weakest)</span>
+<span class="nc" id="L436">        strongest.invalidateCanSeeTiles();//+vis(strongest)</span>
+
+        // Trace fail where not all units are transferred
+<span class="nc bnc" id="L439" title="All 2 branches missed.">        for (FreeColGameObject fcgo : getFreeColGameObjects()) {</span>
+<span class="nc bnc" id="L440" title="All 2 branches missed.">            if (fcgo instanceof Ownable</span>
+<span class="nc bnc" id="L441" title="All 2 branches missed.">                &amp;&amp; ((Ownable)fcgo).getOwner() == weakest) {</span>
+<span class="nc" id="L442">                throw new RuntimeException(&quot;Lurking &quot; + weakest.getId()</span>
+                    + &quot; fcgo: &quot; + fcgo);
+            }
+<span class="nc" id="L445">        }</span>
+
+<span class="nc" id="L447">        return weakest;</span>
+    }
+
+
+    // Interface Object
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean equals(Object o) {
+        // ServerGame does not add any significant fields, so Game.equals
+        // suffices.
+<span class="fc" id="L460">        return super.equals(o);</span>
+    }
+
+
+    // Serialization
+
+    /**
+     * Gets the tag name of the root element representing this object.
+     *
+     * @return &quot;serverGame&quot;.
+     */
+    @Override
+    public String getServerXMLElementTagName() {
+<span class="nc" id="L473">        return &quot;serverGame&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

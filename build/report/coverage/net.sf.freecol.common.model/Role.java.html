@@ -1,0 +1,552 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Role.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.model</a> &gt; <span class="el_source">Role.java</span></div><h1>Role.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.model;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
+
+import javax.xml.stream.XMLStreamException;
+
+import net.sf.freecol.common.io.FreeColXMLReader;
+import net.sf.freecol.common.io.FreeColXMLWriter;
+import static net.sf.freecol.common.util.StringUtils.*;
+
+
+/**
+ * The role of a unit.
+ */
+public class Role extends BuildableType {
+
+    /** Container for valid role changes. */
+    public static class RoleChange {
+
+        public final String from;
+        public final String capture;
+
+<span class="fc" id="L48">        RoleChange(String from, String capture) {</span>
+<span class="fc" id="L49">            this.from = from;</span>
+<span class="fc" id="L50">            this.capture = capture;</span>
+<span class="fc" id="L51">        }</span>
+
+        public Role getFrom(Specification spec) {
+<span class="fc" id="L54">            return spec.getRole(from);</span>
+        }
+
+        public Role getCapture(Specification spec) {
+<span class="fc" id="L58">            return spec.getRole(capture);</span>
+        }
+    };
+
+    /**
+     * A comparator to order roles by descending total military
+     * effectiveness.
+     */
+<span class="fc" id="L66">    public static final Comparator&lt;Role&gt; militaryComparator</span>
+<span class="fc" id="L67">        = Comparator.comparingDouble((Role r) -&gt;</span>
+<span class="fc" id="L68">            r.getOffence() + r.getDefence()).reversed();</span>
+
+    /**
+     * The Role to downgrade to after losing a battle. Defaults to
+     * &lt;code&gt;null&lt;/code&gt;. Note that some UnitTypes and Roles may be
+     * disposed instead of downgraded when losing a battle.
+     */
+    private Role downgrade;
+
+    /**
+     * The maximum multiple of required goods this Role may
+     * carry.  Defaults to &lt;code&gt;1&lt;/code&gt;.
+     */
+<span class="fc" id="L81">    private int maximumCount = 1;</span>
+
+    /**
+     * The expert unit for this Role, e.g. a hardy pioneer is an
+     * expert for the pioneer role.
+     */
+<span class="fc" id="L87">    private UnitType expertUnit = null;</span>
+
+    /** The role changes by capture available for this role. */
+<span class="fc" id="L90">    private List&lt;RoleChange&gt; roleChanges = null;</span>
+
+
+    /**
+     * Creates a new &lt;code&gt;Role&lt;/code&gt; instance.
+     *
+     * @param id The object identifier.
+     * @param specification The &lt;code&gt;Specification&lt;/code&gt; to refer to.
+     */
+    public Role(String id, Specification specification) {
+<span class="fc" id="L100">        super(id, specification);</span>
+<span class="fc" id="L101">    }</span>
+
+
+    /**
+     * Is this the default role?
+     *
+     * @param roleId The role identifier to test.
+     * @return True if this is the default role.
+     */
+    public static boolean isDefaultRoleId(String roleId) {
+<span class="fc" id="L111">        return Specification.DEFAULT_ROLE_ID.equals(roleId);</span>
+    }
+
+    /**
+     * Is this the default role?
+     *
+     * @return True if this is the default role.
+     */
+    public boolean isDefaultRole() {
+<span class="fc" id="L120">        return isDefaultRoleId(getId());</span>
+    }
+
+    /**
+     * Get the last part of a role identifier.
+     *
+     * @return The role suffix.
+     */
+    public String getRoleSuffix() {
+<span class="nc" id="L129">        return Role.getRoleSuffix(getId());</span>
+    }
+
+    /**
+     * Get the last part of a role identifier.
+     *
+     * @param roleId A role identifier.
+     * @return The role suffix.
+     */
+    public static String getRoleSuffix(String roleId) {
+<span class="fc" id="L139">        return lastPart(roleId, &quot;.&quot;);</span>
+    }
+
+    // @compat 0.10.7
+    /**
+     * Fix a role id.
+     *
+     * @param roleId The role id to fix.
+     * @return The fixed role id.
+     */
+    public static String fixRoleId(String roleId) {
+<span class="fc bfc" id="L150" title="All 2 branches covered.">        if (roleId.indexOf('.') &lt; 0) {</span>
+<span class="fc" id="L151">            roleId = &quot;model.role.&quot; + roleId.toLowerCase(Locale.US);</span>
+        }
+<span class="fc" id="L153">        return roleId;</span>
+    }
+    // end @compat
+
+    /**
+     * Get the downgraded role from this one.
+     *
+     * @return The downgraded role.
+     */
+    public final Role getDowngrade() {
+<span class="fc" id="L163">        return downgrade;</span>
+    }
+
+    /**
+     * Sets the downgraded role.
+     *
+     * @param newDowngrade The new downgraded role.
+     */
+    public final void setDowngrade(final Role newDowngrade) {
+<span class="nc" id="L172">        this.downgrade = newDowngrade;</span>
+<span class="nc" id="L173">    }</span>
+
+    /**
+     * Gets the maximum goods count for the role.
+     *
+     * @return The maximum goods count.
+     */
+    public final int getMaximumCount() {
+<span class="fc" id="L181">        return maximumCount;</span>
+    }
+
+    /**
+     * Sets the maximum goods count for this role.
+     *
+     * @param newMaximumCount The new maximum goods count.
+     */
+    public final void setMaximumCount(final int newMaximumCount) {
+<span class="nc" id="L190">        this.maximumCount = newMaximumCount;</span>
+<span class="nc" id="L191">    }</span>
+
+    /**
+     * Gets the expert profession for this role.
+     *
+     * @return The expert type.
+     */
+    public final UnitType getExpertUnit() {
+<span class="fc" id="L199">        return expertUnit;</span>
+    }
+
+    /**
+     * Sets the expert profession for this role.
+     *
+     * @param newExpertUnit The new expert type.
+     */
+    public final void setExpertUnit(final UnitType newExpertUnit) {
+<span class="nc" id="L208">        this.expertUnit = newExpertUnit;</span>
+<span class="nc" id="L209">    }</span>
+
+    /**
+     * Get the required goods for this role, considering also the role count.
+     *
+     * @param roleCount The role count.
+     * @return A list of required goods.
+     */
+    public List&lt;AbstractGoods&gt; getRequiredGoods(int roleCount) {
+<span class="fc" id="L218">        List&lt;AbstractGoods&gt; result = getRequiredGoods();</span>
+<span class="pc bpc" id="L219" title="1 of 4 branches missed.">        if (roleCount &gt; 1 &amp;&amp; !result.isEmpty()) {</span>
+<span class="fc bfc" id="L220" title="All 2 branches covered.">            for (AbstractGoods ag : result) {</span>
+<span class="fc" id="L221">                ag.setAmount(roleCount * ag.getAmount());</span>
+<span class="fc" id="L222">            }</span>
+        }
+<span class="fc" id="L224">        return result;</span>
+    }
+
+    /**
+     * Get the price of the required goods in a given market.
+     *
+     * @param market The &lt;code&gt;Market&lt;/code&gt; to evaluate in.
+     * @return The price of the goods for this role.
+     */
+    public int getRequiredGoodsPrice(Market market) {
+<span class="nc" id="L234">        return getRequiredGoods().stream()</span>
+<span class="nc" id="L235">            .mapToInt(ag -&gt; market.getBidPrice(ag.getType(),</span>
+<span class="nc" id="L236">                    ag.getAmount() * getMaximumCount())).sum();</span>
+    }
+        
+    /**
+     * Get the role changes that can allow a unit to assume this role.
+     *
+     * @return A list of &lt;code&gt;RoleChange&lt;/code&gt;s.
+     */
+    public final List&lt;RoleChange&gt; getRoleChanges() {
+<span class="fc bfc" id="L245" title="All 2 branches covered.">        return (roleChanges == null) ? Collections.&lt;RoleChange&gt;emptyList()</span>
+            : this.roleChanges;
+    }
+
+    /**
+     * Add a new role change.
+     *
+     * @param from The source role identifier.
+     * @param capture The identifier for the role to capture.
+     */
+    public void addRoleChange(String from, String capture) {
+<span class="fc bfc" id="L256" title="All 2 branches covered.">        if (roleChanges == null) roleChanges = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L257">        roleChanges.add(new RoleChange(from, capture));</span>
+<span class="fc" id="L258">    }</span>
+
+    /**
+     * Get the offense value for this role.
+     *
+     * @return The offense value.
+     */
+    public double getOffence() {
+<span class="fc" id="L266">        return applyModifiers(0.0f, null, Modifier.OFFENCE);</span>
+    }
+
+    /**
+     * Is this an offensive role?
+     *
+     * @return True if this is an offensive role.
+     */
+    public boolean isOffensive() {
+<span class="fc" id="L275">        return hasModifier(Modifier.OFFENCE);</span>
+    }
+
+    /**
+     * Get the defence value for this role.
+     *
+     * @return The defence value.
+     */
+    private double getDefence() {
+<span class="fc" id="L284">        return applyModifiers(0.0f, null, Modifier.DEFENCE);</span>
+    }
+
+    /**
+     * Is this an defensive role?
+     *
+     * @return True if this is an defensive role.
+     */
+    public boolean isDefensive() {
+<span class="fc" id="L293">        return hasModifier(Modifier.DEFENCE);</span>
+    }
+
+    /**
+     * Is this role compatible with another?
+     *
+     * @param other The other &lt;code&gt;Role&lt;/code&gt; to compare with.
+     * @return True if the other role is compatible.
+     */
+    public boolean isCompatibleWith(Role other) {
+<span class="fc" id="L303">        return isCompatibleWith(this, other);</span>
+    }
+
+    /**
+     * Are two roles compatible.
+     *
+     * @param role1 A &lt;code&gt;Role&lt;/code&gt; to compare.
+     * @param role2 The other &lt;code&gt;Role&lt;/code&gt; to compare.
+     * @return True if the roles are compatible.
+     */
+    public static boolean isCompatibleWith(Role role1, Role role2) {
+<span class="pc bpc" id="L314" title="1 of 2 branches missed.">        if (role1 == null) {</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">            return role2 == null;</span>
+<span class="pc bpc" id="L316" title="1 of 2 branches missed.">        } else if (role2 == null) {</span>
+<span class="nc" id="L317">            return false;</span>
+        } else {
+<span class="fc bfc" id="L319" title="All 2 branches covered.">            return role1 == role2</span>
+<span class="fc bfc" id="L320" title="All 2 branches covered.">                || role1.getDowngrade() == role2</span>
+<span class="fc bfc" id="L321" title="All 2 branches covered.">                || role2.getDowngrade() == role1;</span>
+        }
+    }
+
+    /**
+     * Gets a list of goods required to change from the first role to
+     * the second.  The first role may be &lt;code&gt;null&lt;/code&gt; implying
+     * the default role, the second must not.  Note that excess goods
+     * that are left over after the change will appear on the list
+     * with negative amounts.
+     *
+     * @param from The current &lt;code&gt;Role&lt;/code&gt;.
+     * @param fromCount The role count for the current role.
+     * @param to The new &lt;code&gt;Role&lt;/code&gt; to assume.
+     * @param toCount The role count for the new role.
+     * @return A list of &lt;code&gt;AbstractGoods&lt;/code&gt; required to
+     *     make the change.
+     */
+    public static List&lt;AbstractGoods&gt; getGoodsDifference(Role from,
+        int fromCount, Role to, int toCount) {
+<span class="fc" id="L341">        List&lt;AbstractGoods&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="pc bpc" id="L342" title="1 of 6 branches missed.">        if (from != to &amp;&amp; !(from == null &amp;&amp; to.isDefaultRole())) {</span>
+<span class="pc bpc" id="L343" title="1 of 2 branches missed.">            List&lt;AbstractGoods&gt; fromGoods = (from == null)</span>
+                ? new ArrayList&lt;AbstractGoods&gt;()
+<span class="fc" id="L345">                : from.getRequiredGoods(fromCount);</span>
+<span class="fc" id="L346">            List&lt;AbstractGoods&gt; toGoods = to.getRequiredGoods(toCount);</span>
+<span class="fc bfc" id="L347" title="All 2 branches covered.">            for (AbstractGoods ag : toGoods) {</span>
+<span class="fc" id="L348">                int amount = ag.getAmount()</span>
+<span class="fc" id="L349">                    - AbstractGoods.getCount(ag.getType(), fromGoods);</span>
+<span class="fc bfc" id="L350" title="All 2 branches covered.">                if (amount != 0) {</span>
+<span class="fc" id="L351">                    result.add(new AbstractGoods(ag.getType(), amount));</span>
+                }
+<span class="fc" id="L353">            }</span>
+<span class="fc bfc" id="L354" title="All 2 branches covered.">            for (AbstractGoods ag : fromGoods) {</span>
+<span class="fc bfc" id="L355" title="All 2 branches covered.">                if (!AbstractGoods.containsType(ag.getType(), toGoods)) {</span>
+<span class="fc" id="L356">                    result.add(new AbstractGoods(ag.getType(), -ag.getAmount()));</span>
+                }
+<span class="fc" id="L358">            }</span>
+        }
+<span class="fc" id="L360">        return result;</span>
+    }
+
+    private int getAbilityIndex() {
+<span class="pc bpc" id="L364" title="1 of 2 branches missed.">        if (requiresAbility(Ability.NATIVE)) {</span>
+<span class="nc" id="L365">            return 10;</span>
+<span class="pc bpc" id="L366" title="1 of 2 branches missed.">        } else if (requiresAbility(Ability.REF_UNIT)) {</span>
+<span class="nc" id="L367">            return 5;</span>
+        } else {
+<span class="fc" id="L369">            return 0;</span>
+        }
+    }
+
+    /**
+     * Filter a list of proposed roles by availability.
+     *
+     * @param player The &lt;code&gt;Player&lt;/code&gt; to own the unit.
+     * @param type The &lt;code&gt;UnitType&lt;/code&gt; to check.
+     * @param roles A list of proposed &lt;code&gt;Role&lt;/code&gt;s.
+     * @return A list of available &lt;code&gt;Role&lt;/code&gt;s.
+     */
+    public static List&lt;Role&gt; getAvailableRoles(Player player, UnitType type,
+                                               List&lt;Role&gt; roles) {
+<span class="fc" id="L383">        return roles.stream()</span>
+<span class="fc" id="L384">            .filter(r -&gt; r.isAvailableTo(player, type))</span>
+<span class="fc" id="L385">            .collect(Collectors.toList());</span>
+    }
+
+    /**
+     * Longer format debug helper.
+     *
+     * @return A more detailed description of this role.
+     */
+    public String toFullString() {
+<span class="nc" id="L394">        StringBuilder sb = new StringBuilder(32);</span>
+<span class="nc" id="L395">        sb.append(&quot;[Role &quot;).append(getSuffix());</span>
+<span class="nc bnc" id="L396" title="All 2 branches missed.">        for (Entry&lt;String, Boolean&gt; entry : getRequiredAbilities().entrySet()) {</span>
+<span class="nc" id="L397">            sb.append(&quot; &quot;).append(entry.getKey()).append(&quot;=&quot;).append(entry.getValue());</span>
+<span class="nc" id="L398">        }</span>
+<span class="nc" id="L399">        sb.append(&quot;]&quot;);</span>
+<span class="nc" id="L400">        return sb.toString();</span>
+    }
+
+        
+    // Override FreeColObject
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int compareTo(FreeColObject other) {
+<span class="fc" id="L411">        int cmp = 0;</span>
+<span class="pc bpc" id="L412" title="1 of 2 branches missed.">        if (other instanceof Role) {</span>
+<span class="fc" id="L413">            Role role = (Role)other;</span>
+<span class="fc" id="L414">            cmp = role.getAbilityIndex() - this.getAbilityIndex();</span>
+<span class="pc bpc" id="L415" title="1 of 2 branches missed.">            if (cmp == 0) {</span>
+<span class="fc" id="L416">                cmp = role.getRequiredGoods().size()</span>
+<span class="fc" id="L417">                    - this.getRequiredGoods().size();</span>
+            }
+        }
+<span class="pc bpc" id="L420" title="1 of 2 branches missed.">        if (cmp == 0) cmp = super.compareTo(other);</span>
+<span class="fc" id="L421">        return cmp;</span>
+    }
+
+
+    // Serialization
+
+    private static final String CAPTURE_TAG = &quot;capture&quot;;
+    private static final String DOWNGRADE_TAG = &quot;downgrade&quot;;
+    private static final String FROM_TAG = &quot;from&quot;;
+    private static final String EXPERT_UNIT_TAG = &quot;expert-unit&quot;;
+    private static final String MAXIMUM_COUNT_TAG = &quot;maximum-count&quot;;
+    private static final String ROLE_CHANGE_TAG = &quot;role-change&quot;;
+    // @compat 0.11.3
+    private static final String OLD_EXPERT_UNIT_TAG = &quot;expertUnit&quot;;
+    private static final String OLD_MAXIMUM_COUNT_TAG = &quot;maximumCount&quot;;
+    // end @compat 0.11.3
+
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L444">        super.writeAttributes(xw);</span>
+
+<span class="fc bfc" id="L446" title="All 2 branches covered.">        if (downgrade != null) {</span>
+<span class="fc" id="L447">            xw.writeAttribute(DOWNGRADE_TAG, downgrade);</span>
+        }
+
+<span class="fc bfc" id="L450" title="All 2 branches covered.">        if (expertUnit != null) {</span>
+<span class="fc" id="L451">            xw.writeAttribute(EXPERT_UNIT_TAG, expertUnit);</span>
+        }
+
+<span class="fc bfc" id="L454" title="All 2 branches covered.">        if (maximumCount &gt; 1) {</span>
+<span class="fc" id="L455">            xw.writeAttribute(MAXIMUM_COUNT_TAG, maximumCount);</span>
+        }
+<span class="fc" id="L457">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L464">        super.writeChildren(xw);</span>
+
+<span class="fc bfc" id="L466" title="All 2 branches covered.">        for (RoleChange rc : getRoleChanges()) {</span>
+<span class="fc" id="L467">            xw.writeStartElement(ROLE_CHANGE_TAG);</span>
+
+<span class="fc" id="L469">            xw.writeAttribute(FROM_TAG, rc.from);</span>
+
+<span class="fc" id="L471">            xw.writeAttribute(CAPTURE_TAG, rc.capture);</span>
+
+<span class="fc" id="L473">            xw.writeEndElement();</span>
+<span class="fc" id="L474">        }</span>
+<span class="fc" id="L475">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L482">        super.readAttributes(xr);</span>
+
+<span class="fc" id="L484">        final Specification spec = getSpecification();</span>
+
+<span class="fc" id="L486">        downgrade = xr.getType(spec, DOWNGRADE_TAG,</span>
+                               Role.class, (Role)null);
+
+        // @compat 0.11.3
+<span class="pc bpc" id="L490" title="1 of 2 branches missed.">        if (xr.hasAttribute(OLD_EXPERT_UNIT_TAG)) {</span>
+<span class="nc" id="L491">            expertUnit = xr.getType(spec, OLD_EXPERT_UNIT_TAG,</span>
+                                    UnitType.class, (UnitType)null);
+        } else
+        // end @compat 0.11.3
+<span class="fc" id="L495">            expertUnit = xr.getType(spec, EXPERT_UNIT_TAG,</span>
+                                    UnitType.class, (UnitType)null);
+
+        // @compat 0.11.3
+<span class="pc bpc" id="L499" title="1 of 2 branches missed.">        if (xr.hasAttribute(OLD_MAXIMUM_COUNT_TAG)) {</span>
+<span class="nc" id="L500">            maximumCount = xr.getAttribute(OLD_MAXIMUM_COUNT_TAG, 1);</span>
+        } else
+        // end @compat 0.11.3
+<span class="fc" id="L503">            maximumCount = xr.getAttribute(MAXIMUM_COUNT_TAG, 1);</span>
+<span class="fc" id="L504">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+        // Clear containers.
+<span class="pc bpc" id="L512" title="1 of 2 branches missed.">        if (xr.shouldClearContainers()) {</span>
+<span class="fc" id="L513">            roleChanges = null;</span>
+        }
+
+<span class="fc" id="L516">        super.readChildren(xr);</span>
+<span class="fc" id="L517">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L524">        final String tag = xr.getLocalName();</span>
+
+<span class="fc bfc" id="L526" title="All 2 branches covered.">        if (ROLE_CHANGE_TAG.equals(tag)) {</span>
+<span class="fc" id="L527">            String from = xr.getAttribute(FROM_TAG, (String)null);</span>
+<span class="fc" id="L528">            String capture = xr.getAttribute(CAPTURE_TAG, (String)null);</span>
+<span class="fc" id="L529">            addRoleChange(from, capture);</span>
+<span class="fc" id="L530">            xr.closeTag(ROLE_CHANGE_TAG);</span>
+
+<span class="fc" id="L532">        } else {</span>
+<span class="fc" id="L533">            super.readChild(xr);</span>
+        }
+<span class="fc" id="L535">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+<span class="fc" id="L541">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
+
+    /**
+     * Gets the tag name of the root element representing this object.
+     *
+     * @return &quot;role&quot;
+     */
+    public static String getXMLElementTagName() {
+<span class="fc" id="L549">        return &quot;role&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

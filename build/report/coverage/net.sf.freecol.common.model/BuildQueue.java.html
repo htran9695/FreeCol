@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BuildQueue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.model</a> &gt; <span class="el_source">BuildQueue.java</span></div><h1>BuildQueue.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.model;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+
+
+/**
+ * A queue of things for a colony to build.
+ */
+public class BuildQueue&lt;T extends BuildableType&gt; implements Consumer {
+
+<span class="pc" id="L33">    public static enum CompletionAction {</span>
+        /**
+         * Always remove the completed item. Not used by any build
+         * queue at the moment.
+         */
+<span class="fc" id="L38">        REMOVE,</span>
+        /**
+         * Remove the completed item unless it is the last item and
+         * several instances of the item can co-exist (which is true
+         * for units, but not buildings). This is the strategy used by
+         * the colony build queue.
+         */
+<span class="fc" id="L45">        REMOVE_EXCEPT_LAST,</span>
+        /**
+         * Shuffle the items rather than remove the completed
+         * item. This is the strategy used by the colony population
+         * queue.
+         */
+<span class="fc" id="L51">        SHUFFLE,</span>
+        /**
+         * Remove the completed item and add a random new item. This
+         * is the strategy of the immigration queue (which is not
+         * implemented as a build queue at the moment, however).
+         */
+<span class="fc" id="L57">        ADD_RANDOM</span>
+    };
+
+
+    /** A list of Buildable items. */
+<span class="fc" id="L62">    private List&lt;T&gt; buildQueue = new ArrayList&lt;&gt;();</span>
+
+    /** What to do when an item has been completed. */
+<span class="fc" id="L65">    private CompletionAction completionAction = CompletionAction.REMOVE;</span>
+
+<span class="fc" id="L67">    private int priority = COLONY_PRIORITY;</span>
+
+    /** The colony to queue buildables for. */
+    private final Colony colony;
+
+
+    /**
+     * Create a new build queue.
+     *
+     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to build for.
+     * @param action The action on build completion.
+     * @param priority The build priority.
+     */
+<span class="fc" id="L80">    public BuildQueue(Colony colony, CompletionAction action, int priority) {</span>
+<span class="fc" id="L81">        this.colony = colony;</span>
+<span class="fc" id="L82">        this.completionAction = action;</span>
+<span class="fc" id="L83">        this.priority = priority;</span>
+<span class="fc" id="L84">    }</span>
+
+
+    /**
+     * Get the type of building currently being built.
+     *
+     * @return The type of building currently being built.
+     */
+    public T getCurrentlyBuilding() {
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        return (buildQueue.isEmpty()) ? null : buildQueue.get(0);</span>
+    }
+
+    /**
+     * Sets the current type of buildable to be built and if it is a building
+     * insist that there is only one in the queue.
+     *
+     * @param buildable The &lt;code&gt;T&lt;/code&gt; to build.
+     */
+    public void setCurrentlyBuilding(T buildable) {
+<span class="fc bfc" id="L103" title="All 4 branches covered.">        if (buildable instanceof BuildingType &amp;&amp; buildQueue.contains(buildable)) {</span>
+<span class="fc" id="L104">            buildQueue.remove(buildable);</span>
+        }
+<span class="fc" id="L106">        buildQueue.add(0, buildable);</span>
+<span class="fc" id="L107">    }</span>
+
+
+    public void clear() {
+<span class="fc" id="L111">        buildQueue.clear();</span>
+<span class="fc" id="L112">    }</span>
+
+    public void add(T buildable) {
+<span class="fc" id="L115">        buildQueue.add(buildable);</span>
+<span class="fc" id="L116">    }</span>
+
+    public List&lt;T&gt; getValues() {
+<span class="fc" id="L119">        return buildQueue;</span>
+    }
+
+    public void setValues(List&lt;T&gt; values) {
+<span class="fc" id="L123">        buildQueue = values;</span>
+<span class="fc" id="L124">    }</span>
+
+    public void remove(int index) {
+<span class="fc" id="L127">        buildQueue.remove(index);</span>
+<span class="fc" id="L128">    }</span>
+
+    public int size() {
+<span class="fc" id="L131">        return buildQueue.size();</span>
+    }
+
+    public boolean isEmpty() {
+<span class="fc" id="L135">        return buildQueue.isEmpty();</span>
+    }
+
+    public final CompletionAction getCompletionAction() {
+<span class="fc" id="L139">        return completionAction;</span>
+    }
+
+    public final void setCompletionAction(final CompletionAction newCompletionAction) {
+<span class="nc" id="L143">        this.completionAction = newCompletionAction;</span>
+<span class="nc" id="L144">    }</span>
+
+
+    // Interface Consumer
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List&lt;AbstractGoods&gt; getConsumedGoods() {
+<span class="fc" id="L154">        T current = getCurrentlyBuilding();</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">        return (current == null) ? new ArrayList&lt;AbstractGoods&gt;()</span>
+<span class="fc" id="L156">            : current.getRequiredGoods();</span>
+    }
+
+    /**
+     * Return the &lt;code&gt;ProductionInfo&lt;/code&gt; for this BuildQueue.
+     *
+     * @param input A list of input &lt;code&gt;AbstractGoods&lt;/code&gt;.
+     * @return The &lt;code&gt;ProductionInfo&lt;/code&gt; for this BuildQueue.
+     */
+    public ProductionInfo getProductionInfo(List&lt;AbstractGoods&gt; input) {
+<span class="fc" id="L166">        ProductionInfo result = new ProductionInfo();</span>
+<span class="fc" id="L167">        T current = getCurrentlyBuilding();</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        if (current != null) {</span>
+            // ATTENTION: this code presupposes that we will consume
+            // all required goods at once
+<span class="fc" id="L171">            final boolean overflow = colony.getSpecification()</span>
+<span class="fc" id="L172">                .getBoolean(GameOptions.SAVE_PRODUCTION_OVERFLOW);</span>
+<span class="fc" id="L173">            List&lt;AbstractGoods&gt; consumption = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">            for (AbstractGoods ag : current.getRequiredGoods()) {</span>
+<span class="fc" id="L175">                AbstractGoods available</span>
+<span class="fc" id="L176">                    = AbstractGoods.findByType(ag.getType(), input);</span>
+<span class="pc bpc" id="L177" title="1 of 2 branches missed.">                if (available != null</span>
+<span class="fc bfc" id="L178" title="All 2 branches covered.">                    &amp;&amp; ag.getAmount() &lt;= available.getAmount()) {</span>
+<span class="pc bpc" id="L179" title="1 of 4 branches missed.">                    int amount = (overflow || ag.getType().isStorable())</span>
+<span class="fc" id="L180">                        ? ag.getAmount()</span>
+<span class="fc" id="L181">                        : available.getAmount();</span>
+<span class="fc" id="L182">                    consumption.add(new AbstractGoods(ag.getType(), amount));</span>
+<span class="fc" id="L183">                } else { // don't build anything</span>
+<span class="fc" id="L184">                    return result;</span>
+                }
+<span class="fc" id="L186">            }</span>
+<span class="fc" id="L187">            result.setConsumption(consumption);</span>
+        }
+<span class="fc" id="L189">        return result;</span>
+    }
+
+
+    /**
+     * The priority of this Consumer. The higher the priority, the
+     * earlier will the Consumer be allowed to consume the goods it
+     * requires.
+     *
+     * @return an &lt;code&gt;int&lt;/code&gt; value
+     */
+    @Override
+    public int getPriority() {
+<span class="fc" id="L202">        return priority;</span>
+    }
+
+
+   /**
+    * Does the consumer have the ability with the given identifier?
+    *
+    * The two abilities most relevant to consumers are
+    * &quot;consumeAllOrNothing&quot;, which implies that the consumer will not
+    * consume any goods if its requirements can not be met (used by
+    * the Colony when building), as well as
+    * &quot;consumeOnlySurplusProduction&quot;, which implies that the consumer
+    * does not consume stored goods (used by the country and stables).
+    *
+    * @param id The object identifier.
+    * @return a &lt;code&gt;boolean&lt;/code&gt; value
+    */
+    @Override
+    public boolean hasAbility(String id) {
+<span class="nc" id="L221">        return Ability.CONSUME_ALL_OR_NOTHING.equals(id);</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Set&lt;Modifier&gt; getModifiers(String id) {
+<span class="fc" id="L229">        return Collections.&lt;Modifier&gt;emptySet();</span>
+    }
+
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString() {
+<span class="fc" id="L238">        StringBuilder sb = new StringBuilder(64);</span>
+<span class="fc" id="L239">        sb.append(&quot;[BuildQueue (&quot;).append(colony.getName()).append(&quot;)&quot;);</span>
+<span class="fc bfc" id="L240" title="All 2 branches covered.">        for (BuildableType item : buildQueue) {</span>
+<span class="fc" id="L241">            sb.append(&quot; &quot;).append(item.getId());</span>
+<span class="fc" id="L242">        }</span>
+<span class="fc" id="L243">        sb.append(&quot;]&quot;);</span>
+<span class="fc" id="L244">        return sb.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

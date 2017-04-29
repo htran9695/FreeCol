@@ -1,0 +1,569 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ServerIndianSettlement.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.model</a> &gt; <span class="el_source">ServerIndianSettlement.java</span></div><h1>ServerIndianSettlement.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.model;
+
+import java.util.List;
+import java.util.Random;
+import java.util.logging.Logger;
+
+import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Goods;
+import net.sf.freecol.common.model.GoodsContainer;
+import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.ModelMessage;
+import net.sf.freecol.common.model.Modifier;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Role;
+import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.Tension;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.Turn;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.UnitType;
+import net.sf.freecol.common.util.LogBuilder;
+
+import static net.sf.freecol.common.util.RandomUtils.*;
+
+import net.sf.freecol.server.control.ChangeSet;
+import net.sf.freecol.server.control.ChangeSet.See;
+
+
+/**
+ * The server version of an Indian Settlement.
+ */
+public class ServerIndianSettlement extends IndianSettlement
+    implements ServerModelObject {
+
+<span class="fc" id="L56">    private static final Logger logger = Logger.getLogger(ServerIndianSettlement.class.getName());</span>
+
+    /** Alarm added when a new missionary is added. */
+    public static final int ALARM_NEW_MISSIONARY = -100;
+
+    /** How far to search for a colony to add an Indian convert to. */
+    public static final int MAX_CONVERT_DISTANCE = 10;
+
+    public static final int MAX_HORSES_PER_TURN = 2;
+
+
+    /**
+     * Trivial constructor for all ServerModelObjects.
+     */
+    public ServerIndianSettlement(Game game, String id) {
+<span class="fc" id="L71">        super(game, id);</span>
+<span class="fc" id="L72">    }</span>
+
+    /**
+     * Creates a new ServerIndianSettlement.
+     *
+     * @param game The &lt;code&gt;Game&lt;/code&gt; in which this object belong.
+     * @param owner The &lt;code&gt;Player&lt;/code&gt; owning this settlement.
+     * @param name The name for this settlement.
+     * @param tile The location of the &lt;code&gt;IndianSettlement&lt;/code&gt;.
+     * @param isCapital True if settlement is tribe's capital
+     * @param learnableSkill The skill that can be learned by
+     *     Europeans at this settlement.
+     * @param missionary The missionary in this settlement (or null).
+     */
+    public ServerIndianSettlement(Game game, Player owner, String name,
+                                  Tile tile, boolean isCapital,
+                                  UnitType learnableSkill,
+                                  Unit missionary) {
+<span class="fc" id="L90">        super(game, owner, name, tile);</span>
+
+<span class="fc" id="L92">        setGoodsContainer(new GoodsContainer(game, this));</span>
+<span class="fc" id="L93">        this.learnableSkill = learnableSkill;</span>
+<span class="fc" id="L94">        setCapital(isCapital);</span>
+<span class="fc" id="L95">        this.missionary = missionary;</span>
+
+<span class="fc" id="L97">        convertProgress = 0;</span>
+<span class="fc" id="L98">        updateWantedGoods();</span>
+<span class="fc" id="L99">    }</span>
+
+    /**
+     * Creates a new ServerIndianSettlement from a template.
+     *
+     * @param game The &lt;code&gt;Game&lt;/code&gt; in which this object belong.
+     * @param owner The &lt;code&gt;Player&lt;/code&gt; owning this settlement.
+     * @param tile The location of the &lt;code&gt;IndianSettlement&lt;/code&gt;.
+     * @param template The template &lt;code&gt;IndianSettlement&lt;/code&gt; to copy.
+     */
+    public ServerIndianSettlement(Game game, Player owner, Tile tile,
+                                  IndianSettlement template) {
+<span class="nc" id="L111">        super(game, owner, template.getName(), tile);</span>
+
+<span class="nc" id="L113">        setLearnableSkill(template.getLearnableSkill());</span>
+<span class="nc" id="L114">        setCapital(template.isCapital());</span>
+        // FIXME: the template settlement might have additional owned units
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        for (Unit unit: template.getUnitList()) {</span>
+<span class="nc" id="L117">            Unit newUnit = new ServerUnit(game, this,</span>
+                                          unit);//-vis: safe, not on map yet
+<span class="nc" id="L119">            add(newUnit);</span>
+<span class="nc" id="L120">            addOwnedUnit(newUnit);</span>
+<span class="nc" id="L121">        }</span>
+<span class="nc" id="L122">        Unit missionary = template.getMissionary();</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">        if (missionary != null) {</span>
+<span class="nc" id="L124">            this.missionary = new ServerUnit(game, this,</span>
+                                             missionary);//-vis: safe not on map
+        }
+<span class="nc" id="L127">        setConvertProgress(template.getConvertProgress());</span>
+<span class="nc" id="L128">        setLastTribute(template.getLastTribute());</span>
+<span class="nc" id="L129">        setGoodsContainer(new GoodsContainer(game, this));</span>
+<span class="nc" id="L130">        final Specification spec = getSpecification();</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">        for (Goods goods : template.getCompactGoods()) {</span>
+<span class="nc" id="L132">            GoodsType type = spec.getGoodsType(goods.getType().getId());</span>
+<span class="nc" id="L133">            addGoods(type, goods.getAmount());</span>
+<span class="nc" id="L134">        }</span>
+<span class="nc" id="L135">        wantedGoods = template.getWantedGoods();</span>
+<span class="nc" id="L136">    }</span>
+
+
+    /**
+     * Starts a new turn for a player.
+     *
+     * @param random A pseudo-random number source.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     */
+    public void csStartTurn(Random random, ChangeSet cs) {
+<span class="nc" id="L146">        final Specification spec = getSpecification();</span>
+<span class="nc" id="L147">        final Unit missionary = getMissionary();</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">        if (missionary == null) return;</span>
+<span class="nc" id="L149">        final ServerPlayer other = (ServerPlayer)missionary.getOwner();</span>
+<span class="nc" id="L150">        final Tile tile = getTile();</span>
+<span class="nc" id="L151">        final Turn turn = getGame().getTurn();</span>
+
+        // Check for braves converted by missionaries
+<span class="nc" id="L154">        float convert = getConvertProgress();</span>
+<span class="nc" id="L155">        float cMiss = missionary.applyModifiers(missionary.getType().getSkill(),</span>
+                                                turn, Modifier.CONVERSION_SKILL);
+        // The convert rate increases by a percentage of the current alarm.
+<span class="nc" id="L158">        int alarm = Math.min(getAlarm(other).getValue(), Tension.TENSION_MAX);</span>
+<span class="nc" id="L159">        float cAlarm = missionary.applyModifiers(alarm, turn,</span>
+            Modifier.CONVERSION_ALARM_RATE);
+<span class="nc" id="L161">        convert += cMiss + (cAlarm - alarm);</span>
+<span class="nc" id="L162">        logger.finest(&quot;Conversion at &quot; + getName() + &quot; alarm=&quot; + alarm</span>
+            + &quot; &quot; + convert
+<span class="nc" id="L164">            + &quot; = &quot; + getConvertProgress() + &quot; + &quot; + cMiss + &quot; + &quot; + cAlarm);</span>
+<span class="nc" id="L165">        ServerColony colony = (ServerColony)tile.getNearestSettlement(other,</span>
+            MAX_CONVERT_DISTANCE, true);
+<span class="nc bnc" id="L167" title="All 2 branches missed.">        if (convert &lt; (float)getType().getConvertThreshold()</span>
+<span class="nc bnc" id="L168" title="All 4 branches missed.">            || (getUnitCount() + tile.getUnitCount()) &lt;= 2</span>
+            || colony == null) {
+<span class="nc" id="L170">            setConvertProgress((int)Math.floor(convert));</span>
+        } else {
+<span class="nc" id="L172">            setConvertProgress(0);</span>
+            // FIXME: fix native AI to put the units just hanging
+            // around (as distinct to those with DefendSettlement
+            // missions) into the settlement so we can ignore the
+            // tile-residents.
+<span class="nc" id="L177">            List&lt;Unit&gt; ul = tile.getUnitList();</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">            if (ul.isEmpty()) ul.addAll(getUnitList());</span>
+<span class="nc" id="L179">            ServerUnit brave = (ServerUnit)getRandomMember(logger, &quot;Convert&quot;,</span>
+                                                           ul, random);
+<span class="nc" id="L181">            colony.csAddConvert(brave, cs);</span>
+        }
+<span class="nc" id="L183">    }</span>
+
+    /**
+     * Add a standard number of units to this settlement and tile.  If
+     * a pseudo-random number source is provided use it to pick a
+     * random number of units within the ranges provided by the
+     * settlement type, otherwise use the average.
+     *
+     * @param random An optional pseudo-random number source.
+     */
+    public void addUnits(Random random) {
+<span class="fc" id="L194">        int low = getType().getMinimumSize();</span>
+<span class="fc" id="L195">        int high = getType().getMaximumSize();</span>
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">        int count = (random == null) ? (high + low) / 2</span>
+<span class="fc" id="L197">            : randomInt(logger, &quot;Units at &quot; + getName(), random, high - low + 1)</span>
+                + low;
+<span class="fc" id="L199">        addUnits(count);</span>
+<span class="fc" id="L200">    }</span>
+
+    /**
+     * Add a given number of units to the settlement.
+     *
+     * @param count The number of units to add.
+     */
+    public void addUnits(int count) {
+<span class="fc" id="L208">        final Specification spec = getSpecification();</span>
+<span class="fc" id="L209">        final Game game = getGame();</span>
+<span class="fc" id="L210">        final UnitType brave = spec.getDefaultUnitType(getOwner());</span>
+
+<span class="fc bfc" id="L212" title="All 2 branches covered.">        for (int i = 0; i &lt; count; i++) {</span>
+<span class="fc" id="L213">            Unit unit = new ServerUnit(game, this, getOwner(), brave,</span>
+<span class="fc" id="L214">                                       brave.getDefaultRole());</span>
+<span class="fc" id="L215">            unit.setHomeIndianSettlement(this);</span>
+<span class="fc" id="L216">            unit.setLocation(this);</span>
+        }
+<span class="fc" id="L218">    }</span>
+
+    /**
+     * New turn for this native settlement.
+     *
+     * @param random A &lt;code&gt;Random&lt;/code&gt; number source.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     */
+    @Override
+    public void csNewTurn(Random random, LogBuilder lb, ChangeSet cs) {
+<span class="fc" id="L229">        lb.add(this);</span>
+<span class="fc" id="L230">        ServerPlayer owner = (ServerPlayer) getOwner();</span>
+<span class="fc" id="L231">        Specification spec = getSpecification();</span>
+
+        // Produce goods.
+<span class="fc" id="L234">        List&lt;GoodsType&gt; goodsList = spec.getGoodsTypeList();</span>
+<span class="fc bfc" id="L235" title="All 2 branches covered.">        for (GoodsType g : goodsList) {</span>
+<span class="fc" id="L236">            addGoods(g.getStoredAs(), getTotalProductionOf(g));</span>
+<span class="fc" id="L237">        }</span>
+
+        // Consume goods.
+<span class="fc bfc" id="L240" title="All 2 branches covered.">        for (GoodsType g : goodsList) {</span>
+<span class="fc" id="L241">            consumeGoods(g, getConsumptionOf(g));</span>
+<span class="fc" id="L242">        }</span>
+
+        // Now check the food situation
+<span class="fc" id="L245">        int storedFood = getGoodsCount(spec.getPrimaryFoodType());</span>
+<span class="pc bpc" id="L246" title="1 of 4 branches missed.">        if (storedFood &lt;= 0 &amp;&amp; getUnitCount() &gt; 0) {</span>
+<span class="fc" id="L247">            Unit victim = getRandomMember(logger, &quot;Choose starver&quot;,</span>
+<span class="fc" id="L248">                                          getUnitList(), random);</span>
+<span class="fc" id="L249">            cs.addRemove(See.only(owner), this, victim);//-vis(owner)</span>
+<span class="fc" id="L250">            victim.dispose();</span>
+<span class="fc" id="L251">            lb.add(&quot; FAMINE&quot;);</span>
+        }
+<span class="pc bpc" id="L253" title="1 of 2 branches missed.">        if (getUnitCount() &lt;= 0) {</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">            if (tile.isEmpty()) {</span>
+<span class="nc" id="L255">                lb.add(&quot; COLLAPSED, &quot;);</span>
+<span class="nc" id="L256">                owner.csDisposeSettlement(this, cs);//+vis(owner)</span>
+<span class="nc" id="L257">                return;</span>
+            }
+<span class="nc" id="L259">            tile.getFirstUnit().setLocation(this);//-vis,til: safe in settlement</span>
+        }
+
+        // Check for new resident.
+        // Alcohol also contributes to create children.
+<span class="fc" id="L264">        GoodsType foodType = spec.getPrimaryFoodType();</span>
+<span class="fc" id="L265">        GoodsType rumType = spec.getGoodsType(&quot;model.goods.rum&quot;);</span>
+<span class="fc" id="L266">        List&lt;UnitType&gt; unitTypes</span>
+<span class="fc" id="L267">            = spec.getUnitTypesWithAbility(Ability.BORN_IN_INDIAN_SETTLEMENT);</span>
+<span class="pc bpc" id="L268" title="1 of 2 branches missed.">        if (!unitTypes.isEmpty()</span>
+<span class="pc bpc" id="L269" title="1 of 2 branches missed.">            &amp;&amp; (getGoodsCount(foodType) + 4 * getGoodsCount(rumType)</span>
+                &gt; FOOD_PER_COLONIST + KEEP_RAW_MATERIAL)) {
+<span class="nc bnc" id="L271" title="All 2 branches missed.">            if (ownedUnits.size() &lt;= getType().getMaximumSize()) {</span>
+                // Allow one more brave than the initially generated
+                // number.  This is more than sufficient. Do not
+                // increase the amount without discussing it on the
+                // developer's mailing list first.
+<span class="nc" id="L276">                UnitType type = getRandomMember(logger, &quot;Choose birth&quot;,</span>
+                                                unitTypes, random);
+<span class="nc" id="L278">                Unit unit = new ServerUnit(getGame(), getTile(), owner,</span>
+                                           type);//-vis: safe within settlement
+<span class="nc" id="L280">                consumeGoods(rumType, FOOD_PER_COLONIST/4);</span>
+                // New units quickly go out of their city and start annoying.
+<span class="nc" id="L282">                addOwnedUnit(unit);</span>
+<span class="nc" id="L283">                unit.setHomeIndianSettlement(this);</span>
+<span class="nc" id="L284">                lb.add(&quot; new &quot;, unit);</span>
+            }
+            // Consume the food anyway
+<span class="nc" id="L287">            consumeGoods(foodType, FOOD_PER_COLONIST);</span>
+        }
+
+        // Try to breed horses
+        // FIXME: Make this generic.
+<span class="fc" id="L292">        GoodsType horsesType = spec.getGoodsType(&quot;model.goods.horses&quot;);</span>
+        // FIXME: remove this
+<span class="fc" id="L294">        GoodsType grainType = spec.getGoodsType(&quot;model.goods.grain&quot;);</span>
+<span class="fc" id="L295">        int foodProdAvail = getTotalProductionOf(grainType) - getFoodConsumption();</span>
+<span class="fc bfc" id="L296" title="All 4 branches covered.">        if (getGoodsCount(horsesType) &gt;= horsesType.getBreedingNumber()</span>
+            &amp;&amp; foodProdAvail &gt; 0) {
+<span class="fc" id="L298">            int nHorses = Math.min(MAX_HORSES_PER_TURN, foodProdAvail);</span>
+<span class="fc" id="L299">            addGoods(horsesType, nHorses);</span>
+<span class="fc" id="L300">            lb.add(&quot; bred &quot;, nHorses, &quot; horses&quot;);</span>
+        }
+
+<span class="fc" id="L303">        getGoodsContainer().removeAbove(getWarehouseCapacity());</span>
+<span class="fc" id="L304">        updateWantedGoods();</span>
+<span class="fc" id="L305">        cs.add(See.only(owner), this);</span>
+<span class="fc" id="L306">        lb.add(&quot;, &quot;);</span>
+<span class="fc" id="L307">    }</span>
+
+    /**
+     * Convenience function to remove an amount of goods.
+     *
+     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to remove.
+     * @param amount The amount of goods to remove.
+     */
+    private void consumeGoods(GoodsType type, int amount) {
+<span class="fc bfc" id="L316" title="All 2 branches covered.">        if (getGoodsCount(type) &gt; 0) {</span>
+<span class="fc" id="L317">            amount = Math.min(amount, getGoodsCount(type));</span>
+<span class="fc" id="L318">            removeGoods(type, amount);</span>
+        }
+<span class="fc" id="L320">    }</span>
+
+    /**
+     * Sets alarm towards the given player.
+     *
+     * -til: Might change tile appearance through most hated state
+     *
+     * @param player The &lt;code&gt;Player&lt;/code&gt; to set the alarm level for.
+     * @param newAlarm The new alarm value.
+     */
+    @Override
+    public void setAlarm(Player player, Tension newAlarm) {
+<span class="pc bpc" id="L332" title="2 of 4 branches missed.">        if (player != null &amp;&amp; player != owner) {</span>
+<span class="fc" id="L333">            super.setAlarm(player, newAlarm);</span>
+<span class="fc" id="L334">            updateMostHated();</span>
+        }
+<span class="fc" id="L336">    }</span>
+
+    /**
+     * Removes all alarm towards the given player.  Used the a player leaves
+     * the game.
+     *
+     * -til: Might change tile appearance through most hated state
+     *
+     * @param player The &lt;code&gt;Player&lt;/code&gt; to remove the alarm for.
+     */
+    public void removeAlarm(Player player) {
+<span class="nc bnc" id="L347" title="All 2 branches missed.">        if (player != null) {</span>
+<span class="nc" id="L348">            alarm.remove(player);</span>
+<span class="nc" id="L349">            updateMostHated();</span>
+        }
+<span class="nc" id="L351">    }</span>
+
+    /**
+     * Updates the most hated nation of this settlement.
+     * Needs to be public so it can be set by backwards compatibility code
+     * in FreeColServer.loadGame.
+     *
+     * -til: This might change the tile appearance.
+     *
+     * @return True if the most hated nation changed.
+     */
+    public boolean updateMostHated() {
+<span class="fc" id="L363">        Player old = mostHated;</span>
+<span class="fc" id="L364">        mostHated = null;</span>
+<span class="fc" id="L365">        int bestValue = Integer.MIN_VALUE;</span>
+<span class="fc bfc" id="L366" title="All 2 branches covered.">        for (Player p : getGame().getLiveEuropeanPlayers(null)) {</span>
+<span class="fc" id="L367">            Tension alarm = getAlarm(p);</span>
+<span class="fc bfc" id="L368" title="All 2 branches covered.">            if (alarm == null</span>
+<span class="fc bfc" id="L369" title="All 2 branches covered.">                || alarm.getLevel() == Tension.Level.HAPPY) continue;</span>
+<span class="fc" id="L370">            int value = alarm.getValue();</span>
+<span class="pc bpc" id="L371" title="1 of 2 branches missed.">            if (bestValue &lt; value) {</span>
+<span class="fc" id="L372">                bestValue = value;</span>
+<span class="fc" id="L373">                mostHated = p;</span>
+            }
+<span class="fc" id="L375">        }</span>
+<span class="fc bfc" id="L376" title="All 2 branches covered.">        return mostHated != old;</span>
+    }
+
+    /**
+     * Change the alarm level of this settlement by a given amount.
+     *
+     * -til: Might change tile appearance through most hated state
+     *
+     * @param player The &lt;code&gt;Player&lt;/code&gt; the alarm level changes wrt.
+     * @param amount The amount to change the alarm by.
+     * @return True if the &lt;code&gt;Tension.Level&lt;/code&gt; of the
+     *     settlement alarm changes as a result of this change.
+     */
+    private boolean changeAlarm(Player player, int amount) {
+<span class="fc" id="L390">        Tension alarm = getAlarm(player);</span>
+<span class="fc bfc" id="L391" title="All 2 branches covered.">        if (alarm == null) {</span>
+<span class="fc" id="L392">            initializeAlarm(player);</span>
+<span class="fc" id="L393">            alarm = getAlarm(player);</span>
+        }
+<span class="fc" id="L395">        Tension.Level oldLevel = alarm.getLevel();</span>
+<span class="fc" id="L396">        alarm.modify(amount);</span>
+<span class="fc" id="L397">        boolean change = updateMostHated();</span>
+<span class="pc bpc" id="L398" title="1 of 4 branches missed.">        return change || oldLevel != alarm.getLevel();</span>
+    }
+
+    /**
+     * Modifies the alarm level towards the given player due to an event
+     * at this settlement, and propagate the alarm upwards through the
+     * tribe.
+     *
+     * -til: Might change tile appearance through most hated state
+     *
+     * @param player The &lt;code&gt;Player&lt;/code&gt; to modify alarm for.
+     * @param add The amount to add to the current alarm level.
+     * @param propagate If true, propagate the alarm change upward to the
+     *     owning player.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     * @return True if the alarm changed.
+     */
+    private boolean csChangeAlarm(Player player, int add, boolean propagate,
+                                  ChangeSet cs) {
+<span class="fc" id="L417">        boolean change = changeAlarm(player, add);</span>
+<span class="fc bfc" id="L418" title="All 2 branches covered.">        if (propagate) {</span>
+            // Propagate alarm upwards.  Capital has a greater impact.
+<span class="fc" id="L420">            ((ServerPlayer)getOwner()).csModifyTension(player,</span>
+<span class="fc bfc" id="L421" title="All 2 branches covered.">                ((isCapital()) ? add : add/2), this, cs);</span>
+        }
+<span class="fc" id="L423">        logger.finest(&quot;Alarm at &quot; + getName()</span>
+<span class="fc" id="L424">            + &quot; toward &quot; + player.getName()</span>
+            + &quot; modified by &quot; + add
+<span class="fc" id="L426">            + &quot; now = &quot; + getAlarm(player).getValue());</span>
+<span class="fc" id="L427">        return change;</span>
+    }
+
+    /**
+     * Modifies the alarm level towards the given player due to an event
+     * at this settlement, and propagate the alarm upwards through the
+     * tribe.
+     *
+     * +til: Handles tile visibility changes.
+     *
+     * @param player The &lt;code&gt;Player&lt;/code&gt; to modify alarm for.
+     * @param add The amount to add to the current alarm level.
+     * @param propagate If true, propagate the alarm change upward to the
+     *     owning player.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     * @return True if the alarm changed and the tile added.
+     */
+    public boolean csModifyAlarm(Player player, int add, boolean propagate,
+                                 ChangeSet cs) {
+<span class="fc" id="L446">        Tile copied = getTile().getTileToCache();</span>
+<span class="fc" id="L447">        boolean change = csChangeAlarm(player, add, propagate, cs);//-til</span>
+<span class="fc bfc" id="L448" title="All 2 branches covered.">        if (change) {</span>
+<span class="fc" id="L449">            getTile().cacheUnseen(copied);//+til</span>
+<span class="fc" id="L450">            cs.add(See.perhaps(), this);</span>
+        }
+<span class="fc" id="L452">        return change;</span>
+    }
+
+    /**
+     * Changes the missionary for this settlement and updates other players.
+     *
+     * +vis: Handles the visibility implications.
+     * +til: Handles the tile appearance change.
+     *
+     * @param missionary The new missionary for this settlement.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     */
+    public void csChangeMissionary(Unit missionary, ChangeSet cs) {
+<span class="fc" id="L465">        final Unit old = getMissionary();</span>
+<span class="pc bpc" id="L466" title="1 of 2 branches missed.">        if (missionary == old) return;</span>
+
+<span class="fc" id="L468">        final Tile tile = getTile();</span>
+<span class="pc bpc" id="L469" title="1 of 2 branches missed.">        final ServerPlayer newOwner = (missionary == null) ? null</span>
+<span class="fc" id="L470">            : (ServerPlayer)missionary.getOwner();</span>
+<span class="fc" id="L471">        tile.cacheUnseen(newOwner);//+til</span>
+
+<span class="pc bpc" id="L473" title="1 of 2 branches missed.">        if (old != null) {</span>
+<span class="nc" id="L474">            final ServerPlayer oldOwner = (ServerPlayer)old.getOwner(); </span>
+<span class="nc" id="L475">            setMissionary(null);//-vis(oldOwner),-til</span>
+<span class="nc" id="L476">            tile.updateIndianSettlement(oldOwner);</span>
+<span class="nc" id="L477">            cs.addRemove(See.only(oldOwner), null, old);//-vis(oldOwner)</span>
+<span class="nc" id="L478">            old.dispose();</span>
+<span class="nc" id="L479">            cs.add(See.only(oldOwner), tile);</span>
+<span class="nc" id="L480">            oldOwner.invalidateCanSeeTiles();//+vis(oldOwner)</span>
+        }
+
+<span class="pc bpc" id="L483" title="1 of 2 branches missed.">        if (missionary != null) {</span>
+<span class="fc" id="L484">            setMissionary(missionary);//-vis(newOwner)</span>
+            // Take the missionary off the map, and give it a fake
+            // location at the settlement, bypassing the normal
+            // validity checks.
+<span class="fc" id="L488">            missionary.setLocation(null);//-vis(newOwner)</span>
+<span class="fc" id="L489">            missionary.setLocationNoUpdate(this);//-vis(newOwner),-til</span>
+<span class="fc" id="L490">            missionary.setMovesLeft(0);</span>
+<span class="fc" id="L491">            cs.add(See.only(newOwner), missionary);</span>
+<span class="fc" id="L492">            setConvertProgress(0);</span>
+<span class="fc" id="L493">            csChangeAlarm(newOwner, ALARM_NEW_MISSIONARY, true, cs);//-til</span>
+<span class="fc" id="L494">            tile.updateIndianSettlement(newOwner);</span>
+            
+<span class="fc" id="L496">            int radius = getMissionaryLineOfSight();</span>
+<span class="fc bfc" id="L497" title="All 2 branches covered.">            for (Tile t : tile.getSurroundingTiles(1, radius)) {</span>
+<span class="pc bpc" id="L498" title="1 of 4 branches missed.">                if (newOwner.exploreTile(t) || !newOwner.canSee(t)) {</span>
+<span class="fc" id="L499">                    cs.add(See.only(newOwner), t);</span>
+                }
+<span class="fc" id="L501">            }</span>
+<span class="fc" id="L502">            cs.add(See.perhaps().always(newOwner), tile);</span>
+<span class="fc" id="L503">            newOwner.invalidateCanSeeTiles();//+vis(newOwner)</span>
+        }
+<span class="fc" id="L505">    }</span>
+
+    /**
+     * Kills the missionary at this settlement.
+     *
+     * @param destroy If true, the settlement is destroyed, if false the
+     *     missionary is denounced, if null do not generate a message.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     */
+    public void csKillMissionary(Boolean destroy, ChangeSet cs) {
+<span class="nc" id="L515">        Unit missionary = getMissionary();</span>
+<span class="nc bnc" id="L516" title="All 2 branches missed.">        if (missionary == null) return;</span>
+<span class="nc" id="L517">        csChangeMissionary(null, cs);</span>
+        
+        // Inform the enemy of loss of mission
+<span class="nc" id="L520">        ServerPlayer missionaryOwner = (ServerPlayer)missionary.getOwner();</span>
+<span class="nc bnc" id="L521" title="All 2 branches missed.">        if (destroy != null) {</span>
+<span class="nc bnc" id="L522" title="All 2 branches missed.">            if (destroy) {</span>
+<span class="nc" id="L523">                cs.addMessage(See.only(missionaryOwner),</span>
+                    new ModelMessage(ModelMessage.MessageType.UNIT_LOST,
+                        &quot;model.indianSettlement.mission.destroyed&quot;, this)
+<span class="nc" id="L526">                        .addStringTemplate(&quot;%settlement%&quot;,</span>
+<span class="nc" id="L527">                            getLocationLabelFor(missionaryOwner)));</span>
+            } else {
+<span class="nc" id="L529">                cs.addMessage(See.only(missionaryOwner),</span>
+                    new ModelMessage(ModelMessage.MessageType.FOREIGN_DIPLOMACY,
+                        &quot;model.indianSettlement.mission.denounced&quot;, this)
+<span class="nc" id="L532">                        .addStringTemplate(&quot;%settlement%&quot;,</span>
+<span class="nc" id="L533">                            getLocationLabelFor(missionaryOwner)));</span>
+            }
+        }
+<span class="nc" id="L536">    }</span>
+
+    /**
+     * Equip a unit for a specific role.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to equip.
+     * @param role The &lt;code&gt;Role&lt;/code&gt; to equip for.
+     * @param roleCount The role count.
+     * @param random A pseudo-random number source.
+     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+     * @return True if the equipping succeeds.
+     */
+    public boolean csEquipForRole(Unit unit, Role role, int roleCount,
+                                  Random random, ChangeSet cs) {
+<span class="fc" id="L550">        boolean ret = equipForRole(unit, role, roleCount);</span>
+
+<span class="pc bpc" id="L552" title="1 of 2 branches missed.">        if (ret) {</span>
+<span class="fc" id="L553">            cs.add(See.only((ServerPlayer)getOwner()), getTile());</span>
+        }
+<span class="fc" id="L555">        return ret;</span>
+    }
+
+
+    /**
+     * Gets the tag name of the root element representing this object.
+     *
+     * @return &quot;serverIndianSettlement&quot;
+     */
+    @Override
+    public String getServerXMLElementTagName() {
+<span class="fc" id="L566">        return &quot;serverIndianSettlement&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

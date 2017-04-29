@@ -1,0 +1,430 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProductionCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.ai</a> &gt; <span class="el_source">ProductionCache.java</span></div><h1>ProductionCache.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.ai;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import net.sf.freecol.common.model.Building;
+import net.sf.freecol.common.model.BuildingType;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.ColonyTile;
+import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.Market;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TypeCountMap;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.UnitTypeChange;
+import net.sf.freecol.common.model.WorkLocation;
+import net.sf.freecol.common.model.UnitTypeChange.ChangeType;
+
+
+/**
+ * The production cache is intended to record all possible
+ * combinations of units producing goods in a colony's work
+ * locations. These entries are sorted, allowing fast retrieval of the
+ * most efficient way to produce a given type of goods.
+ */
+public class ProductionCache {
+
+    private final Colony colony;
+
+    /**
+     * The units available in the colony.
+     */
+    private final Set&lt;Unit&gt; units;
+
+    /**
+     * The available colony tiles.
+     */
+    private final Set&lt;ColonyTile&gt; colonyTiles;
+
+    /**
+     * Sorted entries per goods type.
+     */
+    private final Map&lt;GoodsType, List&lt;Entry&gt;&gt; entries;
+
+    /**
+     * The assigned entries.
+     */
+<span class="nc" id="L74">    private final List&lt;Entry&gt; assigned = new ArrayList&lt;&gt;();</span>
+
+    /**
+     * The reserved entries.
+     */
+<span class="nc" id="L79">    private final List&lt;Entry&gt; reserved = new ArrayList&lt;&gt;();</span>
+
+    /**
+     * Compares entries by production.
+     */
+<span class="nc" id="L84">    private static final Comparator&lt;Entry&gt; defaultComparator =</span>
+        new CacheEntryComparator();
+
+    /**
+     * Compares entries by market value of production.
+     */
+<span class="nc" id="L90">    private static final Comparator&lt;Entry&gt; marketValueComparator =</span>
+<span class="nc" id="L91">        new CacheEntryComparator() {</span>
+            @Override
+            public int compareProduction(Entry entry1, Entry entry2) {
+<span class="nc" id="L94">                int production = entry2.getProduction() - entry1.getProduction();</span>
+<span class="nc" id="L95">                Market market = entry1.getUnit().getOwner().getMarket();</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">                if (market != null) {</span>
+<span class="nc" id="L97">                    production = market.getSalePrice(entry2.getGoodsType(), entry2.getProduction())</span>
+<span class="nc" id="L98">                        - market.getSalePrice(entry1.getGoodsType(), entry1.getProduction());</span>
+                }
+<span class="nc" id="L100">                return production;</span>
+            }
+        };
+
+    /**
+     * The number of units available.
+     */
+    private int unitCount;
+
+    /**
+     * The number of Units in various buildings.
+     */
+<span class="nc" id="L112">    private final TypeCountMap&lt;BuildingType&gt; unitCounts = new TypeCountMap&lt;&gt;();</span>
+
+
+<span class="nc" id="L115">    public ProductionCache(Colony colony) {</span>
+<span class="nc" id="L116">        this.colony = colony;</span>
+<span class="nc" id="L117">        this.units = new HashSet&lt;&gt;(colony.getUnitList());</span>
+<span class="nc" id="L118">        this.unitCount = units.size();</span>
+<span class="nc" id="L119">        this.colonyTiles = new HashSet&lt;&gt;();</span>
+        // this assumes all colonists can be added to any tile
+<span class="nc" id="L121">        Unit someUnit = colony.getUnitList().get(0);</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        for (ColonyTile colonyTile : colony.getColonyTiles()) {</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">            if (colonyTile.canAdd(someUnit)) {</span>
+<span class="nc" id="L124">                colonyTiles.add(colonyTile);</span>
+            }
+<span class="nc" id="L126">        }</span>
+<span class="nc" id="L127">        this.entries = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L128">    }</span>
+
+    private List&lt;Entry&gt; createEntries(GoodsType goodsType) {
+        // FIXME: OO/generic
+<span class="nc" id="L132">        List&lt;Entry&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (goodsType.isFarmed()) {</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">            for (ColonyTile colonyTile : colonyTiles) {</span>
+<span class="nc" id="L135">                Tile tile = colonyTile.getWorkTile();</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">                if (tile.getPotentialProduction(goodsType, null) &gt; 0</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">                    || (tile.hasResource()</span>
+<span class="nc" id="L138">                        &amp;&amp; !tile.getTileItemContainer().getResource().getType()</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">                        .getModifiers(goodsType.getId()).isEmpty())) {</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">                    for (Unit unit : units) {</span>
+<span class="nc" id="L141">                        result.add(new Entry(goodsType, colonyTile, unit));</span>
+<span class="nc" id="L142">                    }</span>
+                }
+<span class="nc" id="L144">            }</span>
+        } else {
+<span class="nc bnc" id="L146" title="All 2 branches missed.">            for (WorkLocation wl : colony.getWorkLocationsForProducing(goodsType)) {</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">                if (!(wl instanceof Building)) continue;</span>
+<span class="nc" id="L148">                Building building = (Building)wl;</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">                if (building.getType().getWorkPlaces() &gt; 0) {</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">                    for (Unit unit : units) {</span>
+<span class="nc" id="L151">                        result.add(new Entry(goodsType, building, unit));</span>
+<span class="nc" id="L152">                    }</span>
+                }
+<span class="nc" id="L154">            }</span>
+        }
+<span class="nc" id="L156">        Collections.sort(result, defaultComparator);</span>
+<span class="nc" id="L157">        entries.put(goodsType, result);</span>
+<span class="nc" id="L158">        return result;</span>
+    }
+
+    public Set&lt;Unit&gt; getUnits() {
+<span class="nc" id="L162">        return units;</span>
+    }
+
+    public int getUnitCount() {
+<span class="nc" id="L166">        return unitCount;</span>
+    }
+
+    public int getUnitCount(BuildingType buildingType) {
+<span class="nc" id="L170">        return unitCounts.getCount(buildingType);</span>
+    }
+
+    public int decrementUnitCount(BuildingType buildingType) {
+<span class="nc" id="L174">        Integer result = unitCounts.incrementCount(buildingType, -1);</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">        return (result == null) ? 0 : result;</span>
+    }
+
+    public List&lt;Entry&gt; getAssigned() {
+<span class="nc" id="L179">        return assigned;</span>
+    }
+
+    public List&lt;Entry&gt; getReserved() {
+<span class="nc" id="L183">        return reserved;</span>
+    }
+
+
+    public List&lt;Entry&gt; getEntries(GoodsType goodsType) {
+<span class="nc" id="L188">        List&lt;Entry&gt; result = entries.get(goodsType);</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">        if (result == null) {</span>
+<span class="nc" id="L190">            result = createEntries(goodsType);</span>
+        }
+<span class="nc" id="L192">        return result;</span>
+    }
+
+    public List&lt;Entry&gt; getEntries(List&lt;GoodsType&gt; goodsTypes) {
+<span class="nc" id="L196">        return getEntries(goodsTypes, false);</span>
+    }
+
+    public List&lt;Entry&gt; getEntries(List&lt;GoodsType&gt; goodsTypes, boolean useMarketValues) {
+<span class="nc" id="L200">        List&lt;Entry&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        for (GoodsType goodsType : goodsTypes) {</span>
+<span class="nc" id="L202">            result.addAll(getEntries(goodsType));</span>
+<span class="nc" id="L203">        }</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">        if (useMarketValues) {</span>
+<span class="nc" id="L205">            Collections.sort(result, marketValueComparator);</span>
+        } else {
+<span class="nc" id="L207">            Collections.sort(result, defaultComparator);</span>
+        }
+<span class="nc" id="L209">        return result;</span>
+    }
+
+
+
+    /**
+     * Assigns an entry. All conflicting entries, i.e. entries that
+     * refer to the same unit or colony tile, are removed from the
+     * cache.
+     *
+     * @param entry an &lt;code&gt;Entry&lt;/code&gt; value
+     */
+    public void assign(Entry entry) {
+<span class="nc" id="L222">        ColonyTile colonyTile = null;</span>
+<span class="nc" id="L223">        Building building = null;</span>
+<span class="nc bnc" id="L224" title="All 2 branches missed.">        if (entry.getWorkLocation() instanceof ColonyTile) {</span>
+<span class="nc" id="L225">            colonyTile = (ColonyTile) entry.getWorkLocation();</span>
+<span class="nc" id="L226">            colonyTiles.remove(colonyTile);</span>
+<span class="nc bnc" id="L227" title="All 2 branches missed.">        } else if (entry.getWorkLocation() instanceof Building) {</span>
+<span class="nc" id="L228">            building = (Building) entry.getWorkLocation();</span>
+<span class="nc" id="L229">            unitCounts.incrementCount(building.getType(), 1);</span>
+        }
+<span class="nc" id="L231">        Unit unit = null;</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">        if (!entry.isOtherExpert()) {</span>
+<span class="nc" id="L233">            unit = entry.getUnit();</span>
+<span class="nc" id="L234">            units.remove(unit);</span>
+<span class="nc" id="L235">            assigned.add(entry);</span>
+<span class="nc" id="L236">            removeEntries(unit, colonyTile, reserved);</span>
+        } else {
+<span class="nc bnc" id="L238" title="All 2 branches missed.">            if (colonyTile == null) {</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">                if (unitCounts.getCount(building.getType()) == 1) {</span>
+                    // only add building once
+<span class="nc" id="L241">                    reserved.addAll(entries.get(entry.getGoodsType()));</span>
+                }
+            } else {
+<span class="nc" id="L244">                reserved.addAll(removeEntries(null, colonyTile, entries.get(entry.getGoodsType())));</span>
+            }
+        }
+        // if work location is a colony tile, remove it from all other
+        // lists, because it only supports a single unit
+<span class="nc bnc" id="L249" title="All 2 branches missed.">        for (List&lt;Entry&gt; entryList : entries.values()) {</span>
+<span class="nc" id="L250">            removeEntries(unit, colonyTile, entryList);</span>
+<span class="nc" id="L251">        }</span>
+<span class="nc" id="L252">        unitCount--;</span>
+<span class="nc" id="L253">    }</span>
+
+    /*
+    private void removeEntries(Unit unit, WorkLocation workLocation) {
+        units.remove(unit);
+        if (workLocation instanceof ColonyTile) {
+            colonyTiles.remove((ColonyTile) workLocation);
+        }
+        for (List&lt;Entry&gt; entryList : entries.values()) {
+            removeEntries(unit, workLocation, entryList);
+        }
+        removeEntries(unit, null, reserved);
+    }
+    */
+
+    /**
+     * Removes all entries that refer to the unit or work location
+     * given from the given list of entries and returns them.
+     *
+     * @param unit a &lt;code&gt;Unit&lt;/code&gt;
+     * @param workLocation a &lt;code&gt;WorkLocation&lt;/code&gt;
+     * @param entryList a &lt;code&gt;List&lt;/code&gt; of &lt;code&gt;Entry&lt;/code&gt;s
+     * @return the &lt;code&gt;Entry&lt;/code&gt;s removed
+     */
+    public static List&lt;Entry&gt; removeEntries(Unit unit, WorkLocation workLocation, List&lt;Entry&gt; entryList) {
+<span class="nc" id="L278">        Iterator&lt;Entry&gt; entryIterator = entryList.iterator();</span>
+<span class="nc" id="L279">        List&lt;Entry&gt; removedEntries = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">        while (entryIterator.hasNext()) {</span>
+<span class="nc" id="L281">            Entry entry = entryIterator.next();</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">            if (entry.getUnit() == unit</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">                || entry.getWorkLocation() == workLocation) {</span>
+<span class="nc" id="L284">                removedEntries.add(entry);</span>
+<span class="nc" id="L285">                entryIterator.remove();</span>
+            }
+<span class="nc" id="L287">        }</span>
+<span class="nc" id="L288">        return removedEntries;</span>
+    }
+
+
+    /**
+     * An Entry in the production cache represents a single unit
+     * producing goods in a certain work location. It records
+     * information on the type and amount of goods produced, as well
+     * as on whether the unit is an expert for producing this type of
+     * goods, or can be upgraded to one.
+     *
+     */
+    public static class Entry {
+        private final GoodsType goodsType;
+        private final WorkLocation workLocation;
+        private final Unit unit;
+        private final int production;
+<span class="nc" id="L305">        private boolean isExpert = false;</span>
+<span class="nc" id="L306">        private boolean isOtherExpert = false;</span>
+<span class="nc" id="L307">        private boolean unitUpgrades = false;</span>
+<span class="nc" id="L308">        private boolean unitUpgradesToExpert = false;</span>
+
+<span class="nc" id="L310">        public Entry(GoodsType g, WorkLocation w, Unit u) {</span>
+<span class="nc" id="L311">            goodsType = g;</span>
+<span class="nc" id="L312">            workLocation = w;</span>
+<span class="nc" id="L313">            unit = u;</span>
+<span class="nc" id="L314">            production = w.getProductionOf(u, g);</span>
+<span class="nc" id="L315">            GoodsType expertProduction = unit.getType().getExpertProduction();</span>
+<span class="nc bnc" id="L316" title="All 2 branches missed.">            if (expertProduction != null) {</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">                if (expertProduction == goodsType) {</span>
+<span class="nc" id="L318">                    isExpert = true;</span>
+                } else {
+<span class="nc" id="L320">                    isOtherExpert = true;</span>
+                }
+            } else {
+<span class="nc bnc" id="L323" title="All 2 branches missed.">                for (UnitTypeChange change : unit.getType().getTypeChanges()) {</span>
+<span class="nc bnc" id="L324" title="All 2 branches missed.">                    if (change.asResultOf(ChangeType.EXPERIENCE)) {</span>
+<span class="nc" id="L325">                        unitUpgrades = true;</span>
+<span class="nc bnc" id="L326" title="All 2 branches missed.">                        if (change.getNewUnitType().getExpertProduction() == goodsType) {</span>
+<span class="nc" id="L327">                            unitUpgradesToExpert = true;</span>
+<span class="nc" id="L328">                            break;</span>
+                        }
+                    }
+<span class="nc" id="L331">                }</span>
+            }
+<span class="nc" id="L333">        }</span>
+
+        /**
+         * Returns the type of goods produced.
+         *
+         * @return a &lt;code&gt;GoodsType&lt;/code&gt; value
+         */
+        public GoodsType getGoodsType() {
+<span class="nc" id="L341">            return goodsType;</span>
+        }
+
+        /**
+         * Returns the work location where goods are produced.
+         *
+         * @return a &lt;code&gt;WorkLocation&lt;/code&gt; value
+         */
+        public WorkLocation getWorkLocation() {
+<span class="nc" id="L350">            return workLocation;</span>
+        }
+
+        /**
+         * Returns a unit producing goods in this work location.
+         *
+         * @return an &lt;code&gt;Unit&lt;/code&gt; value
+         */
+        public Unit getUnit() {
+<span class="nc" id="L359">            return unit;</span>
+        }
+
+        /**
+         * Returns the amount of goods produced.
+         *
+         * @return an &lt;code&gt;int&lt;/code&gt; value
+         */
+        public int getProduction() {
+<span class="nc" id="L368">            return production;</span>
+        }
+
+        /**
+         * Returns true if the unit is an expert for producing the
+         * type of goods selected.
+         *
+         * @return a &lt;code&gt;boolean&lt;/code&gt; value
+         */
+        public boolean isExpert() {
+<span class="nc" id="L378">            return isExpert;</span>
+        }
+
+        /**
+         * Returns true if the unit is an expert for producing a type
+         * of goods other than the one selected.
+         *
+         * @return a &lt;code&gt;boolean&lt;/code&gt; value
+         */
+        public boolean isOtherExpert() {
+<span class="nc" id="L388">            return isOtherExpert;</span>
+        }
+
+        /**
+         * Returns true if the unit can be upgraded through experience.
+         *
+         * @return a &lt;code&gt;boolean&lt;/code&gt; value
+         */
+        public boolean unitUpgrades() {
+<span class="nc" id="L397">            return unitUpgrades;</span>
+        }
+
+        /**
+         * Returns true if the unit can be upgraded to an expert for
+         * producing the type of goods selected through experience.
+         *
+         * @return a &lt;code&gt;boolean&lt;/code&gt; value
+         */
+        public boolean unitUpgradesToExpert() {
+<span class="nc" id="L407">            return unitUpgradesToExpert;</span>
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L415">            StringBuilder sb = new StringBuilder(64);</span>
+<span class="nc" id="L416">            sb.append(&quot;Cache entry: &quot;).append(unit.toString());</span>
+<span class="nc bnc" id="L417" title="All 2 branches missed.">            if (goodsType != null) {</span>
+<span class="nc" id="L418">                sb.append(&quot; &quot;).append(goodsType.getSuffix());</span>
+            }
+<span class="nc bnc" id="L420" title="All 2 branches missed.">            if (workLocation instanceof ColonyTile) {</span>
+<span class="nc" id="L421">                sb.append(workLocation.getTile().getType().getSuffix());</span>
+<span class="nc bnc" id="L422" title="All 2 branches missed.">            } else if (workLocation instanceof Building) {</span>
+<span class="nc" id="L423">                sb.append(((Building)workLocation).getType().getSuffix());</span>
+            }
+<span class="nc" id="L425">            sb.append(&quot;(&quot;).append(workLocation.getId()).append(&quot;) &quot;);</span>
+<span class="nc" id="L426">            return sb.toString();</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

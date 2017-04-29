@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TradeRoutePanel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.client.gui.panel</a> &gt; <span class="el_source">TradeRoutePanel.java</span></div><h1>TradeRoutePanel.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.client.gui.panel;
+
+import java.awt.Component;
+import java.awt.event.ActionEvent;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Logger;
+
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.DefaultListModel;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JScrollPane;
+import javax.swing.event.ListSelectionEvent;
+
+import net.miginfocom.swing.MigLayout;
+
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.StringTemplate;
+import net.sf.freecol.common.model.TradeRoute;
+import net.sf.freecol.common.model.Unit;
+
+
+/**
+ * Allows the user to edit trade routes.
+ */
+public final class TradeRoutePanel extends FreeColPanel {
+
+    @SuppressWarnings(&quot;unused&quot;)
+<span class="nc" id="L58">    private static final Logger logger = Logger.getLogger(TradeRoutePanel.class.getName());</span>
+
+    /** Deassign command string constant. */
+    private static final String DEASSIGN = &quot;deassign&quot;;
+
+    /** Compare trade routes by name. */
+<span class="nc" id="L64">    private static final Comparator&lt;TradeRoute&gt; tradeRouteComparator</span>
+<span class="nc" id="L65">        = Comparator.comparing(TradeRoute::getName);</span>
+
+    /** The unit to assign/deassign trade routes for. */
+    private final Unit unit;
+
+    /** The list model describing the players trade routes. */
+<span class="nc" id="L71">    private final DefaultListModel&lt;TradeRoute&gt; listModel</span>
+        = new DefaultListModel&lt;&gt;();
+
+    /** The list of trade routes to display. */
+    private JList&lt;TradeRoute&gt; tradeRoutes;
+
+    /** A map of trade route to the number of units using it. */
+<span class="nc" id="L78">    private final Map&lt;TradeRoute, Integer&gt; counts = new HashMap&lt;&gt;();</span>
+
+    /** The button to create a new trade route. */
+    private JButton newRouteButton;
+    /** The button to edit an existing trade route. */
+    private JButton editRouteButton;
+    /** The button to delete a trade route. */
+    private JButton deleteRouteButton;
+    /** The button to deassing the unit from a trade route. */
+    private JButton deassignRouteButton;
+
+
+    /**
+     * The constructor that will add the items to this panel.
+     *
+     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+     * @param unit The optional &lt;code&gt;Unit&lt;/code&gt; to operate on.
+     */
+    public TradeRoutePanel(FreeColClient freeColClient, Unit unit) {
+<span class="nc" id="L97">        super(freeColClient, new MigLayout(&quot;wrap 2&quot;, &quot;[fill][fill]&quot;));</span>
+
+<span class="nc" id="L99">        final Player player = getMyPlayer();</span>
+
+<span class="nc" id="L101">        this.unit = unit;</span>
+<span class="nc" id="L102">        this.tradeRoutes = new JList&lt;&gt;(listModel);</span>
+<span class="nc" id="L103">        this.tradeRoutes.addListSelectionListener((ListSelectionEvent e) -&gt; {</span>
+<span class="nc" id="L104">                updateButtons();</span>
+<span class="nc" id="L105">            });</span>
+<span class="nc" id="L106">        this.tradeRoutes.setCellRenderer(new DefaultListCellRenderer() {</span>
+                @Override
+                public Component getListCellRendererComponent(JList list,
+                    Object value, int index, boolean selected, boolean focus) {
+<span class="nc" id="L110">                    Component ret = super.getListCellRendererComponent(list,</span>
+                        value, index, selected, focus);
+<span class="nc" id="L112">                    TradeRoute tradeRoute = (TradeRoute)value;</span>
+<span class="nc" id="L113">                    String name = tradeRoute.getName();</span>
+<span class="nc" id="L114">                    Integer n = TradeRoutePanel.this.counts.get(tradeRoute);</span>
+<span class="nc bnc" id="L115" title="All 4 branches missed.">                    if (n == null || n &lt;= 0) {</span>
+<span class="nc" id="L116">                        setText(name);</span>
+                    } else {
+<span class="nc" id="L118">                        setText(name + &quot;  (&quot; + n + &quot;)&quot;);</span>
+                    }
+<span class="nc" id="L120">                    return ret;</span>
+                }
+            });
+
+<span class="nc" id="L124">        JScrollPane tradeRouteView = new JScrollPane(tradeRoutes);</span>
+
+        // Buttons.  New route, edit and delete route actions do not
+        // close the dialog by default, so they have dedicated action
+        // listeners.  The ok, cancel and deassign actions do close
+        // the dialog, so they are handled in the class-level action
+        // listener below.
+<span class="nc" id="L131">        this.newRouteButton = Utility.localizedButton(&quot;tradeRoutePanel.newRoute&quot;);</span>
+<span class="nc" id="L132">        Utility.localizeToolTip(this.newRouteButton, &quot;tradeRoutePanel.new.tooltip&quot;);</span>
+<span class="nc" id="L133">        this.newRouteButton.addActionListener((ActionEvent ae) -&gt; {</span>
+<span class="nc" id="L134">                newRoute();</span>
+<span class="nc" id="L135">            });</span>
+
+<span class="nc" id="L137">        this.editRouteButton = Utility.localizedButton(&quot;tradeRoutePanel.editRoute&quot;);</span>
+<span class="nc" id="L138">        Utility.localizeToolTip(this.editRouteButton, &quot;tradeRoutePanel.edit.tooltip&quot;);</span>
+<span class="nc" id="L139">        this.editRouteButton.addActionListener((ActionEvent ae) -&gt; {</span>
+<span class="nc" id="L140">                final TradeRoute selected = tradeRoutes.getSelectedValue();</span>
+<span class="nc" id="L141">                final String name = selected.getName();</span>
+<span class="nc" id="L142">                getGUI().showTradeRouteInputPanel(selected, () -&gt; {</span>
+<span class="nc" id="L143">                        StringTemplate template = null;</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">                        if (selected.getName() == null) { // Cancelled</span>
+<span class="nc" id="L145">                            selected.setName(name);</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">                        } else if ((template = selected.verify()) == null) {</span>
+<span class="nc" id="L147">                            igc().updateTradeRoute(selected);</span>
+<span class="nc" id="L148">                            updateList(selected);</span>
+                        } else {
+<span class="nc" id="L150">                            getGUI().showInformationMessage(template);</span>
+                        }
+<span class="nc" id="L152">                    });</span>
+<span class="nc" id="L153">            });</span>
+
+<span class="nc" id="L155">        this.deleteRouteButton = Utility.localizedButton(&quot;tradeRoutePanel.deleteRoute&quot;);</span>
+<span class="nc" id="L156">        Utility.localizeToolTip(this.deleteRouteButton, &quot;tradeRoutePanel.delete.tooltip&quot;);</span>
+<span class="nc" id="L157">        this.deleteRouteButton.addActionListener((ActionEvent ae) -&gt; {</span>
+<span class="nc" id="L158">                TradeRoute route = getRoute();</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">                if (route != null) {</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">                    for (Unit u : route.getAssignedUnits()) {</span>
+<span class="nc" id="L161">                        igc().assignTradeRoute(u, null);</span>
+<span class="nc" id="L162">                    }</span>
+<span class="nc" id="L163">                    deleteTradeRoute(route);</span>
+<span class="nc" id="L164">                    updateList(null);</span>
+                }
+<span class="nc" id="L166">            });</span>
+
+<span class="nc" id="L168">        this.deassignRouteButton = Utility.localizedButton(&quot;tradeRoutePanel.deassignRoute&quot;);</span>
+<span class="nc" id="L169">        Utility.localizeToolTip(this.deassignRouteButton, &quot;tradeRoutePanel.deassign.tooltip&quot;);</span>
+<span class="nc" id="L170">        this.deassignRouteButton.setActionCommand(DEASSIGN);</span>
+<span class="nc" id="L171">        this.deassignRouteButton.addActionListener(this);</span>
+
+<span class="nc" id="L173">        JButton cancelButton = Utility.localizedButton(&quot;cancel&quot;);</span>
+<span class="nc" id="L174">        cancelButton.setActionCommand(CANCEL);</span>
+<span class="nc" id="L175">        cancelButton.addActionListener(this);</span>
+<span class="nc" id="L176">        setCancelComponent(cancelButton);</span>
+
+<span class="nc" id="L178">        updateButtons();</span>
+<span class="nc bnc" id="L179" title="All 4 branches missed.">        updateList((unit == null || unit.getTradeRoute() == null) ? null</span>
+<span class="nc" id="L180">            : unit.getTradeRoute());</span>
+
+<span class="nc" id="L182">        add(Utility.localizedHeader(Messages.nameKey(&quot;tradeRoutePanel&quot;), false),</span>
+            &quot;span, align center&quot;);
+<span class="nc bnc" id="L184" title="All 4 branches missed.">        if (this.unit != null &amp;&amp; this.unit.getLocation() != null) {</span>
+<span class="nc" id="L185">            JLabel unitLabel</span>
+<span class="nc" id="L186">                = new JLabel(unit.getDescription(Unit.UnitLabelType.NATIONAL));</span>
+<span class="nc" id="L187">            unitLabel.setIcon(new ImageIcon(</span>
+<span class="nc" id="L188">                getImageLibrary().getSmallerUnitImage(this.unit)));</span>
+<span class="nc" id="L189">            add(unitLabel);</span>
+<span class="nc" id="L190">            Location loc = this.unit.getLocation();</span>
+<span class="nc" id="L191">            JLabel locLabel = Utility.localizedLabel(loc.getLocationLabelFor(player));</span>
+<span class="nc" id="L192">            add(locLabel);</span>
+        }
+<span class="nc" id="L194">        add(tradeRouteView, &quot;height 360:400, width 250:&quot;);</span>
+<span class="nc" id="L195">        add(this.newRouteButton, &quot;split 4, flowy, growx&quot;);</span>
+<span class="nc" id="L196">        add(this.editRouteButton, &quot;growx&quot;);</span>
+<span class="nc" id="L197">        add(this.deleteRouteButton, &quot;growx&quot;);</span>
+<span class="nc" id="L198">        add(this.deassignRouteButton);</span>
+<span class="nc" id="L199">        add(okButton, &quot;newline 20, span, split 2, tag ok&quot;);</span>
+<span class="nc" id="L200">        add(cancelButton, &quot;tag cancel&quot;);</span>
+
+<span class="nc" id="L202">        getGUI().restoreSavedSize(this, getPreferredSize());</span>
+<span class="nc" id="L203">    }</span>
+
+
+    /**
+     * Gets the currently selected route.
+     */
+    private TradeRoute getRoute() {
+<span class="nc" id="L210">        return this.tradeRoutes.getSelectedValue();</span>
+    }
+
+    /**
+     * Handle a new route request.
+     */
+    private void newRoute() {
+<span class="nc" id="L217">        final Player player = getMyPlayer();</span>
+<span class="nc" id="L218">        final Unit u = this.unit;</span>
+<span class="nc" id="L219">        final TradeRoute newRoute = igc().getNewTradeRoute(player);</span>
+<span class="nc" id="L220">        getGUI().showTradeRouteInputPanel(newRoute, () -&gt; {</span>
+<span class="nc" id="L221">                StringTemplate template = null;</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">                if (newRoute.getName() == null) { // Cancelled</span>
+<span class="nc" id="L223">                    deleteTradeRoute(newRoute);</span>
+<span class="nc" id="L224">                    updateList(null);</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">                } else if ((template = newRoute.verify()) == null) {</span>
+<span class="nc" id="L226">                    igc().updateTradeRoute(newRoute);</span>
+<span class="nc bnc" id="L227" title="All 2 branches missed.">                    if (u != null) igc().assignTradeRoute(u, newRoute);</span>
+<span class="nc" id="L228">                    updateList(newRoute);</span>
+                } else {
+<span class="nc" id="L230">                    updateList(null);</span>
+<span class="nc" id="L231">                    getGUI().showInformationMessage(template);</span>
+                }
+<span class="nc" id="L233">            });</span>
+<span class="nc" id="L234">    }</span>
+
+    /**
+     * Update the buttons on the panel.
+     */
+    private void updateButtons() {
+<span class="nc" id="L240">        newRouteButton.setEnabled(true);</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">        if (tradeRoutes.getSelectedIndex() &lt; 0) {</span>
+<span class="nc" id="L242">            editRouteButton.setEnabled(false);</span>
+<span class="nc" id="L243">            deleteRouteButton.setEnabled(false);</span>
+<span class="nc" id="L244">            deassignRouteButton.setEnabled(false);</span>
+        } else {
+<span class="nc" id="L246">            editRouteButton.setEnabled(true);</span>
+<span class="nc" id="L247">            deleteRouteButton.setEnabled(true);</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">            deassignRouteButton.setEnabled(unit != null</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">                &amp;&amp; unit.getTradeRoute() != null);</span>
+        }
+<span class="nc" id="L251">    }</span>
+
+    /**
+     * Update the list of routes displayed.
+     *
+     * @param selectRoute An optional &lt;code&gt;TradeRoute&lt;/code&gt; to select.
+     */
+    private void updateList(TradeRoute selectRoute) {
+<span class="nc" id="L259">        final Player player = getMyPlayer();</span>
+
+        // First update the counts
+<span class="nc" id="L262">        this.counts.clear();</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">        for (Unit u : player.getUnits()) {</span>
+<span class="nc" id="L264">            TradeRoute tradeRoute = u.getTradeRoute();</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">            if (tradeRoute != null) {</span>
+<span class="nc" id="L266">                Integer i = counts.get(tradeRoute);</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">                int value = (i == null) ? 0 : i;</span>
+<span class="nc" id="L268">                counts.put(tradeRoute, value + 1);</span>
+            }
+<span class="nc" id="L270">        }</span>
+
+        // Now create a sorted list of routes
+<span class="nc" id="L273">        List&lt;TradeRoute&gt; routes = new ArrayList&lt;&gt;(player.getTradeRoutes());</span>
+<span class="nc" id="L274">        Collections.sort(routes, tradeRouteComparator);</span>
+
+        // Then add the routes to the list model.
+<span class="nc" id="L277">        this.listModel.clear();</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">        for (TradeRoute route : routes) {</span>
+<span class="nc" id="L279">            this.listModel.addElement(route);</span>
+<span class="nc" id="L280">        }</span>
+
+        // Select the route if given.
+<span class="nc bnc" id="L283" title="All 4 branches missed.">        if (selectRoute != null &amp;&amp; this.tradeRoutes != null) {</span>
+<span class="nc" id="L284">            this.tradeRoutes.setSelectedValue(selectRoute, true);</span>
+        }
+<span class="nc" id="L286">    }</span>
+
+    /**
+     * Delete a player trade route.
+     *
+     * @param route The &lt;code&gt;TradeRoute&lt;/code&gt; to delete.
+     */
+    private void deleteTradeRoute(TradeRoute route) {
+<span class="nc" id="L294">        List&lt;TradeRoute&gt; routes = getMyPlayer().getTradeRoutes();</span>
+<span class="nc" id="L295">        routes.remove(route);</span>
+<span class="nc" id="L296">        igc().setTradeRoutes(routes);</span>
+<span class="nc" id="L297">    }</span>
+
+
+    // Interface ActionListener
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L307">        final String command = ae.getActionCommand();</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">        if (null == command) return;</span>
+<span class="nc" id="L309">        final TradeRoute route = getRoute();</span>
+<span class="nc bnc" id="L310" title="All 14 branches missed.">        switch (command) {</span>
+        case DEASSIGN:
+<span class="nc bnc" id="L312" title="All 4 branches missed.">            if (unit != null &amp;&amp; route == unit.getTradeRoute()) {</span>
+<span class="nc" id="L313">                igc().clearOrders(unit);</span>
+            }
+<span class="nc" id="L315">            getGUI().removeFromCanvas(this);</span>
+<span class="nc" id="L316">            break;</span>
+        case OK:
+<span class="nc" id="L318">            List&lt;TradeRoute&gt; routes = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">            for (int index = 0; index &lt; listModel.getSize(); index++) {</span>
+<span class="nc" id="L320">                routes.add(listModel.getElementAt(index));</span>
+            }
+<span class="nc" id="L322">            igc().setTradeRoutes(routes);</span>
+<span class="nc bnc" id="L323" title="All 4 branches missed.">            if (unit != null &amp;&amp; route != null) {</span>
+<span class="nc" id="L324">                igc().assignTradeRoute(unit, route);</span>
+            }
+<span class="nc" id="L326">            super.actionPerformed(ae);</span>
+<span class="nc" id="L327">            break;</span>
+        case CANCEL:
+<span class="nc" id="L329">            getGUI().removeTradeRoutePanel(this);</span>
+<span class="nc" id="L330">            break;</span>
+        default:
+<span class="nc" id="L332">            super.actionPerformed(ae);</span>
+            break;
+        }
+<span class="nc" id="L335">    }</span>
+
+
+    // Override Component
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void removeNotify() {
+<span class="nc" id="L345">        this.listModel.clear();</span>
+<span class="nc" id="L346">        this.tradeRoutes = null;</span>
+<span class="nc" id="L347">        this.counts.clear();</span>
+<span class="nc" id="L348">        this.newRouteButton = null;</span>
+<span class="nc" id="L349">        this.editRouteButton = null;</span>
+<span class="nc" id="L350">        this.deleteRouteButton = null;</span>
+<span class="nc" id="L351">        this.deassignRouteButton = null;</span>
+
+<span class="nc" id="L353">        super.removeNotify();</span>
+<span class="nc" id="L354">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

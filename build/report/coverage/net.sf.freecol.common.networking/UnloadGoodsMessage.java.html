@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnloadGoodsMessage.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.networking</a> &gt; <span class="el_source">UnloadGoodsMessage.java</span></div><h1>UnloadGoodsMessage.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.networking;
+
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.server.FreeColServer;
+import net.sf.freecol.server.model.ServerPlayer;
+
+import org.w3c.dom.Element;
+
+
+/**
+ * The message sent when unloading goods.
+ */
+public class UnloadGoodsMessage extends DOMMessage {
+
+    /** The identifier of the type of goods to unload.  */
+    private final String goodsTypeId;
+
+    /** The amount of goods to unload. */
+    private final String amountString;
+
+    /** The identifier of the carrier to unload to goods from. */
+    private final String carrierId;
+
+
+    /**
+     * Create a new &lt;code&gt;UnloadGoodsMessage&lt;/code&gt;.
+     *
+     * @param goodsType The &lt;code&gt;GoodsType&lt;/code&gt; to unload.
+     * @param amount The amount of goods to unload.
+     * @param carrier The &lt;code&gt;Unit&lt;/code&gt; carrying the goods.
+     */
+    public UnloadGoodsMessage(GoodsType goodsType, int amount, Unit carrier) {
+<span class="nc" id="L55">        super(getXMLElementTagName());</span>
+
+<span class="nc" id="L57">        this.goodsTypeId = goodsType.getId();</span>
+<span class="nc" id="L58">        this.amountString = Integer.toString(amount);</span>
+<span class="nc" id="L59">        this.carrierId = carrier.getId();</span>
+<span class="nc" id="L60">    }</span>
+
+    /**
+     * Create a new &lt;code&gt;UnloadGoodsMessage&lt;/code&gt; from a
+     * supplied element.
+     *
+     * @param game The &lt;code&gt;Game&lt;/code&gt; this message belongs to.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to use to create the message.
+     */
+    public UnloadGoodsMessage(Game game, Element element) {
+<span class="nc" id="L70">        super(getXMLElementTagName());</span>
+
+<span class="nc" id="L72">        this.goodsTypeId = element.getAttribute(&quot;type&quot;);</span>
+<span class="nc" id="L73">        this.amountString = element.getAttribute(&quot;amount&quot;);</span>
+<span class="nc" id="L74">        this.carrierId = element.getAttribute(&quot;carrier&quot;);</span>
+<span class="nc" id="L75">    }</span>
+
+
+    /**
+     * Handle a &quot;unloadGoods&quot;-message.
+     *
+     * @param server The &lt;code&gt;FreeColServer&lt;/code&gt; handling the message.
+     * @param player The &lt;code&gt;Player&lt;/code&gt; the message applies to.
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; message was received on.
+     * @return An update containing the carrier, or an error
+     *     &lt;code&gt;Element&lt;/code&gt; on failure.
+     */
+    public Element handle(FreeColServer server, Player player,
+                          Connection connection) {
+<span class="nc" id="L89">        final ServerPlayer serverPlayer = server.getPlayer(connection);</span>
+
+        Unit carrier;
+        try {
+<span class="nc" id="L93">            carrier = player.getOurFreeColGameObject(carrierId, Unit.class);</span>
+<span class="nc" id="L94">        } catch (Exception e) {</span>
+<span class="nc" id="L95">            return DOMMessage.clientError(e.getMessage());</span>
+<span class="nc" id="L96">        }</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        if (!carrier.canCarryGoods()) {</span>
+<span class="nc" id="L98">            return DOMMessage.clientError(&quot;Not a goods carrier: &quot; + carrierId);</span>
+        }
+        // Do not check location, carriers can dump goods anywhere
+
+<span class="nc" id="L102">        GoodsType type = server.getSpecification().getGoodsType(goodsTypeId);</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L104">            return DOMMessage.clientError(&quot;Not a goods type: &quot; + goodsTypeId);</span>
+        }
+
+        int amount;
+        try {
+<span class="nc" id="L109">            amount = Integer.parseInt(amountString);</span>
+<span class="nc" id="L110">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L111">            return DOMMessage.clientError(&quot;Bad amount: &quot; + amountString);</span>
+<span class="nc" id="L112">        }</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">        if (amount &lt;= 0) {</span>
+<span class="nc" id="L114">            return DOMMessage.clientError(&quot;Amount must be positive: &quot;</span>
+                                       + amountString);
+        }
+<span class="nc" id="L117">        int present = carrier.getGoodsCount(type);</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        if (present &lt; amount) {</span>
+<span class="nc" id="L119">            return DOMMessage.clientError(&quot;Attempt to unload &quot; + amount</span>
+<span class="nc" id="L120">                + &quot; &quot; + type.getId() + &quot; but only &quot; + present + &quot; present.&quot;);</span>
+        }
+
+        // Try to unload.
+<span class="nc" id="L124">        return server.getInGameController()</span>
+<span class="nc" id="L125">            .unloadGoods(serverPlayer, type, amount, carrier);</span>
+    }
+
+    /**
+     * Convert this UnloadGoodsMessage to XML.
+     *
+     * @return The XML representation of this message.
+     */
+    @Override
+    public Element toXMLElement() {
+<span class="nc" id="L135">        return createMessage(getXMLElementTagName(),</span>
+            &quot;type&quot;, goodsTypeId,
+            &quot;amount&quot;, amountString,
+            &quot;carrier&quot;, carrierId);
+    }
+
+    /**
+     * The tag name of the root element representing this object.
+     *
+     * @return &quot;unloadGoods&quot;.
+     */
+    public static String getXMLElementTagName() {
+<span class="fc" id="L147">        return &quot;unloadGoods&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

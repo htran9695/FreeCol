@@ -1,0 +1,926 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FreeColDirectories.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.io</a> &gt; <span class="el_source">FreeColDirectories.java</span></div><h1>FreeColDirectories.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+package net.sf.freecol.common.io;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+
+import javax.swing.filechooser.FileSystemView;
+
+import net.sf.freecol.FreeCol;
+
+
+/**
+ * Simple container for the freecol file and directory structure model.
+ */
+<span class="nc" id="L36">public class FreeColDirectories {</span>
+
+    // No logger!  Many of these routines are called before logging is
+    // initialized.
+
+    private static final String AUTOSAVE_DIRECTORY = &quot;autosave&quot;;
+
+    private static final String BASE_DIRECTORY = &quot;base&quot;;
+
+    private static final String CLASSIC_DIRECTORY = &quot;classic&quot;;
+
+<span class="fc" id="L47">    private static final String[] CONFIG_DIRS</span>
+        = { &quot;classic&quot;, &quot;freecol&quot; };
+
+    private static final String DATA_DIRECTORY = &quot;data&quot;;
+
+    private static final String FREECOL_DIRECTORY = &quot;freecol&quot;;
+
+    private static final String HIGH_SCORE_FILE = &quot;HighScores.xml&quot;;
+
+    private static final String I18N_DIRECTORY = &quot;strings&quot;;
+
+    private static final String LOG_FILE = &quot;FreeCol.log&quot;;
+
+    private static final String MAPS_DIRECTORY = &quot;maps&quot;;
+
+    private static final String MODS_DIRECTORY = &quot;mods&quot;;
+
+    private static final String RULES_DIRECTORY = &quot;rules&quot;;
+
+    private static final String SAVE_DIRECTORY = &quot;save&quot;;
+
+    private static final String START_MAP_NAME = &quot;startMap.fsg&quot;;
+
+<span class="fc" id="L70">    private static final String SEPARATOR = System.getProperty(&quot;file.separator&quot;);</span>
+
+    private static final String XDG_CONFIG_HOME_ENV = &quot;XDG_CONFIG_HOME&quot;;
+    private static final String XDG_CONFIG_HOME_DEFAULT = &quot;.config&quot;;
+    private static final String XDG_DATA_HOME_ENV = &quot;XDG_DATA_HOME&quot;;
+    private static final String XDG_DATA_HOME_DEFAULT = &quot;.local/share&quot;;
+    private static final String XDG_CACHE_HOME_ENV = &quot;XDG_CACHE_HOME&quot;;
+    private static final String XDG_CACHE_HOME_DEFAULT = &quot;.cache&quot;;
+
+    // Public names, used by the respective dialogs
+
+    public static final String BASE_CLIENT_OPTIONS_FILE_NAME = &quot;client-options.xml&quot;;
+
+    public static final String CLIENT_OPTIONS_FILE_NAME = &quot;options.xml&quot;;
+
+    public static final String CUSTOM_DIFFICULTY_FILE_NAME = &quot;custom.xml&quot;;
+
+    public static final String GAME_OPTIONS_FILE_NAME = &quot;game_options.xml&quot;;
+
+    public static final String MAP_FILE_NAME = &quot;my_map.fsg&quot;;
+
+    public static final String MAP_GENERATOR_OPTIONS_FILE_NAME
+        = &quot;map_generator_options.xml&quot;;
+
+
+    /**
+     * The directory containing automatically created save games.  At
+     * program start, the path of this directory is based on the path
+     * where to store regular save games.  If the saved game is
+     * changed by the user during the game, then the value of
+     * autosaveDirectory will not change.
+     */
+<span class="fc" id="L102">    private static File autosaveDirectory = null;</span>
+
+    /**
+     * A file containing the client options.
+     *
+     * Can be overridden at the command line.
+     */
+<span class="fc" id="L109">    private static File clientOptionsFile = null;</span>
+
+    /**
+     * The directory where the standard freecol data is installed.
+     *
+     * Can be overridden at the command line.
+     *
+     * FIXME: defaults lamely to ./data.  Do something better in the
+     * installer.
+     */
+<span class="fc" id="L119">    private static File dataDirectory = new File(DATA_DIRECTORY);</span>
+
+    /**
+     * The path to the log file.
+     *
+     * Can be overridden at the command line.
+     */
+<span class="fc" id="L126">    private static String logFilePath = null;</span>
+
+    /**
+     * Where games are saved.
+     *
+     * Can be overridden in game or from the command line by
+     * specifying the save game file.
+     */
+<span class="fc" id="L134">    private static File saveDirectory = null;</span>
+
+    /**
+     * The current save game file.
+     *
+     * Can be modified in game.
+     */
+<span class="fc" id="L141">    private static File savegameFile = null;</span>
+
+    /**
+     * The directory where freecol saves transient information.
+     */
+<span class="fc" id="L146">    private static File userCacheDirectory = null;</span>
+
+    /**
+     * The directory where freecol saves user configuration.
+     *
+     * This will be set by default but can be overridden at the
+     * command line.
+     */
+<span class="fc" id="L154">    private static File userConfigDirectory = null;</span>
+
+    /**
+     * The directory where freecol saves user data.
+     *
+     * This will be set by default but can be overridden at the
+     * command line.
+     */
+<span class="fc" id="L162">    private static File userDataDirectory = null;</span>
+
+    /**
+     * An optional directory containing user mods.
+     */
+<span class="fc" id="L167">    private static File userModsDirectory = null;</span>
+
+
+    /**
+     * Does the OS look like Mac OS X?
+     *
+     * @return True if Mac OS X appears to be present.
+     */
+    public static boolean onMacOSX() {
+<span class="nc" id="L176">        return &quot;Mac OS X&quot;.equals(System.getProperty(&quot;os.name&quot;));</span>
+    }
+
+    /**
+     * Does the OS look like some sort of unix?
+     *
+     * @return True we hope.
+     */
+    public static boolean onUnix() {
+<span class="nc" id="L185">        return &quot;/&quot;.equals(SEPARATOR);</span>
+    }
+
+    /**
+     * Does the OS look like some sort of Windows?
+     *
+     * @return True if Windows appears to be present.
+     */
+    public static boolean onWindows() {
+<span class="nc" id="L194">        return System.getProperty(&quot;os.name&quot;).startsWith(&quot;Windows&quot;);</span>
+    }
+
+    /**
+     * Get the user home directory.
+     *
+     * @return The user home directory.
+     */
+    private static File getUserDefaultDirectory() {
+<span class="nc" id="L203">        return FileSystemView.getFileSystemView().getDefaultDirectory();</span>
+    }
+
+    /**
+     * Check a directory for read and write access.
+     *
+     * @param dir The &lt;code&gt;File&lt;/code&gt; that must be a usable directory.
+     * @return Null on success, an error message key on failure.
+     */
+    public static String checkDir(File dir) {
+<span class="nc bnc" id="L213" title="All 4 branches missed.">        return (dir == null || !dir.exists()) ? &quot;cli.error.home.notExists&quot;</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">            : (!dir.isDirectory()) ? &quot;cli.error.home.notDir&quot;</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">            : (!dir.canRead()) ? &quot;cli.error.home.noRead&quot;</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">            : (!dir.canWrite()) ? &quot;cli.error.home.noWrite&quot;</span>
+            : null;
+    }
+
+    /**
+     * Get directories for XDG compliant systems.
+     *
+     * Result is:
+     * - Negative if a non-XDG OS is detected or there is insufficient
+     *   XDG structure to merit migrating, or what structure there is is
+     *   broken in some way.
+     * - Zero if there is at least one relevant XDG environment
+     *   variable in use and it points to a valid writable directory,
+     *   or the default exists and is writable.
+     * - Positive if there are a full set of suitable XDG directories and
+     *   there are freecol directories therein.
+     * - Otherwise negative, including non-directories in the wrong place
+     *   and unwritable directories.
+     *
+     * The intent is to ignore XDG on negative, migrate on zero, and use
+     * on positive.
+     *
+     * @param dirs An array of &lt;code&gt;File&lt;/code&gt; to be filled in with the
+     *     XDG directory if it is present or created.
+     * @return The XDG compliance state.
+     */
+    private static int getXDGDirs(File[] dirs) {
+<span class="nc bnc" id="L243" title="All 6 branches missed.">        if (onMacOSX() || onWindows() || !onUnix()) return -1;</span>
+
+<span class="nc" id="L245">        int ret = -1;</span>
+<span class="nc" id="L246">        File home = getUserDefaultDirectory();</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        if (home == null) return -1; // Fail badly</span>
+<span class="nc" id="L248">        String[][] xdg = { { XDG_CONFIG_HOME_ENV, XDG_CONFIG_HOME_DEFAULT },</span>
+                           { XDG_DATA_HOME_ENV,   XDG_DATA_HOME_DEFAULT },
+                           { XDG_CACHE_HOME_ENV,  XDG_CACHE_HOME_DEFAULT } };
+<span class="nc" id="L251">        File[] todo = new File[xdg.length];</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">        for (int i = 0; i &lt; xdg.length; i++) {</span>
+<span class="nc" id="L253">            String env = System.getenv(xdg[i][0]);</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">            File d = (env != null) ? new File(env) : new File(home, xdg[i][1]);</span>
+<span class="nc bnc" id="L255" title="All 2 branches missed.">            if (d.exists()) {</span>
+<span class="nc bnc" id="L256" title="All 4 branches missed.">                if (!d.isDirectory() || !d.canWrite()) {</span>
+<span class="nc" id="L257">                    return -1; // Fail hard if something is broken</span>
+                }
+<span class="nc" id="L259">                ret = Math.max(ret, 0);</span>
+<span class="nc" id="L260">                File f = new File(d, FREECOL_DIRECTORY);</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">                if (f.exists()) {</span>
+<span class="nc bnc" id="L262" title="All 4 branches missed.">                    if (!f.isDirectory() || !f.canWrite()) {</span>
+<span class="nc" id="L263">                        return -1; // Again, fail hard</span>
+                    }
+<span class="nc" id="L265">                    dirs[i] = f;</span>
+<span class="nc" id="L266">                    todo[i] = null;</span>
+<span class="nc" id="L267">                    ret++;</span>
+                } else {
+<span class="nc" id="L269">                    dirs[i] = d;</span>
+<span class="nc" id="L270">                    todo[i] = f;</span>
+                }
+<span class="nc" id="L272">            } else {</span>
+<span class="nc" id="L273">                dirs[i] = null;</span>
+<span class="nc" id="L274">                todo[i] = d;</span>
+            }
+        }
+<span class="nc bnc" id="L277" title="All 2 branches missed.">        if (ret &lt; 0) return -1; // No evidence of interest in XDG standard</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">        if (ret == xdg.length) return 1; // Already fully XDG compliant</span>
+
+        // Create the directories for migration
+<span class="nc bnc" id="L281" title="All 2 branches missed.">        for (int i = 0; i &lt; xdg.length; i++) {</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">            if (todo[i] != null) {</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">                if (!todo[i].getPath().endsWith(FREECOL_DIRECTORY)) {</span>
+<span class="nc bnc" id="L284" title="All 2 branches missed.">                    if (!todo[i].mkdir()) return -1;</span>
+<span class="nc" id="L285">                    todo[i] = new File(todo[i], FREECOL_DIRECTORY);</span>
+                }
+<span class="nc bnc" id="L287" title="All 2 branches missed.">                if (!todo[i].mkdir()) return -1;</span>
+<span class="nc" id="L288">                dirs[i] = todo[i];</span>
+            }
+        }
+<span class="nc" id="L291">        return 0;</span>
+    }
+
+    /**
+     * Is the specified file a writable directory?
+     *
+     * @param f The &lt;code&gt;File&lt;/code&gt; to check.
+     * @return True if the file is a writable directory.
+     */
+    private static boolean isGoodDirectory(File f) {
+<span class="nc bnc" id="L301" title="All 6 branches missed.">        return f.exists() &amp;&amp; f.isDirectory() &amp;&amp; f.canWrite();</span>
+    }
+
+    /**
+     * Create the given directory if it does not exist, otherwise expect
+     * it to be writable.
+     *
+     * @param dir The &lt;code&gt;File&lt;/code&gt; specifying the required directory.
+     * @return The required directory, or null on failure.
+     */
+    private static File requireDir(File dir) {
+<span class="nc bnc" id="L312" title="All 2 branches missed.">        if (dir.exists()) {</span>
+<span class="nc bnc" id="L313" title="All 4 branches missed.">            if (dir.isDirectory() &amp;&amp; dir.canWrite()) return dir;</span>
+        } else {
+<span class="nc bnc" id="L315" title="All 2 branches missed.">            if (dir.mkdir()) return dir;</span>
+        }
+<span class="nc" id="L317">        return null;</span>
+    }
+
+    /**
+     * Get FreeCol directories for MacOSX.
+     *
+     * No separate cache directory here.
+     *
+     * Result is:
+     * - Negative on failure.
+     * - Zero if a migration is needed.
+     * - Positive if no migration is needed.
+     *
+     * @param dirs An array of &lt;code&gt;File&lt;/code&gt; to be filled in with the
+     *     MacOSX freecol directories if present or created.
+     * @return The migration state.
+     */
+    private static int getMacOSXDirs(File[] dirs) {
+<span class="nc bnc" id="L335" title="All 2 branches missed.">        if (!onMacOSX()) return -1;</span>
+<span class="nc" id="L336">        int ret = 0;</span>
+<span class="nc" id="L337">        File homeDir = getUserDefaultDirectory();</span>
+<span class="nc bnc" id="L338" title="All 2 branches missed.">        if (homeDir == null) return -1;</span>
+<span class="nc" id="L339">        File libDir = new File(homeDir, &quot;Library&quot;);</span>
+<span class="nc bnc" id="L340" title="All 2 branches missed.">        if (!isGoodDirectory(libDir)) return -1;</span>
+
+<span class="nc bnc" id="L342" title="All 2 branches missed.">        if (dirs[0] == null) {</span>
+<span class="nc" id="L343">            File prefsDir = new File(libDir, &quot;Preferences&quot;);</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">            if (isGoodDirectory(prefsDir)) {</span>
+<span class="nc" id="L345">                dirs[0] = prefsDir;</span>
+<span class="nc" id="L346">                File d = new File(prefsDir, FREECOL_DIRECTORY);</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">                if (d.exists()) {</span>
+<span class="nc bnc" id="L348" title="All 4 branches missed.">                    if (d.isDirectory() &amp;&amp; d.canWrite()) {</span>
+<span class="nc" id="L349">                        dirs[0] = d;</span>
+<span class="nc" id="L350">                        ret++;</span>
+<span class="nc" id="L351">                    } else return -1;</span>
+                }
+<span class="nc" id="L353">            } else return -1;</span>
+        }
+
+<span class="nc bnc" id="L356" title="All 2 branches missed.">        if (dirs[1] == null) {</span>
+<span class="nc" id="L357">            File appsDir = new File(libDir, &quot;Application Support&quot;);</span>
+<span class="nc bnc" id="L358" title="All 2 branches missed.">            if (isGoodDirectory(appsDir)) {</span>
+<span class="nc" id="L359">                dirs[1] = appsDir;</span>
+<span class="nc" id="L360">                File d = new File(appsDir, FREECOL_DIRECTORY);</span>
+<span class="nc bnc" id="L361" title="All 2 branches missed.">                if (d.exists()) {</span>
+<span class="nc bnc" id="L362" title="All 4 branches missed.">                    if (d.isDirectory() &amp;&amp; d.canWrite()) {</span>
+<span class="nc" id="L363">                        dirs[1] = d;</span>
+<span class="nc" id="L364">                        ret++;</span>
+<span class="nc" id="L365">                    } else return -1;</span>
+                }
+<span class="nc" id="L367">            } else return -1;</span>
+        }
+
+<span class="nc bnc" id="L370" title="All 2 branches missed.">        if (dirs[2] == null) {</span>
+<span class="nc" id="L371">            dirs[2] = dirs[1];</span>
+        }
+
+<span class="nc bnc" id="L374" title="All 2 branches missed.">        if (ret == 2) return 1;</span>
+
+<span class="nc" id="L376">        File d = requireDir(new File(dirs[0], FREECOL_DIRECTORY));</span>
+<span class="nc bnc" id="L377" title="All 2 branches missed.">        if (d == null) return -1;</span>
+<span class="nc" id="L378">        dirs[0] = d;</span>
+
+<span class="nc" id="L380">        d = requireDir(new File(dirs[1], FREECOL_DIRECTORY));</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">        if (d == null) return -1;</span>
+<span class="nc" id="L382">        dirs[1] = d;</span>
+
+<span class="nc" id="L384">        return 0;</span>
+    }
+
+
+    /**
+     * Get FreeCol directories for Windows.
+     *
+     * Simple case, everything is in the one directory.
+     *
+     * Result is:
+     * - Negative on failure.
+     * - Zero if a migration is needed.
+     * - Positive if no migration is needed.
+     *
+     * @param dirs An array of &lt;code&gt;File&lt;/code&gt; to be filled in with the
+     *     Windows freecol directories if present or created.
+     * @return The migration state.
+     */
+    private static int getWindowsDirs(File[] dirs) {
+<span class="nc bnc" id="L403" title="All 6 branches missed.">        if (onMacOSX() || !onWindows() || onUnix()) return -1;</span>
+
+<span class="nc" id="L405">        File home = getUserDefaultDirectory();</span>
+<span class="nc bnc" id="L406" title="All 2 branches missed.">        if (home == null) return -1; // Fail badly</span>
+<span class="nc" id="L407">        File d = requireDir(new File(home, FREECOL_DIRECTORY));</span>
+<span class="nc bnc" id="L408" title="All 2 branches missed.">        if (d == null) return -1;</span>
+<span class="nc" id="L409">        dirs[0] = dirs[1] = dirs[2] = d;</span>
+<span class="nc" id="L410">        return 1; // Do not migrate windows</span>
+    }
+
+    /**
+     * Find the old user directory.
+     *
+     * Does not try to be clever, just tries ~/FreeCol, ~/.freecol, and
+     * ~/Library/FreeCol which should find the old directory on the three
+     * known systems.
+     *
+     * @return The old user directory, or null if none found.
+     */
+    private static File getOldUserDirectory() {
+<span class="nc" id="L423">        File home = getUserDefaultDirectory();</span>
+<span class="nc" id="L424">        File old = new File(home, &quot;FreeCol&quot;);</span>
+<span class="nc bnc" id="L425" title="All 6 branches missed.">        if (old.exists() &amp;&amp; old.isDirectory() &amp;&amp; old.canRead()) return old;</span>
+<span class="nc" id="L426">        old = new File(home, &quot;.freecol&quot;);</span>
+<span class="nc bnc" id="L427" title="All 6 branches missed.">        if (old.exists() &amp;&amp; old.isDirectory() &amp;&amp; old.canRead()) return old;</span>
+<span class="nc" id="L428">        old = new File(home, &quot;Library&quot;);</span>
+<span class="nc bnc" id="L429" title="All 6 branches missed.">        if (old.exists() &amp;&amp; old.isDirectory() &amp;&amp; old.canRead()) {</span>
+<span class="nc" id="L430">            old = new File(old, &quot;FreeCol&quot;);</span>
+<span class="nc bnc" id="L431" title="All 6 branches missed.">            if (old.exists() &amp;&amp; old.isDirectory() &amp;&amp; old.canRead()) return old;</span>
+        }
+<span class="nc" id="L433">        return null;</span>
+    }
+
+    /**
+     * Copy directory with given name under an old directory to a new
+     * directory.
+     *
+     * @param oldDir The old directory.
+     * @param name The name of the directory to copy.
+     * @param newDir The new directory.
+     */
+    private static void copyIfFound(File oldDir, String name, File newDir) {
+<span class="nc" id="L445">        File src = new File(oldDir, name);</span>
+<span class="nc" id="L446">        File dst = new File(newDir, name);</span>
+<span class="nc bnc" id="L447" title="All 6 branches missed.">        if (src.exists() &amp;&amp; src.isDirectory() &amp;&amp; !dst.exists()) {</span>
+            try {
+<span class="nc" id="L449">                Files.copy(src.toPath(), dst.toPath(),</span>
+                    StandardCopyOption.COPY_ATTRIBUTES);
+<span class="nc" id="L451">            } catch (IOException ioe) {</span>
+<span class="nc" id="L452">                System.err.println(&quot;Could not copy &quot; + src.toString() + &quot; to &quot;</span>
+<span class="nc" id="L453">                    + dst.toString() + &quot;: &quot; + ioe.getMessage());</span>
+<span class="nc" id="L454">            }</span>
+        }
+<span class="nc" id="L456">    }</span>
+
+    /**
+     * Insist that a directory either already exists, or is created.
+     *
+     * @param file A &lt;code&gt;File&lt;/code&gt; specifying where to make the directory.
+     * @return True if the directory is now there.
+     */
+    private static boolean insistDirectory(File file) {
+<span class="pc bpc" id="L465" title="1 of 2 branches missed.">        if (file.exists()) {</span>
+<span class="pc bpc" id="L466" title="1 of 2 branches missed.">            if (file.isDirectory()) return true;</span>
+<span class="nc" id="L467">            System.err.println(&quot;Could not create directory &quot; + file.getPath()</span>
+                + &quot; because a non-directory with that name is already there.&quot;);
+<span class="nc" id="L469">            return false;</span>
+        }
+        try {
+<span class="nc" id="L472">            return file.mkdir();</span>
+<span class="nc" id="L473">        } catch (Exception e) {</span>
+<span class="nc" id="L474">            System.err.println(&quot;Could not make directory &quot; + file.getPath()</span>
+<span class="nc" id="L475">                + &quot;: &quot; + e.getMessage());</span>
+<span class="nc" id="L476">            return false;</span>
+        }
+    }
+
+    /**
+     * Derive the directory for the autosave files from the save directory.
+     */
+    private static void deriveAutosaveDirectory() {
+<span class="nc bnc" id="L484" title="All 4 branches missed.">        if (autosaveDirectory == null &amp;&amp; saveDirectory != null) {</span>
+<span class="nc" id="L485">            autosaveDirectory = new File(saveDirectory, AUTOSAVE_DIRECTORY);</span>
+<span class="nc bnc" id="L486" title="All 2 branches missed.">            if (!insistDirectory(autosaveDirectory)) autosaveDirectory = null;</span>
+        }
+<span class="nc" id="L488">    }</span>
+        
+
+    // Main initialization/bootstrap routines.
+    // These need to be called early before the subsidiary directory
+    // accessors are used.
+
+    /**
+     * Sets the data directory.
+     *
+     * Insist that the base resources and i18n subdirectories are present.
+     *
+     * @param path The path to the new data directory, or null to
+     *     apply the default.
+     * @return A (non-i18n) error message on failure, null on success.
+     */
+    public static String setDataDirectory(String path) {
+<span class="nc bnc" id="L505" title="All 2 branches missed.">        if (path == null) path = DATA_DIRECTORY;</span>
+<span class="nc" id="L506">        File dir = new File(path);</span>
+<span class="nc bnc" id="L507" title="All 2 branches missed.">        if (!dir.isDirectory()) return &quot;Not a directory: &quot; + path;</span>
+<span class="nc bnc" id="L508" title="All 2 branches missed.">        if (!dir.canRead()) return &quot;Can not read directory: &quot; + path;</span>
+<span class="nc" id="L509">        dataDirectory = dir;</span>
+<span class="nc bnc" id="L510" title="All 2 branches missed.">        if (getBaseDirectory() == null) {</span>
+<span class="nc" id="L511">            return &quot;Can not find base resources directory: &quot; + path</span>
+                + SEPARATOR + BASE_DIRECTORY;
+        }
+<span class="nc bnc" id="L514" title="All 2 branches missed.">        if (getI18nDirectory() == null) {</span>
+<span class="nc" id="L515">            return &quot;Can not find I18n resources directory: &quot; + path</span>
+                + SEPARATOR + I18N_DIRECTORY;
+        }
+<span class="nc" id="L518">        return null;</span>
+    }
+
+    /**
+     * Checks/creates the freecol directory structure for the current
+     * user.
+     *
+     * The main user directory used to be in the current user's home
+     * directory, and called &quot;.freecol&quot; (UNIXes including Mac in
+     * 0.9.x) or &quot;freecol&quot; or even FreeCol.  Now we use:
+     *
+     * - on XDG standard compliant Unixes:
+     *   - config:  ~/.config/freecol
+     *   - data:    ~/.local/share/freecol
+     *   - logging: ~/.cache/freecol
+     * - on Mac:
+     *   - config:  ~/Library/Preferences/freecol
+     *   - else:    ~/Library/Application Support/freecol
+     * - on Windows:
+     *   - everything in \&lt;default directory\&gt;/freecol
+     * - otherwise use what was there
+     *
+     * Note: the freecol data directory is set independently and earlier
+     * in initialization than this routine.
+     *
+     * FIXME: Should the default location of the main user and data
+     * directories be determined by the installer?
+     *
+     * @return A message key to use to create a message to the user
+     *     possibly describing any directory migration, or null if
+     *     nothing to say.
+     */
+    public static synchronized String setUserDirectories() {
+<span class="nc bnc" id="L551" title="All 2 branches missed.">        if (userConfigDirectory != null</span>
+<span class="nc bnc" id="L552" title="All 2 branches missed.">            &amp;&amp; !isGoodDirectory(userConfigDirectory))</span>
+<span class="nc" id="L553">            userConfigDirectory = null;</span>
+<span class="nc bnc" id="L554" title="All 2 branches missed.">        if (userDataDirectory != null</span>
+<span class="nc bnc" id="L555" title="All 2 branches missed.">            &amp;&amp; !isGoodDirectory(userDataDirectory))</span>
+<span class="nc" id="L556">            userDataDirectory = null;</span>
+<span class="nc bnc" id="L557" title="All 2 branches missed.">        if (userCacheDirectory != null</span>
+<span class="nc bnc" id="L558" title="All 2 branches missed.">            &amp;&amp; !isGoodDirectory(userCacheDirectory))</span>
+<span class="nc" id="L559">            userCacheDirectory = null;</span>
+<span class="nc" id="L560">        File dirs[] = { userConfigDirectory, userDataDirectory,</span>
+                        userCacheDirectory };
+
+        // If the CL-specified directories are valid, all is well.
+        // Check for OSX next because it is a Unix.
+<span class="nc bnc" id="L565" title="All 6 branches missed.">        int migrate = (dirs[0] != null &amp;&amp; isGoodDirectory(dirs[0])</span>
+<span class="nc bnc" id="L566" title="All 4 branches missed.">            &amp;&amp; dirs[1] != null &amp;&amp; isGoodDirectory(dirs[1])</span>
+<span class="nc bnc" id="L567" title="All 2 branches missed.">            &amp;&amp; dirs[2] != null &amp;&amp; isGoodDirectory(dirs[2])) ? 1</span>
+<span class="nc bnc" id="L568" title="All 2 branches missed.">            : (onMacOSX()) ? getMacOSXDirs(dirs)</span>
+<span class="nc bnc" id="L569" title="All 2 branches missed.">            : (onUnix()) ? getXDGDirs(dirs)</span>
+<span class="nc bnc" id="L570" title="All 2 branches missed.">            : (onWindows()) ? getWindowsDirs(dirs)</span>
+            : -1;
+<span class="nc" id="L572">        File oldDir = getOldUserDirectory();</span>
+<span class="nc bnc" id="L573" title="All 2 branches missed.">        if (migrate &lt; 0) {</span>
+<span class="nc bnc" id="L574" title="All 2 branches missed.">            if (oldDir == null) return &quot;main.userDir.fail&quot;;</span>
+<span class="nc" id="L575">            dirs[0] = dirs[1] = dirs[2] = oldDir; // Do not migrate.</span>
+<span class="nc" id="L576">            migrate = 1;</span>
+        }
+
+        // Only set user directories if not already overridden at the
+        // command line, and do not migrate in such cases.
+<span class="nc bnc" id="L581" title="All 2 branches missed.">        if (userConfigDirectory == null) {</span>
+<span class="nc" id="L582">            userConfigDirectory = dirs[0];</span>
+<span class="nc" id="L583">        } else migrate = 1;</span>
+<span class="nc bnc" id="L584" title="All 2 branches missed.">        if (userDataDirectory == null) {</span>
+<span class="nc" id="L585">            userDataDirectory = dirs[1];</span>
+<span class="nc" id="L586">        } else migrate = 1;</span>
+<span class="nc bnc" id="L587" title="All 2 branches missed.">        if (userCacheDirectory == null) {</span>
+<span class="nc" id="L588">            userCacheDirectory = dirs[2];</span>
+<span class="nc" id="L589">        } else migrate = 1;</span>
+<span class="nc bnc" id="L590" title="All 4 branches missed.">        if (migrate == 0 &amp;&amp; oldDir != null) {</span>
+<span class="nc" id="L591">            copyIfFound(oldDir, &quot;classic&quot;, userConfigDirectory);</span>
+<span class="nc" id="L592">            copyIfFound(oldDir, &quot;freecol&quot;, userConfigDirectory);</span>
+<span class="nc" id="L593">            copyIfFound(oldDir, &quot;save&quot;,    userDataDirectory);</span>
+<span class="nc" id="L594">            copyIfFound(oldDir, &quot;mods&quot;,    userDataDirectory);</span>
+        }
+
+<span class="nc bnc" id="L597" title="All 2 branches missed.">        if (logFilePath == null) {</span>
+<span class="nc" id="L598">            logFilePath = getUserCacheDirectory() + SEPARATOR + LOG_FILE;</span>
+        }
+
+<span class="nc bnc" id="L601" title="All 2 branches missed.">        if (saveDirectory == null) {</span>
+<span class="nc" id="L602">            saveDirectory = new File(getUserDataDirectory(), SAVE_DIRECTORY);</span>
+<span class="nc bnc" id="L603" title="All 2 branches missed.">            if (!insistDirectory(saveDirectory)) return &quot;main.userDir.fail&quot;;</span>
+        }
+<span class="nc" id="L605">        deriveAutosaveDirectory();</span>
+
+<span class="nc" id="L607">        userModsDirectory = new File(getUserDataDirectory(), MODS_DIRECTORY);</span>
+<span class="nc bnc" id="L608" title="All 2 branches missed.">        if (!insistDirectory(userModsDirectory)) userModsDirectory = null;</span>
+
+<span class="nc bnc" id="L610" title="All 2 branches missed.">        return (migrate &gt; 0) ? null</span>
+<span class="nc bnc" id="L611" title="All 2 branches missed.">            : (onMacOSX())  ? &quot;main.userDir.macosx&quot;</span>
+<span class="nc bnc" id="L612" title="All 2 branches missed.">            : (onUnix())    ? &quot;main.userDir.unix&quot;</span>
+<span class="nc bnc" id="L613" title="All 2 branches missed.">            : (onWindows()) ? &quot;main.userDir.windows&quot;</span>
+            : null;
+    }
+
+    // Directory accessors.
+    // Where there are supported command line arguments there will also
+    // be a mutator.
+
+    /**
+     * Gets the directory where the automatically saved games should be put.
+     *
+     * @return The autosave directory.
+     */
+    public static File getAutosaveDirectory() {
+<span class="fc" id="L627">        return autosaveDirectory;</span>
+    }
+
+    /**
+     * Gets the base resources directory.
+     *
+     * @return The base resources directory.
+     */
+    public static File getBaseDirectory() {
+<span class="fc" id="L636">        return new File(getDataDirectory(), BASE_DIRECTORY);</span>
+    }
+
+    /**
+     * Gets the base client options file.
+     *
+     * @return The base client options file.
+     */
+    public static File getBaseClientOptionsFile() {
+<span class="fc" id="L645">        return new File(getBaseDirectory(), BASE_CLIENT_OPTIONS_FILE_NAME);</span>
+    }
+
+    /**
+     * Gets the file containing the client options.
+     *
+     * @return The client options file, if any.
+     */
+    public static File getClientOptionsFile() {
+<span class="pc bpc" id="L654" title="1 of 2 branches missed.">        return (clientOptionsFile != null) ? clientOptionsFile</span>
+<span class="fc" id="L655">            : getOptionsFile(CLIENT_OPTIONS_FILE_NAME);</span>
+    }
+
+    /**
+     * Sets the client options file.
+     *
+     * @param path The new client options file.
+     * @return True if the file was set successfully.
+     */
+    public static boolean setClientOptionsFile(String path) {
+<span class="nc" id="L665">        File file = new File(path);</span>
+<span class="nc bnc" id="L666" title="All 6 branches missed.">        if (file.exists() &amp;&amp; file.isFile() &amp;&amp; file.canRead()) {</span>
+<span class="nc" id="L667">            clientOptionsFile = file;</span>
+<span class="nc" id="L668">            return true;</span>
+        }
+<span class="nc" id="L670">        return false;</span>
+    }
+
+    /**
+     * Gets the data directory.
+     *
+     * @return The directory where the data files are located.
+     */
+    public static File getDataDirectory() {
+<span class="fc" id="L679">        return dataDirectory;</span>
+    }
+
+    /**
+     * Gets the high score file.
+     *
+     * @return The high score file, if it exists.
+     */
+    public static File getHighScoreFile() {
+<span class="nc" id="L688">        return new File(getUserDataDirectory(), HIGH_SCORE_FILE);</span>
+    }
+
+    /**
+     * Gets the directory containing language property files.
+     *
+     * @return The FreeCol i18n directory.
+     */
+    public static File getI18nDirectory() {
+<span class="fc" id="L697">        return new File(getDataDirectory(), I18N_DIRECTORY);</span>
+    }
+
+    /**
+     * Gets the log file path.
+     *
+     * @return The log file path.
+     */
+    public static String getLogFilePath() {
+<span class="fc" id="L706">        return logFilePath;</span>
+    }
+
+    /**
+     * Sets the log file path.
+     *
+     * @param path The new log file path.
+     */
+    public static void setLogFilePath(String path) {
+<span class="nc" id="L715">        logFilePath = path;</span>
+<span class="nc" id="L716">    }</span>
+
+    /**
+     * Gets the directory containing the predefined maps.
+     *
+     * @return The predefined maps.
+     */
+    public static File getMapsDirectory() {
+<span class="nc" id="L724">        return new File(getDataDirectory(), MAPS_DIRECTORY);</span>
+    }
+
+    /**
+     * Gets the directory where the user options are saved.
+     *
+     * @return The directory to save user options in.
+     */
+    public static File getOptionsDirectory() {
+<span class="fc" id="L733">        File dir = new File(getUserConfigDirectory(), FreeCol.getTC());</span>
+<span class="pc bpc" id="L734" title="1 of 2 branches missed.">        return (insistDirectory(dir)) ? dir : null;</span>
+    }
+
+    /**
+     * Get an options file from the options directory.
+     *
+     * @param name The name of the file within the options directory.
+     * @return The options file.
+     */
+    public static File getOptionsFile(String name) {
+<span class="fc" id="L744">        File dir = getOptionsDirectory();</span>
+<span class="pc bpc" id="L745" title="1 of 2 branches missed.">        return (dir == null) ? null : new File(dir, name);</span>
+    }
+
+    /**
+     * Gets the directory containing the classic rules.
+     *
+     * @return The classic rules directory.
+     */
+    public static File getRulesClassicDirectory() {
+<span class="nc" id="L754">        return new File(getRulesDirectory(), CLASSIC_DIRECTORY);</span>
+    }
+
+    /**
+     * Gets the directory containing the various rulesets.
+     *
+     * @return The ruleset directory.
+     */
+    public static File getRulesDirectory() {
+<span class="fc" id="L763">        return new File(getDataDirectory(), RULES_DIRECTORY);</span>
+    }
+
+    /**
+     * Gets the directory where the savegames should be put.
+     *
+     * @return The save directory.
+     */
+    public static File getSaveDirectory() {
+<span class="fc" id="L772">        return saveDirectory;</span>
+    }
+
+    /**
+     * Gets the save game file.
+     *
+     * @return The save game file.
+     */
+    public static File getSavegameFile() {
+<span class="nc" id="L781">        return savegameFile;</span>
+    }
+
+    /**
+     * Sets the save game file.
+     *
+     * @param path The path to the new save game file.
+     * @return True if the setting succeeds.
+     */
+    public static boolean setSavegameFile(String path) {
+<span class="nc" id="L791">        File file = new File(path);</span>
+<span class="nc bnc" id="L792" title="All 6 branches missed.">        if (!file.exists() || !file.isFile() || !file.canRead()) {</span>
+<span class="nc" id="L793">            file = new File(getSaveDirectory(), path);</span>
+<span class="nc bnc" id="L794" title="All 6 branches missed.">            if (!file.exists() || !file.isFile() || !file.canRead()) return false;</span>
+        }
+<span class="nc" id="L796">        savegameFile = file;</span>
+<span class="nc" id="L797">        File parent = file.getParentFile();</span>
+<span class="nc bnc" id="L798" title="All 2 branches missed.">        if (parent == null) parent = new File(&quot;.&quot;);</span>
+<span class="nc" id="L799">        saveDirectory = parent;</span>
+<span class="nc" id="L800">        deriveAutosaveDirectory();</span>
+<span class="nc" id="L801">        return true;</span>
+    }
+
+    /**
+     * Gets the most recently saved game file, or &lt;b&gt;null&lt;/b&gt;.  (This
+     * may be either from a recent arbitrary user operation or an
+     * autosave function.)
+     *
+     *  @return The recent save game file
+     */
+    public static File getLastSaveGameFile() {
+<span class="nc" id="L812">        File lastSave = null;</span>
+<span class="nc bnc" id="L813" title="All 2 branches missed.">        for (File directory : new File[] {</span>
+<span class="nc" id="L814">                FreeColDirectories.getSaveDirectory(),</span>
+<span class="nc" id="L815">                FreeColDirectories.getAutosaveDirectory() }) {</span>
+<span class="nc bnc" id="L816" title="All 2 branches missed.">            for (File savegame : directory.listFiles(FreeColSavegameFile.getFileFilter())) {</span>
+<span class="nc bnc" id="L817" title="All 2 branches missed.">                if (lastSave == null</span>
+<span class="nc bnc" id="L818" title="All 2 branches missed.">                    || savegame.lastModified() &gt; lastSave.lastModified()) {</span>
+<span class="nc" id="L819">                    lastSave = savegame;</span>
+                }
+            }
+        }
+<span class="nc" id="L823">        return lastSave;</span>
+    }
+
+    /**
+     * Gets the standard mods directory.
+     *
+     * @return The directory where the standard mods are located.
+     */
+    public static File getStandardModsDirectory() {
+<span class="fc" id="L832">        return new File(getDataDirectory(), MODS_DIRECTORY);</span>
+    }
+
+    /**
+     * Get the map file to start from, if any.
+     *
+     * @return The start map file if any.
+     */
+    public static File getStartMapFile() {
+<span class="fc" id="L841">        return new File(getAutosaveDirectory(), START_MAP_NAME);</span>
+    }
+
+    /**
+     * Gets the user cache directory, that is the directory under which
+     * the transient user files live.
+     *
+     * @return The user cache directory.
+     */
+    public static File getUserCacheDirectory() {
+<span class="nc" id="L851">        return userCacheDirectory;</span>
+    }
+
+    /**
+     * Sets the user cache directory, that is the directory under which
+     * the user-specific cache files live.
+     *
+     * @param path The path to the new user cache directory.
+     * @return Null on success, an error message key on failure.
+     */
+    public static String setUserCacheDirectory(String path) {
+<span class="nc" id="L862">        File dir = new File(path);</span>
+<span class="nc" id="L863">        String ret = checkDir(dir);</span>
+<span class="nc bnc" id="L864" title="All 2 branches missed.">        if (ret == null) userCacheDirectory = dir;</span>
+<span class="nc" id="L865">        return ret;</span>
+    }
+
+    /**
+     * Gets the user config directory, that is the directory under which
+     * the user-specific config files live.
+     *
+     * @return The user config directory.
+     */
+    public static File getUserConfigDirectory() {
+<span class="fc" id="L875">        return userConfigDirectory;</span>
+    }
+
+    /**
+     * Sets the user config directory, that is the directory under which
+     * the user-specific config files live.
+     *
+     * @param path The path to the new user config directory.
+     * @return Null on success, an error message key on failure.
+     */
+    public static String setUserConfigDirectory(String path) {
+<span class="nc" id="L886">        File dir = new File(path);</span>
+<span class="nc" id="L887">        String ret = checkDir(dir);</span>
+<span class="nc bnc" id="L888" title="All 2 branches missed.">        if (ret == null) userConfigDirectory = dir;</span>
+<span class="nc" id="L889">        return ret;</span>
+    }
+
+    /**
+     * Gets the user data directory, that is the directory under which
+     * the user-specific data lives.
+     *
+     * @return The user data directory.
+     */
+    public static File getUserDataDirectory() {
+<span class="fc" id="L899">        return userDataDirectory;</span>
+    }
+
+    /**
+     * Sets the main user data directory, creating it if necessary.
+     * If pre-existing, it must be a directory, readable and writable.
+     *
+     * @param path The path to the new main data user directory, or
+     *     null to apply the default.
+     * @return Null on success, an error message key on failure.
+     */
+    public static String setUserDataDirectory(String path) {
+<span class="nc" id="L911">        File dir = new File(path);</span>
+<span class="nc" id="L912">        String ret = checkDir(dir);</span>
+<span class="nc bnc" id="L913" title="All 2 branches missed.">        if (ret == null) userDataDirectory = dir;</span>
+<span class="nc" id="L914">        return ret;</span>
+    }
+
+    /**
+     * Gets the user mods directory.
+     *
+     * @return The directory where user mods are located, or null if none.
+     */
+    public static File getUserModsDirectory() {
+<span class="fc" id="L923">        return userModsDirectory;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

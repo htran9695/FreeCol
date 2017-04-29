@@ -1,0 +1,463 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AIInGameInputHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.ai</a> &gt; <span class="el_source">AIInGameInputHandler.java</span></div><h1>AIInGameInputHandler.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.ai;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import net.sf.freecol.FreeCol;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.DiplomaticTrade;
+import net.sf.freecol.common.model.DiplomaticTrade.TradeStatus;
+import net.sf.freecol.common.model.FoundingFather;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Goods;
+import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.Market;
+import net.sf.freecol.common.model.Monarch.MonarchAction;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.networking.ChooseFoundingFatherMessage;
+import net.sf.freecol.common.networking.Connection;
+import net.sf.freecol.common.networking.DOMMessage;
+import net.sf.freecol.common.networking.DiplomacyMessage;
+import net.sf.freecol.common.networking.FirstContactMessage;
+import net.sf.freecol.common.networking.IndianDemandMessage;
+import net.sf.freecol.common.networking.LootCargoMessage;
+import net.sf.freecol.common.networking.MessageHandler;
+import net.sf.freecol.common.networking.MonarchActionMessage;
+import net.sf.freecol.common.networking.NewLandNameMessage;
+import net.sf.freecol.common.networking.NewRegionNameMessage;
+import net.sf.freecol.server.FreeColServer;
+import net.sf.freecol.server.model.ServerPlayer;
+
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+
+
+/**
+ * Handles the network messages that arrives while in the game.
+ */
+public final class AIInGameInputHandler implements MessageHandler {
+
+<span class="fc" id="L64">    private static final Logger logger = Logger.getLogger(AIInGameInputHandler.class.getName());</span>
+
+    /** The player for whom I work. */
+    private final ServerPlayer serverPlayer;
+
+    /** The server. */
+    private final FreeColServer freeColServer;
+
+    /** The main AI object. */
+    private final AIMain aiMain;
+
+
+    /**
+     * The constructor to use.
+     *
+     * @param freeColServer The main server.
+     * @param me The AI &lt;code&gt;ServerPlayer&lt;/code&gt; that is being
+     *     managed by this AIInGameInputHandler.
+     * @param aiMain The main AI-object.
+     */
+    public AIInGameInputHandler(FreeColServer freeColServer, ServerPlayer me,
+<span class="fc" id="L85">                                AIMain aiMain) {</span>
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">        if (freeColServer == null) {</span>
+<span class="nc" id="L87">            throw new NullPointerException(&quot;freeColServer == null&quot;);</span>
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">        } else if (me == null) {</span>
+<span class="nc" id="L89">            throw new NullPointerException(&quot;me == null&quot;);</span>
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">        } else if (!me.isAI()) {</span>
+<span class="nc" id="L91">            throw new RuntimeException(&quot;Applying AIInGameInputHandler to a non-AI player!&quot;);</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">        } else if (aiMain == null) {</span>
+<span class="nc" id="L93">            throw new NullPointerException(&quot;aiMain == null&quot;);</span>
+        }
+
+<span class="fc" id="L96">        this.freeColServer = freeColServer;</span>
+<span class="fc" id="L97">        this.serverPlayer = me;</span>
+<span class="fc" id="L98">        this.aiMain = aiMain;</span>
+<span class="fc" id="L99">    }</span>
+
+
+    /**
+     * Get the AI player using this &lt;code&gt;AIInGameInputHandler&lt;/code&gt;.
+     *
+     * @return The &lt;code&gt;AIPlayer&lt;/code&gt;.
+     */
+    private AIPlayer getAIPlayer() {
+<span class="nc" id="L108">        return aiMain.getAIPlayer(serverPlayer);</span>
+    }
+
+    /**
+     * Gets the AI unit corresponding to a given unit, if any.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to look up.
+     * @return The corresponding AI unit or null if not found.
+     */
+    private AIUnit getAIUnit(Unit unit) {
+<span class="fc" id="L118">        return aiMain.getAIUnit(unit);</span>
+    }
+
+
+    // Implement MessageHandler
+
+    /**
+     * Deals with incoming messages that have just been received.
+     *
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the message was
+     *     received on.
+     * @param element The root element of the message.
+     * @return The reply.
+     */
+    @Override
+    public synchronized Element handle(Connection connection, Element element) {
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">        if (element == null) return null;</span>
+<span class="fc" id="L135">        final String tag = element.getTagName();</span>
+<span class="fc" id="L136">        Element reply = null;</span>
+        try {
+<span class="pc bpc" id="L138" title="84 of 108 branches missed.">            switch (tag) {</span>
+            case &quot;reconnect&quot;:
+<span class="nc" id="L140">                logger.warning(&quot;Reconnect on illegal operation, refer to any previous error message.&quot;); break;</span>
+            case &quot;chooseFoundingFather&quot;:
+<span class="nc" id="L142">                reply = chooseFoundingFather(connection, element); break;</span>
+            case &quot;diplomacy&quot;:
+<span class="nc" id="L144">                reply = diplomacy(connection, element); break;</span>
+            case &quot;firstContact&quot;:
+<span class="fc" id="L146">                reply = firstContact(connection, element); break;</span>
+            case &quot;fountainOfYouth&quot;:
+<span class="nc" id="L148">                reply = fountainOfYouth(connection, element); break;</span>
+            case &quot;indianDemand&quot;:
+<span class="nc" id="L150">                reply = indianDemand(connection, element); break;</span>
+            case &quot;lootCargo&quot;:
+<span class="fc" id="L152">                reply = lootCargo(connection, element); break;</span>
+            case &quot;monarchAction&quot;:
+<span class="nc" id="L154">                reply = monarchAction(connection, element); break;</span>
+            case &quot;multiple&quot;:
+<span class="fc" id="L156">                reply = multiple(connection, element); break;</span>
+            case &quot;newLandName&quot;:
+<span class="nc" id="L158">                reply = newLandName(connection, element); break;</span>
+            case &quot;newRegionName&quot;:
+<span class="nc" id="L160">                reply = newRegionName(connection, element); break;</span>
+            case &quot;setCurrentPlayer&quot;:
+<span class="nc" id="L162">                reply = setCurrentPlayer(connection, element); break;</span>
+                
+            // Since we're the server, we can see everything.
+            // Therefore most of these messages are useless.  This
+            // may change one day.
+            case &quot;addObject&quot;: case &quot;addPlayer&quot;: case &quot;animateMove&quot;:
+            case &quot;animateAttack&quot;: case &quot;chat&quot;: case &quot;disconnect&quot;:
+            case &quot;error&quot;: case &quot;featureChange&quot;: case &quot;gameEnded&quot;:
+            case &quot;logout&quot;: case &quot;newTurn&quot;: case &quot;remove&quot;:
+            case &quot;removeGoods&quot;: case &quot;setAI&quot;: case &quot;setDead&quot;:
+            case &quot;setStance&quot;: case &quot;startGame&quot;: case &quot;update&quot;:
+            case &quot;updateGame&quot;:
+<span class="fc" id="L174">                break;</span>
+            default:
+<span class="nc" id="L176">                logger.warning(&quot;Unknown message type: &quot; + tag);</span>
+                break;
+            }
+<span class="nc" id="L179">        } catch (Exception e) {</span>
+<span class="nc" id="L180">            logger.log(Level.WARNING, &quot;AI input handler for &quot; + serverPlayer</span>
+                + &quot; caught error handling &quot; + tag, e);
+<span class="fc" id="L182">        }</span>
+<span class="fc" id="L183">        return reply;</span>
+    }
+
+    // Individual message handlers
+
+    /**
+     * Handles a &quot;chooseFoundingFather&quot;-message.
+     * Only meaningful for AIPlayer types that implement selectFoundingFather.
+     *
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the element arrived on.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to process.
+     * @return An &lt;code&gt;Element&lt;/code&gt; containing the response/s.
+     */
+    private Element chooseFoundingFather(
+        @SuppressWarnings(&quot;unused&quot;) Connection connection,
+        Element element) {
+<span class="nc" id="L199">        final Game game = aiMain.getGame();</span>
+<span class="nc" id="L200">        final AIPlayer aiPlayer = getAIPlayer();</span>
+
+<span class="nc" id="L202">        ChooseFoundingFatherMessage message</span>
+            = new ChooseFoundingFatherMessage(game, element);
+<span class="nc" id="L204">        FoundingFather ff = aiPlayer.selectFoundingFather(message.getFathers());</span>
+<span class="nc" id="L205">        logger.finest(aiPlayer.getId() + &quot; chose founding father: &quot; + ff);</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">        if (ff != null) message.setFather(ff);</span>
+<span class="nc" id="L207">        return message.toXMLElement();</span>
+    }
+
+    /**
+     * Handles an &quot;diplomacy&quot;-message.
+     *
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the element arrived on.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to process.
+     * @return An &lt;code&gt;Element&lt;/code&gt; containing the response/s.
+     */
+    private Element diplomacy(
+        @SuppressWarnings(&quot;unused&quot;) Connection connection,
+        Element element) {
+<span class="nc" id="L220">        final Game game = freeColServer.getGame();</span>
+<span class="nc" id="L221">        final DiplomacyMessage message = new DiplomacyMessage(game, element);</span>
+<span class="nc" id="L222">        final DiplomaticTrade agreement = message.getAgreement();</span>
+
+<span class="nc" id="L224">        StringBuilder sb = new StringBuilder(256);</span>
+<span class="nc" id="L225">        sb.append(&quot;AI Diplomacy: &quot;).append(agreement);</span>
+<span class="nc" id="L226">        TradeStatus status = getAIPlayer().acceptDiplomaticTrade(agreement);</span>
+<span class="nc" id="L227">        agreement.setStatus(status);</span>
+<span class="nc" id="L228">        sb.append(&quot; -&gt; &quot;).append(agreement);</span>
+<span class="nc" id="L229">        logger.fine(sb.toString());</span>
+
+<span class="nc" id="L231">        return new DiplomacyMessage(message.getOurFCGO(game),</span>
+<span class="nc" id="L232">                                    message.getOtherFCGO(game), agreement)</span>
+<span class="nc" id="L233">            .toXMLElement();</span>
+    }
+
+    /**
+     * Replies to a first contact offer.
+     *
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the element arrived on.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to process.
+     * @return An &lt;code&gt;Element&lt;/code&gt; containing the response/s.
+     */
+    private Element firstContact(
+        @SuppressWarnings(&quot;unused&quot;) Connection connection,
+        Element element) {
+<span class="fc" id="L246">        final Game game = freeColServer.getGame();</span>
+
+<span class="fc" id="L248">        return new FirstContactMessage(game, element).setResult(true)</span>
+<span class="fc" id="L249">            .toXMLElement();</span>
+    }
+
+    /**
+     * Replies to fountain of youth offer.
+     *
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the element arrived on.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to process.
+     * @return Null.
+     */
+    private Element fountainOfYouth(
+        @SuppressWarnings(&quot;unused&quot;) Connection connection,
+        Element element) {
+<span class="nc" id="L262">        final AIPlayer aiPlayer = getAIPlayer();</span>
+
+<span class="nc" id="L264">        String migrants = element.getAttribute(&quot;migrants&quot;);</span>
+        int n;
+        try {
+<span class="nc" id="L267">            n = Integer.parseInt(migrants);</span>
+<span class="nc" id="L268">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L269">            n = -1;</span>
+<span class="nc" id="L270">        }</span>
+<span class="nc bnc" id="L271" title="All 2 branches missed.">        for (int i = 0; i &lt; n; i++) AIMessage.askEmigrate(aiPlayer, 0);</span>
+<span class="nc" id="L272">        return null;</span>
+    }
+
+    /**
+     * Handles an &quot;indianDemand&quot;-message.
+     *
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the element arrived on.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to process.
+     * @return The original message with the acceptance state set if querying
+     *     the colony player (result == null), or null if reporting the final
+     *     result to the native player (result != null).
+     */
+    private Element indianDemand(
+        @SuppressWarnings(&quot;unused&quot;) Connection connection,
+        Element element) {
+<span class="nc" id="L287">        final Game game = aiMain.getGame();</span>
+<span class="nc" id="L288">        final AIPlayer aiPlayer = getAIPlayer();</span>
+
+<span class="nc" id="L290">        IndianDemandMessage message = new IndianDemandMessage(game, element);</span>
+<span class="nc" id="L291">        Unit unit = message.getUnit(game);</span>
+<span class="nc" id="L292">        Colony colony = message.getColony(game);</span>
+<span class="nc" id="L293">        GoodsType type = message.getType(game);</span>
+<span class="nc" id="L294">        int amount = message.getAmount();</span>
+<span class="nc" id="L295">        boolean accept = aiPlayer.indianDemand(unit, colony, type, amount);</span>
+<span class="nc" id="L296">        message.setResult(accept);</span>
+<span class="nc" id="L297">        logger.finest(&quot;AI handling native demand by &quot; + unit</span>
+<span class="nc" id="L298">            + &quot; at &quot; + colony.getName() + &quot; result: &quot; + accept);</span>
+<span class="nc" id="L299">        return message.toXMLElement();</span>
+    }
+
+    /**
+     * Replies to loot cargo offer.
+     *
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the element arrived on.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to process.
+     * @return Null.
+     */
+    private Element lootCargo(
+        @SuppressWarnings(&quot;unused&quot;) Connection connection,
+        Element element) {
+<span class="fc" id="L312">        final Game game = freeColServer.getGame();</span>
+<span class="fc" id="L313">        final Market market = serverPlayer.getMarket();</span>
+
+<span class="fc" id="L315">        LootCargoMessage message = new LootCargoMessage(game, element);</span>
+<span class="fc" id="L316">        Unit unit = message.getUnit(game);</span>
+<span class="fc" id="L317">        List&lt;Goods&gt; goods = message.getGoods();</span>
+<span class="fc" id="L318">        Collections.sort(goods, new Comparator&lt;Goods&gt;() {</span>
+                @Override
+                public int compare(Goods g1, Goods g2) {
+<span class="nc" id="L321">                    int p1 = market.getPaidForSale(g1.getType())</span>
+<span class="nc" id="L322">                        * g1.getAmount();</span>
+<span class="nc" id="L323">                    int p2 = market.getPaidForSale(g2.getType())</span>
+<span class="nc" id="L324">                        * g2.getAmount();</span>
+<span class="nc" id="L325">                    return p2 - p1;</span>
+                }
+            });
+<span class="fc" id="L328">        List&lt;Goods&gt; loot = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L329">        int space = unit.getSpaceLeft();</span>
+<span class="fc bfc" id="L330" title="All 2 branches covered.">        while (!goods.isEmpty()) {</span>
+<span class="fc" id="L331">            Goods g = goods.remove(0);</span>
+<span class="pc bpc" id="L332" title="1 of 2 branches missed.">            if (g.getSpaceTaken() &gt; space) continue; // Approximate</span>
+<span class="fc" id="L333">            loot.add(g);</span>
+<span class="fc" id="L334">            space -= g.getSpaceTaken();</span>
+<span class="fc" id="L335">        }</span>
+<span class="fc" id="L336">        AIMessage.askLoot(getAIUnit(unit), message.getDefenderId(), loot);</span>
+<span class="fc" id="L337">        return null;</span>
+    }
+
+    /**
+     * Handles a &quot;monarchAction&quot;-message.
+     *
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the element arrived on.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to process.
+     * @return An &lt;code&gt;Element&lt;/code&gt; containing the response/s.
+     */
+    private Element monarchAction(
+        @SuppressWarnings(&quot;unused&quot;) Connection connection,
+        Element element) {
+<span class="nc" id="L350">        final Game game = aiMain.getGame();</span>
+
+<span class="nc" id="L352">        MonarchActionMessage message = new MonarchActionMessage(game, element);</span>
+<span class="nc" id="L353">        MonarchAction action = message.getAction();</span>
+        boolean accept;
+<span class="nc bnc" id="L355" title="All 3 branches missed.">        switch (action) {</span>
+        case RAISE_TAX_WAR: case RAISE_TAX_ACT:
+<span class="nc" id="L357">            accept = getAIPlayer().acceptTax(message.getTax());</span>
+<span class="nc" id="L358">            message.setResult(accept);</span>
+<span class="nc" id="L359">            logger.finest(&quot;AI player monarch action &quot; + action</span>
+                          + &quot; = &quot; + accept);
+<span class="nc" id="L361">            break;</span>
+
+        case MONARCH_MERCENARIES: case HESSIAN_MERCENARIES:
+<span class="nc" id="L364">            accept = getAIPlayer().acceptMercenaries();</span>
+<span class="nc" id="L365">            message.setResult(accept);</span>
+<span class="nc" id="L366">            logger.finest(&quot;AI player monarch action &quot; + action</span>
+                          + &quot; = &quot; + accept);
+<span class="nc" id="L368">            break;</span>
+
+        default:
+<span class="nc" id="L371">            logger.finest(&quot;AI player ignoring monarch action &quot; + action);</span>
+<span class="nc" id="L372">            return null;</span>
+        }
+<span class="nc" id="L374">        return message.toXMLElement();</span>
+    }
+
+    /**
+     * Handle all the children of this element.
+     *
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the element arrived on.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to process.
+     * @return An &lt;code&gt;Element&lt;/code&gt; containing the response/s.
+     */
+    public Element multiple(Connection connection, Element element) {
+<span class="fc" id="L385">        NodeList nodes = element.getChildNodes();</span>
+<span class="fc" id="L386">        List&lt;Element&gt; results = new ArrayList&lt;&gt;();</span>
+
+<span class="fc bfc" id="L388" title="All 2 branches covered.">        for (int i = 0; i &lt; nodes.getLength(); i++) {</span>
+            try {
+<span class="fc" id="L390">                Element reply = handle(connection, (Element) nodes.item(i));</span>
+<span class="fc bfc" id="L391" title="All 2 branches covered.">                if (reply != null) results.add(reply);</span>
+<span class="nc" id="L392">            } catch (Exception e) {</span>
+<span class="nc" id="L393">                logger.log(Level.WARNING, &quot;Caught crash in multiple item &quot; + i</span>
+                    + &quot;, continuing.&quot;, e);
+<span class="fc" id="L395">            }</span>
+        }
+<span class="fc" id="L397">        return DOMMessage.collapseElements(results);</span>
+    }
+
+    /**
+     * Replies to offer to name the new land.
+     *
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the element arrived on.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to process.
+     * @return An &lt;code&gt;Element&lt;/code&gt; containing the response/s.
+     */
+    private Element newLandName(
+        @SuppressWarnings(&quot;unused&quot;) Connection connection,
+        Element element) {
+<span class="nc" id="L410">        return new NewLandNameMessage(freeColServer.getGame(), element)</span>
+<span class="nc" id="L411">            .toXMLElement();</span>
+    }
+
+    /**
+     * Replies to offer to name a new region name.
+     *
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the element arrived on.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to process.
+     * @return An &lt;code&gt;Element&lt;/code&gt; containing the response/s.
+     */
+    private Element newRegionName(
+        @SuppressWarnings(&quot;unused&quot;) Connection connection,
+        Element element) {
+<span class="nc" id="L424">        return new NewRegionNameMessage(freeColServer.getGame(), element)</span>
+<span class="nc" id="L425">            .toXMLElement();</span>
+    }
+
+    /**
+     * Handles a &quot;setCurrentPlayer&quot;-message.
+     *
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the element arrived on.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to process.
+     * @return Null.
+     */
+    private Element setCurrentPlayer(
+        @SuppressWarnings(&quot;unused&quot;) Connection connection,
+        final Element element) {
+<span class="nc" id="L438">        final Game game = freeColServer.getGame();</span>
+
+<span class="nc" id="L440">        String str = element.getAttribute(&quot;player&quot;);</span>
+<span class="nc" id="L441">        final Player currentPlayer = game.getFreeColGameObject(str, Player.class);</span>
+
+<span class="nc bnc" id="L443" title="All 2 branches missed.">        if (currentPlayer != null</span>
+<span class="nc bnc" id="L444" title="All 2 branches missed.">            &amp;&amp; serverPlayer.getId().equals(currentPlayer.getId())) {</span>
+<span class="nc" id="L445">            logger.finest(&quot;Starting new Thread for &quot; + serverPlayer.getName());</span>
+<span class="nc" id="L446">            String nam = FreeCol.SERVER_THREAD + &quot;AIPlayer (&quot;</span>
+<span class="nc" id="L447">                + serverPlayer.getName() + &quot;)&quot;;</span>
+<span class="nc" id="L448">            new Thread(nam) {</span>
+                @Override
+                public void run() {
+                    try {
+<span class="nc" id="L452">                        getAIPlayer().startWorking();</span>
+<span class="nc" id="L453">                    } catch (Exception e) {</span>
+<span class="nc" id="L454">                        logger.log(Level.SEVERE, &quot;AI player failed while working!&quot;, e);</span>
+<span class="nc" id="L455">                    }</span>
+<span class="nc" id="L456">                    AIMessage.askEndTurn(getAIPlayer());</span>
+<span class="nc" id="L457">                }</span>
+<span class="nc" id="L458">            }.start();</span>
+        }
+<span class="nc" id="L460">        return null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

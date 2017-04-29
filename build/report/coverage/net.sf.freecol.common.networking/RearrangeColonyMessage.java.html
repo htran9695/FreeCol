@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RearrangeColonyMessage.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.networking</a> &gt; <span class="el_source">RearrangeColonyMessage.java</span></div><h1>RearrangeColonyMessage.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.networking;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.FreeColObject;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Role;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.server.FreeColServer;
+import net.sf.freecol.server.model.ServerPlayer;
+
+import org.w3c.dom.Element;
+
+
+/**
+ * The message sent when the client requests rearrangeing of a colony.
+ */
+public class RearrangeColonyMessage extends DOMMessage {
+
+    /** Container for the unit change information. */
+    public static class UnitChange {
+
+        public Unit unit;
+        public Location loc;
+        public GoodsType work;
+        public Role role;
+        public int roleCount;
+
+<span class="fc" id="L54">        public UnitChange() {} // deliberately empty</span>
+
+        public UnitChange(Unit unit, Location loc, GoodsType work,
+<span class="fc" id="L57">                          Role role, int roleCount) {</span>
+<span class="fc" id="L58">            this.unit = unit;</span>
+<span class="fc" id="L59">            this.loc = loc;</span>
+<span class="fc" id="L60">            this.work = work;</span>
+<span class="fc" id="L61">            this.role = role;</span>
+<span class="fc" id="L62">            this.roleCount = roleCount;</span>
+<span class="fc" id="L63">        }</span>
+
+        public UnitChange(Game game, String unitId,
+                          String locId, String workId,
+<span class="nc" id="L67">                          String roleId, String roleCount) {</span>
+<span class="nc" id="L68">            init(game, unitId, locId, workId, roleId, roleCount);</span>
+<span class="nc" id="L69">        }</span>
+
+        public final void init(Game game, String unitId, 
+                               String locId, String workId, 
+                               String roleId, String roleCount) {
+<span class="fc" id="L74">            this.unit = game.getFreeColGameObject(unitId, Unit.class);</span>
+<span class="fc" id="L75">            this.loc = game.findFreeColLocation(locId);</span>
+<span class="pc bpc" id="L76" title="2 of 4 branches missed.">            this.work = (workId == null || workId.isEmpty()) ? null</span>
+<span class="fc" id="L77">                : game.getSpecification().getGoodsType(workId);</span>
+<span class="fc" id="L78">            this.role = game.getSpecification().getRole(roleId);</span>
+            try {
+<span class="fc" id="L80">                this.roleCount = Integer.parseInt(roleCount);</span>
+<span class="nc" id="L81">            } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L82">                this.roleCount = 0;</span>
+<span class="fc" id="L83">            }</span>
+<span class="fc" id="L84">        }</span>
+
+        public void writeToElement(Element e, int i) {
+<span class="fc" id="L87">            e.setAttribute(unitKey(i), this.unit.getId());</span>
+<span class="fc" id="L88">            e.setAttribute(locKey(i), this.loc.getId());</span>
+<span class="pc bpc" id="L89" title="1 of 2 branches missed.">            if (this.work != null) {</span>
+<span class="fc" id="L90">                e.setAttribute(workKey(i), this.work.getId());</span>
+            }
+<span class="fc" id="L92">            e.setAttribute(roleKey(i), this.role.toString());</span>
+<span class="fc" id="L93">            e.setAttribute(roleCountKey(i), String.valueOf(this.roleCount));</span>
+<span class="fc" id="L94">        }</span>
+
+        public UnitChange readFromElement(Game game, Element e, int i) {
+<span class="fc" id="L97">            init(game,</span>
+<span class="fc" id="L98">                e.getAttribute(unitKey(i)),</span>
+<span class="fc" id="L99">                e.getAttribute(locKey(i)),</span>
+<span class="fc" id="L100">                e.getAttribute(workKey(i)),</span>
+<span class="fc" id="L101">                e.getAttribute(roleKey(i)),</span>
+<span class="fc" id="L102">                e.getAttribute(roleCountKey(i)));</span>
+<span class="fc" id="L103">            return this;</span>
+        }
+
+        public String unitKey(int i) {
+<span class="fc" id="L107">            return &quot;x&quot; + i + &quot;unit&quot;;</span>
+        }
+
+        public String locKey(int i) {
+<span class="fc" id="L111">            return &quot;x&quot; + i + &quot;loc&quot;;</span>
+        }
+
+        public String workKey(int i) {
+<span class="fc" id="L115">            return &quot;x&quot; + i + &quot;work&quot;;</span>
+        }
+
+        public String roleKey(int i) {
+<span class="fc" id="L119">            return &quot;x&quot; + i + &quot;role&quot;;</span>
+        }
+
+        public String roleCountKey(int i) {
+<span class="fc" id="L123">            return &quot;x&quot; + i + &quot;count&quot;;</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="nc" id="L128">            return &quot;[UnitChange &quot; + unit.getId() + &quot; at &quot; + loc.getId()</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">                + &quot; &quot; + role.getRoleSuffix() + &quot;.&quot; + roleCount</span>
+<span class="nc" id="L130">                + ((work == null) ? &quot;&quot; : &quot; work &quot; + work.getId()) + &quot;]&quot;;</span>
+        }
+    }
+
+    /** A comparator for UnitChanges, favouring simplest roles first. */
+<span class="fc" id="L135">    public static final Comparator&lt;UnitChange&gt; roleComparator</span>
+<span class="fc" id="L136">        = new Comparator&lt;UnitChange&gt;() {</span>
+            @Override
+            public int compare(UnitChange uc1, UnitChange uc2) {
+<span class="nc" id="L139">                int cmp = uc1.role.compareTo(uc2.role);</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">                if (cmp == 0) cmp = uc1.roleCount - uc2.roleCount;</span>
+<span class="nc" id="L141">                return cmp;</span>
+            }
+        };
+
+    /** The id of the colony requesting the rearrangement. */
+    private final String colonyId;
+
+    /** A list of unitChanges to make. */
+<span class="fc" id="L149">    private List&lt;UnitChange&gt; unitChanges = null;</span>
+
+
+    /**
+     * Create a new &lt;code&gt;RearrangeColonyMessage&lt;/code&gt; with the
+     * supplied colony.  Add changes with addChange().
+     *
+     * @param colony The &lt;code&gt;Colony&lt;/code&gt; that is rearranging.
+     */
+    public RearrangeColonyMessage(Colony colony) {
+<span class="fc" id="L159">        super(getXMLElementTagName());</span>
+
+<span class="fc" id="L161">        this.colonyId = colony.getId();</span>
+<span class="fc" id="L162">        this.unitChanges = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L163">    }</span>
+
+    /**
+     * Create a new &lt;code&gt;RearrangeColonyMessage&lt;/code&gt; from a
+     * supplied element.
+     *
+     * @param game The &lt;code&gt;Game&lt;/code&gt; this message belongs to.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to use to create the message.
+     */
+    public RearrangeColonyMessage(Game game, Element element) {
+<span class="fc" id="L173">        super(getXMLElementTagName());</span>
+
+<span class="fc" id="L175">        this.colonyId = element.getAttribute(&quot;colony&quot;);</span>
+        int n;
+        try {
+<span class="fc" id="L178">            n = Integer.parseInt(element.getAttribute(FreeColObject.ARRAY_SIZE_TAG));</span>
+<span class="nc" id="L179">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L180">            n = 0;</span>
+<span class="fc" id="L181">        }</span>
+<span class="fc" id="L182">        this.unitChanges = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L183" title="All 2 branches covered.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="fc" id="L184">            unitChanges.add(new UnitChange().readFromElement(game, element, i));</span>
+        }
+<span class="fc" id="L186">    }</span>
+
+
+    // Public interface
+
+    /**
+     * Are there no changes present?
+     *
+     * @return True if no changes have been added.
+     */
+    public boolean isEmpty() {
+<span class="pc bpc" id="L197" title="2 of 4 branches missed.">        return unitChanges == null || unitChanges.isEmpty();</span>
+    }
+
+    /**
+     * Add a change to this message.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is to change.
+     * @param loc The destination &lt;code&gt;Location&lt;/code&gt; for the unit.
+     * @param work The &lt;code&gt;GoodsType&lt;/code&gt; to produce (may be null).
+     * @param role The unit &lt;code&gt;Role&lt;/code&gt;.
+     * @param roleCount The role count.
+     */
+    public void addChange(Unit unit, Location loc, GoodsType work,
+                          Role role, int roleCount) {
+<span class="fc" id="L211">        unitChanges.add(new UnitChange(unit, loc, work, role, roleCount));</span>
+<span class="fc" id="L212">    }</span>
+
+    /**
+     * Handle a &quot;rearrangeColony&quot;-message.
+     *
+     * @param server The &lt;code&gt;FreeColServer&lt;/code&gt; handling the request.
+     * @param player The &lt;code&gt;Player&lt;/code&gt; rearrangeing the colony.
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the message is from.
+     * @return An update &lt;code&gt;Element&lt;/code&gt; with the rearranged colony,
+     *     or an error &lt;code&gt;Element&lt;/code&gt; on failure.
+     */
+    public Element handle(FreeColServer server, Player player,
+                          Connection connection) {
+<span class="fc" id="L225">        final ServerPlayer serverPlayer = server.getPlayer(connection);</span>
+
+        Colony colony;
+        try {
+<span class="fc" id="L229">            colony = player.getOurFreeColGameObject(colonyId, Colony.class);</span>
+<span class="nc" id="L230">        } catch (Exception e) {</span>
+<span class="nc" id="L231">            return DOMMessage.clientError(e.getMessage());</span>
+<span class="fc" id="L232">        }</span>
+
+<span class="pc bpc" id="L234" title="1 of 2 branches missed.">        if (unitChanges.isEmpty()) {</span>
+<span class="nc" id="L235">            return DOMMessage.clientError(&quot;Empty rearrangement list.&quot;);</span>
+        }
+<span class="fc" id="L237">        int i = 0;</span>
+<span class="fc bfc" id="L238" title="All 2 branches covered.">        for (UnitChange uc : unitChanges) {</span>
+<span class="pc bpc" id="L239" title="1 of 2 branches missed.">            if (uc.unit == null) {</span>
+<span class="nc" id="L240">                return DOMMessage.clientError(&quot;Invalid unit &quot; + i);</span>
+            }
+<span class="pc bpc" id="L242" title="1 of 2 branches missed.">            if (uc.loc == null) {</span>
+<span class="nc" id="L243">                return DOMMessage.clientError(&quot;Invalid location &quot; + i);</span>
+            }
+<span class="pc bpc" id="L245" title="1 of 2 branches missed.">            if (uc.role == null) {</span>
+<span class="nc" id="L246">                return DOMMessage.clientError(&quot;Invalid role &quot; + i);</span>
+            }
+<span class="pc bpc" id="L248" title="1 of 2 branches missed.">            if (uc.roleCount &lt; 0) {</span>
+<span class="nc" id="L249">                return DOMMessage.clientError(&quot;Invalid role count &quot; + i);</span>
+            }
+<span class="fc" id="L251">        }</span>
+
+        // Rearrange can proceed.
+<span class="fc" id="L254">        return server.getInGameController()</span>
+<span class="fc" id="L255">            .rearrangeColony(serverPlayer, colony, unitChanges);</span>
+    }
+
+    /**
+     * Convert this RearrangeColonyMessage to XML.
+     *
+     * @return The XML representation of this message.
+     */
+    @Override
+    public Element toXMLElement() {
+<span class="fc" id="L265">        Element result = createMessage(getXMLElementTagName(),</span>
+            &quot;colony&quot;, colonyId,
+<span class="fc" id="L267">            FreeColObject.ARRAY_SIZE_TAG, Integer.toString(unitChanges.size()));</span>
+<span class="fc" id="L268">        int i = 0;</span>
+<span class="fc bfc" id="L269" title="All 2 branches covered.">        for (UnitChange uc : unitChanges) {</span>
+<span class="fc" id="L270">            uc.writeToElement(result, i);</span>
+<span class="fc" id="L271">            i++;</span>
+<span class="fc" id="L272">        }</span>
+<span class="fc" id="L273">        return result;</span>
+    }
+
+    /**
+     * The tag name of the root element representing this object.
+     *
+     * @return &quot;rearrangeColony&quot;.
+     */
+    public static String getXMLElementTagName() {
+<span class="fc" id="L282">        return &quot;rearrangeColony&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

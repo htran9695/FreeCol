@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AskSkillMessage.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.common.networking</a> &gt; <span class="el_source">AskSkillMessage.java</span></div><h1>AskSkillMessage.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.common.networking;
+
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.Direction;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.Unit.MoveType;
+import net.sf.freecol.server.FreeColServer;
+import net.sf.freecol.server.model.ServerPlayer;
+
+import org.w3c.dom.Element;
+
+
+/**
+ * The message sent when asking for the skill taught at a settlement.
+ */
+public class AskSkillMessage extends DOMMessage {
+
+    /** The identifier of the unit that is asking. */
+    private final String unitId;
+
+    /** The direction the unit is asking in. */
+    private final String directionString;
+
+
+    /**
+     * Create a new &lt;code&gt;AskSkillMessage&lt;/code&gt; with the
+     * supplied unit and direction.
+     *
+     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is asking.
+     * @param direction The &lt;code&gt;Direction&lt;/code&gt; the unit is looking.
+     */
+    public AskSkillMessage(Unit unit, Direction direction) {
+<span class="nc" id="L55">        super(getXMLElementTagName());</span>
+
+<span class="nc" id="L57">        this.unitId = unit.getId();</span>
+<span class="nc" id="L58">        this.directionString = String.valueOf(direction);</span>
+<span class="nc" id="L59">    }</span>
+
+    /**
+     * Create a new &lt;code&gt;AskSkillMessage&lt;/code&gt; from a
+     * supplied element.
+     *
+     * @param game The &lt;code&gt;Game&lt;/code&gt; this message belongs to.
+     * @param element The &lt;code&gt;Element&lt;/code&gt; to use to create the message.
+     */
+    public AskSkillMessage(Game game, Element element) {
+<span class="nc" id="L69">        super(getXMLElementTagName());</span>
+
+<span class="nc" id="L71">        this.unitId = element.getAttribute(&quot;unitId&quot;);</span>
+<span class="nc" id="L72">        this.directionString = element.getAttribute(&quot;direction&quot;);</span>
+<span class="nc" id="L73">    }</span>
+
+
+    /**
+     * Handle a &quot;askSkill&quot;-message.
+     *
+     * @param server The &lt;code&gt;FreeColServer&lt;/code&gt; handling the message.
+     * @param player The &lt;code&gt;Player&lt;/code&gt; the message applies to.
+     * @param connection The &lt;code&gt;Connection&lt;/code&gt; message was received on.
+     *
+     * @return An &lt;code&gt;Element&lt;/code&gt; to update the originating player
+     *         with the result of the query.
+     */
+    public Element handle(FreeColServer server, Player player,
+                          Connection connection) {
+<span class="nc" id="L88">        final ServerPlayer serverPlayer = server.getPlayer(connection);</span>
+
+        Unit unit;
+        try {
+<span class="nc" id="L92">            unit = serverPlayer.getOurFreeColGameObject(unitId, Unit.class);</span>
+<span class="nc" id="L93">        } catch (Exception e) {</span>
+<span class="nc" id="L94">            return DOMMessage.clientError(e.getMessage());</span>
+<span class="nc" id="L95">        }</span>
+
+        Tile tile;
+        try {
+<span class="nc" id="L99">            tile = unit.getNeighbourTile(directionString);</span>
+<span class="nc" id="L100">        } catch (Exception e) {</span>
+<span class="nc" id="L101">            return DOMMessage.clientError(e.getMessage());</span>
+<span class="nc" id="L102">        }</span>
+
+<span class="nc" id="L104">        IndianSettlement is = tile.getIndianSettlement();</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        if (is == null) {</span>
+<span class="nc" id="L106">            return DOMMessage.clientError(&quot;There is no native settlement at: &quot;</span>
+<span class="nc" id="L107">                + tile.getId());</span>
+        }
+
+<span class="nc" id="L110">        MoveType type = unit.getMoveType(is.getTile());</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">        if (type != MoveType.ENTER_INDIAN_SETTLEMENT_WITH_FREE_COLONIST) {</span>
+<span class="nc" id="L112">            return DOMMessage.clientError(&quot;Unable to enter &quot; + is.getName()</span>
+<span class="nc" id="L113">                + &quot;: &quot; + type.whyIllegal());</span>
+        }
+
+        // Update the skill
+<span class="nc" id="L117">        return server.getInGameController()</span>
+<span class="nc" id="L118">            .askLearnSkill(serverPlayer, unit, is);</span>
+    }
+
+    /**
+     * Convert this AskSkillMessage to XML.
+     *
+     * @return The XML representation of this message.
+     */
+    @Override
+    public Element toXMLElement() {
+<span class="nc" id="L128">        return createMessage(getXMLElementTagName(),</span>
+            &quot;unitId&quot;, unitId,
+            &quot;direction&quot;, directionString);
+    }
+
+    /**
+     * The tag name of the root element representing this object.
+     *
+     * @return &quot;askSkill&quot;.
+     */
+    public static String getXMLElementTagName() {
+<span class="fc" id="L139">        return &quot;askSkill&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

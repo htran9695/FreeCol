@@ -1,0 +1,1578 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TransportMission.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jacocoReport</a> &gt; <a href="index.source.html" class="el_package">net.sf.freecol.server.ai.mission</a> &gt; <span class="el_source">TransportMission.java</span></div><h1>TransportMission.java</h1><pre class="source lang-java linenums">/**
+ *  Copyright (C) 2002-2015   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+ */
+
+package net.sf.freecol.server.ai.mission;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Iterator;
+import java.util.logging.Logger;
+
+import javax.xml.stream.XMLStreamException;
+
+import net.sf.freecol.common.FreeColException;
+import net.sf.freecol.common.io.FreeColXMLReader;
+import net.sf.freecol.common.io.FreeColXMLWriter;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.CombatModel;
+import net.sf.freecol.common.model.Europe;
+import net.sf.freecol.common.model.Goods;
+import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.Locatable;
+import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.Map;
+import net.sf.freecol.common.model.Direction;
+import net.sf.freecol.common.model.PathNode;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.pathfinding.CostDecider;
+import net.sf.freecol.common.model.pathfinding.CostDeciders;
+import net.sf.freecol.common.util.LogBuilder;
+import static net.sf.freecol.common.util.CollectionUtils.*;
+import net.sf.freecol.server.ai.AIColony;
+import net.sf.freecol.server.ai.AIGoods;
+import net.sf.freecol.server.ai.AIMain;
+import net.sf.freecol.server.ai.AIMessage;
+import net.sf.freecol.server.ai.AIUnit;
+import net.sf.freecol.server.ai.Cargo;
+import net.sf.freecol.server.ai.EuropeanAIPlayer;
+import net.sf.freecol.server.ai.TransportableAIObject;
+
+
+/**
+ * Mission for transporting units and goods on a carrier.
+ *
+ * @see net.sf.freecol.common.model.Unit Unit
+ */
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">public class TransportMission extends Mission {</span>
+
+<span class="fc" id="L65">    private static final Logger logger = Logger.getLogger(TransportMission.class.getName());</span>
+
+    private static final String tag = &quot;AI transport&quot;;
+
+<span class="pc" id="L69">    private static enum CargoResult {</span>
+<span class="fc" id="L70">        TCONTINUE,  // Cargo should continue</span>
+<span class="fc" id="L71">        TDONE,      // Cargo completed successfully</span>
+<span class="fc" id="L72">        TFAIL,      // Cargo failed badly</span>
+<span class="fc" id="L73">        TNEXT,      // Cargo changed to its next state</span>
+<span class="fc" id="L74">        TRETRY      // Cargo has blocked, retry</span>
+    }
+
+    /**
+     * Insist transport lists remain simple by imposing an upper bound
+     * on the distinct destination locations to visit.
+     */
+    private static final int DESTINATION_UPPER_BOUND = 4;
+
+    private static final int MINIMUM_GOLD_TO_STAY_IN_EUROPE = 600;
+
+    /** A list of &lt;code&gt;Cargo&lt;/code&gt;s to work on. */
+<span class="pc" id="L86">    private final List&lt;Cargo&gt; cargoes = new ArrayList&lt;&gt;();</span>
+
+    /** The current target location to travel to. */
+    private Location target;
+
+
+    /**
+     * Creates a mission for the given &lt;code&gt;AIUnit&lt;/code&gt;.
+     *
+     * @param aiMain The main AI-object.
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
+     */
+    public TransportMission(AIMain aiMain, AIUnit aiUnit) {
+<span class="fc" id="L99">        super(aiMain, aiUnit, aiUnit.getTrivialTarget());</span>
+<span class="fc" id="L100">    }</span>
+
+    /**
+     * Creates a new &lt;code&gt;TransportMission&lt;/code&gt; and reads the given
+     * element.
+     *
+     * @param aiMain The main AI-object.
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
+     * @param xr The input stream containing the XML.
+     * @throws XMLStreamException if a problem was encountered during parsing.
+     * @see net.sf.freecol.server.ai.AIObject#readFromXML
+     */
+    public TransportMission(AIMain aiMain, AIUnit aiUnit,
+                            FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L114">        super(aiMain, aiUnit);</span>
+
+<span class="nc" id="L116">        readFromXML(xr);</span>
+<span class="nc" id="L117">    }</span>
+
+
+    /**
+     * Disposes of this &lt;code&gt;Mission&lt;/code&gt;.
+     */
+    @Override
+    public void dispose() {
+<span class="fc" id="L125">        logger.finest(tag + &quot; disposing (&quot; + clearCargoes() + &quot;): &quot; + this</span>
+            //+ &quot;\n&quot; + net.sf.freecol.common.debug.FreeColDebugger.stackTraceToString()
+            );
+<span class="fc" id="L128">        super.dispose();</span>
+<span class="fc" id="L129">    }</span>
+
+
+    // Simple internal utilities
+
+    /**
+     * Checks if the carrier using this mission is carrying the given
+     * &lt;code&gt;TransportableAIObject&lt;/code&gt;.
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to check.
+     * @return True if the carrier is carrying the transportable.
+     */
+    private boolean isCarrying(TransportableAIObject t) {
+<span class="pc bpc" id="L142" title="1 of 4 branches missed.">        return t != null &amp;&amp; t.getLocation() == getUnit();</span>
+    }
+
+    /**
+     * Is a transportable waiting for delivery on the cargoes list?
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to check.
+     * @return True if the transportable is queued in this mission.
+     */
+    public boolean isTransporting(TransportableAIObject t) {
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        return tFind(t) != null;</span>
+    }
+
+    /**
+     * Decide if this unit has a good chance of defeating another.
+     * If there is cargo aboard, be more conservative.
+     *
+     * FIXME: magic numbers to the spec.
+     *
+     * @param other The other &lt;code&gt;Unit&lt;/code&gt; to attack.
+     * @return True if the attack should proceed.
+     */
+    private boolean shouldAttack(Unit other) {
+<span class="nc bnc" id="L165" title="All 2 branches missed.">        if (invalidAttackReason(getAIUnit(),</span>
+<span class="nc" id="L166">                                other.getOwner()) != null) return false;</span>
+<span class="nc" id="L167">        final Unit carrier = getUnit();</span>
+<span class="nc" id="L168">        final CombatModel cm = getGame().getCombatModel();</span>
+<span class="nc" id="L169">        double offence = cm.getOffencePower(carrier, other)</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">            * ((carrier.hasCargo()) ? 0.3 : 0.80);</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        return offence &gt; cm.getOffencePower(other, carrier);</span>
+    }
+
+
+    // Cargoes handling.
+    // *Nothing* should touch &quot;cargoes&quot; but these.
+    // It needs synchronization because of possible changes due to the
+    // carrier being destroyed.
+
+    /**
+     * Gets the cargoes.
+     *
+     * @return A copy of the list of cargoes.
+     */
+    private List&lt;Cargo&gt; tCopy() {
+<span class="fc" id="L186">        synchronized (cargoes) {</span>
+<span class="fc" id="L187">            return new ArrayList&lt;&gt;(cargoes);</span>
+<span class="nc" id="L188">        }</span>
+    }
+
+    /**
+     * Clears the cargoes list.
+     *
+     * @return The old cargoes list.
+     */
+    private List&lt;Cargo&gt; tClear() {
+<span class="fc" id="L197">        List&lt;Cargo&gt; old = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L198">        synchronized (cargoes) {</span>
+<span class="fc" id="L199">            old.addAll(cargoes);</span>
+<span class="fc" id="L200">            cargoes.clear();</span>
+<span class="pc" id="L201">        }</span>
+<span class="fc" id="L202">        return old;</span>
+    }
+
+    /**
+     * Sets the cargoes to a new list.
+     *
+     * @param nxt The new cargoes list.
+     * @param setSpace If true, call tSpace to reset the space left values.
+     * @return The old cargoes list.
+     */
+    private List&lt;Cargo&gt; tSet(List&lt;Cargo&gt; nxt, boolean setSpace) {
+<span class="nc" id="L213">        List&lt;Cargo&gt; old = tCopy();</span>
+<span class="nc" id="L214">        synchronized (cargoes) {</span>
+<span class="nc" id="L215">            cargoes.clear();</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">            for (Cargo c : nxt) {</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">                if (c.isValid()) cargoes.add(c);</span>
+<span class="nc" id="L218">            }</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">            if (setSpace) tSpace();</span>
+<span class="nc" id="L220">        }</span>
+<span class="nc" id="L221">        tRetarget();</span>
+<span class="nc" id="L222">        return old;</span>
+    }
+
+    /**
+     * Gets the size of the cargoes.
+     *
+     * @return The size of the cargoes.
+     */
+    private int tSize() {
+        int size;
+<span class="nc" id="L232">        synchronized (cargoes) {</span>
+<span class="nc" id="L233">            size = cargoes.size();</span>
+<span class="nc" id="L234">        }</span>
+<span class="nc" id="L235">        return size;</span>
+    }
+
+    /**
+     * Find a &lt;code&gt;Cargo&lt;/code&gt; with the given
+     * &lt;code&gt;TransportableAIObject&lt;/code&gt;.
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to look for.
+     * @return The &lt;code&gt;Cargo&lt;/code&gt; found, or null if none found.
+     */
+    private Cargo tFind(TransportableAIObject t) {
+<span class="fc" id="L246">        synchronized (cargoes) {</span>
+<span class="pc bnc" id="L247" title="All 2 branches missed.">            return find(cargoes, c -&gt; c.getTransportable() == t);</span>
+<span class="nc" id="L248">        }</span>
+    }
+
+    /**
+     * Gets the first cargo.
+     *
+     * @return The first valid cargo, or null if none found.
+     */
+    private Cargo tFirst() {
+<span class="fc" id="L257">        synchronized (cargoes) {</span>
+<span class="fc" id="L258">            return find(cargoes, Cargo::isValid);</span>
+<span class="nc" id="L259">        }</span>
+    }
+
+    /**
+     * Adds a cargo to the cargoes list.
+     *
+     * @param cargo The &lt;code&gt;Cargo&lt;/code&gt; to add.
+     * @param index The position to add it.
+     * @return True if the addition succeeded or the cargo was already present.
+     */
+    private boolean tAdd(Cargo cargo, int index) {
+<span class="pc bpc" id="L270" title="1 of 2 branches missed.">        if (!cargo.isValid()) return false;</span>
+<span class="pc bpc" id="L271" title="1 of 2 branches missed.">        if (tFind(cargo.getTransportable()) != null) return true;</span>
+<span class="fc" id="L272">        boolean change = false;</span>
+<span class="fc" id="L273">        synchronized (cargoes) {</span>
+<span class="pc bpc" id="L274" title="3 of 4 branches missed.">            change = cargoes.isEmpty() || index == 0;</span>
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">            if (index &gt;= 0) {</span>
+<span class="fc" id="L276">                cargoes.add(index, cargo); </span>
+            } else {
+<span class="nc" id="L278">                cargoes.add(cargo);</span>
+            }
+<span class="fc" id="L280">            tSpace();</span>
+<span class="pc" id="L281">        }</span>
+<span class="pc bpc" id="L282" title="1 of 2 branches missed.">        if (change) tRetarget();</span>
+<span class="fc" id="L283">        return true;</span>
+    }
+
+    /**
+     * Remove a cargo from the cargoes list.
+     *
+     * @param cargo The &lt;code&gt;Cargo&lt;/code&gt; to remove.
+     * @return True if the remove succeeded.
+     */
+    private boolean tRemove(Cargo cargo) {
+<span class="nc" id="L293">        boolean result = false, change = false;</span>
+<span class="nc" id="L294">        final TransportableAIObject t = cargo.getTransportable();</span>
+<span class="nc" id="L295">        synchronized (cargoes) {</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">            for (int i = 0; i &lt; cargoes.size(); i++) {</span>
+<span class="nc bnc" id="L297" title="All 2 branches missed.">                if (cargoes.get(i).getTransportable() == t) {</span>
+<span class="nc" id="L298">                    cargoes.remove(i);</span>
+<span class="nc" id="L299">                    tSpace();</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">                    change = i == 0;</span>
+<span class="nc" id="L301">                    result = true;</span>
+<span class="nc" id="L302">                    break;</span>
+                }
+            }
+<span class="nc" id="L305">        }</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">        if (change) tRetarget();</span>
+<span class="nc" id="L307">        return result;</span>
+    }
+
+    /**
+     * Sets the spaceLeft fields in the cargoes.
+     * To be called with synchronized (cargoes).
+     */
+    private void tSpace() {
+<span class="fc" id="L315">        final Unit carrier = getUnit();</span>
+<span class="fc" id="L316">        final int maxHolds = carrier.getCargoCapacity();</span>
+<span class="fc" id="L317">        int holds = carrier.getCargoSpaceTaken();</span>
+<span class="fc bfc" id="L318" title="All 2 branches covered.">        for (Cargo cargo : cargoes) {</span>
+<span class="pc bpc" id="L319" title="1 of 2 branches missed.">            if (!cargo.isValid()) continue;</span>
+<span class="fc" id="L320">            holds += cargo.getNewSpace();</span>
+<span class="fc" id="L321">            cargo.setSpaceLeft(maxHolds - holds);</span>
+<span class="fc" id="L322">        }</span>
+<span class="fc" id="L323">    }</span>
+
+    /**
+     * Reset the carrier target after a change to the first cargo.
+     */
+    private void tRetarget() {
+        Cargo c;
+<span class="fc" id="L330">        synchronized (cargoes) {</span>
+<span class="fc" id="L331">            c = find(cargoes, Cargo::isValid);</span>
+<span class="pc" id="L332">        }</span>
+<span class="fc bfc" id="L333" title="All 2 branches covered.">        setTarget(Location.upLoc((c == null) ? getAIUnit().getTrivialTarget()</span>
+<span class="fc" id="L334">                : c.getCarrierTarget()));</span>
+<span class="fc" id="L335">    }</span>
+
+    // Medium-level cargo and target manipulation, should be kept
+    // private to TransportMission.
+
+    /**
+     * Count distinct non-adjacent destinations in a list of cargoes.
+     *
+     * @return The number of distinct destinations.
+     */
+    private int destinationCount() {
+<span class="nc" id="L346">        Location now = null;</span>
+<span class="nc" id="L347">        int ret = 0;</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">        for (Cargo cargo : tCopy()) {</span>
+<span class="nc bnc" id="L349" title="All 2 branches missed.">            if (!Map.isSameLocation(now, cargo.getCarrierTarget())) {</span>
+<span class="nc" id="L350">                ret++;</span>
+<span class="nc" id="L351">                now = cargo.getCarrierTarget();</span>
+            }
+<span class="nc" id="L353">        }</span>
+<span class="nc" id="L354">        return ret;</span>
+    }                
+
+    /**
+     * How many more destinations are desirable on the current cargoes list?
+     * Must be public!  This is checked in European AI player.
+     *
+     * @return The number of desired extra destinations.
+     */
+    public int destinationCapacity() {
+<span class="nc" id="L364">        return DESTINATION_UPPER_BOUND - destinationCount();</span>
+    }
+
+    /**
+     * If this carrier is the current carrier of a transportable, drop it.
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to check.
+     */
+    private void dropTransportable(TransportableAIObject t) {
+<span class="nc" id="L373">        AIUnit carrier = getAIUnit();</span>
+<span class="nc bnc" id="L374" title="All 2 branches missed.">        if (t.getTransport() == carrier) t.setTransport(null);</span>
+<span class="nc" id="L375">    }</span>
+
+    /**
+     * If this carrier is the not the current carrier of a
+     * transportable, make it so.
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to check.
+     */
+    private void takeTransportable(TransportableAIObject t) {
+<span class="fc" id="L384">        AIUnit carrier = getAIUnit();</span>
+<span class="pc bpc" id="L385" title="1 of 2 branches missed.">        if (t.getTransport() != carrier) t.setTransport(carrier);</span>
+<span class="fc" id="L386">    }</span>
+
+    /**
+     * Get the collection location for an uncollected transportable.
+     *
+     * Public so that mobile transportables (units) can move to the
+     * collection point.
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to collect.
+     * @return The collection &lt;code&gt;Location&lt;code&gt;, or null if not found.
+     */
+    public Location getTransportTarget(TransportableAIObject t) {
+<span class="nc bnc" id="L398" title="All 2 branches missed.">        if (isCarrying(t)) return null;</span>
+<span class="nc" id="L399">        Cargo cargo = tFind(t);</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">        return (cargo == null) ? null : cargo.getTransportTarget();</span>
+    }
+
+    /**
+     * Get the expected turns for an uncollected transport
+     *
+     * Public so that mobile transportables (units) can renege on
+     * transport if they find themselves better able to get there
+     * themselves.
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to collect.
+     * @return The expected transport turns.
+     */
+    public int getTransportTurns(TransportableAIObject t) {
+<span class="nc bnc" id="L414" title="All 2 branches missed.">        if (isCarrying(t)) return INFINITY;</span>
+<span class="nc" id="L415">        Cargo cargo = tFind(t);</span>
+<span class="nc bnc" id="L416" title="All 2 branches missed.">        return (cargo == null) ? INFINITY : cargo.getTurns();</span>
+    }
+
+    /**
+     * Wrap up the compatible cargoes in a list.
+     * O(N^2) alas.
+     *
+     * @return A wrapped list of cargoes.
+     */
+    private List&lt;Cargo&gt; wrapCargoes() {
+<span class="nc" id="L426">        List&lt;Cargo&gt; ts = tCopy();</span>
+<span class="nc bnc" id="L427" title="All 2 branches missed.">        for (int i = 0; i &lt; ts.size()-1; i++) {</span>
+<span class="nc" id="L428">            Cargo head = ts.get(i);</span>
+<span class="nc bnc" id="L429" title="All 4 branches missed.">            while (i+1 &lt; ts.size() &amp;&amp; head.couldWrap(ts.get(i+1))) {</span>
+<span class="nc" id="L430">                head.wrap(ts.remove(i+1));</span>
+            }
+        }
+<span class="nc" id="L433">        return ts;</span>
+    }
+
+    /**
+     * Unwrap a wrapped list of cargoes.
+     *
+     * @param ts The list of &lt;code&gt;Cargo&lt;/code&gt;s to unwrap.
+     * @return The unwrapped list of cargoes.
+     */
+    private List&lt;Cargo&gt; unwrapCargoes(List&lt;Cargo&gt; ts) {
+<span class="nc bnc" id="L443" title="All 2 branches missed.">        for (int i = 0; i &lt; ts.size(); i++) {</span>
+<span class="nc" id="L444">            Cargo t = ts.get(i);</span>
+<span class="nc bnc" id="L445" title="All 2 branches missed.">            if (t.hasWrapped()) {</span>
+<span class="nc" id="L446">                List&lt;Cargo&gt; tl = t.unwrap();</span>
+<span class="nc" id="L447">                ts.addAll(i+1, tl);</span>
+<span class="nc" id="L448">                i += tl.size();</span>
+            }
+        }
+<span class="nc" id="L451">        return ts;</span>
+    }
+
+    /**
+     * Clears all the cargoes.
+     *
+     * @return A message about the cargoes being cleared.
+     */
+    private String clearCargoes() {
+<span class="fc" id="L460">        String log = &quot;cargoes cleared: &quot;;</span>
+<span class="pc bpc" id="L461" title="1 of 2 branches missed.">        for (Cargo cargo : tClear()) {</span>
+<span class="nc" id="L462">            dropTransportable(cargo.getTransportable());</span>
+<span class="nc" id="L463">            log += &quot; &quot; + cargo;</span>
+<span class="nc" id="L464">        }</span>
+<span class="fc" id="L465">        tRetarget();</span>
+<span class="fc" id="L466">        return log;</span>
+    }
+
+    /**
+     * Is there nothing currently queued for this carrier?
+     *
+     * @return True if there is no work allocated to this carrier.
+     */
+    public boolean isEmpty() {
+<span class="nc bnc" id="L475" title="All 2 branches missed.">        return tSize() == 0;</span>
+    }
+
+    /**
+     * For a given transportable, work out where the carrier has to go to
+     * advance the cargo (target), and what to do there (mode), allowing
+     * a new &lt;code&gt;Cargo&lt;/code&gt; to be defined.
+     *
+     * AIUnit cargo is harder than AIGoods, because AIUnits might have their
+     * own inland paths, and thus we need to consider drop nodes.
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to consider.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @return A new &lt;code&gt;Cargo&lt;/code&gt; defining the action to take
+     *     with the &lt;code&gt;TransportableAIObject&lt;/code&gt;, or null if impossible.
+     */
+    public Cargo makeCargo(TransportableAIObject t, LogBuilder lb) {
+<span class="fc" id="L492">        final Unit carrier = getUnit();</span>
+        String reason;
+<span class="fc" id="L494">        Cargo cargo = null;</span>
+<span class="pc bpc" id="L495" title="1 of 2 branches missed.">        if (t.getTransportDestination() == null) {</span>
+<span class="nc bnc" id="L496" title="All 2 branches missed.">            if (!isCarrying(t)) {</span>
+<span class="nc" id="L497">                reason = &quot;null transport destination&quot;;</span>
+            } else {
+                // Can happen with carriers with units transferred in
+                // Spanish succession.
+<span class="nc" id="L501">                PathNode path = carrier.getTrivialPath();</span>
+<span class="nc bnc" id="L502" title="All 2 branches missed.">                if (path == null) {</span>
+<span class="nc" id="L503">                    reason = &quot;null transport destination&quot;;</span>
+                } else {
+                    try {
+<span class="nc" id="L506">                        reason = null;</span>
+<span class="nc" id="L507">                        cargo = Cargo.newCargo(t, carrier,</span>
+<span class="nc" id="L508">                            path.getLastNode().getLocation(), true);</span>
+<span class="nc" id="L509">                    } catch (FreeColException fce) {</span>
+<span class="nc" id="L510">                        reason = fce.getMessage();</span>
+<span class="nc" id="L511">                        cargo = null;</span>
+<span class="nc" id="L512">                    }</span>
+                }
+<span class="nc" id="L514">            }</span>
+<span class="pc bpc" id="L515" title="1 of 4 branches missed.">        } else if (!isCarrying(t) &amp;&amp; !t.carriableBy(carrier)) {</span>
+<span class="nc" id="L516">            reason = &quot;carrier &quot; + carrier.toShortString() + &quot; can not carry&quot;;</span>
+        } else {
+            try {
+<span class="fc" id="L519">                reason = null;</span>
+<span class="fc" id="L520">                cargo = Cargo.newCargo(t, carrier);</span>
+<span class="fc" id="L521">            } catch (FreeColException fce) {</span>
+<span class="fc" id="L522">                reason = fce.getMessage();</span>
+<span class="fc" id="L523">                cargo = null;</span>
+<span class="fc" id="L524">            }</span>
+        }
+<span class="fc bfc" id="L526" title="All 2 branches covered.">        if (reason == null) {</span>
+<span class="fc" id="L527">            lb.add(&quot;, made &quot;, cargo.toShortString());</span>
+<span class="fc" id="L528">            return cargo;</span>
+        } else {
+<span class="fc" id="L530">            lb.add(&quot;, failed to make cargo for &quot;, t, &quot; (&quot;, reason, &quot;)&quot;);</span>
+<span class="fc" id="L531">            return null;</span>
+        }
+    }
+
+    /**
+     * Add the given Cargo to the cargoes list.
+     *
+     * @param cargo The &lt;code&gt;Cargo&lt;/code&gt; to add.
+     * @param index The index of where to add the cargo.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @return True if the cargo was added.
+     */
+    private boolean addCargo(Cargo cargo, int index, LogBuilder lb) {
+<span class="fc" id="L544">        boolean result = tAdd(cargo, index);</span>
+<span class="pc bpc" id="L545" title="1 of 2 branches missed.">        if (result) takeTransportable(cargo.getTransportable());</span>
+
+<span class="pc bpc" id="L547" title="1 of 2 branches missed.">        if (result) {</span>
+<span class="pc bpc" id="L548" title="1 of 2 branches missed.">            lb.add(&quot;, added &quot;, cargo.toShortString(),</span>
+<span class="fc" id="L549">                   &quot; at &quot;, ((index &lt; 0) ? &quot;end&quot; : Integer.toString(index)));</span>
+        } else {
+<span class="nc" id="L551">            lb.add(&quot;, failed to add &quot;, cargo.toShortString());</span>
+        }
+<span class="fc" id="L553">        return result;</span>
+    }
+
+    /**
+     * Removes the given Cargo from the cargoes list.
+     *
+     * @param cargo The &lt;code&gt;Cargo&lt;/code&gt; to remove.
+     */
+    private void removeCargo(Cargo cargo) {
+<span class="nc bnc" id="L562" title="All 2 branches missed.">        if (!tRemove(cargo)) {</span>
+<span class="nc" id="L563">            throw new RuntimeException(&quot;removeCargo &quot; + cargo.toShortString());</span>
+        }
+<span class="nc" id="L565">        dropTransportable(cargo.getTransportable());</span>
+<span class="nc" id="L566">    }</span>
+
+    /**
+     * Is there space available for a new cargo?
+     *
+     * @param cargo The &lt;code&gt;Cargo&lt;/code&gt; to check.
+     * @return True if there is space available for this cargo.
+     */
+    public boolean spaceAvailable(Cargo cargo) {
+<span class="nc" id="L575">        return spaceAvailable(cargo.getTransportable());</span>
+    }
+
+    /**
+     * Is there space available for a new cargo?
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to check.
+     * @return True if there is space available for this transportable.
+     */
+    public boolean spaceAvailable(TransportableAIObject t) {
+<span class="nc" id="L585">        final List&lt;Cargo&gt; ts = tCopy();</span>
+<span class="nc" id="L586">        final int newSpace = t.getSpaceTaken();</span>
+
+<span class="nc bnc" id="L588" title="All 2 branches missed.">        for (int i = ts.size()-1; i &gt;= 0; i--) {</span>
+<span class="nc bnc" id="L589" title="All 2 branches missed.">            if (ts.get(i).getSpaceLeft() &lt; newSpace) return false;</span>
+        }
+<span class="nc" id="L591">        return true;</span>
+    }
+
+   
+    /**
+     * Incrementally queue a cargo to the cargoes list.
+     *
+     * If the carrier is at the collection point favour immediate
+     * collection.  Otherwise try to place it with other cargoes with
+     * the same target, but do not break the space restrictions.  If
+     * this does not work, it has to go at the end.
+     *
+     * @param cargo The new &lt;code&gt;Cargo&lt;/code&gt; to add.
+     * @param requireMatch Fail if an existing destination is not matched.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @return True if the cargo was queued.
+     */
+    private boolean queueCargo(Cargo cargo, boolean requireMatch,
+                               LogBuilder lb) {
+<span class="fc" id="L610">        final Unit carrier = getUnit();</span>
+<span class="fc" id="L611">        final int maxHolds = carrier.getCargoCapacity();</span>
+<span class="fc" id="L612">        final List&lt;Cargo&gt; ts = tCopy();</span>
+<span class="fc" id="L613">        final int newSpace = cargo.getNewSpace();</span>
+<span class="fc" id="L614">        int candidate = -1;</span>
+
+<span class="pc bpc" id="L616" title="1 of 2 branches missed.">        if (ts.isEmpty() // Trivial case</span>
+<span class="nc bnc" id="L617" title="All 2 branches missed.">            || (Map.isSameLocation(carrier.getLocation(), // Carrier here?</span>
+<span class="nc" id="L618">                                   cargo.getCarrierTarget())</span>
+<span class="nc bnc" id="L619" title="All 2 branches missed.">                &amp;&amp; cargo.canQueueAt(carrier, 0, ts))) {</span>
+<span class="fc" id="L620">            candidate = 0;</span>
+        }
+
+<span class="pc bpc" id="L623" title="1 of 2 branches missed.">        if (candidate &lt; 0) { // Match an existing target?</span>
+<span class="nc bnc" id="L624" title="All 2 branches missed.">            outer: for (int i = 0; i &lt; ts.size(); i++) {</span>
+<span class="nc" id="L625">                Cargo tr = ts.get(i);</span>
+<span class="nc bnc" id="L626" title="All 2 branches missed.">                if (Map.isSameLocation(tr.getCarrierTarget(),</span>
+<span class="nc" id="L627">                                       cargo.getCarrierTarget())) {</span>
+<span class="nc bnc" id="L628" title="All 2 branches missed.">                    if (!cargo.canQueueAt(carrier, i, ts)) continue outer;</span>
+<span class="nc" id="L629">                    candidate = i;</span>
+<span class="nc" id="L630">                    break;</span>
+                }
+            }
+        }
+        
+<span class="pc bpc" id="L635" title="1 of 2 branches missed.">        if (candidate &lt; 0) { // Queue at end unless match required</span>
+<span class="nc bnc" id="L636" title="All 2 branches missed.">            if (requireMatch) return false;</span>
+<span class="nc" id="L637">            candidate = ts.size();</span>
+        }
+<span class="fc" id="L639">        return addCargo(cargo, candidate, lb);</span>
+    }
+
+    /**
+     * Dump a currently carried cargo.
+     *
+     * @param cargo The &lt;code&gt;Cargo&lt;/code&gt; to dump.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @return True if the cargo is no longer on board and not on the
+     *     transport list, or is on board but is scheduled to be dumped.
+     */
+    public boolean dumpCargo(Cargo cargo, LogBuilder lb) {
+<span class="nc" id="L651">        TransportableAIObject t = cargo.getTransportable();</span>
+<span class="nc bnc" id="L652" title="All 2 branches missed.">        if (isCarrying(t)) t.leaveTransport();</span>
+<span class="nc bnc" id="L653" title="All 4 branches missed.">        if (!isCarrying(t) &amp;&amp; tFind(t) != null) removeCargo(cargo);</span>
+<span class="nc bnc" id="L654" title="All 2 branches missed.">        if (tFind(t) != null) {</span>
+<span class="nc" id="L655">            String reason = cargo.dump();</span>
+<span class="nc bnc" id="L656" title="All 2 branches missed.">            if (reason != null) {</span>
+<span class="nc" id="L657">                lb.add(&quot;, dump failed(&quot;, reason, &quot;)&quot;);</span>
+<span class="nc" id="L658">                return false;</span>
+            } else {
+<span class="nc" id="L660">                lb.add(&quot;, dumping&quot;);</span>
+            }
+        }
+<span class="nc" id="L663">        return true;</span>
+    }
+
+    /**
+     * Requeue an existing cargo.  Typically done when the target changes.
+     *
+     * @param cargo The &lt;code&gt;Cargo&lt;/code&gt; to requeue.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @return True if the queuing succeeded.
+     */
+    public boolean requeueCargo(Cargo cargo, LogBuilder lb) {
+<span class="nc" id="L674">        final TransportableAIObject t = cargo.getTransportable();</span>
+<span class="nc" id="L675">        boolean ret = false;</span>
+<span class="nc bnc" id="L676" title="All 4 branches missed.">        assert tFind(t) == cargo;</span>
+<span class="nc" id="L677">        String reason = cargo.update();</span>
+<span class="nc bnc" id="L678" title="All 2 branches missed.">        if (reason != null) {</span>
+<span class="nc" id="L679">            lb.add(&quot; requeue/update fail(&quot;, reason, &quot;) &quot;,</span>
+<span class="nc" id="L680">                   cargo.toShortString());</span>
+<span class="nc" id="L681">            dumpCargo(cargo, lb);</span>
+<span class="nc bnc" id="L682" title="All 2 branches missed.">        } else if (!tRemove(cargo)) {</span>
+<span class="nc" id="L683">            lb.add(&quot; requeue/remove fail &quot;, cargo.toShortString());</span>
+<span class="nc bnc" id="L684" title="All 2 branches missed.">        } else if (!queueCargo(cargo, false, lb)) {</span>
+<span class="nc" id="L685">            lb.add(&quot; requeue/queue fail &quot;, cargo.toShortString());</span>
+<span class="nc" id="L686">            dropTransportable(t);</span>
+        } else {
+<span class="nc" id="L688">            lb.add(&quot; requeued(&quot;, cargo.getTransportTarget(), &quot;) &quot;,</span>
+<span class="nc" id="L689">                   cargo.toShortString());</span>
+<span class="nc" id="L690">            takeTransportable(t);</span>
+<span class="nc" id="L691">            ret = true;</span>
+        }
+<span class="nc" id="L693">        return ret;</span>
+    }
+
+    /**
+     * Checks for invalid cargoes, and units and goods on board but
+     * not in the cargoes list.  On exit from this routine, every
+     * cargo on board should be on the cargoes list but the list is
+     * not necessarily going to be in a sensible order.
+     *
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     */
+    private void checkCargoes(LogBuilder lb) {
+<span class="fc" id="L705">        final Unit carrier = getUnit();</span>
+<span class="pc bpc" id="L706" title="1 of 2 branches missed.">        if (carrier.isAtSea()) return; // Let it emerge.</span>
+<span class="fc" id="L707">        final AIUnit aiCarrier = getAIUnit();</span>
+
+<span class="fc" id="L709">        List&lt;Unit&gt; unitsPresent = carrier.getUnitList();</span>
+<span class="fc" id="L710">        List&lt;Goods&gt; goodsPresent = carrier.getCompactGoods();</span>
+<span class="fc" id="L711">        List&lt;TransportableAIObject&gt; todo = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L712">        List&lt;TransportableAIObject&gt; drop = new ArrayList&lt;&gt;();</span>
+
+        String reason;
+        PathNode path;
+        boolean dump;
+<span class="fc" id="L717">        lb.add(&quot; [check&quot;);</span>
+<span class="fc bfc" id="L718" title="All 2 branches covered.">        for (Cargo cargo : tCopy()) {</span>
+<span class="fc" id="L719">            dump = false;</span>
+<span class="fc" id="L720">            TransportableAIObject t = cargo.getTransportable();</span>
+<span class="fc" id="L721">            reason = invalidReason(aiCarrier, cargo.getCarrierTarget());</span>
+<span class="pc bpc" id="L722" title="2 of 4 branches missed.">            if (reason != null || (reason = cargo.check(aiCarrier)) != null) {</span>
+                // Just remove, it is invalid
+<span class="nc" id="L724">                removeCargo(cargo);</span>
+<span class="nc" id="L725">                lb.add(&quot;, INVALID(&quot;, reason, &quot;) &quot;, cargo.toShortString());</span>
+<span class="pc bpc" id="L726" title="1 of 2 branches missed.">            } else if (cargo.isDelivered()) {</span>
+<span class="nc" id="L727">                removeCargo(cargo);</span>
+<span class="nc" id="L728">                lb.add(&quot;, COMPLETED &quot;, cargo.toShortString());</span>
+<span class="pc bpc" id="L729" title="3 of 4 branches missed.">            } else if (!cargo.hasPath() &amp;&amp; !cargo.retry()) {</span>
+<span class="nc" id="L730">                reason = &quot; no-path&quot;;</span>
+<span class="nc" id="L731">                dump = true;</span>
+<span class="pc bpc" id="L732" title="2 of 4 branches missed.">            } else if (carrier.hasTile() &amp;&amp; (reason = cargo.update()) != null) {</span>
+<span class="nc bnc" id="L733" title="All 2 branches missed.">                if (reason.startsWith(&quot;invalid&quot;)) {</span>
+<span class="nc" id="L734">                    removeCargo(cargo);</span>
+<span class="nc" id="L735">                    lb.add(&quot;, FAIL(&quot;, reason, &quot;) &quot;, cargo.toShortString());</span>
+<span class="nc bnc" id="L736" title="All 2 branches missed.">                } else if (cargo.retry()) {</span>
+<span class="nc" id="L737">                    lb.add(&quot;, retry-&quot;, cargo.getTries(), &quot;(&quot;, reason, &quot;)&quot;);</span>
+                } else {
+<span class="nc" id="L739">                    dump = true;</span>
+                }
+<span class="pc bpc" id="L741" title="1 of 2 branches missed.">            } else if (cargo.isCollectable()) {</span>
+<span class="nc" id="L742">                lb.add(&quot;, collect &quot;, cargo.toShortString());</span>
+<span class="pc bpc" id="L743" title="1 of 2 branches missed.">            } else if (cargo.isDeliverable()) {</span>
+<span class="nc" id="L744">                lb.add(&quot;, deliver &quot;, cargo.toShortString());</span>
+            } else {
+<span class="fc" id="L746">                lb.add(&quot;, ok &quot;, cargo.toShortString()); // Good</span>
+<span class="fc" id="L747">                cargo.resetTries();</span>
+            }
+<span class="pc bpc" id="L749" title="1 of 2 branches missed.">            if (dump) {</span>
+<span class="nc bnc" id="L750" title="All 2 branches missed.">                if (cargo.isCarried()) {</span>
+<span class="nc" id="L751">                    dumpCargo(cargo, lb); // FIXME: can fail</span>
+                } else {
+<span class="nc" id="L753">                    removeCargo(cargo);</span>
+<span class="nc" id="L754">                    lb.add(&quot;, dropped(&quot;, reason, &quot;) &quot;, cargo.toShortString());</span>
+                }
+            }
+<span class="pc bpc" id="L757" title="1 of 2 branches missed.">            if (t instanceof AIUnit) {</span>
+<span class="nc" id="L758">                unitsPresent.remove(((AIUnit)t).getUnit());</span>
+<span class="pc bpc" id="L759" title="1 of 2 branches missed.">            } else if (t instanceof AIGoods) {</span>
+<span class="fc" id="L760">                Goods goods = ((AIGoods)t).getGoods();</span>
+<span class="pc bpc" id="L761" title="1 of 2 branches missed.">                if (goods != null) {</span>
+<span class="fc" id="L762">                    Iterator&lt;Goods&gt; gi = goodsPresent.iterator();</span>
+<span class="pc bpc" id="L763" title="1 of 2 branches missed.">                    while (gi.hasNext()) {</span>
+<span class="nc" id="L764">                        Goods g = gi.next();</span>
+<span class="nc bnc" id="L765" title="All 2 branches missed.">                        if (g.getType() == goods.getType()) {</span>
+<span class="nc" id="L766">                            gi.remove();</span>
+<span class="nc" id="L767">                            break;</span>
+                        }
+<span class="nc" id="L769">                    }</span>
+                }
+            }
+<span class="fc" id="L772">        }</span>
+
+        // Find anything that was not on the cargoes list
+<span class="pc bpc" id="L775" title="1 of 2 branches missed.">        if (!unitsPresent.isEmpty()) {</span>
+<span class="nc" id="L776">            lb.add(&quot;, found unexpected units&quot;);</span>
+<span class="nc bnc" id="L777" title="All 2 branches missed.">            for (Unit u : unitsPresent) {</span>
+<span class="nc" id="L778">                AIUnit aiu = getAIMain().getAIUnit(u);</span>
+<span class="nc bnc" id="L779" title="All 2 branches missed.">                if (aiu == null) throw new IllegalStateException(&quot;Bogus:&quot; + u);</span>
+<span class="nc" id="L780">                todo.add(aiu);</span>
+<span class="nc" id="L781">            }</span>
+        }
+<span class="pc bpc" id="L783" title="1 of 2 branches missed.">        if (!goodsPresent.isEmpty()) {</span>
+<span class="nc" id="L784">            lb.add(&quot;, found unexpected goods&quot;);</span>
+<span class="nc bnc" id="L785" title="All 2 branches missed.">            for (Goods g : goodsPresent) {</span>
+<span class="nc" id="L786">                AIGoods aig = new AIGoods(getAIMain(), carrier, g.getType(),</span>
+<span class="nc" id="L787">                                          g.getAmount(), null);</span>
+<span class="nc" id="L788">                todo.add(aig);</span>
+<span class="nc" id="L789">            }</span>
+        }
+
+        // Try to queue the surprise transportables.
+<span class="pc bpc" id="L793" title="1 of 2 branches missed.">        while (!todo.isEmpty()) {</span>
+<span class="nc" id="L794">            TransportableAIObject t = todo.remove(0);</span>
+<span class="nc bnc" id="L795" title="All 2 branches missed.">            if (!queueTransportable(t, false, lb)) drop.add(t);</span>
+<span class="nc" id="L796">        }</span>
+
+        // Drop transportables on the drop list, or queue them to be
+        // dropped at the next port.
+<span class="pc bpc" id="L800" title="1 of 2 branches missed.">        if (!drop.isEmpty()) {</span>
+<span class="nc" id="L801">            path = carrier.getTrivialPath();</span>
+<span class="nc bnc" id="L802" title="All 2 branches missed.">            Location end = (path == null) ? null</span>
+<span class="nc" id="L803">                : path.getLastNode().getLocation();</span>
+            
+<span class="nc bnc" id="L805" title="All 2 branches missed.">            while (!drop.isEmpty()) {</span>
+<span class="nc" id="L806">                TransportableAIObject t = drop.remove(0);</span>
+<span class="nc bnc" id="L807" title="All 2 branches missed.">                if (t.leaveTransport()) {</span>
+<span class="nc" id="L808">                    lb.add(&quot; &quot;, t, &quot; left&quot;);</span>
+<span class="nc bnc" id="L809" title="All 2 branches missed.">                } else if (end != null) {</span>
+                    try {
+<span class="nc" id="L811">                        Cargo cargo = Cargo.newCargo(t, carrier, end, false);</span>
+<span class="nc" id="L812">                        boolean result = queueCargo(cargo, false, lb);</span>
+<span class="nc" id="L813">                        lb.add(&quot; to drop at &quot;, Location.upLoc(end),</span>
+<span class="nc" id="L814">                            &quot;=&quot;, result);</span>
+<span class="nc" id="L815">                    } catch (FreeColException fce) {</span>
+<span class="nc" id="L816">                        lb.add(&quot; &quot;, t, &quot; drop-fail(&quot;, fce.getMessage(), &quot;)&quot;);</span>
+<span class="nc" id="L817">                    }</span>
+                } else {
+<span class="nc" id="L819">                    lb.add(&quot; &quot;, t, &quot; stuck&quot;);</span>
+                }
+<span class="nc" id="L821">            }</span>
+        }
+
+<span class="fc" id="L824">        lb.add(&quot;]&quot;);</span>
+<span class="fc" id="L825">    }</span>
+
+    /**
+     * Check a &lt;code&gt;Cargo&lt;/code&gt; for continued validity and
+     * whether action is needed at the current location.
+     *
+     * @param cargo The &lt;code&gt;Cargo&lt;/code&gt; to check.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @return TCONTINUE if the &lt;code&gt;Cargo&lt;/code&gt; should continue,
+     *     TDONE if it has completed,
+     *     TFAIL if it has failed,
+     *     TNEXT if it has progressed to the next stage,
+     *     TRETRY if a blockage has occurred and it should be retried,
+     */
+    private CargoResult tryCargo(Cargo cargo, LogBuilder lb) {
+<span class="nc" id="L840">        final Unit carrier = getUnit();</span>
+<span class="nc" id="L841">        final Location here = carrier.getLocation();</span>
+<span class="nc" id="L842">        final TransportableAIObject t = cargo.getTransportable();</span>
+<span class="nc" id="L843">        final Locatable l = t.getTransportLocatable();</span>
+<span class="nc bnc" id="L844" title="All 2 branches missed.">        if (l == null) {</span>
+<span class="nc" id="L845">            logger.warning(&quot;Null-locatable: &quot; + cargo);</span>
+<span class="nc" id="L846">            return CargoResult.TDONE;</span>
+        }
+<span class="nc bnc" id="L848" title="All 2 branches missed.">        if (!Map.isSameLocation(here, cargo.getCarrierTarget())) {</span>
+<span class="nc" id="L849">            lb.add(&quot;, &quot;, t, &quot; unready&quot;);</span>
+<span class="nc" id="L850">            return CargoResult.TCONTINUE;</span>
+        }
+<span class="nc" id="L852">        Direction d = null;</span>
+<span class="nc" id="L853">        Location tloc = here;</span>
+
+<span class="pc bnc" id="L855" title="All 6 branches missed.">        switch (cargo.getMode()) {</span>
+        case PICKUP:
+<span class="nc bnc" id="L857" title="All 2 branches missed.">            if (!t.canMove()) {</span>
+<span class="nc" id="L858">                lb.add(&quot;, &quot;, t, &quot; out of moves&quot;);</span>
+<span class="nc" id="L859">                return CargoResult.TCONTINUE;</span>
+            }
+<span class="nc bnc" id="L861" title="All 2 branches missed.">            if ((d = cargo.getJoinDirection()) == null) {</span>
+<span class="nc" id="L862">                logger.warning(&quot;Null pickup direction&quot;</span>
+<span class="nc" id="L863">                    + &quot; for &quot; + cargo.toShortString()</span>
+<span class="nc" id="L864">                    + &quot; at &quot; + t.getLocation().toString()</span>
+                    + &quot; to &quot; + carrier);
+<span class="nc" id="L866">                return CargoResult.TFAIL;</span>
+            }                    
+<span class="nc" id="L868">            tloc = tloc.getTile().getNeighbourOrNull(d.getReverseDirection());</span>
+            // Fall through
+        case LOAD:
+<span class="nc bnc" id="L871" title="All 2 branches missed.">            if (!Map.isSameLocation(tloc, t.getLocation())) {</span>
+<span class="nc" id="L872">                lb.add(&quot;, &quot;, t, &quot; at &quot;, t.getLocation(), &quot; not &quot;, tloc,</span>
+<span class="nc" id="L873">                    &quot; # &quot;, cargo.toShortString());</span>
+<span class="nc" id="L874">                return CargoResult.TCONTINUE;</span>
+            }
+<span class="pc bnc" id="L876" title="All 4 branches missed.">            switch (carrier.getNoAddReason(l)) {</span>
+            case NONE:
+<span class="nc bnc" id="L878" title="All 2 branches missed.">                if (!t.joinTransport(carrier, d)) {</span>
+<span class="nc" id="L879">                    lb.add(&quot;, &quot;, t, &quot; NO-JOIN&quot;);</span>
+<span class="nc" id="L880">                    return CargoResult.TFAIL;</span>
+                }
+                break;
+            case ALREADY_PRESENT:
+<span class="nc" id="L884">                break;</span>
+            case CAPACITY_EXCEEDED:
+<span class="nc" id="L886">                lb.add(&quot;, &quot;, t, &quot; NO-ROOM on &quot;, carrier);</span>
+<span class="nc" id="L887">                return CargoResult.TFAIL;</span>
+            default:
+<span class="nc" id="L889">                lb.add(&quot;, &quot;, t, &quot; retry-&quot;, carrier.getNoAddReason(l));</span>
+<span class="nc" id="L890">                return CargoResult.TRETRY;</span>
+            }
+            
+<span class="nc" id="L893">            String reason = cargo.update();</span>
+<span class="nc bnc" id="L894" title="All 2 branches missed.">            if (reason != null) {</span>
+<span class="nc" id="L895">                lb.add(&quot;, &quot;, t, &quot; NO-UPDATE(&quot;, reason, &quot;)&quot;);</span>
+<span class="nc" id="L896">                return CargoResult.TFAIL;</span>
+            }
+<span class="nc" id="L898">            lb.add(&quot;, &quot;, t, &quot; collected&quot;);</span>
+<span class="nc" id="L899">            return CargoResult.TNEXT;</span>
+
+        case DROPOFF:
+<span class="nc bnc" id="L902" title="All 2 branches missed.">            if (!t.canMove()) {</span>
+<span class="nc" id="L903">                lb.add(&quot;, &quot;, t, &quot; about to leave&quot;);</span>
+<span class="nc" id="L904">                return CargoResult.TCONTINUE;</span>
+            }
+<span class="nc bnc" id="L906" title="All 2 branches missed.">            if ((d = cargo.getLeaveDirection()) == null) {</span>
+<span class="nc" id="L907">                Unit.MoveType mt = ((AIUnit)t).getUnit()</span>
+<span class="nc" id="L908">                    .getSimpleMoveType(t.getLocation().getTile(),</span>
+<span class="nc" id="L909">                                       cargo.getTransportTarget().getTile());</span>
+<span class="pc bnc" id="L910" title="All 2 branches missed.">                switch (mt) {</span>
+                case ATTACK_UNIT: case MOVE_NO_ATTACK_CIVILIAN:
+<span class="nc" id="L912">                    return CargoResult.TRETRY;</span>
+                default:
+<span class="nc" id="L914">                    PathNode path = t.getDeliveryPath(carrier,</span>
+<span class="nc" id="L915">                        cargo.getTransportTarget());</span>
+<span class="nc" id="L916">                    logger.warning(&quot;Null direction&quot;</span>
+<span class="nc" id="L917">                        + &quot; for &quot; + cargo.toShortString()</span>
+<span class="nc" id="L918">                        + &quot; at &quot; + t.getLocation().toShortString()</span>
+<span class="nc" id="L919">                        + &quot;/&quot; + carrier.getLocation().toShortString()</span>
+<span class="nc bnc" id="L920" title="All 2 branches missed.">                        + &quot; to &quot; + cargo.getTransportTarget()</span>
+                        + &quot; mov=&quot; + mt
+                        + &quot; path=&quot; + ((path == null) ? &quot;null&quot;
+<span class="nc" id="L923">                            : path.fullPathToString()));</span>
+<span class="nc" id="L924">                    return CargoResult.TFAIL;</span>
+                }
+            }
+            // Fall through
+        case UNLOAD:
+<span class="nc bnc" id="L929" title="All 4 branches missed.">            if (isCarrying(t) &amp;&amp; !t.leaveTransport(d)) {</span>
+                //lb.add(&quot;, &quot;, t, &quot; NO-LEAVE&quot;);
+<span class="nc" id="L931">                PathNode pn = t.getDeliveryPath(carrier, t.getTransportDestination());</span>
+<span class="nc bnc" id="L932" title="All 2 branches missed.">                lb.add(&quot;, &quot;, t, &quot; NO-LEAVE(&quot;, here, &quot;~&quot;, cargo.getLeaveDirection(), &quot;~&quot;, t.getTransportDestination(), &quot; &quot;, ((pn == null) ? &quot;no-path&quot; : pn.fullPathToString()));</span>
+<span class="nc" id="L933">                return CargoResult.TRETRY;</span>
+            }
+<span class="nc" id="L935">            lb.add(&quot;, &quot;, t, &quot; COMPLETED&quot;);</span>
+<span class="nc" id="L936">            break;</span>
+
+        case DUMP:
+<span class="nc bnc" id="L939" title="All 2 branches missed.">            if (!t.leaveTransport()) {</span>
+<span class="nc" id="L940">                lb.add(&quot;, &quot;, t, &quot; STUCK&quot;);</span>
+<span class="nc" id="L941">                return CargoResult.TCONTINUE;</span>
+            }
+<span class="nc" id="L943">            lb.add(&quot;, &quot;, t, &quot; DUMPED at &quot;, t.getLocation());</span>
+            break;
+        }
+
+        // Check for goods completing a wish
+        Colony colony;
+        AIColony aiColony;
+<span class="nc bnc" id="L950" title="All 2 branches missed.">        if ((colony = (t.getLocation() == null) ? null</span>
+<span class="nc bnc" id="L951" title="All 2 branches missed.">                : t.getLocation().getColony()) != null</span>
+<span class="nc bnc" id="L952" title="All 2 branches missed.">            &amp;&amp; (aiColony = getAIMain().getAIColony(colony)) != null</span>
+<span class="nc bnc" id="L953" title="All 2 branches missed.">            &amp;&amp; aiColony.completeWish(t, lb)) {</span>
+<span class="nc" id="L954">            aiColony.requestRearrange();</span>
+        }
+<span class="nc" id="L956">        return CargoResult.TDONE;</span>
+    }
+
+    /**
+     * Perform the transport load/unload operations on arrival at the
+     * target for the top cargo.
+     *
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     */
+    private void doTransport(LogBuilder lb) {
+<span class="nc" id="L966">        final Unit unit = getUnit();</span>
+<span class="nc bnc" id="L967" title="All 2 branches missed.">        if (tSize() &gt; 0) {</span>
+            // Arrived at a target.  Deliver what can be delivered.
+            // Check other deliveries, we might be in port so this is
+            // a good time to decide to fail to deliver something.
+<span class="nc" id="L971">            lbAt(lb);</span>
+<span class="nc" id="L972">            lb.add(&quot;, delivering&quot;);</span>
+<span class="nc" id="L973">            List&lt;Cargo&gt; cont = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L974">            List&lt;Cargo&gt; next = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L975">            List&lt;Cargo&gt; curr = tClear();</span>
+<span class="nc bnc" id="L976" title="All 2 branches missed.">            for (Cargo cargo : curr) {</span>
+<span class="nc bnc" id="L977" title="All 2 branches missed.">                CargoResult result = (cargo.getMode().isCollection())</span>
+                    ? CargoResult.TCONTINUE
+<span class="nc" id="L979">                    : tryCargo(cargo, lb);</span>
+<span class="pc bnc" id="L980" title="All 5 branches missed.">                switch (result) {</span>
+                case TCONTINUE:
+<span class="nc" id="L982">                    cont.add(cargo);</span>
+<span class="nc" id="L983">                    break;</span>
+                case TRETRY: // will check again below
+<span class="nc bnc" id="L985" title="All 2 branches missed.">                    if (cargo.retry()) {</span>
+<span class="nc" id="L986">                        cont.add(cargo);</span>
+<span class="nc" id="L987">                        break;</span>
+                    }
+                    // Fall through
+                case TFAIL:
+<span class="nc bnc" id="L991" title="All 2 branches missed.">                    if (cargo.isCarried()) {</span>
+<span class="nc" id="L992">                        cargo.dump();</span>
+<span class="nc" id="L993">                        break;</span>
+                    }
+                    // Fall through
+                case TDONE:
+<span class="nc" id="L997">                    dropTransportable(cargo.getTransportable());</span>
+<span class="nc" id="L998">                    cargo.clear();</span>
+<span class="nc" id="L999">                    break;</span>
+                case TNEXT: default:
+<span class="nc" id="L1001">                    throw new IllegalStateException(&quot;Can not happen&quot;);</span>
+                }
+<span class="nc" id="L1003">            }</span>
+<span class="nc" id="L1004">            curr.clear();</span>
+            // Rebuild the cargo list with the original members,
+            // less the transportables that were dropped.
+<span class="nc" id="L1007">            tSet(cont, true);</span>
+
+            // Now try again, this time collecting as well as
+            // delivering.
+<span class="nc" id="L1011">            lb.add(&quot;, collecting&quot;);</span>
+<span class="nc" id="L1012">            cont.clear();</span>
+<span class="nc bnc" id="L1013" title="All 2 branches missed.">            for (Cargo cargo : tClear()) {</span>
+<span class="nc bnc" id="L1014" title="All 2 branches missed.">                CargoResult result = (cargo.getMode().isCollection())</span>
+<span class="nc" id="L1015">                    ? tryCargo(cargo, lb)</span>
+                    : CargoResult.TCONTINUE;
+<span class="nc bnc" id="L1017" title="All 5 branches missed.">                switch (result) {</span>
+                case TCONTINUE:
+<span class="nc" id="L1019">                    cont.add(cargo);</span>
+<span class="nc" id="L1020">                    break;</span>
+                case TNEXT:
+<span class="nc" id="L1022">                    cont.add(cargo);</span>
+<span class="nc" id="L1023">                    break;</span>
+                case TRETRY:
+<span class="nc bnc" id="L1025" title="All 2 branches missed.">                    if (cargo.retry()) { // Can not reach the target.</span>
+<span class="nc" id="L1026">                        next.add(cargo); // Try again next turn.</span>
+<span class="nc" id="L1027">                        break;</span>
+                    }
+                    // Fall through
+                case TFAIL: case TDONE:
+<span class="nc" id="L1031">                    dropTransportable(cargo.getTransportable());</span>
+<span class="nc" id="L1032">                    cargo.clear();</span>
+<span class="nc" id="L1033">                    break;</span>
+                default:
+<span class="nc" id="L1035">                    throw new IllegalStateException(&quot;Can not happen&quot;);</span>
+                }
+<span class="nc" id="L1037">            }</span>
+
+            // Rebuild the cargo list with the original members,
+            // less the transportables that were dropped.
+<span class="nc" id="L1041">            tSet(cont, true);</span>
+
+            // Add the new and blocked cargoes incrementally with
+            // the current arrangement, which is likely to put them
+            // at the end.
+<span class="nc bnc" id="L1046" title="All 2 branches missed.">            if (!next.isEmpty()) {</span>
+<span class="nc" id="L1047">                lb.add(&quot;, requeue&quot;);</span>
+<span class="nc bnc" id="L1048" title="All 2 branches missed.">                for (Cargo c : next) queueCargo(c, false, lb);</span>
+            }
+
+            // Delivering might have invalidated other cargo missions.
+            // It may be rare, but there have been cases where a scout
+            // has disembarked onto an LCR, invalidating the mission
+            // of a scout further down the transport list.  Run check
+            // cargoes again to handle this.  Then optimize.
+<span class="nc" id="L1056">            checkCargoes(lb);</span>
+<span class="nc" id="L1057">            optimizeCargoes(lb);</span>
+        }
+
+        // Replenish cargoes up to available destination capacity
+        // and 50% above maximum cargoes (FIXME: longer?)
+<span class="nc" id="L1062">        final EuropeanAIPlayer euaip = getEuropeanAIPlayer();</span>
+<span class="nc bnc" id="L1063" title="All 2 branches missed.">        while (destinationCapacity() &gt; 0</span>
+<span class="nc bnc" id="L1064" title="All 2 branches missed.">            &amp;&amp; tSize() &lt; unit.getCargoCapacity() * 3 / 2) {</span>
+<span class="nc" id="L1065">            Cargo cargo = getBestCargo(unit);</span>
+<span class="nc bnc" id="L1066" title="All 2 branches missed.">            if (cargo == null) break;</span>
+<span class="nc bnc" id="L1067" title="All 2 branches missed.">            if (!queueCargo(cargo, false, lb)) break;</span>
+<span class="nc" id="L1068">            euaip.claimTransportable(cargo.getTransportable());</span>
+<span class="nc" id="L1069">        }</span>
+<span class="nc" id="L1070">    }</span>
+
+    /**
+     * Calculates a score for a proposed list of
+     * &lt;code&gt;Cargo&lt;/code&gt;s using the current unit.  Disallows
+     * routes that would overfill the carrier.
+     *
+     * Useful for comparing proposed cargo delivery routes.  The
+     * score is based primarily on the number of turns it takes, but
+     * to break ties we also consider the hold*turn product to reduce
+     * the risk of losses due to enemy action.
+     *
+     * @param initialLocation The initial &lt;code&gt;Location&lt;/code&gt;.
+     * @param order An ordering of &lt;code&gt;Cargo&lt;/code&gt;s.
+     * @return A score for the cargo ordering.
+     */
+    private float scoreCargoOrder(Location initialLocation, List&lt;Cargo&gt; order) {
+<span class="nc" id="L1087">        final Unit carrier = getUnit();</span>
+<span class="nc" id="L1088">        final int maxHolds = carrier.getCargoCapacity();</span>
+<span class="nc" id="L1089">        int holds = carrier.getCargoSpaceTaken();</span>
+<span class="nc" id="L1090">        Location now = initialLocation;</span>
+<span class="nc" id="L1091">        float totalHoldTurns = 0.0f;</span>
+<span class="nc" id="L1092">        float totalTurns = 0.0f;</span>
+<span class="nc" id="L1093">        float favourEarly = 1.0f;</span>
+
+<span class="nc bnc" id="L1095" title="All 2 branches missed.">        for (Cargo cargo : order) {</span>
+<span class="nc" id="L1096">            int turns = carrier.getTurnsToReach(now, cargo.getCarrierTarget());</span>
+<span class="nc" id="L1097">            totalTurns += turns; // Might be MANY_TURNS!</span>
+<span class="nc" id="L1098">            totalHoldTurns += holds * turns * favourEarly;</span>
+<span class="nc" id="L1099">            holds += cargo.getNewSpace();</span>
+<span class="nc bnc" id="L1100" title="All 4 branches missed.">            if (holds &lt; 0 || holds &gt; maxHolds) return -1.0f;</span>
+<span class="nc" id="L1101">            now = cargo.getCarrierTarget();</span>
+<span class="nc" id="L1102">            favourEarly += 0.1f; // Slight preference for large loads first</span>
+<span class="nc" id="L1103">        }</span>
+<span class="nc" id="L1104">        return totalTurns + 0.001f * totalHoldTurns;</span>
+    }
+
+    /**
+     * Sets the current target.
+     * Tries all permutations of cargoes and picks the fastest/safest one.
+     *
+     * Leaves the cargoes in the order they are expected to
+     * execute, with valid spaceLeft values.
+     *
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     */
+    private void optimizeCargoes(LogBuilder lb) {
+<span class="nc" id="L1117">        lb.add(&quot;, optimize&quot;);</span>
+<span class="nc" id="L1118">        Location oldTarget = getTarget();</span>
+
+        // We wrap/unwrap the list to minimize the number of nodes
+        // that need consideration.
+<span class="nc" id="L1122">        List&lt;Cargo&gt; ts = wrapCargoes();</span>
+<span class="nc" id="L1123">        List&lt;Cargo&gt; best = null;</span>
+<span class="nc bnc" id="L1124" title="All 4 branches missed.">        if (1 &lt; ts.size() &amp;&amp; ts.size() &lt;= DESTINATION_UPPER_BOUND) {</span>
+            // Try all the permutations of visiting order for the
+            // locations, and set the target to the first location
+            // of the best scoring route.
+            //
+            // The target may get recomputed every time a cargo change
+            // occurs, so there is no guarantee that the route chosen
+            // here is actually executed.  This seems rather
+            // inefficient, but we need to be adaptable.
+            //
+<span class="nc" id="L1134">            final Location current = getUnit().getLocation();</span>
+<span class="nc" id="L1135">            float bestValue = INFINITY;</span>
+<span class="nc bnc" id="L1136" title="All 2 branches missed.">            for (List&lt;Cargo&gt; tl : getPermutations(ts)) {</span>
+<span class="nc" id="L1137">                float value = scoreCargoOrder(current, tl);</span>
+<span class="nc bnc" id="L1138" title="All 4 branches missed.">                if (value &gt; 0.0f &amp;&amp; bestValue &gt; value) {</span>
+<span class="nc" id="L1139">                    bestValue = value;</span>
+<span class="nc" id="L1140">                    best = tl;</span>
+                }
+<span class="nc" id="L1142">            }</span>
+        }
+<span class="nc bnc" id="L1144" title="All 2 branches missed.">        if (best != null) {</span>
+<span class="nc" id="L1145">            tSet(unwrapCargoes(best), true);</span>
+<span class="nc bnc" id="L1146" title="All 2 branches missed.">            if (oldTarget != getTarget()) lb.add(&quot;-&gt;&quot;, getTarget());</span>
+        } else {
+<span class="nc" id="L1148">            tSet(unwrapCargoes(ts), false);</span>
+        }
+<span class="nc" id="L1150">    }</span>
+
+    /**
+     * What is the best transportable for a carrier to collect?
+     *
+     * @param carrier The carrier &lt;code&gt;Unit&lt;/code&gt; to consider.
+     * @return The best available new &lt;code&gt;Cargo&lt;/code&gt;, or null if
+     *     none found.
+     */
+    private Cargo getBestCargo(Unit carrier) {
+<span class="nc" id="L1160">        final EuropeanAIPlayer euaip = getEuropeanAIPlayer();</span>
+<span class="nc" id="L1161">        Cargo bestDirect = null, bestFallback = null;</span>
+<span class="nc" id="L1162">        float bestDirectValue = 0.0f, bestFallbackValue = 0.0f;</span>
+<span class="nc bnc" id="L1163" title="All 2 branches missed.">        for (TransportableAIObject t : euaip.getUrgentTransportables()) {</span>
+<span class="nc bnc" id="L1164" title="All 4 branches missed.">            if (t.isDisposed() || !t.carriableBy(carrier)) continue;</span>
+<span class="nc" id="L1165">            Location loc = t.getTransportSource();</span>
+            Cargo cargo;
+            try {
+<span class="nc" id="L1168">                cargo = Cargo.newCargo(t, carrier);</span>
+<span class="nc" id="L1169">            } catch (FreeColException fce) {</span>
+<span class="nc" id="L1170">                cargo = null;</span>
+<span class="nc" id="L1171">            }</span>
+<span class="nc bnc" id="L1172" title="All 2 branches missed.">            if (cargo == null) continue;</span>
+<span class="nc" id="L1173">            float value = t.getTransportPriority() / (cargo.getTurns() + 1.0f);</span>
+<span class="nc bnc" id="L1174" title="All 2 branches missed.">            if (cargo.isFallback()) {</span>
+<span class="nc bnc" id="L1175" title="All 2 branches missed.">                if (bestFallbackValue &lt; value) {</span>
+<span class="nc" id="L1176">                    bestFallbackValue = value;</span>
+<span class="nc" id="L1177">                    bestFallback = cargo;</span>
+                }
+            } else {
+<span class="nc bnc" id="L1180" title="All 2 branches missed.">                if (bestDirectValue &lt; value) {</span>
+<span class="nc" id="L1181">                    bestDirectValue = value;</span>
+<span class="nc" id="L1182">                    bestDirect = cargo;</span>
+                }
+            }
+<span class="nc" id="L1185">        }</span>
+<span class="nc bnc" id="L1186" title="All 4 branches missed.">        return (bestDirect != null) ? bestDirect</span>
+            : (bestFallback != null) ? bestFallback
+            : null;
+    }
+
+    /**
+     * Why would an TransportMission be invalid with the given unit?
+     *
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to test.
+     * @return A reason why the mission would be invalid with the unit,
+     *     or null if none found.
+     */
+    private static String invalidMissionReason(AIUnit aiUnit) {
+<span class="fc" id="L1199">        String reason = invalidAIUnitReason(aiUnit);</span>
+<span class="fc bfc" id="L1200" title="All 2 branches covered.">        return (reason != null)</span>
+            ? reason
+<span class="pc bpc" id="L1202" title="1 of 2 branches missed.">            : (!aiUnit.getUnit().isCarrier())</span>
+            ? &quot;unit-not-a-carrier&quot;
+            : null;
+    }
+
+    /**
+     * Why would this mission be invalid with a given cargo?
+     * Checks the cargo locations.
+     * A location becomes invalid if:
+     *   - step is a null location
+     *   - step is disposed
+     *   - step is a captured settlement
+     *
+     * @param cargo The &lt;code&gt;Cargo&lt;/code&gt; to test.
+     * @return A reason why the mission would be invalid,
+     *     or null if none found.
+     */
+    private static String invalidCargoReason(Cargo cargo) {
+<span class="fc" id="L1220">        final TransportableAIObject t = cargo.getTransportable();</span>
+        String reason;
+<span class="pc bpc" id="L1222" title="1 of 2 branches missed.">        return (t == null) ? &quot;null-transportable&quot;</span>
+<span class="pc bpc" id="L1223" title="1 of 2 branches missed.">            : ((reason = t.invalidReason()) != null) ? &quot;cargo-&quot; + reason</span>
+            : null;
+    }
+            
+    /**
+     * Why would this mission be invalid with the given AI unit and location?
+     *
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+     * @param loc The &lt;code&gt;Location&lt;/code&gt; to check.
+     * @return A reason for invalidity, or null if none found.
+     */
+    public static String invalidReason(AIUnit aiUnit, Location loc) {
+        String reason;
+<span class="pc bpc" id="L1236" title="2 of 8 branches missed.">        return ((reason = invalidMissionReason(aiUnit)) != null)</span>
+            ? reason
+            : (loc instanceof Tile)
+            ? null
+            : (loc instanceof Europe || loc instanceof Colony)
+<span class="pc" id="L1241">            ? invalidTargetReason(loc, aiUnit.getUnit().getOwner())</span>
+            : Mission.TARGETINVALID;
+    }
+
+    /**
+     * Why would this mission be invalid with the given AI unit?
+     *
+     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+     * @return A reason for mission invalidity, or null if none found.
+     */
+    public static String invalidReason(AIUnit aiUnit) {
+<span class="fc" id="L1252">        return invalidMissionReason(aiUnit);</span>
+    }
+
+    // End of cargoes handling.
+
+    // Publically accessible routines to manipulate a TransportableAIObject.
+
+    /**
+     * Removes the given &lt;code&gt;TransportableAIObject&lt;/code&gt; from the
+     * cargo list.
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to remove.
+     * @return True if the removal succeeded.
+     */
+    public boolean removeTransportable(TransportableAIObject t) {
+<span class="nc" id="L1267">        Cargo cargo = tFind(t);</span>
+<span class="nc bnc" id="L1268" title="All 2 branches missed.">        return (cargo == null) ? false : tRemove(cargo);</span>
+    }
+
+    /**
+     * Retargets a transportable that should already be on board the carrier.
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to retarget.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @return True if the retargeting succeeded.
+     */
+    public boolean requeueTransportable(TransportableAIObject t,
+                                        LogBuilder lb) {
+<span class="nc" id="L1280">        Cargo cargo = tFind(t);</span>
+<span class="nc bnc" id="L1281" title="All 2 branches missed.">        return (cargo == null) ? queueTransportable(t, false, lb)</span>
+<span class="nc" id="L1282">            : requeueCargo(cargo, lb);</span>
+    }
+
+    /**
+     * Wrapper for queueCargo.
+     * Public for the benefit of EuropeanAIPlayer.allocateTransportables
+     * and CashInTreasureTrain.doMission.
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to add.
+     * @param requireMatch Fail if an existing destination is not matched.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @return True if the transportable was queued.
+     */
+    public boolean queueTransportable(TransportableAIObject t,
+                                      boolean requireMatch, LogBuilder lb) {
+<span class="fc" id="L1297">        Cargo cargo = makeCargo(t, lb);</span>
+<span class="fc bfc" id="L1298" title="All 2 branches covered.">        return (cargo == null) ? false : queueCargo(cargo, requireMatch, lb);</span>
+    }
+
+    /**
+     * Dump a transportable.
+     *
+     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to dump.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @return True if the transportable is no longer on board, queued, or
+     *     was reset to be dumped at the next stop.
+     */
+    public boolean dumpTransportable(TransportableAIObject t, LogBuilder lb) {
+<span class="nc bnc" id="L1310" title="All 2 branches missed.">        if (t == null) return true;</span>
+<span class="nc" id="L1311">        Cargo cargo = tFind(t);</span>
+<span class="nc bnc" id="L1312" title="All 2 branches missed.">        if (cargo == null) return true;</span>
+<span class="nc bnc" id="L1313" title="All 2 branches missed.">        if (!isCarrying(t)) {</span>
+<span class="nc" id="L1314">            removeTransportable(t);</span>
+<span class="nc" id="L1315">            return true;</span>
+        }
+<span class="nc" id="L1317">        return dumpCargo(cargo, lb);</span>
+    }
+
+    /**
+     * Drop all collections so that cargo is delivered only, then
+     * collect this unit.  Useful for prioritizing treasure
+     * collection.
+     *
+     * @param aiu The &lt;code&gt;AIUnit&lt;/code&gt; to collect.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     * @return True if the unit was queued.
+     */
+    public boolean forceCollection(AIUnit aiu, LogBuilder lb) {
+<span class="nc bnc" id="L1330" title="All 2 branches missed.">        for (Cargo c : tCopy()) {</span>
+<span class="nc bnc" id="L1331" title="All 2 branches missed.">            if (c.getMode().isCollection()) removeCargo(c);</span>
+<span class="nc" id="L1332">        }            </span>
+<span class="nc" id="L1333">        return queueTransportable(aiu, false, lb);</span>
+    }
+    
+    /**
+     * Suppress European trade in a type of goods which is about to be
+     * boycotted.
+     *
+     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to suppress.
+     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+     */
+    public void suppressEuropeanTrade(GoodsType type, LogBuilder lb) {
+<span class="nc bnc" id="L1344" title="All 2 branches missed.">        for (Cargo c : tCopy()) {</span>
+<span class="nc bnc" id="L1345" title="All 2 branches missed.">            if (c.isEuropeanTrade(type)) removeCargo(c);</span>
+<span class="nc" id="L1346">        }</span>
+<span class="nc" id="L1347">    }</span>
+
+
+    // End of public TransportableAIObject manipulations
+
+    // Implement Mission
+    //   Inherit dispose, getBaseTransportPriority, isOneTime
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Tile getTransportDestination() {
+<span class="nc" id="L1360">        return null; // Can not transport a carrier unit.</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Location getTarget() {
+<span class="fc" id="L1368">        return target;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setTarget(Location target) {
+<span class="fc" id="L1376">        this.target = target;</span>
+<span class="fc" id="L1377">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Location findTarget() {
+        // A noop.  The target is defined by the cargoes.
+<span class="nc" id="L1385">        return null;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String invalidReason() {
+<span class="fc" id="L1393">        final AIUnit aiUnit = getAIUnit();</span>
+<span class="fc" id="L1394">        String reason = invalidReason(aiUnit, getTarget());</span>
+        Cargo cargo;
+<span class="fc bfc" id="L1396" title="All 2 branches covered.">        return (reason != null) ? reason</span>
+<span class="fc bfc" id="L1397" title="All 2 branches covered.">            : ((cargo = tFirst()) == null) ? null</span>
+<span class="fc" id="L1398">            : invalidCargoReason(cargo);</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Mission doMission(LogBuilder lb) {
+<span class="fc" id="L1406">        lb.add(tag);</span>
+<span class="fc" id="L1407">        checkCargoes(lb);</span>
+<span class="fc" id="L1408">        String reason = invalidReason();</span>
+<span class="fc bfc" id="L1409" title="All 2 branches covered.">        if (reason != null) return lbFail(lb, false, reason);</span>
+
+<span class="fc" id="L1411">        final AIUnit aiCarrier = getAIUnit();</span>
+<span class="fc" id="L1412">        final Unit unit = getUnit();</span>
+        final CostDecider fallBackDecider
+<span class="fc" id="L1414">            = CostDeciders.avoidSettlementsAndBlockingUnits();</span>
+<span class="fc" id="L1415">        final EuropeanAIPlayer euaip = getEuropeanAIPlayer();</span>
+<span class="fc" id="L1416">        CostDecider costDecider = CostDeciders.defaultCostDeciderFor(unit);</span>
+        for (;;) {
+<span class="fc" id="L1418">            Unit.MoveType mt = travelToTarget(target, costDecider, lb);</span>
+<span class="pc bpc" id="L1419" title="5 of 6 branches missed.">            switch (mt) {</span>
+            case MOVE: // Arrived at transport target
+<span class="nc" id="L1421">                doTransport(lb);</span>
+<span class="nc bnc" id="L1422" title="All 4 branches missed.">                if (isEmpty() &amp;&amp; unit.isOffensiveUnit()) {</span>
+<span class="nc" id="L1423">                    Mission m = euaip.getPrivateerMission(aiCarrier, null);</span>
+<span class="nc bnc" id="L1424" title="All 2 branches missed.">                    if (m != null) return lbDone(lb, false, &quot;going pirate&quot;);</span>
+                }                    
+<span class="nc bnc" id="L1426" title="All 2 branches missed.">                if ((reason = invalidReason()) != null) {</span>
+<span class="nc" id="L1427">                    logger.warning(tag + &quot; post-stop failure(&quot; + reason</span>
+<span class="nc" id="L1428">                        + &quot;): &quot; + this.toFullString());</span>
+<span class="nc" id="L1429">                    return lbFail(lb, false, reason);</span>
+                }
+<span class="nc bnc" id="L1431" title="All 2 branches missed.">                if (unit.isAtLocation(target)) {</span>
+<span class="nc" id="L1432">                    return lbWait(lb, &quot;, waiting at &quot;, target);</span>
+                }
+                break;
+
+            case MOVE_HIGH_SEAS: case MOVE_NO_MOVES:
+            case MOVE_NO_REPAIR: case MOVE_ILLEGAL:
+<span class="fc" id="L1438">                return lbWait(lb);</span>
+
+            case MOVE_NO_TILE: // Another unit is blocking a river?
+<span class="nc" id="L1441">                moveRandomly(tag, null);</span>
+<span class="nc" id="L1442">                return lbDodge(lb);</span>
+
+            case ATTACK_UNIT:
+<span class="nc" id="L1445">                Location blocker = resolveBlockage(aiCarrier, target);</span>
+<span class="nc bnc" id="L1446" title="All 4 branches missed.">                if (blocker instanceof Unit &amp;&amp; shouldAttack((Unit)blocker)) {</span>
+<span class="nc" id="L1447">                    AIMessage.askAttack(aiCarrier,</span>
+<span class="nc" id="L1448">                        unit.getTile().getDirection(blocker.getTile()));</span>
+<span class="nc" id="L1449">                    return lbAttack(lb, blocker);</span>
+                }
+                // Fall through
+            case MOVE_NO_ATTACK_CIVILIAN:
+                // FIXME: See if the transportable can get around the
+                // blockage using its own path finding.
+<span class="nc bnc" id="L1455" title="All 4 branches missed.">                if (unit.getTile().isAdjacent(target.getTile())</span>
+                    || costDecider == fallBackDecider) {
+<span class="nc" id="L1457">                    moveRandomly(tag, null);</span>
+<span class="nc" id="L1458">                    return lbDodge(lb);</span>
+                }
+<span class="nc" id="L1460">                costDecider = fallBackDecider; // Retry</span>
+<span class="nc" id="L1461">                lb.add(&quot;, retry blockage at &quot;, unit.getLocation());</span>
+<span class="nc" id="L1462">                break;</span>
+
+            case MOVE_NO_ACCESS_EMBARK: default:
+<span class="nc" id="L1465">                return lbMove(lb, mt);</span>
+            }
+<span class="nc" id="L1467">        }</span>
+    }
+
+
+    // Serialization
+
+    private static final String TARGET_TAG = &quot;target&quot;;
+    // @compat 0.10.5
+    private static final String OLD_TRANSPORTABLE_TAG = &quot;transportable&quot;;
+    // end @compat
+
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="nc" id="L1484">        super.writeAttributes(xw);</span>
+
+<span class="nc bnc" id="L1486" title="All 2 branches missed.">        if (target != null) {</span>
+<span class="nc" id="L1487">            xw.writeLocationAttribute(TARGET_TAG, target);</span>
+        }
+<span class="nc" id="L1489">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="nc" id="L1496">        final AIUnit aiCarrier = getAIUnit();</span>
+<span class="nc bnc" id="L1497" title="All 2 branches missed.">        for (Cargo cargo : tCopy()) {</span>
+            // Sanity check first.  Another nation might have captured
+            // or destroyed a target colony.
+<span class="nc" id="L1500">            String reason = cargo.check(aiCarrier);</span>
+<span class="nc bnc" id="L1501" title="All 2 branches missed.">            if (reason != null) continue;</span>
+            // Do not bother writing cargoes that will be dumped.
+            // On restore, checkCargoes will work out what to do with them.
+<span class="nc bnc" id="L1504" title="All 2 branches missed.">            if (cargo.getMode() == Cargo.CargoMode.DUMP) continue;</span>
+<span class="nc" id="L1505">            cargo.toXML(xw);</span>
+<span class="nc" id="L1506">        }</span>
+<span class="nc" id="L1507">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L1514">        super.readAttributes(xr);</span>
+
+<span class="nc" id="L1516">        target = xr.getLocationAttribute(getGame(), TARGET_TAG, false);</span>
+<span class="nc" id="L1517">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+        // Clear containers.
+<span class="nc" id="L1525">        tClear();</span>
+
+<span class="nc" id="L1527">        super.readChildren(xr);</span>
+<span class="nc" id="L1528">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L1535">        final String tag = xr.getLocalName();</span>
+
+<span class="nc bnc" id="L1537" title="All 2 branches missed.">        if (Cargo.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L1538">            tAdd(new Cargo(getAIMain(), xr), -1);</span>
+
+        // @compat 0.10.5
+<span class="nc bnc" id="L1541" title="All 2 branches missed.">        } else if (OLD_TRANSPORTABLE_TAG.equals(tag)) {</span>
+            // Ignore the old format, let checkCargoes sort it out
+<span class="nc" id="L1543">            xr.closeTag(OLD_TRANSPORTABLE_TAG);</span>
+        // end @compat
+
+        } else {
+<span class="nc" id="L1547">            super.readChild(xr);</span>
+        }
+<span class="nc" id="L1549">    }</span>
+
+    /**
+     * More verbose version of toString().
+     *
+     * @return A summary of this mission including its transportables.
+     */
+    public String toFullString() {
+<span class="nc" id="L1557">        LogBuilder lb = new LogBuilder(64);</span>
+<span class="nc" id="L1558">        lb.add(this);</span>
+<span class="nc bnc" id="L1559" title="All 2 branches missed.">        for (Cargo cargo : tCopy()) lb.add(&quot;\n  -&gt;&quot;, cargo);</span>
+<span class="nc" id="L1560">        return lb.toString();</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+<span class="nc" id="L1567">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
+
+    /**
+     * Gets the tag name of the root element representing this object.
+     *
+     * @return &quot;transportMission&quot;.
+     */
+    public static String getXMLElementTagName() {
+<span class="nc" id="L1575">        return &quot;transportMission&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>
