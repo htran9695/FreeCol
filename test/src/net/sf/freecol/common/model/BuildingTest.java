@@ -870,25 +870,25 @@ public class BuildingTest extends FreeColTestCase {
                     if (!building.getType().canAdd(type)
                         || !type.isAvailableTo(colony.getOwner())) continue;
                     unit.changeType(type);
-                    if (output != null) {
-                        int productivity = building.getUnitProduction(unit, outputType);
-                        int expected = output.getAmount();
-                        if (type == building.getExpertUnitType()) {
-                            expected = 6;
-                        } else if (type == indenturedServantType) {
-                            expected = 2;
-                        } else if (type == indianConvertType) {
-                            expected = 1;
-                        } else if (type == pettyCriminalType) {
-                            expected = 1;
-                        }
-                        if (expected != output.getAmount()) {
-                            assertFalse("ModifierSet should not be empty!",
-                                        type.getModifiers(outputType.getId()).isEmpty());
-                        }
-                        assertEquals("Wrong productivity for " + type
-                            + " in " + building, expected, productivity);
+
+                    int productivity = building.getUnitProduction(unit, outputType);
+                    int expected = output.getAmount();
+                    if (type == building.getExpertUnitType()) {
+                        expected = 6;
+                    } else if (type == indenturedServantType) {
+                        expected = 2;
+                    } else if (type == indianConvertType) {
+                        expected = 1;
+                    } else if (type == pettyCriminalType) {
+                        expected = 1;
                     }
+                    if (expected != output.getAmount()) {
+                        assertFalse("ModifierSet should not be empty!",
+                                    type.getModifiers(outputType.getId()).isEmpty());
+                    }
+                    assertEquals("Wrong productivity for " + type
+                        + " in " + building, expected, productivity);
+                    
                 }
             }
         }

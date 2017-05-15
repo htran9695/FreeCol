@@ -21,6 +21,8 @@ package net.sf.freecol.common.model;
 
 import java.io.ByteArrayInputStream;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.DocumentBuilder;
 
@@ -612,7 +614,7 @@ public class UnitTest extends FreeColTestCase {
 
             DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
             DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-            Document doc = dBuilder.parse(new ByteArrayInputStream(xml.getBytes()));
+            Document doc = dBuilder.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
             Element element = doc.getDocumentElement();
             Unit clone = new Unit(game, element);
 

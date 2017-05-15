@@ -544,7 +544,8 @@ public class HighScore extends FreeColObject {
             try {
                 float f = xr.getAttribute(DATE_TAG, -1.0f);
                 if (f >= 0.0 && f < Long.MAX_VALUE) {
-                    date = new Date(new Float(f).longValue());
+                    date = new Date((long)f);
+                    
                 }
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Bad float date", e);

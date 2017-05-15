@@ -544,7 +544,7 @@ public class CombatTest extends FreeColTestCase {
         Map map = getTestMap(plains, true);
         Game game = ServerTestHelper.startServerGame(map);
         CombatModel combatModel = game.getCombatModel();
-        InGameController igc = ServerTestHelper.getInGameController();
+       // InGameController igc = ServerTestHelper.getInGameController();
 
         ServerPlayer dutch = (ServerPlayer)game.getPlayerByNationId("model.nation.dutch");
         ServerPlayer inca = (ServerPlayer)game.getPlayerByNationId("model.nation.inca");

@@ -55,7 +55,11 @@ public class BaseCostDeciderTest extends FreeColTestCase {
 
     @Override
     public void tearDown() {
-        game = null;
+    	try {
+    		super.tearDown();
+    	} catch (Exception e) {
+    		e.printStackTrace();
+    	}
     }
 
     /**

@@ -376,7 +376,7 @@ public class TileImprovement extends TileItem implements Named {
         if (!isRiver()) return null;
         final Tile tile = getTile();
         int i = 0;
-        String ret = "";
+        StringBuffer ret = new StringBuffer();
         for (Direction d : Direction.longSides) {
             Direction dReverse = d.getReverseDirection();
             Tile t = tile.getNeighbourOrNull(d);
@@ -392,7 +392,7 @@ public class TileImprovement extends TileItem implements Named {
                 if (river != null) river.setConnected(dReverse, true);
                 setConnected(d, true);
             }
-            ret += c;
+            ret.append(c);
             i++;
         }
         return (style == null) ? null : style.getString();

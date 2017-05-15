@@ -42,7 +42,7 @@ import net.sf.freecol.util.test.FreeColTestCase;
 
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
-
+import java.nio.charset.StandardCharsets;
 
 public class SerializationTest extends FreeColTestCase {
 
@@ -187,7 +187,7 @@ public class SerializationTest extends FreeColTestCase {
 
             xw.close();
 
-            spec2 = new Specification(new ByteArrayInputStream(sw.toString().getBytes()));
+            spec2 = new Specification(new ByteArrayInputStream(sw.toString().getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
             fail(e.getMessage());
         }
@@ -224,7 +224,7 @@ public class SerializationTest extends FreeColTestCase {
 
             xw.close();
 
-            spec2 = new Specification(new ByteArrayInputStream(sw.toString().getBytes()));
+            spec2 = new Specification(new ByteArrayInputStream(sw.toString().getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
             fail(e.getMessage());
         }

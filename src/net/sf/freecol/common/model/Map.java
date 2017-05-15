@@ -488,7 +488,7 @@ public class Map extends FreeColGameObject implements Location {
         HashMap<String, Region> result = new HashMap<>();
         for (Region r : getRegions()) {
             String n = r.getNameKey();
-            if (r != null) result.put(n, r);
+            result.put(n, r);
         }
         return result;
     }

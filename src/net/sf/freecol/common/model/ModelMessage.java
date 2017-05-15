@@ -338,17 +338,18 @@ public class ModelMessage extends StringTemplate {
     public String getIgnoredMessageKey() {
         switch (getMessageType()) {
         case WAREHOUSE_CAPACITY:
-            String key = getSourceId();
+        	StringBuffer key = new StringBuffer();
+        	key.append(getSourceId());
             switch (getTemplateType()) {
             case TEMPLATE:
                 for (String k : getKeys()) {
                     if ("%goods%".equals(k)) {
-                        key += "-" + getReplacement(k).getId();
+                        key.append("-" + getReplacement(k).getId());
                     }
                 }
                 break;
             }
-            return key;
+            return key.toString();
         default:
             break;
         }

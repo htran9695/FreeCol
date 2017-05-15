@@ -21,6 +21,7 @@ package net.sf.freecol.common.model;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -369,7 +370,7 @@ public final class SpecificationTest extends FreeColTestCase {
             + "</unit-types>"
             + "</freecol-specification>";
 
-        Specification spec = new Specification(new ByteArrayInputStream(specification.getBytes()));
+        Specification spec = new Specification(new ByteArrayInputStream(specification.getBytes(StandardCharsets.UTF_8)));
 
         assertNotNull(spec.getUnitType("model.unit.milkmaid"));
         assertNotNull(spec.getUnitType("model.unit.caravel"));
@@ -390,7 +391,7 @@ public final class SpecificationTest extends FreeColTestCase {
             + "</unit-types>"
             + "</freecol-specification>";
 
-        Specification spec = new Specification(new ByteArrayInputStream(specification.getBytes()));
+        Specification spec = new Specification(new ByteArrayInputStream(specification.getBytes(StandardCharsets.UTF_8)));
 
         try {
             spec.getUnitType("model.unit.caravel");
