@@ -43,8 +43,10 @@ import net.sf.freecol.common.resources.ResourceManager;
  */
 public class FreeColLookAndFeel extends MetalLookAndFeel {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(FreeColLookAndFeel.class.getName());
 
+    /** The Constant uiClasses. */
     private static final Class uiClasses[] = {
         FreeColButtonUI.class,
         FreeColCheckBoxUI.class,

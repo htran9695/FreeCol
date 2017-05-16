@@ -85,8 +85,10 @@ import org.w3c.dom.Element;
  */
 public class AIColony extends AIObject implements PropertyChangeListener {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(AIColony.class.getName());
 
+    /** The Constant LIST_ELEMENT. */
     private static final String LIST_ELEMENT = "ListElement";
 
     /**
@@ -122,6 +124,8 @@ public class AIColony extends AIObject implements PropertyChangeListener {
      * prevent the warehouse filling.
      */
     private static final Set<GoodsType> fullExport = new HashSet<>();
+    
+    /** The Constant partExport. */
     private static final Set<GoodsType> partExport = new HashSet<>();
 
     /**
@@ -230,10 +234,21 @@ public class AIColony extends AIObject implements PropertyChangeListener {
         return colony;
     }
 
+    /**
+     * Gets the AI unit.
+     *
+     * @param unit the unit
+     * @return the AI unit
+     */
     protected AIUnit getAIUnit(Unit unit) {
         return getAIMain().getAIUnit(unit);
     }
 
+    /**
+     * Gets the AI owner.
+     *
+     * @return the AI owner
+     */
     protected AIPlayer getAIOwner() {
         return getAIMain().getAIPlayer(colony.getOwner());
     }
@@ -1529,19 +1544,32 @@ public class AIColony extends AIObject implements PropertyChangeListener {
 
     // Serialization
 
+    /** The Constant AI_GOODS_LIST_TAG. */
     private static final String AI_GOODS_LIST_TAG
         = AIGoods.getXMLElementTagName() + LIST_ELEMENT;
+    
+    /** The Constant GOODS_WISH_LIST_TAG. */
     private static final String GOODS_WISH_LIST_TAG
         = GoodsWish.getXMLElementTagName() + LIST_ELEMENT;
+    
+    /** The Constant TILE_IMPROVEMENT_PLAN_LIST_TAG. */
     private static final String TILE_IMPROVEMENT_PLAN_LIST_TAG
         = TileImprovementPlan.getXMLElementTagName() + LIST_ELEMENT;
+    
+    /** The Constant WORKER_WISH_LIST_TAG. */
     private static final String WORKER_WISH_LIST_TAG
         = WorkerWish.getXMLElementTagName() + LIST_ELEMENT;
+    
+    /** The Constant OLD_GOODS_WISH_TAG. */
     // @compat 0.10.3
     private static final String OLD_GOODS_WISH_TAG
         = GoodsWish.getXMLElementTagName() + "Wish" + LIST_ELEMENT;
+    
+    /** The Constant OLD_TILE_IMPROVEMENT_PLAN_LIST_TAG. */
     private static final String OLD_TILE_IMPROVEMENT_PLAN_LIST_TAG
         = "tileimprovementplan" + LIST_ELEMENT;
+    
+    /** The Constant OLD_WORKER_WISH_TAG. */
     private static final String OLD_WORKER_WISH_TAG
         = WorkerWish.getXMLElementTagName() + "Wish" + LIST_ELEMENT;
     // end @compat

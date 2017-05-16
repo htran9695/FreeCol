@@ -36,8 +36,13 @@ import net.sf.freecol.common.io.FreeColXMLWriter;
  */
 public final class GoodsType extends FreeColGameObjectType {
 
+    /** The Constant DEFAULT_PRODUCTION_WEIGHT. */
     private static final float DEFAULT_PRODUCTION_WEIGHT = 1.0f;
+    
+    /** The Constant DEFAULT_LOW_PRODUCTION_THRESHOLD. */
     private static final float DEFAULT_LOW_PRODUCTION_THRESHOLD = 0.0f;
+    
+    /** The Constant DEFAULT_ZERO_PRODUCTION_FACTOR. */
     private static final float DEFAULT_ZERO_PRODUCTION_FACTOR = 1.0f;
 
     /** A comparator to impose a useful order on goods types. */
@@ -182,6 +187,9 @@ public final class GoodsType extends FreeColGameObjectType {
     }
 
     // @compat 0.10.x
+    /**
+     * Sets the military.
+     */
     // Needed by Specification fixup010x()
     public void setMilitary() {
         this.isMilitary = true;
@@ -383,6 +391,11 @@ public final class GoodsType extends FreeColGameObjectType {
         return price;
     }
 
+    /**
+     * Sets the price.
+     *
+     * @param newPrice the new price
+     */
     public void setPrice(final int newPrice) {
         this.price = newPrice;
     }
@@ -534,23 +547,58 @@ public final class GoodsType extends FreeColGameObjectType {
 
     // Serialization
 
+    /** The Constant BREEDING_NUMBER_TAG. */
     private static final String BREEDING_NUMBER_TAG = "breeding-number";
+    
+    /** The Constant IGNORE_LIMIT_TAG. */
     private static final String IGNORE_LIMIT_TAG = "ignore-limit";
+    
+    /** The Constant INITIAL_AMOUNT_TAG. */
     private static final String INITIAL_AMOUNT_TAG = "initial-amount";
+    
+    /** The Constant INITIAL_PRICE_TAG. */
     private static final String INITIAL_PRICE_TAG = "initial-price";
+    
+    /** The Constant IS_FARMED_TAG. */
     private static final String IS_FARMED_TAG = "is-farmed";
+    
+    /** The Constant IS_FOOD_TAG. */
     private static final String IS_FOOD_TAG = "is-food";
+    
+    /** The Constant IS_MILITARY_TAG. */
     private static final String IS_MILITARY_TAG = "is-military";
+    
+    /** The Constant LOW_PRODUCTION_THRESHOLD_TAG. */
     private static final String LOW_PRODUCTION_THRESHOLD_TAG = "low-production-threshold";
+    
+    /** The Constant MADE_FROM_TAG. */
     private static final String MADE_FROM_TAG = "made-from";
+    
+    /** The Constant MARKET_TAG. */
     private static final String MARKET_TAG = "market";
+    
+    /** The Constant NEW_WORLD_GOODS_TAG. */
     private static final String NEW_WORLD_GOODS_TAG = "new-world-goods";
+    
+    /** The Constant PRICE_TAG. */
     private static final String PRICE_TAG = "price";
+    
+    /** The Constant PRICE_DIFFERENCE_TAG. */
     private static final String PRICE_DIFFERENCE_TAG = "price-difference";
+    
+    /** The Constant PRODUCTION_WEIGHT_TAG. */
     private static final String PRODUCTION_WEIGHT_TAG = "production-weight";
+    
+    /** The Constant STORABLE_TAG. */
     private static final String STORABLE_TAG = "storable";
+    
+    /** The Constant STORED_AS_TAG. */
     private static final String STORED_AS_TAG = "stored-as";
+    
+    /** The Constant TRADE_GOODS_TAG. */
     private static final String TRADE_GOODS_TAG = "trade-goods";
+    
+    /** The Constant ZERO_PRODUCTION_FACTOR_TAG. */
     private static final String ZERO_PRODUCTION_FACTOR_TAG = "zero-production-factor";
 
 

@@ -25,6 +25,11 @@ package net.sf.freecol.client.gui;
  */
 public interface DialogHandler<T> {
 
+    /**
+     * Handle.
+     *
+     * @param response the response
+     */
     void handle(T response);
 
 };

@@ -77,6 +77,12 @@ public final class ReportEducationPanel extends ReportPanel {
         }
     }
 
+    /**
+     * Gets the panel.
+     *
+     * @param key the key
+     * @return the panel
+     */
     private JPanel getPanel(String key) {
         JPanel result = new JPanel(new FlowLayout(FlowLayout.LEFT));
         result.setOpaque(false);

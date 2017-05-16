@@ -112,6 +112,7 @@ import static net.sf.freecol.common.util.StringUtils.lastPart;
  */
 public class SwingGUI extends GUI {
 
+    /** The graphics device. */
     private final GraphicsDevice graphicsDevice;
 
     /**
@@ -130,8 +131,10 @@ public class SwingGUI extends GUI {
     /** The canvas that implements much of the functionality. */
     private Canvas canvas;
 
+    /** The map controls. */
     private MapControls mapControls;
 
+    /** The splash. */
     private JWindow splash;
 
 
@@ -150,14 +153,27 @@ public class SwingGUI extends GUI {
 
     // Simple accessors
 
+    /**
+     * Gets the canvas.
+     *
+     * @return the canvas
+     */
     public Canvas getCanvas() {
         return canvas;
     }
 
+    /**
+     * Gets the tile image library.
+     *
+     * @return the tile image library
+     */
     public ImageLibrary getTileImageLibrary() {
         return tileViewer.getImageLibrary();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#isWindowed()
+     */
     @Override
     public boolean isWindowed() {
         return canvas.isWindowed();
@@ -535,6 +551,9 @@ public class SwingGUI extends GUI {
         canvas.resetMenuBar();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#resetMapZoom()
+     */
     @Override
     protected void resetMapZoom() {
         super.resetMapZoom();
@@ -542,16 +561,25 @@ public class SwingGUI extends GUI {
         refresh();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#canZoomInMap()
+     */
     @Override
     public boolean canZoomInMap() {
         return !mapViewer.isAtMaxMapScale();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#canZoomOutMap()
+     */
     @Override
     public boolean canZoomOutMap() {
         return !mapViewer.isAtMinMapScale();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#zoomInMap()
+     */
     @Override
     public void zoomInMap() {
         super.zoomInMap();
@@ -559,6 +587,9 @@ public class SwingGUI extends GUI {
         refresh();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#zoomOutMap()
+     */
     @Override
     public void zoomOutMap() {
         super.zoomOutMap();
@@ -685,45 +716,69 @@ public class SwingGUI extends GUI {
         }
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#updateMapControls()
+     */
     @Override
     public void updateMapControls() {
         if (mapControls != null) mapControls.update();
     }
 
+    /**
+     * Update map controls in canvas.
+     */
     public void updateMapControlsInCanvas() {
         if (mapControls == null) return;
         mapControls.removeFromComponent(canvas);
         mapControls.addToComponent(canvas);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#zoomInMapControls()
+     */
     @Override
     public void zoomInMapControls() {
         if (mapControls == null) return;
         mapControls.zoomIn();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#zoomOutMapControls()
+     */
     @Override
     public void zoomOutMapControls() {
         if (mapControls == null) return;
         mapControls.zoomOut();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#canZoomInMapControls()
+     */
     @Override
     public boolean canZoomInMapControls() {
         return mapControls != null && mapControls.canZoomInMapControls();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#canZoomOutMapControls()
+     */
     @Override
     public boolean canZoomOutMapControls() {
         return mapControls != null && mapControls.canZoomOutMapControls();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#miniMapToggleViewControls()
+     */
     @Override
     public void miniMapToggleViewControls() {
         if (mapControls == null) return;
         mapControls.toggleView();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#miniMapToggleFogOfWarControls()
+     */
     @Override
     public void miniMapToggleFogOfWarControls() {
         if (mapControls == null) return;
@@ -782,6 +837,9 @@ public class SwingGUI extends GUI {
             okKey, cancelKey);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#confirm(net.sf.freecol.common.model.Tile, net.sf.freecol.common.model.StringTemplate, net.sf.freecol.common.model.Settlement, java.lang.String, java.lang.String)
+     */
     @Override
     public boolean confirm(Tile tile, StringTemplate template,
                            Settlement settlement,
@@ -792,6 +850,9 @@ public class SwingGUI extends GUI {
             okKey, cancelKey);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#confirm(net.sf.freecol.common.model.Tile, net.sf.freecol.common.model.StringTemplate, net.sf.freecol.common.model.GoodsType, java.lang.String, java.lang.String)
+     */
     @Override
     public boolean confirm(Tile tile, StringTemplate template,
                            GoodsType goodsType,
@@ -829,6 +890,9 @@ public class SwingGUI extends GUI {
             null, cancelKey, choices);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#getChoice(net.sf.freecol.common.model.Tile, java.lang.Object, net.sf.freecol.common.model.Unit, java.lang.String, java.util.List)
+     */
     @Override
     public <T> T getChoice(Tile tile, Object explain, Unit unit,
                            String cancelKey, List<ChoiceItem<T>> choices) {
@@ -837,6 +901,9 @@ public class SwingGUI extends GUI {
             cancelKey, choices);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#getChoice(net.sf.freecol.common.model.Tile, java.lang.Object, net.sf.freecol.common.model.Settlement, java.lang.String, java.util.List)
+     */
     @Override
     public <T> T getChoice(Tile tile, Object explain, Settlement settlement,
                            String cancelKey, List<ChoiceItem<T>> choices) {
@@ -845,6 +912,9 @@ public class SwingGUI extends GUI {
             cancelKey, choices);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#getChoice(net.sf.freecol.common.model.Tile, java.lang.Object, net.sf.freecol.common.model.GoodsType, java.lang.String, java.util.List)
+     */
     @Override
     public <T> T getChoice(Tile tile, Object explain, GoodsType goodsType,
                            String cancelKey, List<ChoiceItem<T>> choices) {
@@ -853,6 +923,9 @@ public class SwingGUI extends GUI {
             cancelKey, choices);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#getChoice(net.sf.freecol.common.model.Tile, java.lang.Object, net.sf.freecol.common.model.Nation, java.lang.String, java.util.List)
+     */
     @Override
     public <T> T getChoice(Tile tile, Object explain, Nation nation,
                            String cancelKey, List<ChoiceItem<T>> choices) {
@@ -882,26 +955,43 @@ public class SwingGUI extends GUI {
 
     // Trivial delegations to Canvas
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#closeMainPanel()
+     */
     @Override
     public void closeMainPanel() {
         canvas.closeMainPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#closeMenus()
+     */
     @Override
     public void closeMenus() {
         canvas.closeMenus();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#closeStatusPanel()
+     */
     @Override
     public void closeStatusPanel() {
         canvas.closeStatusPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#containsInGameComponents()
+     */
     @Override
     public boolean containsInGameComponents() {
         return canvas.containsInGameComponents();
     }
 
+    /**
+     * Dialog remove.
+     *
+     * @param fcd the fcd
+     */
     public void dialogRemove(FreeColDialog<?> fcd) {
         canvas.dialogRemove(fcd);
     }
@@ -934,108 +1024,190 @@ public class SwingGUI extends GUI {
         }
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#getLoadingSavegameInfo()
+     */
     @Override
     public LoadingSavegameInfo getLoadingSavegameInfo() {
         return canvas.getLoadingSavegameDialog().getInfo();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#isClientOptionsDialogShowing()
+     */
     @Override
     public boolean isClientOptionsDialogShowing() {
         return canvas!=null && canvas.isClientOptionsDialogShowing();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#isMapboardActionsEnabled()
+     */
     @Override
     public boolean isMapboardActionsEnabled() {
         return canvas!=null && canvas.isMapboardActionsEnabled();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#isShowingSubPanel()
+     */
     @Override
     public boolean isShowingSubPanel() {
         return canvas!=null && canvas.isShowingSubPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#paintImmediatelyCanvasIn(java.awt.Rectangle)
+     */
     @Override
     public void paintImmediatelyCanvasIn(Rectangle rectangle) {
         canvas.paintImmediately(rectangle);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#paintImmediatelyCanvasInItsBounds()
+     */
     @Override
     public void paintImmediatelyCanvasInItsBounds() {
         canvas.paintImmediately(canvas.getBounds());
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#refreshPlayersTable()
+     */
     @Override
     public void refreshPlayersTable() {
         canvas.refreshPlayersTable();
     }
 
+    /**
+     * Removes the from canvas.
+     *
+     * @param component the component
+     */
     public void removeFromCanvas(Component component) {
         canvas.remove(component);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#removeInGameComponents()
+     */
     @Override
     public void removeInGameComponents() {
         canvas.removeInGameComponents();
     }
 
+    /**
+     * Removes the trade route panel.
+     *
+     * @param panel the panel
+     */
     public void removeTradeRoutePanel(TradeRoutePanel panel) {
         canvas.removeTradeRoutePanel(panel);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#requestFocusForSubPanel()
+     */
     @Override
     public void requestFocusForSubPanel() {
         canvas.getShowingSubPanel().requestFocus();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#requestFocusInWindow()
+     */
     @Override
     public boolean requestFocusInWindow() {
         return canvas.requestFocusInWindow();
     }
 
+    /**
+     * Restore saved size.
+     *
+     * @param comp the comp
+     * @param w the w
+     * @param h the h
+     */
     public void restoreSavedSize(Component comp, int w, int h) {
         canvas.restoreSavedSize(comp, new Dimension(w, h));
     }
 
+    /**
+     * Restore saved size.
+     *
+     * @param comp the comp
+     * @param size the size
+     */
     public void restoreSavedSize(Component comp, Dimension size) {
         canvas.restoreSavedSize(comp, size);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#returnToTitle()
+     */
     @Override
     public void returnToTitle() {
         canvas.returnToTitle();
         playSound("sound.intro.general");
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showAboutPanel()
+     */
     @Override
     public void showAboutPanel() {
         canvas.showAboutPanel();
     }
 
+    /**
+     * Show build queue panel.
+     *
+     * @param colony the colony
+     */
     public void showBuildQueuePanel(Colony colony) {
         canvas.showBuildQueuePanel(colony);
     }
 
+    /**
+     * Show build queue panel.
+     *
+     * @param colony the colony
+     * @param callBack the call back
+     */
     public void showBuildQueuePanel(Colony colony, Runnable callBack) {
         canvas.showBuildQueuePanel(colony, callBack);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showCaptureGoodsDialog(net.sf.freecol.common.model.Unit, java.util.List, net.sf.freecol.client.gui.DialogHandler)
+     */
     @Override
     public void showCaptureGoodsDialog(final Unit unit, List<Goods> gl,
                                        DialogHandler<List<Goods>> handler) {
         canvas.showCaptureGoodsDialog(unit, gl, handler);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showChatPanel()
+     */
     @Override
     public void showChatPanel() {
         canvas.showChatPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showChooseFoundingFatherDialog(java.util.List, net.sf.freecol.client.gui.DialogHandler)
+     */
     @Override
     public void showChooseFoundingFatherDialog(final List<FoundingFather> ffs,
                 DialogHandler<FoundingFather> handler) {
         canvas.showChooseFoundingFatherDialog(ffs, handler);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showClientOptionsDialog()
+     */
     @Override
     public void showClientOptionsDialog() {
         OptionGroup group = null;
@@ -1051,38 +1223,71 @@ public class SwingGUI extends GUI {
         if (!freeColClient.isInGame()) showMainPanel(null);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showForeignColony(net.sf.freecol.common.model.Settlement)
+     */
     @Override
     protected void showForeignColony(Settlement settlement) {
         canvas.showForeignColony(settlement);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showColonyPanel(net.sf.freecol.common.model.Colony, net.sf.freecol.common.model.Unit)
+     */
     @Override
     public void showColonyPanel(Colony colony, Unit unit) {
         canvas.showColonyPanel(colony, unit);
     }
 
+    /**
+     * Show colony panel 2.
+     *
+     * @param colony the colony
+     * @param unit the unit
+     * @return the colony panel
+     */
     public ColonyPanel showColonyPanel2(Colony colony, Unit unit) {
         return canvas.showColonyPanel(colony, unit);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showColopediaPanel(java.lang.String)
+     */
     @Override
     public void showColopediaPanel(String nodeId) {
         canvas.showColopediaPanel(nodeId);
     }
 
+    /**
+     * Show color chooser panel.
+     *
+     * @param al the al
+     * @return the color chooser panel
+     */
     public ColorChooserPanel showColorChooserPanel(ActionListener al) {
         return canvas.showColorChooserPanel(al);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showCompactLabourReport()
+     */
     @Override
     public void showCompactLabourReport() {
         canvas.showCompactLabourReport();
     }
 
+    /**
+     * Show compact labour report.
+     *
+     * @param unitData the unit data
+     */
     public void showCompactLabourReport(UnitData unitData) {
         canvas.showCompactLabourReport(unitData);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showDeclarationPanel()
+     */
     @Override
     public void showDeclarationPanel() {
         canvas.showDeclarationPanel();
@@ -1101,22 +1306,38 @@ public class SwingGUI extends GUI {
             spec.getDifficultyOptionGroup(), false);
     }
 
+    /**
+     * Show difficulty dialog.
+     *
+     * @param spec the spec
+     * @param group the group
+     * @return the option group
+     */
     public OptionGroup showDifficultyDialog(Specification spec,
                                             OptionGroup group) {
         return canvas.showDifficultyDialog(spec, group, group.isEditable());
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showDumpCargoDialog(net.sf.freecol.common.model.Unit, net.sf.freecol.client.gui.DialogHandler)
+     */
     @Override
     public void showDumpCargoDialog(Unit unit,
                                     DialogHandler<List<Goods>> handler) {
         canvas.showDumpCargoDialog(unit, handler);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showEditOptionDialog(net.sf.freecol.common.option.Option)
+     */
     @Override
     public boolean showEditOptionDialog(Option option) {
         return canvas.showEditOptionDialog(option);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showEmigrationDialog(net.sf.freecol.common.model.Player, boolean, net.sf.freecol.client.gui.DialogHandler)
+     */
     @Override
     public void showEmigrationDialog(final Player player,
                                      final boolean fountainOfYouth,
@@ -1124,69 +1345,108 @@ public class SwingGUI extends GUI {
         canvas.showEmigrationDialog(player, fountainOfYouth, handler);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showEndTurnDialog(java.util.List, net.sf.freecol.client.gui.DialogHandler)
+     */
     @Override
     public void showEndTurnDialog(final List<Unit> units,
                                   DialogHandler<Boolean> handler) {
         canvas.showEndTurnDialog(units, handler);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showErrorMessage(net.sf.freecol.common.model.StringTemplate)
+     */
     @Override
     public void showErrorMessage(StringTemplate template) {
         canvas.showErrorMessage(Messages.message(template));
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showErrorMessage(java.lang.String)
+     */
     @Override
     public void showErrorMessage(String messageId) {
         canvas.showErrorMessage(messageId);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showErrorMessage(java.lang.String, java.lang.String)
+     */
     @Override
     public void showErrorMessage(String messageID, String message) {
         canvas.showErrorMessage(messageID, message);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showEuropePanel()
+     */
     @Override
     public void showEuropePanel() {
         canvas.showEuropePanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showEventPanel(java.lang.String, java.lang.String, java.lang.String)
+     */
     @Override
     public void showEventPanel(String header, String image, String footer) {
         canvas.showEventPanel(header, image, footer);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showFindSettlementPanel()
+     */
     @Override
     public void showFindSettlementPanel() {
         canvas.showFindSettlementPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showGameOptionsDialog(boolean, boolean)
+     */
     @Override
     public OptionGroup showGameOptionsDialog(boolean editable, boolean custom) {
         return canvas.showGameOptionsDialog(editable, custom);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showHighScoresPanel(java.lang.String, java.util.List)
+     */
     @Override
     public void showHighScoresPanel(String messageId, List<HighScore> scores) {
         canvas.showHighScoresPanel(messageId, scores);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showIndianSettlementPanel(net.sf.freecol.common.model.IndianSettlement)
+     */
     @Override
     public void showIndianSettlementPanel(IndianSettlement indianSettlement) {
         canvas.showIndianSettlementPanel(indianSettlement);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showInformationMessage(java.lang.String)
+     */
     @Override
     public void showInformationMessage(String messageId) {
         super.showInformationMessage(messageId);
         canvas.showInformationMessage(null, null, null, StringTemplate.key(messageId));
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showInformationMessage(net.sf.freecol.common.model.StringTemplate)
+     */
     @Override
     public void showInformationMessage(StringTemplate template) {
         super.showInformationMessage(template);
         canvas.showInformationMessage(null, null, null, template);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showInformationMessage(net.sf.freecol.common.model.Settlement, net.sf.freecol.common.model.StringTemplate)
+     */
     @Override
     public void showInformationMessage(Settlement displayObject,
                                        StringTemplate template) {
@@ -1200,6 +1460,9 @@ public class SwingGUI extends GUI {
         canvas.showInformationMessage(displayObject, tile, icon, template);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showInformationMessage(net.sf.freecol.common.model.Unit, net.sf.freecol.common.model.StringTemplate)
+     */
     @Override
     public void showInformationMessage(Unit displayObject,
                                        StringTemplate template) {
@@ -1213,6 +1476,9 @@ public class SwingGUI extends GUI {
         canvas.showInformationMessage(displayObject, tile, icon, template);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showInformationMessage(net.sf.freecol.common.model.Tile, net.sf.freecol.common.model.StringTemplate)
+     */
     @Override
     public void showInformationMessage(Tile displayObject,
                                        StringTemplate template) {
@@ -1220,6 +1486,9 @@ public class SwingGUI extends GUI {
         canvas.showInformationMessage(displayObject, displayObject, null, template);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showInformationMessage(net.sf.freecol.common.model.FreeColObject, java.lang.String)
+     */
     @Override
     public void showInformationMessage(FreeColObject displayObject,
                                        String messageId) {
@@ -1227,6 +1496,9 @@ public class SwingGUI extends GUI {
         canvas.showInformationMessage(displayObject, StringTemplate.key(messageId));
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showInformationMessage(net.sf.freecol.common.model.FreeColObject, net.sf.freecol.common.model.StringTemplate)
+     */
     @Override
     public void showInformationMessage(FreeColObject displayObject,
                                        StringTemplate template) {
@@ -1234,46 +1506,77 @@ public class SwingGUI extends GUI {
         canvas.showInformationMessage(displayObject, template);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showLoadDialog(java.io.File)
+     */
     @Override
     public File showLoadDialog(File directory) {
         return canvas.showLoadDialog(directory, null);
     }
 
+    /**
+     * Show load dialog.
+     *
+     * @param directory the directory
+     * @param fileFilters the file filters
+     * @return the file
+     */
     public File showLoadDialog(File directory, FileFilter[] fileFilters) {
         return canvas.showLoadDialog(directory, fileFilters);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showLoadingSavegameDialog(boolean, boolean)
+     */
     @Override
     public boolean showLoadingSavegameDialog(boolean publicServer,
                                              boolean singlePlayer) {
         return canvas.showLoadingSavegameDialog(publicServer, singlePlayer);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showLogFilePanel()
+     */
     @Override
     public void showLogFilePanel() {
         canvas.showLogFilePanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showMainPanel(java.lang.String)
+     */
     @Override
     public void showMainPanel(String userMsg) {
         canvas.showMainPanel(userMsg);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showMapGeneratorOptionsDialog(boolean)
+     */
     @Override
     public OptionGroup showMapGeneratorOptionsDialog(boolean editable) {
         return canvas.showMapGeneratorOptionsDialog(editable);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showMapSizeDialog()
+     */
     @Override
     public Dimension showMapSizeDialog() {
         return canvas.showMapSizeDialog();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showModelMessages(java.util.List)
+     */
     @Override
     public void showModelMessages(List<ModelMessage> modelMessages) {
         canvas.showModelMessages(modelMessages);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showMonarchDialog(net.sf.freecol.common.model.Monarch.MonarchAction, net.sf.freecol.common.model.StringTemplate, java.lang.String, net.sf.freecol.client.gui.DialogHandler)
+     */
     @Override
     public void showMonarchDialog(final MonarchAction action,
                                   StringTemplate template, String monarchKey,
@@ -1281,6 +1584,9 @@ public class SwingGUI extends GUI {
         canvas.showMonarchDialog(action, template, monarchKey, handler);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showNamingDialog(net.sf.freecol.common.model.StringTemplate, java.lang.String, net.sf.freecol.common.model.Unit, net.sf.freecol.client.gui.DialogHandler)
+     */
     @Override
     public void showNamingDialog(StringTemplate template,
                                       final String defaultName,
@@ -1289,6 +1595,9 @@ public class SwingGUI extends GUI {
         canvas.showNamingDialog(template, defaultName, unit, handler);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showFirstContactDialog(net.sf.freecol.common.model.Player, net.sf.freecol.common.model.Player, net.sf.freecol.common.model.Tile, int, net.sf.freecol.client.gui.DialogHandler)
+     */
     @Override
     public void showFirstContactDialog(final Player player, final Player other,
                                        final Tile tile, int settlementCount,
@@ -1297,6 +1606,9 @@ public class SwingGUI extends GUI {
                                       handler);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showNegotiationDialog(net.sf.freecol.common.model.FreeColGameObject, net.sf.freecol.common.model.FreeColGameObject, net.sf.freecol.common.model.DiplomaticTrade, net.sf.freecol.common.model.StringTemplate)
+     */
     @Override
     public DiplomaticTrade showNegotiationDialog(FreeColGameObject our,
                                                      FreeColGameObject other,
@@ -1305,81 +1617,134 @@ public class SwingGUI extends GUI {
         return canvas.showNegotiationDialog(our, other, agreement, comment);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showNewPanel()
+     */
     @Override
     public void showNewPanel() {
         canvas.showNewPanel(null);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showNewPanel(net.sf.freecol.common.model.Specification)
+     */
     @Override
     public void showNewPanel(Specification specification) {
         canvas.showNewPanel(specification);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showSpyColonyPanel(net.sf.freecol.common.model.Tile, java.lang.Runnable)
+     */
     @Override
     public void showSpyColonyPanel(final Tile tile, Runnable callback) {
         ColonyPanel panel = canvas.showSpyColonyPanel(tile);
         panel.addClosingCallback(callback);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showParametersDialog()
+     */
     @Override
     public Parameters showParametersDialog() {
         return canvas.showParametersDialog();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showPreCombatDialog(net.sf.freecol.common.model.Unit, net.sf.freecol.common.model.FreeColGameObject, net.sf.freecol.common.model.Tile)
+     */
     @Override
     public boolean showPreCombatDialog(Unit attacker,
                                        FreeColGameObject defender, Tile tile) {
         return canvas.showPreCombatDialog(attacker, defender, tile);
     }
 
+    /**
+     * Show purchase panel.
+     */
     public void showPurchasePanel() {
         canvas.showPurchasePanel();
     }
 
+    /**
+     * Show recruit panel.
+     */
     public void showRecruitPanel() {
         canvas.showRecruitPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportCargoPanel()
+     */
     @Override
     public void showReportCargoPanel() {
         canvas.showReportCargoPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportColonyPanel()
+     */
     @Override
     public void showReportColonyPanel() {
         canvas.showReportColonyPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportContinentalCongressPanel()
+     */
     @Override
     public void showReportContinentalCongressPanel() {
         canvas.showReportContinentalCongressPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportEducationPanel()
+     */
     @Override
     public void showReportEducationPanel() {
         canvas.showReportEducationPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportExplorationPanel()
+     */
     @Override
     public void showReportExplorationPanel() {
         canvas.showReportExplorationPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportForeignAffairPanel()
+     */
     @Override
     public void showReportForeignAffairPanel() {
         canvas.showReportForeignAffairPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportHistoryPanel()
+     */
     @Override
     public void showReportHistoryPanel() {
         canvas.showReportHistoryPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportIndianPanel()
+     */
     @Override
     public void showReportIndianPanel() {
         canvas.showReportIndianPanel();
     }
 
+    /**
+     * Show report labour detail panel.
+     *
+     * @param unitType the unit type
+     * @param data the data
+     * @param unitCount the unit count
+     * @param colonies the colonies
+     */
     public void showReportLabourDetailPanel(UnitType unitType,
             Map<UnitType, Map<Location, Integer>> data,
             TypeCountMap<UnitType> unitCount, List<Colony> colonies) {
@@ -1387,61 +1752,102 @@ public class SwingGUI extends GUI {
                                            colonies);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportLabourPanel()
+     */
     @Override
     public void showReportLabourPanel() {
         canvas.showReportLabourPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportMilitaryPanel()
+     */
     @Override
     public void showReportMilitaryPanel() {
         canvas.showReportMilitaryPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportNavalPanel()
+     */
     @Override
     public void showReportNavalPanel() {
         canvas.showReportNavalPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportProductionPanel()
+     */
     @Override
     public void showReportProductionPanel() {
         canvas.showReportProductionPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportReligiousPanel()
+     */
     @Override
     public void showReportReligiousPanel() {
         canvas.showReportReligiousPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportRequirementsPanel()
+     */
     @Override
     public void showReportRequirementsPanel() {
         canvas.showReportRequirementsPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportTradePanel()
+     */
     @Override
     public void showReportTradePanel() {
         canvas.showReportTradePanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showReportTurnPanel(java.util.List)
+     */
     @Override
     public void showReportTurnPanel(List<ModelMessage> messages) {
         canvas.showReportTurnPanel(messages);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showSaveDialog(java.io.File, java.lang.String)
+     */
     @Override
     public File showSaveDialog(File directory, String defaultName) {
         return canvas.showSaveDialog(directory, null, defaultName);
     }
 
+    /**
+     * Show save dialog.
+     *
+     * @param directory the directory
+     * @param fileFilters the file filters
+     * @param defaultName the default name
+     * @return the file
+     */
     public File showSaveDialog(File directory, FileFilter[] fileFilters,
                                String defaultName) {
         return canvas.showSaveDialog(directory, fileFilters, defaultName);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showScaleMapSizeDialog()
+     */
     @Override
     public Dimension showScaleMapSizeDialog() {
         return canvas.showScaleMapSizeDialog();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showSelectAmountDialog(net.sf.freecol.common.model.GoodsType, int, int, boolean)
+     */
     @Override
     public int showSelectAmountDialog(GoodsType goodsType, int available,
                                       int defaultAmount, boolean needToPay) {
@@ -1449,41 +1855,69 @@ public class SwingGUI extends GUI {
                                              defaultAmount, needToPay);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showSelectTributeAmountDialog(net.sf.freecol.common.model.StringTemplate, int)
+     */
     @Override
     public int showSelectTributeAmountDialog(StringTemplate question,
                                              int maximum) {
         return canvas.showSelectTributeAmountDialog(question, maximum);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showSelectDestinationDialog(net.sf.freecol.common.model.Unit)
+     */
     @Override
     public Location showSelectDestinationDialog(Unit unit) {
         return canvas.showSelectDestinationDialog(unit);
     }
 
+    /**
+     * Show server list panel.
+     *
+     * @param serverList the server list
+     */
     public void showServerListPanel(List<ServerInfo> serverList) {
         canvas.showServerListPanel(serverList);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showStartGamePanel(net.sf.freecol.common.model.Game, net.sf.freecol.common.model.Player, boolean)
+     */
     @Override
     public void showStartGamePanel(Game game, Player player,
                                    boolean singlePlayerMode) {
         canvas.showStartGamePanel(game, player, singlePlayerMode);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showStatisticsPanel()
+     */
     @Override
     public void showStatisticsPanel() {
         canvas.showStatisticsPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showStatusPanel(java.lang.String)
+     */
     @Override
     public void showStatusPanel(String message) {
         canvas.showStatusPanel(message);
     }
 
+    /**
+     * Show tile panel.
+     *
+     * @param tile the tile
+     */
     public void showTilePanel(Tile tile) {
         canvas.showTilePanel(tile);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showTilePopUpAtSelectedTile()
+     */
     @Override
     public void showTilePopUpAtSelectedTile() {
         Tile tile = mapViewer.getSelectedTile();
@@ -1491,42 +1925,77 @@ public class SwingGUI extends GUI {
         canvas.showTilePopup(tile, point.x+mapViewer.getTileWidth(), point.y);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showTradeRoutePanel(net.sf.freecol.common.model.Unit)
+     */
     @Override
     public void showTradeRoutePanel(Unit unit) {
         canvas.showTradeRoutePanel(unit);
     }
 
+    /**
+     * Show trade route input panel.
+     *
+     * @param newRoute the new route
+     * @param callBack the call back
+     */
     public void showTradeRouteInputPanel(TradeRoute newRoute,
                                          Runnable callBack) {
         canvas.showTradeRouteInputPanel(newRoute, callBack);
     }
 
+    /**
+     * Show train panel.
+     */
     public void showTrainPanel() {
         canvas.showTrainPanel();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#showVictoryDialog(net.sf.freecol.client.gui.DialogHandler)
+     */
     @Override
     public void showVictoryDialog(DialogHandler<Boolean> handler) {
         canvas.showVictoryDialog(handler);
     }
 
+    /**
+     * Show warehouse dialog.
+     *
+     * @param colony the colony
+     * @return true, if successful
+     */
     public boolean showWarehouseDialog(Colony colony) {
         return canvas.showWarehouseDialog(colony);
     }
 
+    /**
+     * Show work production panel.
+     *
+     * @param unit the unit
+     */
     public void showWorkProductionPanel(Unit unit) {
         canvas.showWorkProductionPanel(unit);
     }
 
+    /**
+     * Update european subpanels.
+     */
     public void updateEuropeanSubpanels() {
         canvas.updateEuropeanSubpanels();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#updateGameOptions()
+     */
     @Override
     public void updateGameOptions() {
         canvas.updateGameOptions();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#updateMapGeneratorOptions()
+     */
     @Override
     public void updateMapGeneratorOptions() {
         canvas.updateMapGeneratorOptions();
@@ -1534,72 +2003,133 @@ public class SwingGUI extends GUI {
 
     // Trivial delegations to MapViewer
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#centerActiveUnit()
+     */
     @Override
     public void centerActiveUnit() {
         mapViewer.centerActiveUnit();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#changeViewMode(int)
+     */
     @Override
     public void changeViewMode(int newViewMode) {
         mapViewer.changeViewMode(newViewMode);
     }
 
+    /**
+     * Calculate unit label position in tile.
+     *
+     * @param labelWidth the label width
+     * @param labelHeight the label height
+     * @param tileP the tile P
+     * @return the point
+     */
     public Point calculateUnitLabelPositionInTile(int labelWidth,int labelHeight,
                                                   Point tileP) {
         return mapViewer.calculateUnitLabelPositionInTile(
             labelWidth, labelHeight, tileP);
     }
 
+    /**
+     * Execute with unit out for animation.
+     *
+     * @param unit the unit
+     * @param sourceTile the source tile
+     * @param r the r
+     */
     public void executeWithUnitOutForAnimation(final Unit unit,
                                                final Tile sourceTile,
                                                final OutForAnimationCallback r) {
         mapViewer.executeWithUnitOutForAnimation(unit, sourceTile, r);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#getActiveUnit()
+     */
     @Override
     public Unit getActiveUnit() {
         return mapViewer==null ? null : mapViewer.getActiveUnit();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#getFocus()
+     */
     @Override
     public Tile getFocus() {
         return mapViewer.getFocus();
     }
 
+    /**
+     * Gets the map scale.
+     *
+     * @return the map scale
+     */
     public float getMapScale() {
         return mapViewer.getImageLibrary().getScaleFactor();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#getSelectedTile()
+     */
     @Override
     public Tile getSelectedTile() {
         return mapViewer.getSelectedTile();
     }
 
+    /**
+     * Gets the tile bounds.
+     *
+     * @param tile the tile
+     * @return the tile bounds
+     */
     public Rectangle getTileBounds(Tile tile) {
         return mapViewer.calculateTileBounds(tile);
     }
 
+    /**
+     * Gets the tile position.
+     *
+     * @param tile the tile
+     * @return the tile position
+     */
     public Point getTilePosition(Tile tile) {
         return mapViewer.calculateTilePosition(tile);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#getViewMode()
+     */
     @Override
     public int getViewMode() {
         return mapViewer.getViewMode();
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#setFocus(net.sf.freecol.common.model.Tile)
+     */
     @Override
     public void setFocus(Tile tileToFocus) {
         mapViewer.setFocus(tileToFocus);
         canvas.refresh();
     }
 
+    /**
+     * Sets the focus immediately.
+     *
+     * @param tileToFocus the new focus immediately
+     */
     public void setFocusImmediately(Tile tileToFocus) {
         mapViewer.setFocus(tileToFocus);
         Dimension size = canvas.getSize();
         canvas.paintImmediately(0, 0, size.width, size.height);
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#setSelectedTile(net.sf.freecol.common.model.Tile)
+     */
     @Override
     public boolean setSelectedTile(Tile newTileToSelect) {
         boolean result = mapViewer.setSelectedTile(newTileToSelect);
@@ -1608,6 +2138,9 @@ public class SwingGUI extends GUI {
         return result;
     }
 
+    /* (non-Javadoc)
+     * @see net.sf.freecol.client.gui.GUI#toggleViewMode()
+     */
     @Override
     public void toggleViewMode() {
         mapViewer.toggleViewMode();
@@ -1615,23 +2148,56 @@ public class SwingGUI extends GUI {
 
     // Forwarding to tileViewer
 
+    /**
+     * Creates the tile image with overlay and forest.
+     *
+     * @param type the type
+     * @param size the size
+     * @return the buffered image
+     */
     public static BufferedImage createTileImageWithOverlayAndForest(
             TileType type, Dimension size) {
         return TileViewer.createTileImageWithOverlayAndForest(type, size);
     }
 
+    /**
+     * Creates the tile image with beach border and items.
+     *
+     * @param tile the tile
+     * @return the buffered image
+     */
     public BufferedImage createTileImageWithBeachBorderAndItems(Tile tile) {
         return tileViewer.createTileImageWithBeachBorderAndItems(tile);
     }
 
+    /**
+     * Creates the tile image.
+     *
+     * @param tile the tile
+     * @return the buffered image
+     */
     public BufferedImage createTileImage(Tile tile) {
         return tileViewer.createTileImage(tile);
     }
 
+    /**
+     * Creates the colony tile image.
+     *
+     * @param tile the tile
+     * @param colony the colony
+     * @return the buffered image
+     */
     public BufferedImage createColonyTileImage(Tile tile, Colony colony) {
         return tileViewer.createColonyTileImage(tile, colony);
     }
 
+    /**
+     * Display colony tiles.
+     *
+     * @param g the g
+     * @param tiles the tiles
+     * @param colony the colony
+     */
     public void displayColonyTiles(Graphics2D g, Tile[][] tiles, Colony colony) {
         tileViewer.displayColonyTiles(g, tiles, colony);
     }

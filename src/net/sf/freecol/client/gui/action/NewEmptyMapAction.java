@@ -33,6 +33,7 @@ import net.sf.freecol.common.model.Tile;
  */
 public class NewEmptyMapAction extends MapboardAction {
 
+    /** The Constant id. */
     public static final String id = "newEmptyMapAction";
 
 

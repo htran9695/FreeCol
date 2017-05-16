@@ -29,6 +29,7 @@ import net.sf.freecol.client.FreeColClient;
  */
 public class TradeRouteAction extends MapboardAction {
 
+    /** The Constant id. */
     public static final String id = "tradeRouteAction";
 
 

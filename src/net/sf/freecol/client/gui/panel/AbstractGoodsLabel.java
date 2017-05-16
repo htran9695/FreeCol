@@ -34,10 +34,13 @@ import net.sf.freecol.common.model.GoodsType;
  */
 public class AbstractGoodsLabel extends JLabel {
 
+    /** The abstract goods. */
     private final AbstractGoods abstractGoods;
 
+    /** The partial chosen. */
     private boolean partialChosen = false;
 
+    /** The full chosen. */
     private boolean fullChosen = false;
 
 

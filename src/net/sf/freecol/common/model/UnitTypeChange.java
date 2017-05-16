@@ -37,24 +37,56 @@ import static net.sf.freecol.common.util.CollectionUtils.*;
  */
 public class UnitTypeChange extends FreeColObject {
 
+    /**
+     * The Enum ChangeType.
+     */
     public static enum ChangeType {
+        
+        /** The education. */
         EDUCATION,
+        
+        /** The natives. */
         NATIVES,
+        
+        /** The experience. */
         EXPERIENCE,
+        
+        /** The lost city. */
         LOST_CITY,
+        
+        /** The promotion. */
         PROMOTION,
+        
+        /** The creation. */
         CREATION,
+        
+        /** The enter colony. */
         ENTER_COLONY,
+        
+        /** The independence. */
         INDEPENDENCE,
+        
+        /** The clear skill. */
         CLEAR_SKILL,
+        
+        /** The demotion. */
         DEMOTION,
+        
+        /** The capture. */
         CAPTURE,
+        
+        /** The conversion. */
         CONVERSION,
+        
+        /** The undead. */
         UNDEAD
     }
 
+    /** The Constant tags. */
     public static final Map<ChangeType, String> tags
         = new EnumMap<>(ChangeType.class);
+    
+    /** The Constant compatTags. */
     public static final Map<ChangeType, String> compatTags
         = new EnumMap<>(ChangeType.class);
     static {
@@ -238,8 +270,13 @@ public class UnitTypeChange extends FreeColObject {
 
     // Serialization
 
+    /** The Constant TURNS_TO_LEARN_TAG. */
     private static final String TURNS_TO_LEARN_TAG = "turns-to-learn";
+    
+    /** The Constant UNIT_TAG. */
     private static final String UNIT_TAG = "unit";
+    
+    /** The Constant OLD_TURNS_TO_LEARN_TAG. */
     // @compat 0.11.3
     private static final String OLD_TURNS_TO_LEARN_TAG = "turnsToLearn";
     // end @compat 0.11.3

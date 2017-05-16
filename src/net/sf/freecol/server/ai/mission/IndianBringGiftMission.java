@@ -53,6 +53,7 @@ import net.sf.freecol.server.ai.AIUnit;
  */
 public class IndianBringGiftMission extends Mission {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(IndianBringGiftMission.class.getName());
 
     /** The tag for this mission. */
@@ -96,6 +97,11 @@ public class IndianBringGiftMission extends Mission {
     }
 
 
+    /**
+     * Gets the colony.
+     *
+     * @return the colony
+     */
     public Colony getColony() { return this.colony; }
 
     /**
@@ -327,7 +333,10 @@ public class IndianBringGiftMission extends Mission {
 
     // Serialization
 
+    /** The Constant COLLECTED_TAG. */
     private static final String COLLECTED_TAG = "collected";
+    
+    /** The Constant COLONY_TAG. */
     private static final String COLONY_TAG = "colony";
 
 

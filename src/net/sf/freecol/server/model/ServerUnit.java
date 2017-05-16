@@ -83,6 +83,7 @@ import net.sf.freecol.server.control.ChangeSet.See;
  */
 public class ServerUnit extends Unit implements ServerModelObject {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(ServerUnit.class.getName());
 
 

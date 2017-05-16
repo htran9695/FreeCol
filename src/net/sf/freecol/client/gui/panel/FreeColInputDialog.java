@@ -35,6 +35,7 @@ import net.sf.freecol.common.i18n.Messages;
  */
 public abstract class FreeColInputDialog<T> extends FreeColDialog<T> {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(FreeColInputDialog.class.getName());
 
 

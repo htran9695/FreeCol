@@ -39,6 +39,7 @@ import net.sf.freecol.server.ai.AIUnit;
  */
 public class UnitWanderHostileMission extends Mission {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(UnitWanderHostileMission.class.getName());
 
     /** The tag for this mission. */

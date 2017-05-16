@@ -164,6 +164,7 @@ public class CompoundMission extends AbstractMission {
 
     // Serialization.
 
+    /** The Constant INDEX_TAG. */
     private final static String INDEX_TAG = "index";
 
 

@@ -39,6 +39,7 @@ import org.w3c.dom.Element;
  */
 public class WorkerWish extends Wish {
 
+    /** The Constant logger. */
     @SuppressWarnings("unused")
     private static final Logger logger = Logger.getLogger(WorkerWish.class.getName());
 
@@ -179,8 +180,13 @@ public class WorkerWish extends Wish {
 
     // Serialization
 
+    /** The Constant EXPERT_NEEDED_TAG. */
     private static final String EXPERT_NEEDED_TAG = "expertNeeded";
+    
+    /** The Constant TRANSPORTABLE_TAG. */
     private static final String TRANSPORTABLE_TAG = "transportable";
+    
+    /** The Constant UNIT_TYPE_TAG. */
     private static final String UNIT_TYPE_TAG = "unitType";
 
 

@@ -30,6 +30,7 @@ import net.sf.freecol.common.model.Unit;
  */
 public class AssignTradeRouteAction extends UnitAction {
 
+    /** The Constant id. */
     public static final String id = "assignTradeRouteAction";
 
 

@@ -32,9 +32,11 @@ import net.sf.freecol.client.FreeColClient;
  */
 public final class StatusPanel extends FreeColPanel {
 
+    /** The Constant logger. */
     @SuppressWarnings("unused")
     private static final Logger logger = Logger.getLogger(StatusPanel.class.getName());
 
+    /** The status label. */
     private final JLabel statusLabel;
 
 

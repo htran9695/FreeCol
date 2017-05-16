@@ -62,15 +62,30 @@ import net.sf.freecol.server.ai.TransportableAIObject;
  */
 public class TransportMission extends Mission {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(TransportMission.class.getName());
 
+    /** The Constant tag. */
     private static final String tag = "AI transport";
 
+    /**
+     * The Enum CargoResult.
+     */
     private static enum CargoResult {
-        TCONTINUE,  // Cargo should continue
-        TDONE,      // Cargo completed successfully
-        TFAIL,      // Cargo failed badly
-        TNEXT,      // Cargo changed to its next state
+        
+        /** The tcontinue. */
+        TCONTINUE,  
+  /** The tdone. */
+  // Cargo should continue
+        TDONE,      
+      /** The tfail. */
+      // Cargo completed successfully
+        TFAIL,      
+      /** The tnext. */
+      // Cargo failed badly
+        TNEXT,      
+      /** The tretry. */
+      // Cargo changed to its next state
         TRETRY      // Cargo has blocked, retry
     }
 
@@ -80,6 +95,7 @@ public class TransportMission extends Mission {
      */
     private static final int DESTINATION_UPPER_BOUND = 4;
 
+    /** The Constant MINIMUM_GOLD_TO_STAY_IN_EUROPE. */
     private static final int MINIMUM_GOLD_TO_STAY_IN_EUROPE = 600;
 
     /** A list of <code>Cargo</code>s to work on. */
@@ -1470,7 +1486,10 @@ public class TransportMission extends Mission {
 
     // Serialization
 
+    /** The Constant TARGET_TAG. */
     private static final String TARGET_TAG = "target";
+    
+    /** The Constant OLD_TRANSPORTABLE_TAG. */
     // @compat 0.10.5
     private static final String OLD_TRANSPORTABLE_TAG = "transportable";
     // end @compat

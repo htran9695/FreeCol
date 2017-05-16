@@ -61,6 +61,7 @@ import org.w3c.dom.NodeList;
  */
 public final class AIInGameInputHandler implements MessageHandler {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(AIInGameInputHandler.class.getName());
 
     /** The player for whom I work. */

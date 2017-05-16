@@ -44,9 +44,13 @@ import net.sf.freecol.client.gui.panel.Flag.UnionPosition;
 import net.sf.freecol.client.gui.panel.Flag.UnionShape;
 
 
+/**
+ * The Class FlagTest.
+ */
 public class FlagTest extends JFrame implements ActionListener, ItemListener {
 
 
+    /** The flags. */
     private final Flag[] FLAGS = {
         ConfirmDeclarationDialog.ENGLISH_FLAG,
         ConfirmDeclarationDialog.SPANISH_FLAG,
@@ -59,36 +63,59 @@ public class FlagTest extends JFrame implements ActionListener, ItemListener {
         null // custom
     };
 
+    /** The Constant FLAG_NAMES. */
     private static final String[] FLAG_NAMES = {
         "England", "Spain", "France", "Netherlands",
         "Portugal", "Sweden", "Denmark", "Russia", "Custom"
     };
 
+    /** The flag. */
     private Flag flag;
 
+    /** The flags. */
     private final JComboBox<String> flags
         = new JComboBox<>(FLAG_NAMES);
+    
+    /** The decoration. */
     private final JComboBox<Decoration> decoration
         = new JComboBox<>(Decoration.values());
+    
+    /** The background. */
     private final JComboBox<Background> background
         = new JComboBox<>(Background.values());
+    
+    /** The union. */
     private final JComboBox<UnionPosition> union
         = new JComboBox<>(UnionPosition.values());
+    
+    /** The union shape. */
     private final JComboBox<UnionShape> unionShape
         = new JComboBox<>(UnionShape.values());
+    
+    /** The stars. */
     private final JComboBox<String> stars
         = new JComboBox<>(getNumbers(50));
+    
+    /** The stripes. */
     private final JComboBox<String> stripes
         = new JComboBox<>(getNumbers(13));
 
+    /** The union color. */
     private final ColorButton unionColor = new ColorButton(Color.BLUE);
+    
+    /** The star color. */
     private final ColorButton starColor = new ColorButton(Color.WHITE);
+    
+    /** The decoration color. */
     private final ColorButton decorationColor = new ColorButton(Color.WHITE);
+    
+    /** The background colors. */
     private final ColorButton[] backgroundColors = {
         new ColorButton(null), new ColorButton(null), new ColorButton(null),
         new ColorButton(null), new ColorButton(null), new ColorButton(null)
     };
 
+    /** The custom components. */
     private final Component[] customComponents = {
         background, decoration, union, unionShape,
         stripes, unionColor, starColor, decorationColor,
@@ -97,9 +124,13 @@ public class FlagTest extends JFrame implements ActionListener, ItemListener {
         backgroundColors[4], backgroundColors[5]
     };
 
+    /** The label. */
     final JLabel label = new JLabel();
 
 
+    /**
+     * Instantiates a new flag test.
+     */
     public FlagTest() {
         super("FlagTest");
 
@@ -165,6 +196,9 @@ public class FlagTest extends JFrame implements ActionListener, ItemListener {
         itemStateChanged(null);
     }
 
+    /* (non-Javadoc)
+     * @see java.awt.event.ItemListener#itemStateChanged(java.awt.event.ItemEvent)
+     */
     @Override
     public void itemStateChanged(ItemEvent e) {
         Background newBackground = (Background) background.getSelectedItem();
@@ -211,6 +245,9 @@ public class FlagTest extends JFrame implements ActionListener, ItemListener {
         label.setIcon(new ImageIcon(flag.getImage()));
     }
 
+    /* (non-Javadoc)
+     * @see java.awt.event.ActionListener#actionPerformed(java.awt.event.ActionEvent)
+     */
     @Override
     public void actionPerformed(ActionEvent ae) {
         ColorButton button = (ColorButton)ae.getSource();
@@ -223,6 +260,9 @@ public class FlagTest extends JFrame implements ActionListener, ItemListener {
         label.setIcon(new ImageIcon(flag.getImage()));
     }
 
+    /**
+     * Sets the colors.
+     */
     private void setColors() {
         flag.setUnionColor(unionColor.getColor());
         flag.setStarColor(starColor.getColor());
@@ -237,6 +277,12 @@ public class FlagTest extends JFrame implements ActionListener, ItemListener {
         }
     }
 
+    /**
+     * Gets the numbers.
+     *
+     * @param count the count
+     * @return the numbers
+     */
     public final String[] getNumbers(int count) {
         String[] result = new String[count];
         for (int index = 0; index < count; index++) {
@@ -245,6 +291,12 @@ public class FlagTest extends JFrame implements ActionListener, ItemListener {
         return result;
     }
 
+    /**
+     * Enable.
+     *
+     * @param components the components
+     * @param value the value
+     */
     private void enable(Component[] components, boolean value) {
         for (Component component : components) {
             component.setEnabled(value);
@@ -252,6 +304,11 @@ public class FlagTest extends JFrame implements ActionListener, ItemListener {
     }
 
 
+    /**
+     * The main method.
+     *
+     * @param args the arguments
+     */
     public static void main(String[] args) {
         FlagTest frame = new FlagTest();
 

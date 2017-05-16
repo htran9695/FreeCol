@@ -36,7 +36,10 @@ import net.sf.freecol.common.model.Specification;
  */
 public class FreeColModFile extends FreeColDataFile implements ObjectWithId {
 
+    /** The Constant SPECIFICATION_FILE. */
     protected static final String SPECIFICATION_FILE = "specification.xml";
+    
+    /** The Constant MOD_DESCRIPTOR_FILE. */
     protected static final String MOD_DESCRIPTOR_FILE = "mod.xml";
 
     /** A file filter to select mods. */

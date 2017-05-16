@@ -58,11 +58,21 @@ import net.sf.freecol.server.ai.AIMain;
 public class FreeColXMLReader extends StreamReaderDelegate
     implements Closeable {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(FreeColXMLReader.class.getName());
 
+    /**
+     * The Enum ReadScope.
+     */
     public static enum ReadScope {
-        SERVER,     // Loading the game in the server
-        NORMAL,     // Normal interning read
+        
+        /** The server. */
+        SERVER,     
+     /** The normal. */
+     // Loading the game in the server
+        NORMAL,     
+     /** The nointern. */
+     // Normal interning read
         NOINTERN,   // Do not intern any object that are read
     }
 
@@ -828,6 +838,16 @@ public class FreeColXMLReader extends StreamReaderDelegate
             : spec.getType(attrib, returnClass);
     }
 
+    /**
+     * Gets the role.
+     *
+     * @param <T> the generic type
+     * @param spec the spec
+     * @param attributeName the attribute name
+     * @param returnClass the return class
+     * @param defaultValue the default value
+     * @return the role
+     */
     // @compat 0.10.7
     public <T extends FreeColGameObjectType> T getRole(Specification spec,
         String attributeName, Class<T> returnClass, T defaultValue) {

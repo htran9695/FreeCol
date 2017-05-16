@@ -32,6 +32,7 @@ import net.sf.freecol.client.FreeColClient;
  */
 public class ShowMainAction extends FreeColAction {
 
+    /** The Constant id. */
     public static final String id = "showMainAction";
 
 

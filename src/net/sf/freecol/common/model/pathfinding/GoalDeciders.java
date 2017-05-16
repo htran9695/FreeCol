@@ -447,8 +447,10 @@ public final class GoalDeciders {
      */
     public static class MultipleAdjacentDecider {
 
+        /** The gd. */
         private final GoalDecider gd;
 
+        /** The results. */
         private final HashMap<Location, PathNode> results = new HashMap<>();
 
 
@@ -483,10 +485,20 @@ public final class GoalDeciders {
                 };
         }
 
+        /**
+         * Gets the goal decider.
+         *
+         * @return the goal decider
+         */
         public GoalDecider getGoalDecider() {
             return gd;
         }
 
+        /**
+         * Gets the results.
+         *
+         * @return the results
+         */
         public HashMap<Location, PathNode> getResults() {
             return results;
         }

@@ -36,6 +36,7 @@ import net.sf.freecol.common.resources.ResourceManager;
  */
 public final class EventPanel extends FreeColPanel {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(EventPanel.class.getName());
 
 

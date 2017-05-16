@@ -42,6 +42,7 @@ import net.sf.freecol.common.option.OptionGroup;
  */
 public final class PreGameController {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(PreGameController.class.getName());
 
     /** The main client. */

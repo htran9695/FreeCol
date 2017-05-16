@@ -19,6 +19,9 @@
 
 package net.sf.freecol.common.i18n;
 
+/**
+ * The Interface Selector.
+ */
 public interface Selector {
 
     /**

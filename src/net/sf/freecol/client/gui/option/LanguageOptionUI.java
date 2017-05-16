@@ -34,6 +34,7 @@ import net.sf.freecol.common.option.LanguageOption.Language;
  */
 public final class LanguageOptionUI extends OptionUI<LanguageOption>  {
 
+    /** The box. */
     private final JComboBox<Language> box = new JComboBox<>();
 
 

@@ -29,6 +29,7 @@ import net.sf.freecol.client.FreeColClient;
  */
 public class SaveAction extends FreeColAction {
 
+    /** The Constant id. */
     public static final String id = "saveAction";
 
 

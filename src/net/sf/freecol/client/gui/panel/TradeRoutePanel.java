@@ -54,6 +54,7 @@ import net.sf.freecol.common.model.Unit;
  */
 public final class TradeRoutePanel extends FreeColPanel {
 
+    /** The Constant logger. */
     @SuppressWarnings("unused")
     private static final Logger logger = Logger.getLogger(TradeRoutePanel.class.getName());
 

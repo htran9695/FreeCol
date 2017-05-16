@@ -50,19 +50,36 @@ import net.sf.freecol.common.i18n.Messages;
  */
 public class FreeColOptionPaneUI extends BasicOptionPaneUI {
 
+    /** The initial focus component. */
     private Component initialFocusComponent = null;
 
+    /** The cancel index. */
     private int okIndex = -1, cancelIndex = -1;
 
+    /** The new buttons. */
     private JButton[] newButtons = null;
 
 
+    /**
+     * Instantiates a new free col option pane UI.
+     */
     private FreeColOptionPaneUI() {}
 
+    /**
+     * Creates the UI.
+     *
+     * @param c the c
+     * @return the component UI
+     */
     public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
         return new FreeColOptionPaneUI();
     }
 
+    /**
+     * Gets the initial focus component.
+     *
+     * @return the initial focus component
+     */
     public Component getInitialFocusComponent() {
         return initialFocusComponent;
     }

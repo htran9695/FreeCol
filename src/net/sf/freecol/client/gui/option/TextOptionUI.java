@@ -31,6 +31,7 @@ import net.sf.freecol.common.option.TextOption;
  */
 public final class TextOptionUI extends OptionUI<TextOption>  {
 
+    /** The box. */
     private final JTextField box = new JTextField(16);
 
 

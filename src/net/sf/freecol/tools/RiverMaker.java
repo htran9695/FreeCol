@@ -33,33 +33,63 @@ import javax.imageio.ImageIO;
 
 
 
+/**
+ * The Class RiverMaker.
+ */
 public class RiverMaker {
 
+    /** The Constant BASE_WIDTH. */
     private static final int BASE_WIDTH = 128;
+    
+    /** The Constant BASE_HEIGHT. */
     private static final int BASE_HEIGHT = 64;
+    
+    /** The Constant HALF_WIDTH. */
     private static final int HALF_WIDTH = BASE_WIDTH / 2;
+    
+    /** The Constant HALF_HEIGHT. */
     private static final int HALF_HEIGHT = BASE_HEIGHT / 2;
 
+    /** The Constant EDGE_LENGTH. */
     private static final float EDGE_LENGTH = (float) Math.sqrt(HALF_WIDTH * HALF_WIDTH + HALF_HEIGHT * HALF_HEIGHT);
 
+    /** The Constant DY. */
     private static final int DY = 4;
+    
+    /** The Constant DX. */
     private static final int DX = 2 * DY;
 
+    /** The Constant NE. */
     private static final Point2D.Float NE
         = new Point2D.Float(HALF_WIDTH + DX, DY);
+    
+    /** The Constant SE. */
     private static final Point2D.Float SE
         = new Point2D.Float(BASE_WIDTH - DX, HALF_HEIGHT + DY);
+    
+    /** The Constant SW. */
     private static final Point2D.Float SW
         = new Point2D.Float(DX, HALF_HEIGHT + DY);
+    
+    /** The Constant NW. */
     private static final Point2D.Float NW
         = new Point2D.Float(HALF_WIDTH - DX, DY);
+    
+    /** The Constant CENTER. */
     private static final Point2D.Float CENTER
         = new Point2D.Float(HALF_WIDTH, 2 * DY);
 
+    /** The Constant POINTS. */
     private static final Point2D.Float[] POINTS
         = { NE, SE, SW, NW };
 
 
+    /**
+     * The main method.
+     *
+     * @param args the arguments
+     * @throws Exception the exception
+     */
     public static void main(String[] args) throws Exception {
 
         String riverName = "data/rules/classic/resources/images/terrain/"
@@ -150,6 +180,12 @@ public class RiverMaker {
     }
 
 
+    /**
+     * Next branch.
+     *
+     * @param branches the branches
+     * @return the int[]
+     */
     private static int[] nextBranch(int[] branches) {
         for (int index = 0; index < branches.length; index++) {
             if (branches[index] == 2) {
@@ -162,6 +198,12 @@ public class RiverMaker {
         return branches;
     }
 
+    /**
+     * Branch count.
+     *
+     * @param branches the branches
+     * @return the int
+     */
     private static int branchCount(int[] branches) {
         int result = 0;
         for (int branche : branches) {
@@ -172,6 +214,12 @@ public class RiverMaker {
         return result;
     }
 
+    /**
+     * Gets the name.
+     *
+     * @param branches the branches
+     * @return the name
+     */
     private static String getName(int[] branches) {
         String name = "";
         for (int branche : branches) {

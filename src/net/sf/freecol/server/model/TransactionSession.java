@@ -32,6 +32,7 @@ import net.sf.freecol.server.control.ChangeSet;
  */
 public abstract class TransactionSession {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(TransactionSession.class.getName());
 
     /**

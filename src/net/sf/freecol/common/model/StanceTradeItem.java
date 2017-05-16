@@ -157,6 +157,7 @@ public class StanceTradeItem extends TradeItem {
 
     // Serialization
 
+    /** The Constant STANCE_TAG. */
     private static final String STANCE_TAG = "stance";
 
 

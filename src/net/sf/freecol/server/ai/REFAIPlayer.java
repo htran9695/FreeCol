@@ -67,6 +67,7 @@ import net.sf.freecol.server.model.ServerPlayer;
  */
 public class REFAIPlayer extends EuropeanAIPlayer {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(REFAIPlayer.class.getName());
 
     /** Limit on the number of REF units chasing a single hostile unit. */
@@ -75,13 +76,29 @@ public class REFAIPlayer extends EuropeanAIPlayer {
     /** Container class for REF target colony information. */
     private static class TargetTuple implements Comparable<TargetTuple> {
 
+        /** The colony. */
         public final Colony colony;
+        
+        /** The path. */
         public final PathNode path;
+        
+        /** The score. */
         public double score;
+        
+        /** The disembark tile. */
         public Tile disembarkTile;
+        
+        /** The entry. */
         public Tile entry;
 
 
+        /**
+         * Instantiates a new target tuple.
+         *
+         * @param colony the colony
+         * @param path the path
+         * @param score the score
+         */
         public TargetTuple(Colony colony, PathNode path, double score) {
             this.colony = colony;
             this.path = path;
@@ -101,6 +118,9 @@ public class REFAIPlayer extends EuropeanAIPlayer {
 
         // Implement Comparable<TargetTuple>
 
+        /* (non-Javadoc)
+         * @see java.lang.Comparable#compareTo(java.lang.Object)
+         */
         @Override
         public int compareTo(TargetTuple other) {
             double cmp = other.score - score;
@@ -134,6 +154,7 @@ public class REFAIPlayer extends EuropeanAIPlayer {
         }
     }
 
+    /** The Constant seekAndDestroyRange. */
     private static final int seekAndDestroyRange = 12;
 
     /** Map of target to count. */

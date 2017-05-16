@@ -31,6 +31,7 @@ import javax.swing.JComponent;
  */
 public final class LAFUtilities {
 
+    /** The Constant AA_TEXT_SIZE. */
     private static final int AA_TEXT_SIZE = 16;
 
     /**

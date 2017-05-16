@@ -54,6 +54,7 @@ import net.sf.freecol.common.resources.ResourceManager;
  */
 public final class ReportTradePanel extends ReportPanel {
 
+    /** The colonies. */
     private final List<Colony> colonies;
 
 
@@ -221,16 +222,35 @@ public final class ReportTradePanel extends ReportPanel {
         }
     }
 
+    /**
+     * Creates the left label.
+     *
+     * @param key the key
+     * @return the j label
+     */
     private JLabel createLeftLabel(String key) {
         JLabel result = Utility.localizedLabel(key);
         result.setBorder(Utility.LEFTCELLBORDER);
         return result;
     }
 
+    /**
+     * Creates the number label.
+     *
+     * @param value the value
+     * @return the j label
+     */
     private JLabel createNumberLabel(int value) {
         return createNumberLabel(value, false);
     }
 
+    /**
+     * Creates the number label.
+     *
+     * @param value the value
+     * @param alwaysAddSign the always add sign
+     * @return the j label
+     */
     private JLabel createNumberLabel(int value, boolean alwaysAddSign) {
         JLabel result = new JLabel(String.valueOf(value), JLabel.TRAILING);
         result.setBorder(Utility.CELLBORDER);
@@ -242,6 +262,11 @@ public final class ReportTradePanel extends ReportPanel {
         return result;
     }
 
+    /**
+     * Creates the border.
+     *
+     * @return the border
+     */
     protected Border createBorder() {
         return new EmptyBorder(0, 20, 20, 20);
     }

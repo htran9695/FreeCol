@@ -29,6 +29,7 @@ import net.sf.freecol.client.FreeColClient;
  */
 public class GotoTileAction extends UnitAction {
 
+    /** The Constant id. */
     public static final String id = "gotoTileAction";
 
 

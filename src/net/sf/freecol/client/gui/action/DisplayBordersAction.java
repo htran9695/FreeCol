@@ -32,6 +32,7 @@ import net.sf.freecol.client.FreeColClient;
  */
 public class DisplayBordersAction extends SelectableAction {
 
+    /** The Constant id. */
     public static final String id = "displayBordersAction";
 
 

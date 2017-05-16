@@ -260,7 +260,10 @@ public abstract class TradeItem extends FreeColObject {
 
     // Serialization
 
+    /** The Constant DESTINATION_TAG. */
     private static final String DESTINATION_TAG = "destination";
+    
+    /** The Constant SOURCE_TAG. */
     private static final String SOURCE_TAG = "source";
 
 

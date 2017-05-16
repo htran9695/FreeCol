@@ -42,6 +42,7 @@ import org.w3c.dom.Element;
  */
 public abstract class FreeColGameObject extends FreeColObject {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(FreeColGameObject.class.getName());
 
     /** The game this object belongs to. */

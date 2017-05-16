@@ -40,6 +40,7 @@ import net.sf.freecol.server.ai.AIUnit;
  */
 public class WorkInsideColonyMission extends Mission {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(WorkInsideColonyMission.class.getName());
 
     /** The tag for this mission. */
@@ -187,6 +188,7 @@ public class WorkInsideColonyMission extends Mission {
 
     // Serialization
 
+    /** The Constant COLONY_TAG. */
     private static final String COLONY_TAG = "colony";
 
 

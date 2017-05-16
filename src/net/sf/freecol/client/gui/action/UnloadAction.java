@@ -31,8 +31,10 @@ import net.sf.freecol.common.model.Unit;
  */
 public class UnloadAction extends MapboardAction {
 
+    /** The Constant id. */
     public static final String id = "unloadAction";
 
+    /** The unit. */
     private Unit unit = null;
 
 
@@ -61,6 +63,11 @@ public class UnloadAction extends MapboardAction {
     }
 
 
+    /**
+     * Gets the unit.
+     *
+     * @return the unit
+     */
     private Unit getUnit() {
         return (unit != null) ? unit : getGUI().getActiveUnit();
     }

@@ -49,6 +49,7 @@ import net.sf.freecol.server.control.ChangeSet.See;
  */
 public class ServerEurope extends Europe implements ServerModelObject {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(ServerEurope.class.getName());
 
 

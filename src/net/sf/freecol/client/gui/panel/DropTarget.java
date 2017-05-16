@@ -26,6 +26,9 @@ import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Unit;
 
 
+/**
+ * The Interface DropTarget.
+ */
 public interface DropTarget {
 
     /**

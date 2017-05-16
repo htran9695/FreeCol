@@ -79,17 +79,32 @@ import net.sf.freecol.common.model.UnitTradeItem;
  */
 public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(NegotiationDialog.class.getName());
 
+    /** The Constant HUGE_DEMAND. */
     private static final int HUGE_DEMAND = 100000;
 
+    /** The Constant ADD. */
     private static final String ADD = "add";
+    
+    /** The Constant CLEAR. */
     private static final String CLEAR = "clear";
 
 
+    /**
+     * The Class RemoveAction.
+     */
     private class RemoveAction extends AbstractAction {
+        
+        /** The item. */
         private final TradeItem item;
 
+        /**
+         * Instantiates a new removes the action.
+         *
+         * @param item the item
+         */
         public RemoveAction(TradeItem item) {
             this.item = item;
         }
@@ -106,14 +121,28 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
         }
     }
 
+    /**
+     * The Class ColonyTradeItemPanel.
+     */
     private class ColonyTradeItemPanel extends JPanel
         implements ActionListener {
 
+        /** The source. */
         private final Player source;
+        
+        /** The colony box. */
         private final JComboBox<Colony> colonyBox;
+        
+        /** The clear button. */
         private final JButton clearButton;
+        
+        /** The add button. */
         private final JButton addButton;
+        
+        /** The label. */
         private final JLabel label;
+        
+        /** The all colonies. */
         private final List<Colony> allColonies;
 
 
@@ -211,10 +240,16 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
         }
     }
 
+    /**
+     * The Class GoldTradeItemPanel.
+     */
     private class GoldTradeItemPanel extends JPanel
         implements ActionListener {
 
+        /** The source. */
         private final Player source;
+        
+        /** The spinner. */
         private final JSpinner spinner;
 
 
@@ -291,9 +326,15 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
         }
     }
 
+    /**
+     * The Class GoodsTradeItemPanel.
+     */
     private class GoodsTradeItemPanel extends JPanel
         implements ActionListener {
 
+        /**
+         * The Class GoodsBoxRenderer.
+         */
         private class GoodsBoxRenderer extends JLabel
             implements ListCellRenderer<Goods> {
 
@@ -310,11 +351,22 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
             }
         }
 
+        /** The source. */
         private final Player source;
+        
+        /** The goods box. */
         private final JComboBox<Goods> goodsBox;
+        
+        /** The clear button. */
         private final JButton clearButton;
+        
+        /** The add button. */
         private final JButton addButton;
+        
+        /** The label. */
         private final JLabel label;
+        
+        /** The all goods. */
         private final List<Goods> allGoods;
 
 
@@ -418,9 +470,15 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
         }
     }
 
+    /**
+     * The Class InciteTradeItemPanel.
+     */
     private class InciteTradeItemPanel extends JPanel
         implements ActionListener {
 
+        /**
+         * The Class InciteBoxRenderer.
+         */
         private class InciteBoxRenderer extends JLabel
             implements ListCellRenderer<Player> {
 
@@ -437,12 +495,25 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
             }
         }
 
+        /** The source. */
         private final Player source;
+        
+        /** The other. */
         private final Player other;
+        
+        /** The victim box. */
         private final JComboBox<Player> victimBox;
+        
+        /** The label. */
         private final JLabel label;
+        
+        /** The clear button. */
         private final JButton clearButton;
+        
+        /** The add button. */
         private final JButton addButton;
+        
+        /** The available. */
         private final List<Player> available = new ArrayList<>();
 
 
@@ -546,6 +617,9 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
     public class StanceTradeItemPanel extends JPanel
         implements ActionListener {
 
+        /**
+         * The Class StanceBoxRenderer.
+         */
         private class StanceBoxRenderer extends JLabel
             implements ListCellRenderer<Stance> {
 
@@ -561,10 +635,19 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
             }
         }
 
+        /** The source. */
         private final Player source;
+        
+        /** The target. */
         private final Player target;
+        
+        /** The stance box. */
         private final JComboBox<Stance> stanceBox;
+        
+        /** The clear button. */
         private final JButton clearButton;
+        
+        /** The add button. */
         private final JButton addButton;
 
 
@@ -659,9 +742,15 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
         }
     }
 
+    /**
+     * The Class UnitTradeItemPanel.
+     */
     private class UnitTradeItemPanel extends JPanel
         implements ActionListener {
 
+        /**
+         * The Class UnitBoxRenderer.
+         */
         private class UnitBoxRenderer extends JLabel
             implements ListCellRenderer<Unit> {
 
@@ -677,11 +766,22 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
             }
         }
 
+        /** The source. */
         private final Player source;
+        
+        /** The unit box. */
         private final JComboBox<Unit> unitBox;
+        
+        /** The clear button. */
         private final JButton clearButton;
+        
+        /** The add button. */
         private final JButton addButton;
+        
+        /** The label. */
         private final JLabel label;
+        
+        /** The all units. */
         private final List<Unit> allUnits;
 
 
@@ -791,10 +891,20 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
 
     /** The panels for various negotiable data. */
     private StanceTradeItemPanel stancePanel;
+    
+    /** The gold demand panel. */
     private GoldTradeItemPanel goldOfferPanel, goldDemandPanel;
+    
+    /** The colony demand panel. */
     private ColonyTradeItemPanel colonyOfferPanel, colonyDemandPanel;
+    
+    /** The goods demand panel. */
     private GoodsTradeItemPanel goodsOfferPanel, goodsDemandPanel;
+    
+    /** The incite demand panel. */
     private InciteTradeItemPanel inciteOfferPanel, inciteDemandPanel;
+    
+    /** The unit demand panel. */
     private UnitTradeItemPanel unitOfferPanel, unitDemandPanel;
 
     /** A panel showing a summary of the current agreement. */
@@ -802,6 +912,8 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
 
     /** Useful internal messages. */
     private StringTemplate demand, offer;
+    
+    /** The exchange message. */
     private String exchangeMessage;
 
     /** Responses. */

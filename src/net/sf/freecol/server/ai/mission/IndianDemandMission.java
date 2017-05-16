@@ -50,6 +50,7 @@ import net.sf.freecol.server.ai.AIUnit;
  */
 public class IndianDemandMission extends Mission {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(IndianDemandMission.class.getName());
 
     /** The minimum amount of goods to demand. */
@@ -208,11 +209,24 @@ public class IndianDemandMission extends Mission {
         return goods;
     }
 
+    /**
+     * Cap amount.
+     *
+     * @param amount the amount
+     * @param difficulty the difficulty
+     * @return the int
+     */
     private int capAmount(int amount, int difficulty) {
         return Math.min(Math.max(amount * difficulty / 6, GOODS_DEMAND_MIN),
                         GoodsContainer.CARGO_SIZE); // One load of goods max
     }
 
+    /**
+     * Gets the home.
+     *
+     * @param aiUnit the ai unit
+     * @return the home
+     */
     private static IndianSettlement getHome(AIUnit aiUnit) {
         return aiUnit.getUnit().getHomeIndianSettlement();
     }
@@ -450,7 +464,10 @@ public class IndianDemandMission extends Mission {
 
     // Serialization
 
+    /** The Constant COLONY_TAG. */
     private static final String COLONY_TAG = "colony";
+    
+    /** The Constant DEMANDED_TAG. */
     private static final String DEMANDED_TAG = "demanded";
 
 

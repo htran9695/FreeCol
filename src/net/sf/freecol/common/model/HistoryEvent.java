@@ -36,27 +36,70 @@ import org.w3c.dom.Element;
  */
 public class HistoryEvent extends StringTemplate {
 
+    /**
+     * The Enum HistoryEventType.
+     */
     public static enum HistoryEventType implements Named {
+        
+        /** The discover new world. */
         DISCOVER_NEW_WORLD,
+        
+        /** The discover region. */
         DISCOVER_REGION,
+        
+        /** The meet nation. */
         MEET_NATION,
+        
+        /** The city of gold. */
         CITY_OF_GOLD,
+        
+        /** The found colony. */
         FOUND_COLONY,
+        
+        /** The abandon colony. */
         ABANDON_COLONY,
+        
+        /** The conquer colony. */
         CONQUER_COLONY,
+        
+        /** The colony destroyed. */
         COLONY_DESTROYED,
+        
+        /** The colony conquered. */
         COLONY_CONQUERED,
+        
+        /** The destroy settlement. */
         DESTROY_SETTLEMENT,
+        
+        /** The destroy nation. */
         // FIXME: when exactly is a European nation destroyed?
         DESTROY_NATION,
+        
+        /** The nation destroyed. */
         NATION_DESTROYED,
+        
+        /** The founding father. */
         FOUNDING_FATHER,
+        
+        /** The declare independence. */
         DECLARE_INDEPENDENCE,
+        
+        /** The independence. */
         INDEPENDENCE,
+        
+        /** The spanish succession. */
         SPANISH_SUCCESSION,
+        
+        /** The declare war. */
         DECLARE_WAR,
+        
+        /** The cease fire. */
         CEASE_FIRE,
+        
+        /** The make peace. */
         MAKE_PEACE,
+        
+        /** The form alliance. */
         FORM_ALLIANCE;
 
         /**
@@ -68,6 +111,11 @@ public class HistoryEvent extends StringTemplate {
             return "historyEventType." + getEnumKey(this);
         }
 
+        /**
+         * Gets the description key.
+         *
+         * @return the description key
+         */
         public String getDescriptionKey() {
             return Messages.descriptionKey("model." + getKey());
         }
@@ -272,9 +320,16 @@ public class HistoryEvent extends StringTemplate {
 
     // Serialization
 
+    /** The Constant EVENT_TYPE_TAG. */
     private static final String EVENT_TYPE_TAG = "eventType";
+    
+    /** The Constant PLAYER_ID_TAG. */
     private static final String PLAYER_ID_TAG = "playerId";
+    
+    /** The Constant SCORE_TAG. */
     private static final String SCORE_TAG = "score";
+    
+    /** The Constant TURN_TAG. */
     private static final String TURN_TAG = "turn";
 
 

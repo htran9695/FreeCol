@@ -52,16 +52,31 @@ import net.sf.freecol.common.option.Option;
 public final class ListOptionUI<T> extends OptionUI<ListOption<T>>
     implements ListSelectionListener {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(ListOptionUI.class.getName());
 
+    /** The panel. */
     private final JPanel panel;
+    
+    /** The list. */
     private final JList<AbstractOption<T>> list;
+    
+    /** The model. */
     private final DefaultListModel<AbstractOption<T>> model;
 
+    /** The edit button. */
     private final JButton editButton = Utility.localizedButton("list.edit");
+    
+    /** The add button. */
     private final JButton addButton = Utility.localizedButton("list.add");
+    
+    /** The remove button. */
     private final JButton removeButton = Utility.localizedButton("list.remove");
+    
+    /** The up button. */
     private final JButton upButton = Utility.localizedButton("list.up");
+    
+    /** The down button. */
     private final JButton downButton = Utility.localizedButton("list.down");
 
 
@@ -158,6 +173,13 @@ public final class ListOptionUI<T> extends OptionUI<ListOption<T>>
         initialize();
     }
 
+    /**
+     * Sets the cell renderer.
+     *
+     * @param gui the gui
+     * @param o the o
+     * @param editable the editable
+     */
     @SuppressWarnings("unchecked")
     private void setCellRenderer(GUI gui, AbstractOption<T> o,
                                  boolean editable) {
@@ -167,6 +189,11 @@ public final class ListOptionUI<T> extends OptionUI<ListOption<T>>
         }
     }
 
+    /**
+     * Gets the value.
+     *
+     * @return the value
+     */
     private List<AbstractOption<T>> getValue() {
         List<AbstractOption<T>> result = new ArrayList<>();
         for (Enumeration<AbstractOption<T>> e = model.elements();

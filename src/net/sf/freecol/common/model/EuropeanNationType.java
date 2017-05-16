@@ -137,10 +137,19 @@ public class EuropeanNationType extends NationType {
 
     // Serialization
 
+    /** The Constant EXPERT_STARTING_UNITS_TAG. */
     private static final String EXPERT_STARTING_UNITS_TAG = "expert-starting-units";
+    
+    /** The Constant REF_TAG. */
     private static final String REF_TAG = "ref";
+    
+    /** The Constant ROLE_TAG. */
     private static final String ROLE_TAG = "role";
+    
+    /** The Constant TYPE_TAG. */
     private static final String TYPE_TAG = "type";
+    
+    /** The Constant UNIT_TAG. */
     private static final String UNIT_TAG = "unit";
 
 
@@ -178,6 +187,15 @@ public class EuropeanNationType extends NationType {
         }
     }
 
+    /**
+     * Write unit.
+     *
+     * @param xw the xw
+     * @param id the id
+     * @param au the au
+     * @param expert the expert
+     * @throws XMLStreamException the XML stream exception
+     */
     private void writeUnit(FreeColXMLWriter xw, String id,
                            AbstractUnit au,
                            boolean expert) throws XMLStreamException {

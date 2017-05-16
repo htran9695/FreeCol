@@ -41,10 +41,13 @@ import net.sf.freecol.common.model.Unit;
  */
 public final class DragListener extends MouseAdapter {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(DragListener.class.getName());
 
+    /** The parent panel. */
     private final FreeColPanel parentPanel;
 
+    /** The free col client. */
     private final FreeColClient freeColClient;
 
 

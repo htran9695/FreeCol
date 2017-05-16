@@ -51,6 +51,7 @@ import net.sf.freecol.server.ai.AIUnit;
  */
 public class ScoutingMission extends Mission {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(ScoutingMission.class.getName());
 
     /** The tag for this mission. */
@@ -480,6 +481,7 @@ public class ScoutingMission extends Mission {
 
     // Serialization
 
+    /** The Constant TARGET_TAG. */
     private static final String TARGET_TAG = "target";
 
 

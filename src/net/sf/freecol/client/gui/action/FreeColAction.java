@@ -63,13 +63,20 @@ public abstract class FreeColAction extends AbstractAction
      */
     public class InnerMenuKeyListener implements MenuKeyListener {
 
+        /** The mnemonic. */
         final int mnemonic;
 
 
+        /**
+         * Instantiates a new inner menu key listener.
+         */
         public InnerMenuKeyListener() {
             mnemonic = ((Integer) getValue(MNEMONIC_KEY));
         }
 
+        /* (non-Javadoc)
+         * @see javax.swing.event.MenuKeyListener#menuKeyPressed(javax.swing.event.MenuKeyEvent)
+         */
         @Override
         public void menuKeyPressed(MenuKeyEvent e) {
 
@@ -82,25 +89,42 @@ public abstract class FreeColAction extends AbstractAction
             }
         }
 
+        /* (non-Javadoc)
+         * @see javax.swing.event.MenuKeyListener#menuKeyReleased(javax.swing.event.MenuKeyEvent)
+         */
         @Override
         public void menuKeyReleased(MenuKeyEvent e) {
             // do nothing
         }
 
+        /* (non-Javadoc)
+         * @see javax.swing.event.MenuKeyListener#menuKeyTyped(javax.swing.event.MenuKeyEvent)
+         */
         @Override
         public void menuKeyTyped(MenuKeyEvent e) {
             // do nothing
         }
     }
 
+    /** The Constant ACTION_ID. */
     public static final String ACTION_ID = "ACTION_ID";
+    
+    /** The Constant BUTTON_IMAGE. */
     public static final String BUTTON_IMAGE = "BUTTON_IMAGE";
+    
+    /** The Constant BUTTON_ROLLOVER_IMAGE. */
     public static final String BUTTON_ROLLOVER_IMAGE = "BUTTON_ROLLOVER_IMAGE";
+    
+    /** The Constant BUTTON_PRESSED_IMAGE. */
     public static final String BUTTON_PRESSED_IMAGE = "BUTTON_PRESSED_IMAGE";
+    
+    /** The Constant BUTTON_DISABLED_IMAGE. */
     public static final String BUTTON_DISABLED_IMAGE = "BUTTON_DISABLED_IMAGE";
 
+    /** The free col client. */
     protected final FreeColClient freeColClient;
 
+    /** The order button image count. */
     private int orderButtonImageCount = 0;
 
 
@@ -211,6 +235,11 @@ public abstract class FreeColAction extends AbstractAction
         return (Integer)getValue(MNEMONIC_KEY);
     }
 
+    /**
+     * Sets the mnemonic.
+     *
+     * @param mnemonic the new mnemonic
+     */
     public void setMnemonic(int mnemonic) {
         putValue(MNEMONIC_KEY, mnemonic);
     }
@@ -338,6 +367,11 @@ public abstract class FreeColAction extends AbstractAction
         logger.warning("Calling unsupported method setValue.");
     }
 
+    /**
+     * Gets the menu key listener.
+     *
+     * @return the menu key listener
+     */
     public MenuKeyListener getMenuKeyListener() {
         return new InnerMenuKeyListener();
     }
@@ -366,6 +400,7 @@ public abstract class FreeColAction extends AbstractAction
     // This is not actually a FreeColObject, so the serialization is
     // less elaborate.
     
+    /** The Constant ACCELERATOR_TAG. */
     private static final String ACCELERATOR_TAG = "accelerator";
 
 

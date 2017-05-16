@@ -39,10 +39,19 @@ import net.sf.freecol.common.model.Unit;
  */
 public final class UnitImageAnimation {
     
+    /** The gui. */
     private final SwingGUI gui;
+    
+    /** The unit. */
     private final Unit unit;
+    
+    /** The tile. */
     private final Tile tile;
+    
+    /** The animation. */
     private final SimpleZippedAnimation animation;
+    
+    /** The mirror. */
     private final boolean mirror;
 
     /**
@@ -98,6 +107,11 @@ public final class UnitImageAnimation {
             });
     }
 
+    /**
+     * Gets the dirty animation area.
+     *
+     * @return the dirty animation area
+     */
     protected Rectangle getDirtyAnimationArea() {
         return gui.getTileBounds(tile);
     }

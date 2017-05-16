@@ -55,14 +55,17 @@ import static net.sf.freecol.common.util.CollectionUtils.*;
  */
 public class DebugMenu extends JMenu {
 
+    /** The Constant logger. */
     @SuppressWarnings("unused")
     private static final Logger logger = Logger.getLogger(DebugMenu.class.getName());
 
+    /** The Constant ERROR_MESSAGE. */
     private static final String ERROR_MESSAGE =
         "This is a long error message, indicating that some error has occurred. " +
         "This is a long error message, indicating that some error has occurred. " +
         "This is a long error message, indicating that some error has occurred.";
 
+    /** The free col client. */
     private final FreeColClient freeColClient;
 
 

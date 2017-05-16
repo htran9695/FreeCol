@@ -35,6 +35,7 @@ import org.w3c.dom.Element;
  */
 public class MarketData extends FreeColGameObject {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(MarketData.class.getName());
 
     /** Inclusive lower bound on goods price. */
@@ -392,13 +393,28 @@ public class MarketData extends FreeColGameObject {
 
     // Serialization
 
+    /** The Constant AMOUNT_TAG. */
     private static final String AMOUNT_TAG = "amount";
+    
+    /** The Constant ARREARS_TAG. */
     private static final String ARREARS_TAG = "arrears";
+    
+    /** The Constant GOODS_TYPE_TAG. */
     private static final String GOODS_TYPE_TAG = "goods-type";
+    
+    /** The Constant INCOME_AFTER_TAXES_TAG. */
     private static final String INCOME_AFTER_TAXES_TAG = "incomeAfterTaxes";
+    
+    /** The Constant INCOME_BEFORE_TAXES_TAG. */
     private static final String INCOME_BEFORE_TAXES_TAG = "incomeBeforeTaxes";
+    
+    /** The Constant INITIAL_PRICE_TAG. */
     private static final String INITIAL_PRICE_TAG = "initialPrice";
+    
+    /** The Constant SALES_TAG. */
     private static final String SALES_TAG = "sales";
+    
+    /** The Constant TRADED_TAG. */
     private static final String TRADED_TAG = "traded";
 
 

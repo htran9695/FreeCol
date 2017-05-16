@@ -86,6 +86,7 @@ import org.w3c.dom.NodeList;
  */
 public class AIMessage {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(AIMessage.class.getName());
 
 

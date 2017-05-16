@@ -31,11 +31,19 @@ import javax.swing.event.EventListenerList;
  */
 public class TerrainCursor implements ActionListener  {
 
+    /** The Constant OFF. */
     public static final int OFF = 0;
+    
+    /** The Constant ON. */
     public static final int ON = 1;
 
+    /** The blink timer. */
     private final Timer blinkTimer;
+    
+    /** The active. */
     private boolean active;
+    
+    /** The listener list. */
     private final EventListenerList listenerList;
 
 
@@ -70,22 +78,43 @@ public class TerrainCursor implements ActionListener  {
         active = newState;
     }
 
+    /**
+     * Start blinking.
+     */
     public void startBlinking() {
         if (!blinkTimer.isRunning()) blinkTimer.start();
     }
 
+    /**
+     * Stop blinking.
+     */
     public void stopBlinking() {
         if (blinkTimer.isRunning()) blinkTimer.stop();
     }
 
+    /**
+     * Adds the action listener.
+     *
+     * @param listener the listener
+     */
     public void addActionListener(ActionListener listener) {
         listenerList.add(ActionListener.class, listener);
     }
 
+    /**
+     * Removes the action listener.
+     *
+     * @param listener the listener
+     */
     public void removeActionListener(ActionListener listener) {
         listenerList.remove(ActionListener.class, listener);
     }
 
+    /**
+     * Fire action event.
+     *
+     * @param ae the ae
+     */
     public void fireActionEvent(ActionEvent ae) {
         for (ActionListener al
                  : listenerList.getListeners(ActionListener.class)) {

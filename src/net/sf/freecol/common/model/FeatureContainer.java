@@ -47,10 +47,13 @@ import static net.sf.freecol.common.util.CollectionUtils.*;
  */
 public final class FeatureContainer {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(FeatureContainer.class.getName());
 
     /** Lock variables. */
     private final Object abilitiesLock = new Object();
+    
+    /** The modifiers lock. */
     private final Object modifiersLock = new Object();
 
     /** The abilities in the container. */

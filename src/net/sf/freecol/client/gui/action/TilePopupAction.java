@@ -29,6 +29,7 @@ import net.sf.freecol.client.FreeColClient;
  */
 public class TilePopupAction extends MapboardAction {
 
+    /** The Constant id. */
     public static final String id = "tilePopupAction";
 
 

@@ -30,6 +30,7 @@ import static net.sf.freecol.common.util.CollectionUtils.*;
  */
 public class DefaultNumberRule extends Number {
 
+    /** The rules. */
     final Map<Category, Rule> rules = new EnumMap<>(Category.class);
 
 

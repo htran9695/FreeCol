@@ -62,16 +62,31 @@ import net.sf.freecol.common.option.OptionGroup;
 public final class NewPanel extends FreeColPanel
     implements ActionListener, ItemListener {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(NewPanel.class.getName());
 
     /** The actions for this panel. */
     private static enum NewPanelAction {
+        
+        /** The ok. */
         OK,
+        
+        /** The cancel. */
         CANCEL,
+        
+        /** The single. */
         SINGLE,
+        
+        /** The join. */
         JOIN,
+        
+        /** The start. */
         START,
+        
+        /** The meta server. */
         META_SERVER,
+        
+        /** The show difficulty. */
         SHOW_DIFFICULTY
     };
 

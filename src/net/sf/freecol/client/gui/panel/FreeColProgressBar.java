@@ -43,20 +43,26 @@ import net.sf.freecol.common.model.StringTemplate;
  */
 public class FreeColProgressBar extends JPanel {
 
+    /** The min. */
     // The minimum value of the progress bar
     private int min = 0;
 
+    /** The max. */
     // The maximum value of the progress bar
     private int max = 100;
 
+    /** The value. */
     // The current value of the progress bar
     private int value = 0;
 
+    /** The step. */
     // The expected increase next turn
     private int step = 0;
 
+    /** The icon width. */
     private int iconWidth;
 
+    /** The icon height. */
     private final int iconHeight = ImageLibrary.ICON_SIZE.height / 2;
 
     /**
@@ -66,6 +72,7 @@ public class FreeColProgressBar extends JPanel {
     private GoodsType goodsType = null;
 
 
+    /** The image. */
     private Image image;
 
 
@@ -141,6 +148,9 @@ public class FreeColProgressBar extends JPanel {
         repaint();
     }
 
+    /* (non-Javadoc)
+     * @see javax.swing.JComponent#paintComponent(java.awt.Graphics)
+     */
     @Override
     protected void paintComponent(Graphics g) {
 
