@@ -60,260 +60,280 @@ import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.option.BooleanOption;
 
-
 /**
  * This panel displays the Turn Report.
  */
 public final class ReportTurnPanel extends ReportPanel {
 
-    private static final Logger logger = Logger.getLogger(ReportTurnPanel.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(ReportTurnPanel.class.getName());
 
-    /** The messages to display. */
-    private List<ModelMessage> messages;
+	/** The messages to display. */
+	private List<ModelMessage> messages;
 
-    private final Hashtable<String, Vector<JComponent>> textPanesByMessage
-        = new Hashtable<>();
-    private final Hashtable<String, Vector<JComponent>> labelsByMessage
-        = new Hashtable<>();
+	/** The text panes by message. */
+	private final Hashtable<String, Vector<JComponent>> textPanesByMessage = new Hashtable<>();
 
+	/** The labels by message. */
+	private final Hashtable<String, Vector<JComponent>> labelsByMessage = new Hashtable<>();
 
-    /**
-     * Creates the turn report.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param messages The <code>ModelMessages</code> to display in the report.
-     */
-    public ReportTurnPanel(FreeColClient freeColClient,
-                           List<ModelMessage> messages) {
-        super(freeColClient, "reportTurnAction");
+	/**
+	 * Creates the turn report.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param messages
+	 *            The <code>ModelMessages</code> to display in the report.
+	 */
+	public ReportTurnPanel(FreeColClient freeColClient, List<ModelMessage> messages) {
+		super(freeColClient, "reportTurnAction");
 
-        // Display Panel
-        reportPanel.removeAll();
-        reportPanel.setLayout(new MigLayout("wrap 4", "[center][550!]:push[][]", ""));
-        setMessages(messages);
-    }
+		// Display Panel
+		reportPanel.removeAll();
+		reportPanel.setLayout(new MigLayout("wrap 4", "[center][550!]:push[][]", ""));
+		setMessages(messages);
+	}
 
+	/**
+	 * Set the messages being displayed by this report.
+	 *
+	 * @param messages
+	 *            The <code>ModelMessages</code> to display in the report.
+	 */
+	public void setMessages(List<ModelMessage> messages) {
+		this.messages = messages;
+		if (messages != null)
+			displayMessages();
+	}
 
-    /**
-     * Set the messages being displayed by this report.
-     *
-     * @param messages The <code>ModelMessages</code> to display in the report.
-     */
-    public void setMessages(List<ModelMessage> messages) {
-        this.messages = messages;
-        if (messages != null) displayMessages();
-    }
-        
-    private void displayMessages() {
-        final Game game = getFreeColClient().getGame();
-        final ClientOptions options = getClientOptions();
-        final int groupBy = options.getInteger(ClientOptions.MESSAGES_GROUP_BY);
+	/**
+	 * Display messages.
+	 */
+	private void displayMessages() {
+		final Game game = getFreeColClient().getGame();
+		final ClientOptions options = getClientOptions();
+		final int groupBy = options.getInteger(ClientOptions.MESSAGES_GROUP_BY);
 
-        // Sort if requested
-        final Comparator<ModelMessage> comparator
-            = options.getModelMessageComparator(game);
-        if (comparator != null) Collections.sort(messages, comparator);
+		// Sort if requested
+		final Comparator<ModelMessage> comparator = options.getModelMessageComparator(game);
+		if (comparator != null)
+			Collections.sort(messages, comparator);
 
-        Object source = this;
-        ModelMessage.MessageType type = null;
-        for (ModelMessage message : messages) {
-            // Add headline if the grouping changed
-            switch (groupBy) {
-            case ClientOptions.MESSAGES_GROUP_BY_SOURCE:
-                FreeColGameObject messageSource = game.getMessageSource(message);
-                if (messageSource != source) {
-                    source = messageSource;
-                    reportPanel.add(getHeadline(messageSource), "newline 20, skip");
-                }
-                break;
-            case ClientOptions.MESSAGES_GROUP_BY_TYPE:
-                if (message.getMessageType() != type) {
-                    type = message.getMessageType();
-                    JLabel headline = Utility.localizedHeaderLabel(
-                        message.getMessageType(), FontLibrary.FontSize.SMALL);
-                    reportPanel.add(headline, "newline 20, skip, span");
-                }
-                break;
-            default:
-                break;
-            }
-            
-            JComponent component = new JLabel();
-            FreeColObject messageDisplay = game.getMessageDisplay(message);
-            final ImageLibrary lib = getImageLibrary();
-            if (messageDisplay != null) {
-                Image image = lib.getObjectImage(messageDisplay, 1f);
-                ImageIcon icon = (image == null) ? null : new ImageIcon(image);
-                if (messageDisplay instanceof Colony
-                    || messageDisplay instanceof Europe) {
-                    JButton button = Utility.getLinkButton(null, icon,
-                        messageDisplay.getId());
-                    button.addActionListener(this);
-                    component = button;
-                } else if (messageDisplay instanceof Unit) {
-                    JButton button = Utility.getLinkButton(null, icon,
-                        ((Unit)messageDisplay).up().getId());
-                    button.addActionListener(this);
-                    component = button;
-                } else { // includes Player
-                    component = new JLabel(icon);
-                }
-            }
+		Object source = this;
+		ModelMessage.MessageType type = null;
+		for (ModelMessage message : messages) {
+			// Add headline if the grouping changed
+			switch (groupBy) {
+			case ClientOptions.MESSAGES_GROUP_BY_SOURCE:
+				FreeColGameObject messageSource = game.getMessageSource(message);
+				if (messageSource != source) {
+					source = messageSource;
+					reportPanel.add(getHeadline(messageSource), "newline 20, skip");
+				}
+				break;
+			case ClientOptions.MESSAGES_GROUP_BY_TYPE:
+				if (message.getMessageType() != type) {
+					type = message.getMessageType();
+					JLabel headline = Utility.localizedHeaderLabel(message.getMessageType(),
+							FontLibrary.FontSize.SMALL);
+					reportPanel.add(headline, "newline 20, skip, span");
+				}
+				break;
+			default:
+				break;
+			}
 
-            reportPanel.add(component, "newline");
-            
-            final JTextPane textPane = Utility.getDefaultTextPane();
-            try {
-                insertMessage(textPane.getStyledDocument(), message,
-                              getMyPlayer());
-            } catch (BadLocationException ble) {
-                logger.log(Level.WARNING, "message insert fail", ble);
-            }
-            reportPanel.add(textPane);
+			JComponent component = new JLabel();
+			FreeColObject messageDisplay = game.getMessageDisplay(message);
+			final ImageLibrary lib = getImageLibrary();
+			if (messageDisplay != null) {
+				Image image = lib.getObjectImage(messageDisplay, 1f);
+				ImageIcon icon = (image == null) ? null : new ImageIcon(image);
+				if (messageDisplay instanceof Colony || messageDisplay instanceof Europe) {
+					JButton button = Utility.getLinkButton(null, icon, messageDisplay.getId());
+					button.addActionListener(this);
+					component = button;
+				} else if (messageDisplay instanceof Unit) {
+					JButton button = Utility.getLinkButton(null, icon, ((Unit) messageDisplay).up().getId());
+					button.addActionListener(this);
+					component = button;
+				} else { // includes Player
+					component = new JLabel(icon);
+				}
+			}
 
-            boolean ignore = false;
-            final JComponent label = component;
-            switch (message.getMessageType()) {
-            case WAREHOUSE_CAPACITY:
-                JButton ignoreButton = new JButton("x");
-                Utility.localizeToolTip(ignoreButton, 
-                    StringTemplate.copy("report.turn.ignore", message));
-                final ModelMessage m = message;
-                ignoreButton.addActionListener((ActionEvent ae) -> {
-                        boolean flag = label.isEnabled();
-                        igc().ignoreMessage(m, flag);
-                        textPane.setEnabled(!flag);
-                        label.setEnabled(!flag);
-                    });
-                reportPanel.add(ignoreButton);
-                ignore = true;
-                break;
-            default:
-                break;
-            }
-            
-            // So that we can iterate through rows in ActionListeners
-            // by message identifier.
-            if (!textPanesByMessage.containsKey(message.getId())) {
-                textPanesByMessage.put(message.getId(), new Vector<JComponent>());
-            }
-            textPanesByMessage.get(message.getId()).add(textPane);
-            
-            if (!labelsByMessage.containsKey(message.getId())) {
-                labelsByMessage.put(message.getId(), new Vector<JComponent>());
-            }
-            textPanesByMessage.get(message.getId()).add(textPane);
-            textPanesByMessage.get(message.getId()).add(label);
-            
-            final BooleanOption filterOption = options.getBooleanOption(message);
-            // Message type can be filtered
-            if (filterOption != null) {
-                JButton filterButton = new JButton("X");
-                Utility.localizeToolTip(filterButton, StringTemplate
-                    .template("report.turn.filter")
-                    .addNamed("%type%", message.getMessageType()));
-                final ModelMessage m = message;
-                filterButton.addActionListener((ActionEvent ae) -> {
-                        boolean flag = filterOption.getValue();
-                        filterOption.setValue(!flag);
-                        //textPane.setEnabled(!flag);
-                        //label.setEnabled(!flag);
-                        setEnabledByType(m.getMessageType(), !flag);
-                    });
-                if (ignore) {
-                    reportPanel.add(filterButton);
-                } else {
-                    reportPanel.add(filterButton, "skip");
-                }
-            }
-        }
-    }
+			reportPanel.add(component, "newline");
 
-    private void setEnabledByType(ModelMessage.MessageType type,
-                                  boolean enabled) {
-        for (ModelMessage m : messages) {
-            if (m.getMessageType() == type) {
-                for (JComponent textPane: textPanesByMessage.get(m.getId())) {
-                    textPane.setEnabled(enabled);
-                }
-                for (JComponent label: labelsByMessage.get(m.getId())) {
-                    label.setEnabled(enabled);
-                }
-            }
-        }
-    }
+			final JTextPane textPane = Utility.getDefaultTextPane();
+			try {
+				insertMessage(textPane.getStyledDocument(), message, getMyPlayer());
+			} catch (BadLocationException ble) {
+				logger.log(Level.WARNING, "message insert fail", ble);
+			}
+			reportPanel.add(textPane);
 
-    private JComponent getHeadline(FreeColGameObject source) {
-        String text;
-        String commandId = null;
-        if (source == null) {
-            text = "";
-        } else if (source instanceof Player) {
-            Player player = (Player) source;
-            StringTemplate template = StringTemplate
-                .template("report.turn.playerNation")
-                .addName("%player%", player.getName())
-                .addStringTemplate("%nation%", player.getNationLabel());
-            text = Messages.message(template);
-        } else if (source instanceof Europe) {
-            Europe europe = (Europe) source;
-            text = Messages.getName(europe);
-            commandId = europe.getId();
-        } else if (source instanceof Market) {
-            Market market = (Market) source;
-            StringTemplate template = market.getOwner().getMarketName();
-            text = Messages.message(template);
-            commandId = getMyPlayer().getEurope().getId();
-        } else if (source instanceof Colony) {
-            final Colony colony = (Colony) source;
-            text = colony.getName();
-            commandId = colony.getId();
-        } else if (source instanceof Unit) {
-            final Unit unit = (Unit) source;
-            text = unit.getDescription(Unit.UnitLabelType.NATIONAL);
-            commandId = unit.getLocation().getId();
-        } else if (source instanceof Tile) {
-            final Tile tile = (Tile) source;
-            StringTemplate template = tile.getLocationLabelFor(getMyPlayer());
-            text = Messages.message(template);
-            commandId = tile.getId();
-        } else if (source instanceof Nameable) {
-            text = ((Nameable) source).getName();
-        } else {
-            text = source.toString();
-        }
+			boolean ignore = false;
+			final JComponent label = component;
+			switch (message.getMessageType()) {
+			case WAREHOUSE_CAPACITY:
+				JButton ignoreButton = new JButton("x");
+				Utility.localizeToolTip(ignoreButton, StringTemplate.copy("report.turn.ignore", message));
+				final ModelMessage m = message;
+				ignoreButton.addActionListener((ActionEvent ae) -> {
+					boolean flag = label.isEnabled();
+					igc().ignoreMessage(m, flag);
+					textPane.setEnabled(!flag);
+					label.setEnabled(!flag);
+				});
+				reportPanel.add(ignoreButton);
+				ignore = true;
+				break;
+			default:
+				break;
+			}
 
-        Font font = FontLibrary.createCompatibleFont(text,
-            FontLibrary.FontType.HEADER, FontLibrary.FontSize.SMALL);
-        JComponent headline;
-        if(commandId != null) {
-            JButton button = new JButton(text);
-            button.addActionListener(this);
-            button.setActionCommand(commandId);
-            headline = button;
-            headline.setForeground(Utility.LINK_COLOR);
-        } else {
-            headline = new JLabel(text);
-        }
-        headline.setFont(font);
-        headline.setOpaque(false);
-        headline.setBorder(Utility.blankBorder(5, 0, 0, 0));
-        return headline;
-    }
+			// So that we can iterate through rows in ActionListeners
+			// by message identifier.
+			if (!textPanesByMessage.containsKey(message.getId())) {
+				textPanesByMessage.put(message.getId(), new Vector<JComponent>());
+			}
+			textPanesByMessage.get(message.getId()).add(textPane);
 
-    private void insertMessage(StyledDocument document, ModelMessage message,
-                               Player player) throws BadLocationException {
-        for (Object o : message.splitLinks(player)) {
-            if (o instanceof String) {
-                document.insertString(document.getLength(), (String)o,
-                                      document.getStyle("regular"));
-            } else if (o instanceof JButton) {
-                JButton b = (JButton)o;
-                b.addActionListener(this);
-                StyleConstants.setComponent(document.getStyle("button"), b);
-                document.insertString(document.getLength(), " ",
-                                      document.getStyle("button"));
-            }
-        }
-    }
+			if (!labelsByMessage.containsKey(message.getId())) {
+				labelsByMessage.put(message.getId(), new Vector<JComponent>());
+			}
+			textPanesByMessage.get(message.getId()).add(textPane);
+			textPanesByMessage.get(message.getId()).add(label);
+
+			final BooleanOption filterOption = options.getBooleanOption(message);
+			// Message type can be filtered
+			if (filterOption != null) {
+				JButton filterButton = new JButton("X");
+				Utility.localizeToolTip(filterButton,
+						StringTemplate.template("report.turn.filter").addNamed("%type%", message.getMessageType()));
+				final ModelMessage m = message;
+				filterButton.addActionListener((ActionEvent ae) -> {
+					boolean flag = filterOption.getValue();
+					filterOption.setValue(!flag);
+					// textPane.setEnabled(!flag);
+					// label.setEnabled(!flag);
+					setEnabledByType(m.getMessageType(), !flag);
+				});
+				if (ignore) {
+					reportPanel.add(filterButton);
+				} else {
+					reportPanel.add(filterButton, "skip");
+				}
+			}
+		}
+	}
+
+	/**
+	 * Sets the enabled by type.
+	 *
+	 * @param type
+	 *            the type
+	 * @param enabled
+	 *            the enabled
+	 */
+	private void setEnabledByType(ModelMessage.MessageType type, boolean enabled) {
+		for (ModelMessage m : messages) {
+			if (m.getMessageType() == type) {
+				for (JComponent textPane : textPanesByMessage.get(m.getId())) {
+					textPane.setEnabled(enabled);
+				}
+				for (JComponent label : labelsByMessage.get(m.getId())) {
+					label.setEnabled(enabled);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Gets the headline.
+	 *
+	 * @param source
+	 *            the source
+	 * @return the headline
+	 */
+	private JComponent getHeadline(FreeColGameObject source) {
+		String text;
+		String commandId = null;
+		if (source == null) {
+			text = "";
+		} else if (source instanceof Player) {
+			Player player = (Player) source;
+			StringTemplate template = StringTemplate.template("report.turn.playerNation")
+					.addName("%player%", player.getName()).addStringTemplate("%nation%", player.getNationLabel());
+			text = Messages.message(template);
+		} else if (source instanceof Europe) {
+			Europe europe = (Europe) source;
+			text = Messages.getName(europe);
+			commandId = europe.getId();
+		} else if (source instanceof Market) {
+			Market market = (Market) source;
+			StringTemplate template = market.getOwner().getMarketName();
+			text = Messages.message(template);
+			commandId = getMyPlayer().getEurope().getId();
+		} else if (source instanceof Colony) {
+			final Colony colony = (Colony) source;
+			text = colony.getName();
+			commandId = colony.getId();
+		} else if (source instanceof Unit) {
+			final Unit unit = (Unit) source;
+			text = unit.getDescription(Unit.UnitLabelType.NATIONAL);
+			commandId = unit.getLocation().getId();
+		} else if (source instanceof Tile) {
+			final Tile tile = (Tile) source;
+			StringTemplate template = tile.getLocationLabelFor(getMyPlayer());
+			text = Messages.message(template);
+			commandId = tile.getId();
+		} else if (source instanceof Nameable) {
+			text = ((Nameable) source).getName();
+		} else {
+			text = source.toString();
+		}
+
+		Font font = FontLibrary.createCompatibleFont(text, FontLibrary.FontType.HEADER, FontLibrary.FontSize.SMALL);
+		JComponent headline;
+		if (commandId != null) {
+			JButton button = new JButton(text);
+			button.addActionListener(this);
+			button.setActionCommand(commandId);
+			headline = button;
+			headline.setForeground(Utility.LINK_COLOR);
+		} else {
+			headline = new JLabel(text);
+		}
+		headline.setFont(font);
+		headline.setOpaque(false);
+		headline.setBorder(Utility.blankBorder(5, 0, 0, 0));
+		return headline;
+	}
+
+	/**
+	 * Insert message.
+	 *
+	 * @param document
+	 *            the document
+	 * @param message
+	 *            the message
+	 * @param player
+	 *            the player
+	 * @throws BadLocationException
+	 *             the bad location exception
+	 */
+	private void insertMessage(StyledDocument document, ModelMessage message, Player player)
+			throws BadLocationException {
+		for (Object o : message.splitLinks(player)) {
+			if (o instanceof String) {
+				document.insertString(document.getLength(), (String) o, document.getStyle("regular"));
+			} else if (o instanceof JButton) {
+				JButton b = (JButton) o;
+				b.addActionListener(this);
+				StyleConstants.setComponent(document.getStyle("button"), b);
+				document.insertString(document.getLength(), " ", document.getStyle("button"));
+			}
+		}
+	}
 }

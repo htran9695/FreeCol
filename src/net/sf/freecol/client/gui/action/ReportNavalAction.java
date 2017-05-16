@@ -23,32 +23,31 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for displaying a Naval Report.
  */
 public class ReportNavalAction extends FreeColAction {
 
-    public static final String id = "reportNavalAction";
+	/** The Constant id. */
+	public static final String id = "reportNavalAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ReportNavalAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ReportNavalAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        getGUI().showReportNavalPanel();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		getGUI().showReportNavalPanel();
+	}
 }

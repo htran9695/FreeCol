@@ -29,111 +29,108 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent when a unit is to emigrate.
  */
 public class EmigrateUnitMessage extends DOMMessage {
 
-    /** The slot from which to select the unit. */
-    private final String slotString;
+	/** The slot from which to select the unit. */
+	private final String slotString;
 
+	/**
+	 * Create a new <code>EmigrateUnitMessage</code> with the supplied slot.
+	 *
+	 * @param slot
+	 *            The slot to select the migrant from.
+	 */
+	public EmigrateUnitMessage(int slot) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>EmigrateUnitMessage</code> with the supplied slot.
-     *
-     * @param slot The slot to select the migrant from.
-     */
-    public EmigrateUnitMessage(int slot) {
-        super(getXMLElementTagName());
+		this.slotString = Integer.toString(slot);
+	}
 
-        this.slotString = Integer.toString(slot);
-    }
+	/**
+	 * Create a new <code>EmigrateUnitMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public EmigrateUnitMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>EmigrateUnitMessage</code> from a supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public EmigrateUnitMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.slotString = element.getAttribute("slot");
+	}
 
-        this.slotString = element.getAttribute("slot");
-    }
+	/**
+	 * Handle a "emigrateUnit"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the message.
+	 * @param player
+	 *            The <code>Player</code> the message applies to.
+	 * @param connection
+	 *            The <code>Connection</code> message was received on.
+	 * @return An <code>Element</code> encapsulating the change, or an error
+	 *         <code>Element</code> on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
 
+		Europe europe = player.getEurope();
+		if (europe == null) {
+			return DOMMessage.clientError("No Europe to migrate from.");
+		}
+		int slot;
+		try {
+			slot = Integer.parseInt(slotString);
+		} catch (NumberFormatException e) {
+			return DOMMessage.clientError("Bad slot: " + slotString);
+		}
+		if (!MigrationType.validMigrantSlot(slot)) {
+			return DOMMessage.clientError("Invalid slot for recruitment: " + slot);
+		}
 
-    /**
-     * Handle a "emigrateUnit"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the message.
-     * @param player The <code>Player</code> the message applies to.
-     * @param connection The <code>Connection</code> message was received on.
-     * @return An <code>Element</code> encapsulating the change,
-     *         or an error <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
+		MigrationType type;
+		if (serverPlayer.getRemainingEmigrants() > 0) {
+			if (MigrationType.unspecificMigrantSlot(slot)) {
+				return DOMMessage.clientError("Specific slot expected for FoY migration.");
+			}
+			type = MigrationType.FOUNTAIN;
+		} else if (player.checkEmigrate()) {
+			if (MigrationType.specificMigrantSlot(slot) && !player.hasAbility(Ability.SELECT_RECRUIT)) {
+				return DOMMessage.clientError("selectRecruit ability absent.");
+			}
+			type = MigrationType.NORMAL;
+		} else {
+			if (!player.checkGold(europe.getRecruitPrice())) {
+				return DOMMessage.clientError("No migrants available at cost " + europe.getRecruitPrice()
+						+ " for player with " + player.getGold() + " gold.");
+			}
+			type = MigrationType.RECRUIT;
+		}
 
-        Europe europe = player.getEurope();
-        if (europe == null) {
-            return DOMMessage.clientError("No Europe to migrate from.");
-        }
-        int slot;
-        try {
-            slot = Integer.parseInt(slotString);
-        } catch (NumberFormatException e) {
-            return DOMMessage.clientError("Bad slot: " + slotString);
-        }
-        if (!MigrationType.validMigrantSlot(slot)) {
-            return DOMMessage.clientError("Invalid slot for recruitment: "
-                + slot);
-        }
-            
-        MigrationType type;
-        if (serverPlayer.getRemainingEmigrants() > 0) {
-            if (MigrationType.unspecificMigrantSlot(slot)) {
-                return DOMMessage.clientError("Specific slot expected for FoY migration.");
-            }
-            type = MigrationType.FOUNTAIN;
-        } else if (player.checkEmigrate()) {
-            if (MigrationType.specificMigrantSlot(slot)
-                && !player.hasAbility(Ability.SELECT_RECRUIT)) {
-                return DOMMessage.clientError("selectRecruit ability absent.");
-            }
-            type = MigrationType.NORMAL;
-        } else {
-            if (!player.checkGold(europe.getRecruitPrice())) {
-                return DOMMessage.clientError("No migrants available at cost "
-                    + europe.getRecruitPrice()
-                    + " for player with " + player.getGold() + " gold.");
-            }
-            type = MigrationType.RECRUIT;
-        }
+		// Proceed to emigrate.
+		return server.getInGameController().emigrate(serverPlayer, slot, type);
+	}
 
-        // Proceed to emigrate.
-        return server.getInGameController()
-            .emigrate(serverPlayer, slot, type);
-    }
+	/**
+	 * Convert this EmigrateUnitMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		return createMessage(getXMLElementTagName(), "slot", slotString);
+	}
 
-    /**
-     * Convert this EmigrateUnitMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        return createMessage(getXMLElementTagName(),
-            "slot", slotString);
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "emigrateUnit".
-     */
-    public static String getXMLElementTagName() {
-        return "emigrateUnit";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "emigrateUnit".
+	 */
+	public static String getXMLElementTagName() {
+		return "emigrateUnit";
+	}
 }

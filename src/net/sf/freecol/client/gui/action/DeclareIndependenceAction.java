@@ -25,45 +25,42 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Player.PlayerType;
 
-
 /**
  * An action for declaring independence.
  */
 public class DeclareIndependenceAction extends MapboardAction {
 
-    public static final String id = "declareIndependenceAction";
+	/** The Constant id. */
+	public static final String id = "declareIndependenceAction";
 
+	/**
+	 * Creates a new <code>DeclareIndependenceAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public DeclareIndependenceAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>DeclareIndependenceAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public DeclareIndependenceAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		Player p = freeColClient.getMyPlayer();
+		return super.shouldBeEnabled() && p != null && p.getPlayerType() == PlayerType.COLONIAL;
+	}
 
-    // Override FreeColAction
+	// Interface ActionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        Player p = freeColClient.getMyPlayer();
-        return super.shouldBeEnabled() && p != null
-            && p.getPlayerType() == PlayerType.COLONIAL;
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        igc().declareIndependence();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		igc().declareIndependence();
+	}
 }

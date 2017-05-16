@@ -27,64 +27,67 @@ import javax.swing.JTextField;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * A simple input dialog to collect a string.
  */
 public final class FreeColStringInputDialog extends FreeColInputDialog<String> {
 
-    /** The text field for the user to set. */
-    private final JTextField textField;
+	/** The text field for the user to set. */
+	private final JTextField textField;
 
+	/**
+	 * Creates a dialog to input a string field.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param frame
+	 *            The owner frame.
+	 * @param modal
+	 *            True if this dialog should be modal.
+	 * @param text
+	 *            Text that explains the action to the user.
+	 * @param defaultValue
+	 *            The default value appearing in the text field.
+	 * @param okKey
+	 *            A key displayed on the "ok"-button.
+	 * @param cancelKey
+	 *            A key displayed on the optional "cancel"-button.
+	 */
+	public FreeColStringInputDialog(FreeColClient freeColClient, JFrame frame, boolean modal, String text,
+			String defaultValue, String okKey, String cancelKey) {
+		super(freeColClient, frame);
 
-    /**
-     * Creates a dialog to input a string field.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param frame The owner frame.
-     * @param modal True if this dialog should be modal.
-     * @param text Text that explains the action to the user.
-     * @param defaultValue The default value appearing in the text field.
-     * @param okKey A key displayed on the "ok"-button.
-     * @param cancelKey A key displayed on the optional "cancel"-button.
-     */
-    public FreeColStringInputDialog(FreeColClient freeColClient, JFrame frame,
-            boolean modal, String text, String defaultValue,
-            String okKey, String cancelKey) {
-        super(freeColClient, frame);
+		textField = new JTextField(defaultValue);
+		textField.setOpaque(false);
+		JPanel panel = new JPanel(new BorderLayout()) {
+			@Override
+			public void requestFocus() {
+				textField.requestFocus();
+			}
+		};
+		panel.setOpaque(false);
 
-        textField = new JTextField(defaultValue);
-        textField.setOpaque(false);
-        JPanel panel = new JPanel(new BorderLayout()) {
-                @Override
-                public void requestFocus() {
-                    textField.requestFocus();
-                }
-            };
-        panel.setOpaque(false);
+		panel.add(Utility.getDefaultTextArea(text));
+		panel.add(textField, BorderLayout.SOUTH);
 
-        panel.add(Utility.getDefaultTextArea(text));
-        panel.add(textField, BorderLayout.SOUTH);
+		initializeInputDialog(frame, modal, panel, null, okKey, cancelKey);
+	}
 
-        initializeInputDialog(frame, modal, panel, null, okKey, cancelKey);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected String getInputValue() {
+		return textField.getText();
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected String getInputValue() {
-        return textField.getText();
-    }
+	// Override Component
 
-
-    // Override Component
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void requestFocus() {
-        this.textField.requestFocus();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void requestFocus() {
+		this.textField.requestFocus();
+	}
 }

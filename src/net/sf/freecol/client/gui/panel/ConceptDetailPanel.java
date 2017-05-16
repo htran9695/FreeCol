@@ -40,112 +40,107 @@ import net.sf.freecol.client.gui.FontLibrary;
 import net.sf.freecol.client.gui.action.ColopediaAction.PanelType;
 import net.sf.freecol.common.i18n.Messages;
 
-
 /**
  * This panel displays the concepts within the Colopedia.
  */
-public class ConceptDetailPanel extends FreeColPanel
-    implements ColopediaDetailPanel<String> {
+public class ConceptDetailPanel extends FreeColPanel implements ColopediaDetailPanel<String> {
 
-    private static final String id = "colopediaAction."
-        + PanelType.CONCEPTS.getKey();
+	/** The Constant id. */
+	private static final String id = "colopediaAction." + PanelType.CONCEPTS.getKey();
 
-    private static final String[] concepts = {
-        "taxes",
-        "efficiency",
-        "education",
-        "fortification",
-        "independence",
-        "ref",
-        "interventionForce"
-    };
+	/** The Constant concepts. */
+	private static final String[] concepts = { "taxes", "efficiency", "education", "fortification", "independence",
+			"ref", "interventionForce" };
 
-    private static final Comparator<DefaultMutableTreeNode> nodeComparator
-        = Comparator.comparing(tn ->
-            ((ColopediaTreeItem)tn.getUserObject()).getText());
+	/** The Constant nodeComparator. */
+	private static final Comparator<DefaultMutableTreeNode> nodeComparator = Comparator
+			.comparing(tn -> ((ColopediaTreeItem) tn.getUserObject()).getText());
 
-    private ColopediaPanel colopediaPanel;
+	/** The colopedia panel. */
+	private ColopediaPanel colopediaPanel;
 
+	/**
+	 * Creates a new instance of this ColopediaDetailPanel.
+	 *
+	 * @param freeColClient
+	 *            the free col client
+	 * @param colopediaPanel
+	 *            the ColopediaPanel
+	 */
+	public ConceptDetailPanel(FreeColClient freeColClient, ColopediaPanel colopediaPanel) {
+		super(freeColClient);
 
-    /**
-     * Creates a new instance of this ColopediaDetailPanel.
-     *
-     * @param colopediaPanel the ColopediaPanel
-     */
-    public ConceptDetailPanel(FreeColClient freeColClient,
-                              ColopediaPanel colopediaPanel) {
-        super(freeColClient);
+		this.colopediaPanel = colopediaPanel;
+	}
 
-        this.colopediaPanel = colopediaPanel;
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.awt.Component#getName()
+	 */
+	@Override
+	public String getName() {
+		return Messages.getName(id);
+	}
 
+	// Implement ColopediaDetailPanel
 
-    @Override
-    public String getName() {
-        return Messages.getName(id);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void addSubTrees(DefaultMutableTreeNode root) {
+		DefaultMutableTreeNode node = new DefaultMutableTreeNode(new ColopediaTreeItem(this, id, getName(), null));
+		List<DefaultMutableTreeNode> nodes = new ArrayList<>();
+		for (String concept : concepts) {
+			String nodeId = "colopedia.concepts." + concept;
+			String nodeName = Messages.getName(nodeId);
+			nodes.add(new DefaultMutableTreeNode(new ColopediaTreeItem(this, nodeId, nodeName, null)));
+		}
+		Collections.sort(nodes, nodeComparator);
+		for (DefaultMutableTreeNode n : nodes) {
+			node.add(n);
+		}
+		root.add(node);
+	}
 
-    // Implement ColopediaDetailPanel
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void buildDetail(String id, JPanel panel) {
+		if (this.id.equals(id))
+			return;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void addSubTrees(DefaultMutableTreeNode root) {
-        DefaultMutableTreeNode node
-            = new DefaultMutableTreeNode(new ColopediaTreeItem(this, id,
-                    getName(), null));
-        List<DefaultMutableTreeNode> nodes = new ArrayList<>();
-        for (String concept : concepts) {
-            String nodeId = "colopedia.concepts." + concept;
-            String nodeName = Messages.getName(nodeId);
-            nodes.add(new DefaultMutableTreeNode(new ColopediaTreeItem(this,
-                        nodeId, nodeName, null)));
-        }
-        Collections.sort(nodes, nodeComparator);
-        for (DefaultMutableTreeNode n : nodes) {
-            node.add(n);
-        }
-        root.add(node);
-    }
+		panel.setLayout(new MigLayout("wrap 1, center"));
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void buildDetail(String id, JPanel panel) {
-        if (this.id.equals(id)) return;
+		JLabel header = Utility.localizedHeaderLabel(Messages.nameKey(id), SwingConstants.LEADING,
+				FontLibrary.FontSize.SMALL);
+		panel.add(header, "align center, wrap 20");
 
-        panel.setLayout(new MigLayout("wrap 1, center"));
+		JEditorPane editorPane = new JEditorPane("text/html", Messages.getDescription(id)) {
 
-        JLabel header = Utility.localizedHeaderLabel(Messages.nameKey(id),
-            SwingConstants.LEADING, FontLibrary.FontSize.SMALL);
-        panel.add(header, "align center, wrap 20");
+			@Override
+			public void paintComponent(Graphics g) {
+				Graphics2D graphics2d = (Graphics2D) g;
+				graphics2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+						RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+				/*
+				 * graphics2d.setRenderingHint(RenderingHints.KEY_RENDERING,
+				 * RenderingHints.VALUE_RENDER_QUALITY);
+				 * graphics2d.setRenderingHint(RenderingHints.
+				 * KEY_FRACTIONALMETRICS,
+				 * RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+				 */
+				super.paintComponent(graphics2d);
+			}
+		};
+		editorPane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
+		editorPane.setFont(panel.getFont());
+		editorPane.setOpaque(false);
+		editorPane.setEditable(false);
+		editorPane.addHyperlinkListener(colopediaPanel);
 
-        JEditorPane editorPane = new JEditorPane("text/html",
-            Messages.getDescription(id)) {
-
-            @Override
-            public void paintComponent(Graphics g) {
-                Graphics2D graphics2d = (Graphics2D) g;
-                graphics2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                                            RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                /*
-                graphics2d.setRenderingHint(RenderingHints.KEY_RENDERING,
-                                            RenderingHints.VALUE_RENDER_QUALITY);
-                graphics2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,
-                                            RenderingHints.VALUE_FRACTIONALMETRICS_ON);
-                */
-                super.paintComponent(graphics2d);
-            }
-        };
-        editorPane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES,
-                                     Boolean.TRUE);
-        editorPane.setFont(panel.getFont());
-        editorPane.setOpaque(false);
-        editorPane.setEditable(false);
-        editorPane.addHyperlinkListener(colopediaPanel);
-
-        panel.add(editorPane, "width 95%");
-    }
+		panel.add(editorPane, "width 95%");
+	}
 }

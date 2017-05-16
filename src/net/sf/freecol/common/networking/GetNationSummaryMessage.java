@@ -28,107 +28,104 @@ import net.sf.freecol.server.model.ServerPlayer;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-
 /**
  * The message sent when summarizing a nation.
  */
 public class GetNationSummaryMessage extends DOMMessage {
 
-    /** The identifier of the player to summarize. */
-    private final String playerId;
+	/** The identifier of the player to summarize. */
+	private final String playerId;
 
-    /** The summary. */
-    private NationSummary summary;
+	/** The summary. */
+	private NationSummary summary;
 
+	/**
+	 * Create a new <code>GetNationSummaryMessage</code> for the specified
+	 * player.
+	 *
+	 * @param player
+	 *            The <code>Player</code> to summarize.
+	 */
+	public GetNationSummaryMessage(Player player) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>GetNationSummaryMessage</code> for the
-     * specified player.
-     *
-     * @param player The <code>Player</code> to summarize.
-     */
-    public GetNationSummaryMessage(Player player) {
-        super(getXMLElementTagName());
+		playerId = player.getId();
+		summary = null;
+	}
 
-        playerId = player.getId();
-        summary = null;
-    }
+	/**
+	 * Create a new <code>GetNationSummaryMessage</code> from a supplied
+	 * element.
+	 *
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public GetNationSummaryMessage(Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>GetNationSummaryMessage</code> from a
-     * supplied element.
-     *
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public GetNationSummaryMessage(Element element) {
-        super(getXMLElementTagName());
+		playerId = element.getAttribute("player");
+		NodeList nodes = element.getChildNodes();
+		summary = (nodes == null || nodes.getLength() != 1) ? null : new NationSummary((Element) nodes.item(0));
+	}
 
-        playerId = element.getAttribute("player");
-        NodeList nodes = element.getChildNodes();
-        summary = (nodes == null || nodes.getLength() != 1) ? null
-            : new NationSummary((Element) nodes.item(0));
-    }
+	// Public interface
 
+	/**
+	 * Client side helper to get the summary.
+	 *
+	 * @return The summary.
+	 */
+	public NationSummary getNationSummary() {
+		return summary;
+	}
 
-    // Public interface
+	/**
+	 * Handle a "getNationSummary"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the message.
+	 * @param connection
+	 *            The <code>Connection</code> message was received on.
+	 *
+	 * @return An update containing the nation summaries, or an error
+	 *         <code>Element</code> on failure.
+	 */
+	public Element handle(FreeColServer server, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
+		final Game game = serverPlayer.getGame();
 
-    /**
-     * Client side helper to get the summary.
-     *
-     * @return The summary.
-     */
-    public NationSummary getNationSummary() {
-        return summary;
-    }
+		Player player = game.getFreeColGameObject(playerId, Player.class);
+		if (player == null) {
+			return DOMMessage.clientError("Not a player: " + playerId);
+		} else if (player.isIndian() && !serverPlayer.hasContacted(player)) {
+			return null;
+		}
 
+		// Proceed to get the summary.
+		summary = server.getInGameController().getNationSummary(serverPlayer, player);
+		return toXMLElement();
+	}
 
-    /**
-     * Handle a "getNationSummary"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the message.
-     * @param connection The <code>Connection</code> message was received on.
-     *
-     * @return An update containing the nation summaries, or an error
-     *     <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
-        final Game game = serverPlayer.getGame();
+	/**
+	 * Convert this GetNationSummaryMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		Element result = createMessage(getXMLElementTagName(), "player", playerId);
+		if (summary != null) {
+			result.appendChild(summary.toXMLElement(result.getOwnerDocument()));
+		}
+		return result;
+	}
 
-        Player player = game.getFreeColGameObject(playerId, Player.class);
-        if (player == null) {
-            return DOMMessage.clientError("Not a player: " + playerId);
-        } else if (player.isIndian() && !serverPlayer.hasContacted(player)) {
-            return null;
-        }
-
-        // Proceed to get the summary.
-        summary = server.getInGameController()
-            .getNationSummary(serverPlayer, player);
-        return toXMLElement();
-    }
-
-    /**
-     * Convert this GetNationSummaryMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        Element result = createMessage(getXMLElementTagName(),
-            "player", playerId);
-        if (summary != null) {
-            result.appendChild(summary.toXMLElement(result.getOwnerDocument()));
-        }
-        return result;
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "getNationSummary".
-     */
-    public static String getXMLElementTagName() {
-        return "getNationSummary";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "getNationSummary".
+	 */
+	public static String getXMLElementTagName() {
+		return "getNationSummary";
+	}
 }

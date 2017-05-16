@@ -23,63 +23,64 @@ import javax.swing.JCheckBox;
 
 import net.sf.freecol.common.option.BooleanOption;
 
-
 /**
  * This class provides visualization for a
- * {@link net.sf.freecol.common.option.BooleanOption} in order to enable
- * values to be both seen and changed.
+ * {@link net.sf.freecol.common.option.BooleanOption} in order to enable values
+ * to be both seen and changed.
  */
-public final class BooleanOptionUI extends OptionUI<BooleanOption>  {
+public final class BooleanOptionUI extends OptionUI<BooleanOption> {
 
-    private final JCheckBox box = new JCheckBox();
+	/** The box. */
+	private final JCheckBox box = new JCheckBox();
 
+	/**
+	 * Creates a new <code>BooleanOptionUI</code> for the given
+	 * <code>BooleanOption</code>.
+	 *
+	 * @param option
+	 *            The <code>BooleanOption</code> to make a user interface for.
+	 * @param editable
+	 *            Whether user can modify the setting.
+	 */
+	public BooleanOptionUI(final BooleanOption option, boolean editable) {
+		super(option, editable);
+		setValue(option.getValue());
+		initialize();
+	}
 
-    /**
-     * Creates a new <code>BooleanOptionUI</code> for the given
-     * <code>BooleanOption</code>.
-     *
-     * @param option The <code>BooleanOption</code> to make a user
-     *     interface for.
-     * @param editable Whether user can modify the setting.
-     */
-    public BooleanOptionUI(final BooleanOption option, boolean editable) {
-        super(option, editable);
-        setValue(option.getValue());
-        initialize();
-    }
+	/**
+	 * Sets the value of this UI's component.
+	 *
+	 * @param b
+	 *            the new value
+	 */
+	public void setValue(boolean b) {
+		box.setSelected(b);
+	}
 
+	// Implement OptionUI
 
-    /**
-     * Sets the value of this UI's component.
-     */
-    public void setValue(boolean b) {
-        box.setSelected(b);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public JCheckBox getComponent() {
+		return box;
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void updateOption() {
+		getOption().setValue(box.isSelected());
+	}
 
-    // Implement OptionUI
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public JCheckBox getComponent() {
-        return box;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateOption() {
-        getOption().setValue(box.isSelected());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void reset() {
-        box.setSelected(getOption().getValue());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void reset() {
+		box.setSelected(getOption().getValue());
+	}
 }

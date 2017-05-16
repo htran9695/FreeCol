@@ -32,61 +32,61 @@ import net.sf.freecol.common.model.Unit;
 
 import net.miginfocom.swing.MigLayout;
 
-
 /**
  * This panel displays the Education Report.
  */
 public final class ReportEducationPanel extends ReportPanel {
 
-    /**
-     * Creates the education report.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ReportEducationPanel(FreeColClient freeColClient) {
-        super(freeColClient, "reportEducationAction");
+	/**
+	 * Creates the education report.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ReportEducationPanel(FreeColClient freeColClient) {
+		super(freeColClient, "reportEducationAction");
 
-        reportPanel.setLayout(new MigLayout("wrap 2, fill",
-                                            "[]20[fill, growprio 200]"));
-        List<Colony> colonies = freeColClient.getMySortedColonies();
-        for (Colony colony : colonies) {
-            for (Building building : colony.getBuildings()) {
-                if (building.canTeach()) {
-                    int maxSkill = Unit.UNDEFINED;
-                    reportPanel.add(createColonyButton(colony), "newline, split 2, flowy");
-                    BuildingPanel bp = new BuildingPanel(getFreeColClient(), building);
-                    bp.initialize();
-                    reportPanel.add(bp);
-                    JPanel teacherPanel = getPanel("report.education.teachers");
-                    for (Unit unit : colony.getUnitList()) {
-                        if (building.canAdd(unit)) {
-                            teacherPanel.add(new UnitLabel(getFreeColClient(), unit, true, true));
-                            maxSkill = Math.max(maxSkill, unit.getType().getSkill());
-                        }
-                    }
-                    reportPanel.add(teacherPanel, "split 2, flowy, grow");
-                    JPanel studentPanel = getPanel("report.education.students");
-                    for (Unit unit : colony.getUnitList()) {
-                        if (unit.getType().getEducationUnit(maxSkill) != null) {
-                            studentPanel.add(new UnitLabel(getFreeColClient(), unit, true, true));
-                        }
-                    }
-                    reportPanel.add(studentPanel, "grow");
-                }
-            }
-        }
-    }
+		reportPanel.setLayout(new MigLayout("wrap 2, fill", "[]20[fill, growprio 200]"));
+		List<Colony> colonies = freeColClient.getMySortedColonies();
+		for (Colony colony : colonies) {
+			for (Building building : colony.getBuildings()) {
+				if (building.canTeach()) {
+					int maxSkill = Unit.UNDEFINED;
+					reportPanel.add(createColonyButton(colony), "newline, split 2, flowy");
+					BuildingPanel bp = new BuildingPanel(getFreeColClient(), building);
+					bp.initialize();
+					reportPanel.add(bp);
+					JPanel teacherPanel = getPanel("report.education.teachers");
+					for (Unit unit : colony.getUnitList()) {
+						if (building.canAdd(unit)) {
+							teacherPanel.add(new UnitLabel(getFreeColClient(), unit, true, true));
+							maxSkill = Math.max(maxSkill, unit.getType().getSkill());
+						}
+					}
+					reportPanel.add(teacherPanel, "split 2, flowy, grow");
+					JPanel studentPanel = getPanel("report.education.students");
+					for (Unit unit : colony.getUnitList()) {
+						if (unit.getType().getEducationUnit(maxSkill) != null) {
+							studentPanel.add(new UnitLabel(getFreeColClient(), unit, true, true));
+						}
+					}
+					reportPanel.add(studentPanel, "grow");
+				}
+			}
+		}
+	}
 
-    /**
-     * Gets the panel.
-     *
-     * @param key the key
-     * @return the panel
-     */
-    private JPanel getPanel(String key) {
-        JPanel result = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        result.setOpaque(false);
-        result.setBorder(Utility.localizedBorder(key, Color.GRAY));
-        return result;
-    }
+	/**
+	 * Gets the panel.
+	 *
+	 * @param key
+	 *            the key
+	 * @return the panel
+	 */
+	private JPanel getPanel(String key) {
+		JPanel result = new JPanel(new FlowLayout(FlowLayout.LEFT));
+		result.setOpaque(false);
+		result.setBorder(Utility.localizedBorder(key, Color.GRAY));
+		return result;
+	}
 }

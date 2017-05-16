@@ -35,55 +35,53 @@ import net.sf.freecol.common.io.FreeColSavegameFile;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
-
 /**
  * Validate a saved game.
  */
 public class SaveGameValidator {
 
-    /**
-     * The main method.
-     *
-     * @param args the arguments
-     * @throws Exception the exception
-     */
-    public static void main(String[] args) throws Exception {
+	/**
+	 * The main method.
+	 *
+	 * @param args
+	 *            the arguments
+	 * @throws Exception
+	 *             the exception
+	 */
+	public static void main(String[] args) throws Exception {
 
-        SchemaFactory factory = SchemaFactory.newInstance("http://www.w3.org/2001/XMLSchema");
-        File schemaLocation = new File("schema/data/data-savedGame.xsd");
-        Schema schema = factory.newSchema(schemaLocation);
-        Validator saveGameValidator = schema.newValidator();
+		SchemaFactory factory = SchemaFactory.newInstance("http://www.w3.org/2001/XMLSchema");
+		File schemaLocation = new File("schema/data/data-savedGame.xsd");
+		Schema schema = factory.newSchema(schemaLocation);
+		Validator saveGameValidator = schema.newValidator();
 
-        List<File> allFiles = new ArrayList<>();
-        FileFilter ff = FreeColSavegameFile.getFileFilter();
-        for (String name : args) {
-            File file = new File(name);
-            if (file.exists()) {
-                if (file.isDirectory()) {
-                    for (File fsg : file.listFiles(ff)) {
-                        allFiles.add(fsg);
-                    }
-                } else if (ff.accept(file)) {
-                    allFiles.add(file);
-                }
-            }
-        }
+		List<File> allFiles = new ArrayList<>();
+		FileFilter ff = FreeColSavegameFile.getFileFilter();
+		for (String name : args) {
+			File file = new File(name);
+			if (file.exists()) {
+				if (file.isDirectory()) {
+					for (File fsg : file.listFiles(ff)) {
+						allFiles.add(fsg);
+					}
+				} else if (ff.accept(file)) {
+					allFiles.add(file);
+				}
+			}
+		}
 
-        for (File file : allFiles) {
-            System.out.println("Processing file " + file.getPath());
-            try {
-                FreeColSavegameFile mapFile = new FreeColSavegameFile(file);
-                saveGameValidator.validate(new StreamSource(mapFile.getSavegameInputStream()));
-                System.out.println("Successfully validated " + file.getName());
-            } catch (SAXParseException e) {
-                System.out.println(e.getMessage() 
-                                   + " at line=" + e.getLineNumber() 
-                                   + " column=" + e.getColumnNumber());
-            } catch (IOException | SAXException e) {
-                System.out.println("Failed to read " + file.getName());
-            }
-        }
-    }
+		for (File file : allFiles) {
+			System.out.println("Processing file " + file.getPath());
+			try {
+				FreeColSavegameFile mapFile = new FreeColSavegameFile(file);
+				saveGameValidator.validate(new StreamSource(mapFile.getSavegameInputStream()));
+				System.out.println("Successfully validated " + file.getName());
+			} catch (SAXParseException e) {
+				System.out.println(e.getMessage() + " at line=" + e.getLineNumber() + " column=" + e.getColumnNumber());
+			} catch (IOException | SAXException e) {
+				System.out.println("Failed to read " + file.getName());
+			}
+		}
+	}
 
 }
-

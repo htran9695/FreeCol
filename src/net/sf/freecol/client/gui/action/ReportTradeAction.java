@@ -23,32 +23,31 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for displaying a Trade Report.
  */
 public class ReportTradeAction extends FreeColAction {
 
-    public static final String id = "reportTradeAction";
+	/** The Constant id. */
+	public static final String id = "reportTradeAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ReportTradeAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ReportTradeAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        getGUI().showReportTradePanel();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		getGUI().showReportTradePanel();
+	}
 }

@@ -25,60 +25,63 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.common.model.Direction;
 
-
 /**
  * An action for chosing the next unit as the active unit.
  */
 public class MoveAction extends MapboardAction {
 
-    public static final String id = "moveAction.";
+	/** The Constant id. */
+	public static final String id = "moveAction.";
 
-    private final Direction direction;
+	/** The direction. */
+	private final Direction direction;
 
+	/**
+	 * Creates a new <code>MoveAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param direction
+	 *            The <code>Direction</code> to move.
+	 */
+	public MoveAction(FreeColClient freeColClient, Direction direction) {
+		super(freeColClient, id + direction);
 
-    /**
-     * Creates a new <code>MoveAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param direction The <code>Direction</code> to move.
-     */
-    public MoveAction(FreeColClient freeColClient, Direction direction) {
-        super(freeColClient, id + direction);
+		this.direction = direction;
+	}
 
-        this.direction = direction;
-    }
+	/**
+	 * Creates a new <code>MoveAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param direction
+	 *            The <code>Direction</code> to move in.
+	 * @param secondary
+	 *            a <code>boolean</code> value
+	 */
+	public MoveAction(FreeColClient freeColClient, Direction direction, boolean secondary) {
+		super(freeColClient, id + direction + ".secondary");
 
-    /**
-     * Creates a new <code>MoveAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param direction The <code>Direction</code> to move in.
-     * @param secondary a <code>boolean</code> value
-     */
-    public MoveAction(FreeColClient freeColClient, Direction direction,
-                      boolean secondary) {
-        super(freeColClient, id + direction + ".secondary");
+		this.direction = direction;
+	}
 
-        this.direction = direction;
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) { 
-        switch (getGUI().getViewMode()) {
-        case GUI.MOVE_UNITS_MODE:
-            igc().moveUnit(getGUI().getActiveUnit(), direction);
-            break;
-        case GUI.VIEW_TERRAIN_MODE:
-            igc().moveTileCursor(direction);
-            break;
-        default:
-            break;
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		switch (getGUI().getViewMode()) {
+		case GUI.MOVE_UNITS_MODE:
+			igc().moveUnit(getGUI().getActiveUnit(), direction);
+			break;
+		case GUI.VIEW_TERRAIN_MODE:
+			igc().moveTileCursor(direction);
+			break;
+		default:
+			break;
+		}
+	}
 }

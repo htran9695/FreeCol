@@ -44,192 +44,219 @@ import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.option.Option;
 import net.sf.freecol.common.option.OptionGroup;
 
-
 /**
  * This panel displays an OptionGroup using a JTree.
  */
-public final class OptionGroupUI extends MigPanel
-    implements OptionUpdater, TreeSelectionListener {
+public final class OptionGroupUI extends MigPanel implements OptionUpdater, TreeSelectionListener {
 
-<span class="nc" id="L54">    private static final Logger logger = Logger.getLogger(OptionGroupUI.class.getName());</span>
+	/** The Constant logger. */
+<span class="nc" id="L53">	private static final Logger logger = Logger.getLogger(OptionGroupUI.class.getName());</span>
 
-<span class="nc" id="L56">    private final List&lt;OptionUpdater&gt; optionUpdaters = new ArrayList&lt;&gt;();</span>
+	/** The option updaters. */
+<span class="nc" id="L56">	private final List&lt;OptionUpdater&gt; optionUpdaters = new ArrayList&lt;&gt;();</span>
 
-<span class="nc" id="L58">    private final HashMap&lt;String, OptionUI&gt; optionUIs = new HashMap&lt;&gt;();</span>
+	/** The option U is. */
+<span class="nc" id="L59">	private final HashMap&lt;String, OptionUI&gt; optionUIs = new HashMap&lt;&gt;();</span>
 
+	/** The detail panel. */
+	private final JPanel detailPanel;
 
-    private final JPanel detailPanel;
+	/** The tree. */
+	private final JTree tree;
 
-    private final JTree tree;
+	/** The gui. */
+	private final GUI gui;
 
-    private final GUI gui;
+	/** The group. */
+	private final OptionGroup group;
 
-    private final OptionGroup group;
+	/** The editable. */
+	private final boolean editable;
 
-    private final boolean editable;
+	/**
+	 * The constructor that will add the items to this panel.
+	 *
+	 * @param gui
+	 *            the gui
+	 * @param group
+	 *            the group
+	 * @param editable
+	 *            the editable
+	 */
+	public OptionGroupUI(GUI gui, OptionGroup group, boolean editable) {
+<span class="nc" id="L87">		super(&quot;ReportPanelUI&quot;);</span>
 
+<span class="nc" id="L89">		this.gui = gui;</span>
+<span class="nc" id="L90">		this.group = group;</span>
+<span class="nc" id="L91">		this.editable = editable;</span>
 
-    /**
-     * The constructor that will add the items to this panel.
-     *
-     * @param gui
-     * @param group
-     * @param editable
-     */
-    public OptionGroupUI(GUI gui, OptionGroup group, boolean editable) {
-<span class="nc" id="L80">        super(&quot;ReportPanelUI&quot;);</span>
+<span class="nc" id="L93">		setLayout(new MigLayout(&quot;fill&quot;, &quot;[200:]unrelated[550:, grow, fill]&quot;, &quot;[top]&quot;));</span>
 
-<span class="nc" id="L82">        this.gui = gui;</span>
-<span class="nc" id="L83">        this.group = group;</span>
-<span class="nc" id="L84">        this.editable = editable;</span>
+<span class="nc" id="L95">		DefaultMutableTreeNode root = new DefaultMutableTreeNode(group);</span>
+<span class="nc" id="L96">		buildTree(group, root);</span>
 
-<span class="nc" id="L86">        setLayout(new MigLayout(&quot;fill&quot;, &quot;[200:]unrelated[550:, grow, fill]&quot;,</span>
-                                &quot;[top]&quot;));
+<span class="nc" id="L98">		DefaultTreeModel treeModel = new DefaultTreeModel(root);</span>
+<span class="nc" id="L99">		tree = new JTree(treeModel) {</span>
+			@Override
+			public Dimension getPreferredSize() {
+<span class="nc" id="L102">				return new Dimension(200, super.getPreferredSize().height);</span>
+			}
 
-<span class="nc" id="L89">        DefaultMutableTreeNode root = new DefaultMutableTreeNode(group);</span>
-<span class="nc" id="L90">        buildTree(group, root);</span>
+			@Override
+			public String convertValueToText(Object value, boolean selected, boolean expanded, boolean leaf, int row,
+					boolean hasFocus) {
+<span class="nc" id="L108">				DefaultMutableTreeNode node = (DefaultMutableTreeNode) value;</span>
+<span class="nc" id="L109">				Option option = (Option) node.getUserObject();</span>
+<span class="nc" id="L110">				return Messages.getName(option.getId());</span>
+			}
+		};
 
-<span class="nc" id="L92">        DefaultTreeModel treeModel = new DefaultTreeModel(root);</span>
-<span class="nc" id="L93">        tree = new JTree(treeModel) {</span>
-                @Override
-                public Dimension getPreferredSize() {
-<span class="nc" id="L96">                    return new Dimension(200, super.getPreferredSize().height);</span>
-                }
-                @Override
-                public String convertValueToText(Object value,
-                    boolean selected, boolean expanded,
-                    boolean leaf, int row, boolean hasFocus) {
-<span class="nc" id="L102">                    DefaultMutableTreeNode node</span>
-                        = (DefaultMutableTreeNode)value;
-<span class="nc" id="L104">                    Option option = (Option)node.getUserObject();</span>
-<span class="nc" id="L105">                    return Messages.getName(option.getId());</span>
-                }
-            };
+<span class="nc" id="L114">		tree.setOpaque(false);</span>
+<span class="nc" id="L115">		tree.addTreeSelectionListener(this);</span>
+<span class="nc" id="L116">		DefaultTreeCellRenderer renderer = (DefaultTreeCellRenderer) tree.getCellRenderer();</span>
+<span class="nc" id="L117">		renderer.setBackgroundNonSelectionColor(new Color(0, 0, 0, 1));</span>
 
-<span class="nc" id="L109">        tree.setOpaque(false);</span>
-<span class="nc" id="L110">        tree.addTreeSelectionListener(this);</span>
-<span class="nc" id="L111">        DefaultTreeCellRenderer renderer</span>
-<span class="nc" id="L112">            = (DefaultTreeCellRenderer)tree.getCellRenderer();</span>
-<span class="nc" id="L113">        renderer.setBackgroundNonSelectionColor(new Color(0, 0, 0, 1));</span>
+<span class="nc" id="L119">		add(tree);</span>
+<span class="nc" id="L120">		detailPanel = new MigPanel();</span>
+<span class="nc" id="L121">		detailPanel.setLayout(new MigLayout(&quot;wrap 2&quot;, &quot;[fill]related[fill]&quot;));</span>
+<span class="nc" id="L122">		detailPanel.setOpaque(false);</span>
+<span class="nc" id="L123">		add(detailPanel, &quot;grow&quot;);</span>
+<span class="nc" id="L124">	}</span>
 
-<span class="nc" id="L115">        add(tree);</span>
-<span class="nc" id="L116">        detailPanel = new MigPanel();</span>
-<span class="nc" id="L117">        detailPanel.setLayout(new MigLayout(&quot;wrap 2&quot;, &quot;[fill]related[fill]&quot;));</span>
-<span class="nc" id="L118">        detailPanel.setOpaque(false);</span>
-<span class="nc" id="L119">        add(detailPanel, &quot;grow&quot;);</span>
-<span class="nc" id="L120">    }</span>
+	/**
+	 * Gets the tree.
+	 *
+	 * @return the tree
+	 */
+	public JTree getTree() {
+<span class="nc" id="L132">		return tree;</span>
+	}
 
-    public JTree getTree() {
-<span class="nc" id="L123">        return tree;</span>
-    }
+	/**
+	 * Builds the JTree which represents the navigation menu and then returns
+	 * it.
+	 *
+	 * @param group
+	 *            the group
+	 * @param parent
+	 *            the parent
+	 */
+	private void buildTree(OptionGroup group, DefaultMutableTreeNode parent) {
+<span class="nc bnc" id="L145" title="All 2 branches missed.">		for (Option option : group.getOptions()) {</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">			if (option instanceof OptionGroup) {</span>
+<span class="nc" id="L147">				DefaultMutableTreeNode branch = new DefaultMutableTreeNode(option);</span>
+<span class="nc" id="L148">				parent.add(branch);</span>
+<span class="nc" id="L149">				buildTree((OptionGroup) option, branch);</span>
+			}
+<span class="nc" id="L151">		}</span>
+<span class="nc" id="L152">	}</span>
 
-    /**
-     * Builds the JTree which represents the navigation menu and then
-     * returns it
-     */
-    private void buildTree(OptionGroup group, DefaultMutableTreeNode parent) {
-<span class="nc bnc" id="L131" title="All 2 branches missed.">        for (Option option : group.getOptions()) {</span>
-<span class="nc bnc" id="L132" title="All 2 branches missed.">            if (option instanceof OptionGroup) {</span>
-<span class="nc" id="L133">                DefaultMutableTreeNode branch</span>
-                    = new DefaultMutableTreeNode(option);
-<span class="nc" id="L135">                parent.add(branch);</span>
-<span class="nc" id="L136">                buildTree((OptionGroup) option, branch);</span>
-            }
-<span class="nc" id="L138">        }</span>
-<span class="nc" id="L139">    }</span>
+	/**
+	 * This function analyses a tree selection event and calls the right methods
+	 * to take care of building the requested unit's details.
+	 *
+	 * @param event
+	 *            The incoming TreeSelectionEvent.
+	 */
+	@Override
+	public void valueChanged(TreeSelectionEvent event) {
+<span class="nc" id="L163">		detailPanel.removeAll();</span>
+<span class="nc" id="L164">		DefaultMutableTreeNode node = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">		if (node != null) {</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">			if (node.isLeaf()) {</span>
+<span class="nc" id="L167">				OptionGroup group = (OptionGroup) node.getUserObject();</span>
+<span class="nc bnc" id="L168" title="All 2 branches missed.">				for (Option option : group.getOptions()) {</span>
+<span class="nc bnc" id="L169" title="All 4 branches missed.">					addOptionUI(option, editable &amp;&amp; group.isEditable());</span>
+<span class="nc" id="L170">				}</span>
+<span class="nc" id="L171">			} else {</span>
+<span class="nc" id="L172">				tree.expandPath(event.getPath());</span>
+			}
+		}
+<span class="nc" id="L175">		detailPanel.revalidate();</span>
+<span class="nc" id="L176">		detailPanel.repaint();</span>
+<span class="nc" id="L177">	}</span>
 
-    /**
-     * This function analyses a tree selection event and calls the
-     * right methods to take care of building the requested unit's
-     * details.
-     *
-     * @param event The incoming TreeSelectionEvent.
-     */
-    @Override
-    public void valueChanged(TreeSelectionEvent event) {
-<span class="nc" id="L150">        detailPanel.removeAll();</span>
-<span class="nc" id="L151">        DefaultMutableTreeNode node</span>
-<span class="nc" id="L152">            = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();</span>
-<span class="nc bnc" id="L153" title="All 2 branches missed.">        if (node != null) {</span>
-<span class="nc bnc" id="L154" title="All 2 branches missed.">            if (node.isLeaf()) {</span>
-<span class="nc" id="L155">                OptionGroup group = (OptionGroup) node.getUserObject();</span>
-<span class="nc bnc" id="L156" title="All 2 branches missed.">                for (Option option : group.getOptions()) {</span>
-<span class="nc bnc" id="L157" title="All 4 branches missed.">                    addOptionUI(option, editable &amp;&amp; group.isEditable());</span>
-<span class="nc" id="L158">                }</span>
-<span class="nc" id="L159">            } else {</span>
-<span class="nc" id="L160">                tree.expandPath(event.getPath());</span>
-            }
-        }
-<span class="nc" id="L163">        detailPanel.revalidate();</span>
-<span class="nc" id="L164">        detailPanel.repaint();</span>
-<span class="nc" id="L165">    }</span>
+	/**
+	 * Removes the given &lt;code&gt;KeyStroke&lt;/code&gt; from all of this
+	 * &lt;code&gt;OptionGroupUI&lt;/code&gt;'s children.
+	 *
+	 * @param keyStroke
+	 *            The &lt;code&gt;KeyStroke&lt;/code&gt; to be removed.
+	 */
+	public void removeKeyStroke(KeyStroke keyStroke) {
+<span class="nc bnc" id="L187" title="All 2 branches missed.">		for (OptionUpdater optionUpdater : optionUpdaters) {</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">			if (optionUpdater instanceof FreeColActionUI) {</span>
+<span class="nc" id="L189">				((FreeColActionUI) optionUpdater).removeKeyStroke(keyStroke);</span>
+			}
+<span class="nc" id="L191">		}</span>
+<span class="nc" id="L192">	}</span>
 
-    /**
-     * Removes the given &lt;code&gt;KeyStroke&lt;/code&gt; from all of this
-     * &lt;code&gt;OptionGroupUI&lt;/code&gt;'s children.
-     *
-     * @param keyStroke The &lt;code&gt;KeyStroke&lt;/code&gt; to be removed.
-     */
-    public void removeKeyStroke(KeyStroke keyStroke) {
-<span class="nc bnc" id="L174" title="All 2 branches missed.">        for (OptionUpdater optionUpdater : optionUpdaters) {</span>
-<span class="nc bnc" id="L175" title="All 2 branches missed.">            if (optionUpdater instanceof FreeColActionUI) {</span>
-<span class="nc" id="L176">                ((FreeColActionUI) optionUpdater).removeKeyStroke(keyStroke);</span>
-            }
-<span class="nc" id="L178">        }</span>
-<span class="nc" id="L179">    }</span>
+	/**
+	 * Gets the option UI.
+	 *
+	 * @param key
+	 *            the key
+	 * @return the option UI
+	 */
+	public OptionUI getOptionUI(String key) {
+<span class="nc" id="L202">		return optionUIs.get(key);</span>
+	}
 
-    public OptionUI getOptionUI(String key) {
-<span class="nc" id="L182">        return optionUIs.get(key);</span>
-    }
+	/**
+	 * Adds the option UI.
+	 *
+	 * @param option
+	 *            the option
+	 * @param editable
+	 *            the editable
+	 */
+	private void addOptionUI(Option option, boolean editable) {
+<span class="nc" id="L214">		OptionUI ui = optionUIs.get(option.getId());</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">		if (ui == null) {</span>
+<span class="nc" id="L216">			ui = OptionUI.getOptionUI(gui, option, editable);</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">			if (ui == null) {</span>
+<span class="nc" id="L218">				logger.warning(&quot;Unknown option type: &quot; + option.toString());</span>
+<span class="nc" id="L219">				return;</span>
+			}
+<span class="nc bnc" id="L221" title="All 2 branches missed.">			if (ui instanceof FreeColActionUI) {</span>
+<span class="nc" id="L222">				((FreeColActionUI) ui).setOptionGroupUI(this);</span>
+			}
+<span class="nc bnc" id="L224" title="All 2 branches missed.">			if (option.getId() != null) {</span>
+<span class="nc" id="L225">				optionUIs.put(option.getId(), ui);</span>
+			}
+		}
+<span class="nc" id="L228">		JLabel label = ui.getJLabel();</span>
+<span class="nc bnc" id="L229" title="All 2 branches missed.">		if (label == null) {</span>
+<span class="nc" id="L230">			detailPanel.add(ui.getComponent(), &quot;newline, span&quot;);</span>
+		} else {
+<span class="nc" id="L232">			detailPanel.add(label);</span>
+<span class="nc" id="L233">			detailPanel.add(ui.getComponent());</span>
+		}
+<span class="nc bnc" id="L235" title="All 2 branches missed.">		if (group.isEditable()) {</span>
+<span class="nc" id="L236">			optionUpdaters.add(ui);</span>
+		}
+<span class="nc" id="L238">	}</span>
 
-    private void addOptionUI(Option option, boolean editable) {
-<span class="nc" id="L186">        OptionUI ui = optionUIs.get(option.getId());</span>
-<span class="nc bnc" id="L187" title="All 2 branches missed.">        if (ui == null) {</span>
-<span class="nc" id="L188">            ui = OptionUI.getOptionUI(gui, option, editable);</span>
-<span class="nc bnc" id="L189" title="All 2 branches missed.">            if (ui == null) {</span>
-<span class="nc" id="L190">                logger.warning(&quot;Unknown option type: &quot; + option.toString());</span>
-<span class="nc" id="L191">                return;</span>
-            }
-<span class="nc bnc" id="L193" title="All 2 branches missed.">            if (ui instanceof FreeColActionUI) {</span>
-<span class="nc" id="L194">                ((FreeColActionUI)ui).setOptionGroupUI(this);</span>
-            }
-<span class="nc bnc" id="L196" title="All 2 branches missed.">            if (option.getId() != null) {</span>
-<span class="nc" id="L197">                optionUIs.put(option.getId(), ui);</span>
-            }
-        }
-<span class="nc" id="L200">        JLabel label = ui.getJLabel();</span>
-<span class="nc bnc" id="L201" title="All 2 branches missed.">        if (label == null) {</span>
-<span class="nc" id="L202">            detailPanel.add(ui.getComponent(), &quot;newline, span&quot;);</span>
-        } else {
-<span class="nc" id="L204">            detailPanel.add(label);</span>
-<span class="nc" id="L205">            detailPanel.add(ui.getComponent());</span>
-        }
-<span class="nc bnc" id="L207" title="All 2 branches missed.">        if (group.isEditable()) {</span>
-<span class="nc" id="L208">            optionUpdaters.add(ui);</span>
-        }
-<span class="nc" id="L210">    }</span>
+	// Implement OptionUpdater
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void updateOption() {
+<span class="nc bnc" id="L247" title="All 2 branches missed.">		for (OptionUpdater optionUpdater : optionUpdaters) {</span>
+<span class="nc" id="L248">			optionUpdater.updateOption();</span>
+<span class="nc" id="L249">		}</span>
+<span class="nc" id="L250">	}</span>
 
-    // Implement OptionUpdater
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateOption() {
-<span class="nc bnc" id="L220" title="All 2 branches missed.">        for (OptionUpdater optionUpdater : optionUpdaters) {</span>
-<span class="nc" id="L221">            optionUpdater.updateOption();</span>
-<span class="nc" id="L222">        }</span>
-<span class="nc" id="L223">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void reset() {
-<span class="nc bnc" id="L230" title="All 2 branches missed.">        for (OptionUpdater optionUpdater : optionUpdaters) {</span>
-<span class="nc" id="L231">            optionUpdater.reset();</span>
-<span class="nc" id="L232">        }</span>
-<span class="nc" id="L233">    }</span>
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void reset() {
+<span class="nc bnc" id="L257" title="All 2 branches missed.">		for (OptionUpdater optionUpdater : optionUpdaters) {</span>
+<span class="nc" id="L258">			optionUpdater.reset();</span>
+<span class="nc" id="L259">		}</span>
+<span class="nc" id="L260">	}</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

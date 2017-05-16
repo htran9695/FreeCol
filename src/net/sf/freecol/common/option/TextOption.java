@@ -27,124 +27,124 @@ import net.sf.freecol.common.io.FreeColXMLWriter;
 import net.sf.freecol.common.util.Utils;
 import net.sf.freecol.common.model.Specification;
 
-
 /**
  * Represents an option that can be an arbitrary string.
  */
 public class TextOption extends AbstractOption<String> {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(TextOption.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(TextOption.class.getName());
 
-    /** The value of this option. */
-    private String value;
+	/** The value of this option. */
+	private String value;
 
+	/**
+	 * Creates a new <code>TextOption</code>.
+	 *
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public TextOption(Specification specification) {
+		super(specification);
+	}
 
-    /**
-     * Creates a new <code>TextOption</code>.
-     *
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public TextOption(Specification specification) {
-        super(specification);
-    }
+	/**
+	 * Creates a new <code>TextOption</code>.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public TextOption(String id, Specification specification) {
+		super(id, specification);
+	}
 
-    /**
-     * Creates a new <code>TextOption</code>.
-     *
-     * @param id The object identifier.
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public TextOption(String id, Specification specification) {
-        super(id, specification);
-    }
+	// Interface Option.
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public TextOption clone() {
+		TextOption result = new TextOption(getId(), getSpecification());
+		result.setValues(this);
+		return result;
+	}
 
-    // Interface Option.
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getValue() {
+		return value;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public TextOption clone() {
-        TextOption result = new TextOption(getId(), getSpecification());
-        result.setValues(this);
-        return result;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void setValue(String value) {
+		final String oldValue = this.value;
+		this.value = value;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getValue() {
-        return value;
-    }
+		if (isDefined && !Utils.equals(value, oldValue)) {
+			firePropertyChange(VALUE_TAG, oldValue, value);
+		}
+		isDefined = true;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setValue(String value) {
-        final String oldValue = this.value;
-        this.value = value;
+	// Override AbstractOption
 
-        if (isDefined && !Utils.equals(value, oldValue)) {
-            firePropertyChange(VALUE_TAG, oldValue, value);
-        }
-        isDefined = true;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void setValue(String valueString, String defaultValueString) {
+		setValue((valueString != null) ? valueString : defaultValueString);
+	}
 
+	// Serialization
 
-    // Override AbstractOption
+	/** The Constant CHOICE_TAG. */
+	private static final String CHOICE_TAG = "choice";
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void setValue(String valueString, String defaultValueString) {
-        setValue((valueString != null) ? valueString : defaultValueString);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
+		xw.writeAttribute(VALUE_TAG, value);
+	}
 
-    // Serialization
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder(32);
+		sb.append("[").append(getId()).append(" value=").append(value);
+		sb.append("]");
+		return sb.toString();
+	}
 
-    private static final String CHOICE_TAG = "choice";
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
-
-        xw.writeAttribute(VALUE_TAG, value);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(32);
-        sb.append("[").append(getId())
-            .append(" value=").append(value);
-        sb.append("]");
-        return sb.toString();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "textOption".
-     */
-    public static String getXMLElementTagName() {
-        return "textOption";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "textOption".
+	 */
+	public static String getXMLElementTagName() {
+		return "textOption";
+	}
 }

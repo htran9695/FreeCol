@@ -28,111 +28,109 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent when the client requests building of a colony.
  */
 public class BuildColonyMessage extends DOMMessage {
 
-    /** The name of the new colony. */
-    private final String colonyName;
+	/** The name of the new colony. */
+	private final String colonyName;
 
-    /** The unit that is building the colony. */
-    private final String builderId;
+	/** The unit that is building the colony. */
+	private final String builderId;
 
+	/**
+	 * Create a new <code>BuildColonyMessage</code> with the supplied name and
+	 * building unit.
+	 *
+	 * @param colonyName
+	 *            The name for the new colony.
+	 * @param builder
+	 *            The <code>Unit</code> to do the building.
+	 */
+	public BuildColonyMessage(String colonyName, Unit builder) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>BuildColonyMessage</code> with the supplied name
-     * and building unit.
-     *
-     * @param colonyName The name for the new colony.
-     * @param builder The <code>Unit</code> to do the building.
-     */
-    public BuildColonyMessage(String colonyName, Unit builder) {
-        super(getXMLElementTagName());
+		this.colonyName = colonyName;
+		this.builderId = builder.getId();
+	}
 
-        this.colonyName = colonyName;
-        this.builderId = builder.getId();
-    }
+	/**
+	 * Create a new <code>BuildColonyMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public BuildColonyMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>BuildColonyMessage</code> from a supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public BuildColonyMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.colonyName = element.getAttribute("name");
+		this.builderId = element.getAttribute("unit");
+	}
 
-        this.colonyName = element.getAttribute("name");
-        this.builderId = element.getAttribute("unit");
-    }
+	/**
+	 * Handle a "buildColony"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the request.
+	 * @param player
+	 *            The <code>Player</code> building the colony.
+	 * @param connection
+	 *            The <code>Connection</code> the message is from.
+	 * @return An update <code>Element</code> defining the new colony and
+	 *         updating its surrounding tiles, or an error <code>Element</code>
+	 *         on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
+		final Game game = server.getGame();
 
+		Unit unit;
+		try {
+			unit = player.getOurFreeColGameObject(builderId, Unit.class);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
+		if (!unit.canBuildColony()) {
+			return DOMMessage.clientError("Unit " + builderId + " can not build colony.");
+		}
 
-    /**
-     * Handle a "buildColony"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the request.
-     * @param player The <code>Player</code> building the colony.
-     * @param connection The <code>Connection</code> the message is from.
-     * @return An update <code>Element</code> defining the new colony
-     *     and updating its surrounding tiles, or an error
-     *     <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
-        final Game game = server.getGame();
+		if (colonyName == null) {
+			return DOMMessage.clientError("Null colony name");
+		} else if (Player.ASSIGN_SETTLEMENT_NAME.equals(colonyName)) {
+			; // ok
+		} else if (game.getSettlementByName(colonyName) != null) {
+			return DOMMessage.clientError("Non-unique colony name " + colonyName);
+		}
 
-        Unit unit;
-        try {
-            unit = player.getOurFreeColGameObject(builderId, Unit.class);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
-        if (!unit.canBuildColony()) {
-            return DOMMessage.clientError("Unit " + builderId
-                + " can not build colony.");
-        }
+		Tile tile = unit.getTile();
+		if (!player.canClaimToFoundSettlement(tile)) {
+			return DOMMessage.clientError(
+					"Can not build colony on tile " + tile + ": " + player.canClaimToFoundSettlementReason(tile));
+		}
 
-        if (colonyName == null) {
-            return DOMMessage.clientError("Null colony name");
-        } else if (Player.ASSIGN_SETTLEMENT_NAME.equals(colonyName)) {
-            ; // ok
-        } else if (game.getSettlementByName(colonyName) != null) {
-            return DOMMessage.clientError("Non-unique colony name "
-                + colonyName);
-        }
+		// Build can proceed.
+		return server.getInGameController().buildSettlement(serverPlayer, unit, colonyName);
+	}
 
-        Tile tile = unit.getTile();
-        if (!player.canClaimToFoundSettlement(tile)) {
-            return DOMMessage.clientError("Can not build colony on tile "
-                + tile + ": " + player.canClaimToFoundSettlementReason(tile));
-        }
+	/**
+	 * Convert this BuildColonyMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		return createMessage(getXMLElementTagName(), "name", colonyName, "unit", builderId);
+	}
 
-        // Build can proceed.
-        return server.getInGameController()
-            .buildSettlement(serverPlayer, unit, colonyName);
-    }
-
-    /**
-     * Convert this BuildColonyMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        return createMessage(getXMLElementTagName(),
-            "name", colonyName,
-            "unit", builderId);
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "buildColony".
-     */
-    public static String getXMLElementTagName() {
-        return "buildColony";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "buildColony".
+	 */
+	public static String getXMLElementTagName() {
+		return "buildColony";
+	}
 }

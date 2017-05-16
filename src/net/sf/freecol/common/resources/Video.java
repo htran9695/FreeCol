@@ -21,25 +21,30 @@ package net.sf.freecol.common.resources;
 
 import java.net.URL;
 
-
 /**
  * Represents a video.
  */
 public class Video {
 
-    private final URL url;
-    
-    /**
-     * Create a <code>Video</code>.
-     *
-     * @param url The <code>URL</code> to create the video from. 
-     */
-    public Video(URL url) {
-        this.url = url;
-    }
-    
+	/** The url. */
+	private final URL url;
 
-    public URL getURL() {
-        return this.url;
-    }
+	/**
+	 * Create a <code>Video</code>.
+	 *
+	 * @param url
+	 *            The <code>URL</code> to create the video from.
+	 */
+	public Video(URL url) {
+		this.url = url;
+	}
+
+	/**
+	 * Gets the url.
+	 *
+	 * @return the url
+	 */
+	public URL getURL() {
+		return this.url;
+	}
 }

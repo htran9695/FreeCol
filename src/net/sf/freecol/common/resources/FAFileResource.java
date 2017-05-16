@@ -22,7 +22,6 @@ package net.sf.freecol.common.resources;
 import java.net.URI;
 import java.net.URL;
 
-
 /**
  * A <code>Resource</code> wrapping a <code>FAFile</code>.
  *
@@ -31,34 +30,40 @@ import java.net.URL;
  */
 public class FAFileResource extends Resource {
 
-    private final FAFile FAFile;
+	/** The FA file. */
+	private final FAFile FAFile;
 
+	/**
+	 * Instantiates a new FA file resource.
+	 *
+	 * @param FAFile
+	 *            the FA file
+	 */
+	public FAFileResource(FAFile FAFile) {
+		this.FAFile = FAFile;
+	}
 
-    public FAFileResource(FAFile FAFile) {
-        this.FAFile = FAFile;
-    }
+	/**
+	 * Do not use directly.
+	 *
+	 * @param resourceLocator
+	 *            The <code>URI</code> used when loading this resource.
+	 * @throws Exception
+	 *             the exception
+	 */
+	public FAFileResource(URI resourceLocator) throws Exception {
+		super(resourceLocator);
+		URL url = resourceLocator.toURL();
+		FAFile = new FAFile(url.openStream());
+	}
 
-
-    /**
-     * Do not use directly.
-     *
-     * @param resourceLocator The <code>URI</code> used when loading this
-     *      resource.
-     */
-    public FAFileResource(URI resourceLocator) throws Exception {
-        super(resourceLocator);
-        URL url = resourceLocator.toURL();
-        FAFile = new FAFile(url.openStream());
-    }
-
-
-    /**
-     * Gets the <code>FAFile</code> represented by this resource.
-     *
-     * @return The <code>FAFile</code> for this resource, or the default
-     *     Java FAFile if none found.
-     */
-    public FAFile getFAFile() {
-        return FAFile;
-    }
+	/**
+	 * Gets the <code>FAFile</code> represented by this resource.
+	 *
+	 * @return The <code>FAFile</code> for this resource, or the default Java
+	 *         FAFile if none found.
+	 */
+	public FAFile getFAFile() {
+		return FAFile;
+	}
 }

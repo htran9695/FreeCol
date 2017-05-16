@@ -24,218 +24,244 @@ import net.sf.freecol.FreeCol;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-
 /**
- * Contains information about a single server.  This information is
- * normally retrieved from a meta-server.
+ * Contains information about a single server. This information is normally
+ * retrieved from a meta-server.
  * 
  * @see net.sf.freecol.metaserver
  */
 public class ServerInfo {
 
-    private String name;
-    private String address;
-    private int port;
+	/** The name. */
+	private String name;
 
-    private int currentlyPlaying;
-    private int slotsAvailable;
-    private boolean isGameStarted;
-    private String version;
-    private int gameState;
+	/** The address. */
+	private String address;
 
+	/** The port. */
+	private int port;
 
-    /**
-     * Empty constructor that can be used by subclasses.
-     */
-    protected ServerInfo() {}
+	/** The currently playing. */
+	private int currentlyPlaying;
 
-    /**
-     * Creates a new object with the given information.
-     *
-     * @param name The name of the server.
-     * @param address The IP-address of the server.
-     * @param port The port number in which clients may connect.
-     * @param slotsAvailable Number of players that may conncet.
-     * @param currentlyPlaying Number of players that are currently connected.
-     * @param isGameStarted <i>true</i> if the game has started.
-     * @param version The version of the server.
-     * @param gameState The current state of the game.
-     */
-    public ServerInfo(String name, String address, int port,
-                      int slotsAvailable, int currentlyPlaying,
-                      boolean isGameStarted, String version, int gameState) {
-        update(name, address, port, slotsAvailable, currentlyPlaying,
-               isGameStarted, version, gameState);
-    }
+	/** The slots available. */
+	private int slotsAvailable;
 
-    
-    /**
-     * Creates an object from the given <code>Element</code>.
-     *
-     * @param element The XML DOM Element containing the information that will be
-     *        used for the new object.
-     */
-    public ServerInfo(Element element) {
-        readFromXMLElement(element);
-    }
+	/** The is game started. */
+	private boolean isGameStarted;
 
+	/** The version. */
+	private String version;
 
-    /**
-     * Updates the object with the given information.
-     *
-     * @param name The name of the server.
-     * @param address The IP-address of the server.
-     * @param port The port number in which clients may connect.
-     * @param slotsAvailable Number of players that may conncet.
-     * @param currentlyPlaying Number of players that are currently connected.
-     * @param isGameStarted <i>true</i> if the game has started.
-     * @param version The version of the server.
-     * @param gameState The current state of the game.
-     */
-    public void update(String name, String address, int port,
-                       int slotsAvailable, int currentlyPlaying,
-                       boolean isGameStarted, String version, int gameState) {
-        this.name = name;
-        this.address = address;
-        this.port = port;
-        this.slotsAvailable = slotsAvailable;
-        this.currentlyPlaying = currentlyPlaying;
-        this.isGameStarted = isGameStarted;
-        this.version = version;
-        this.gameState = gameState;
-    }
+	/** The game state. */
+	private int gameState;
 
-    /**
-     * Update the server info from an element.
-     *
-     * @param element The <code>Element</code> to update from.
-     */
-    public final void update(Element element) {
-        update(element.getAttribute("name"), element.getAttribute("address"),
-               Integer.parseInt(element.getAttribute("port")),
-               Integer.parseInt(element.getAttribute("slotsAvailable")),
-               Integer.parseInt(element.getAttribute("currentlyPlaying")),
-               Boolean.parseBoolean(element.getAttribute("slotsAvailable")),
-               element.getAttribute("version"),
-               Integer.parseInt(element.getAttribute("gameState")));
-    }
-    
-    /**
-     * Returns the name of the server that is beeing represented 
-     * by this object.
-     * 
-     * @return The name.
-     */
-    public String getName() {
-        return name;
-    }
+	/**
+	 * Empty constructor that can be used by subclasses.
+	 */
+	protected ServerInfo() {
+	}
 
-    /**
-     * Returns the IP-address.
-     * @return The IP-address of the server.
-     */
-    public String getAddress() {
-        return address;
-    }
+	/**
+	 * Creates a new object with the given information.
+	 *
+	 * @param name
+	 *            The name of the server.
+	 * @param address
+	 *            The IP-address of the server.
+	 * @param port
+	 *            The port number in which clients may connect.
+	 * @param slotsAvailable
+	 *            Number of players that may conncet.
+	 * @param currentlyPlaying
+	 *            Number of players that are currently connected.
+	 * @param isGameStarted
+	 *            <i>true</i> if the game has started.
+	 * @param version
+	 *            The version of the server.
+	 * @param gameState
+	 *            The current state of the game.
+	 */
+	public ServerInfo(String name, String address, int port, int slotsAvailable, int currentlyPlaying,
+			boolean isGameStarted, String version, int gameState) {
+		update(name, address, port, slotsAvailable, currentlyPlaying, isGameStarted, version, gameState);
+	}
 
+	/**
+	 * Creates an object from the given <code>Element</code>.
+	 *
+	 * @param element
+	 *            The XML DOM Element containing the information that will be
+	 *            used for the new object.
+	 */
+	public ServerInfo(Element element) {
+		readFromXMLElement(element);
+	}
 
-    /**
-     * Returns the port in which clients may connect.
-     * @return The port.
-     */
-    public int getPort() {
-        return port;
-    }
-    
-    
-    /**
-     * Returns the number of currently active (connected and not dead) players.
-     * @return The number of players.
-     */
-    public int getCurrentlyPlaying() {
-        return currentlyPlaying;
-    }
-    
-    
-    /**
-     * Returns the number of players that may connect.
-     * @return The number of slots available on the server.
-     */
-    public int getSlotsAvailable() {
-        return slotsAvailable;
-    }
+	/**
+	 * Updates the object with the given information.
+	 *
+	 * @param name
+	 *            The name of the server.
+	 * @param address
+	 *            The IP-address of the server.
+	 * @param port
+	 *            The port number in which clients may connect.
+	 * @param slotsAvailable
+	 *            Number of players that may conncet.
+	 * @param currentlyPlaying
+	 *            Number of players that are currently connected.
+	 * @param isGameStarted
+	 *            <i>true</i> if the game has started.
+	 * @param version
+	 *            The version of the server.
+	 * @param gameState
+	 *            The current state of the game.
+	 */
+	public void update(String name, String address, int port, int slotsAvailable, int currentlyPlaying,
+			boolean isGameStarted, String version, int gameState) {
+		this.name = name;
+		this.address = address;
+		this.port = port;
+		this.slotsAvailable = slotsAvailable;
+		this.currentlyPlaying = currentlyPlaying;
+		this.isGameStarted = isGameStarted;
+		this.version = version;
+		this.gameState = gameState;
+	}
 
-    
-    /**
-     * Returns the FreeCol version of the server.
-     *
-     * @return The version.
-     * @see FreeCol#getVersion
-     */
-    public String getVersion() {
-        return version;
-    }
+	/**
+	 * Update the server info from an element.
+	 *
+	 * @param element
+	 *            The <code>Element</code> to update from.
+	 */
+	public final void update(Element element) {
+		update(element.getAttribute("name"), element.getAttribute("address"),
+				Integer.parseInt(element.getAttribute("port")),
+				Integer.parseInt(element.getAttribute("slotsAvailable")),
+				Integer.parseInt(element.getAttribute("currentlyPlaying")),
+				Boolean.parseBoolean(element.getAttribute("slotsAvailable")), element.getAttribute("version"),
+				Integer.parseInt(element.getAttribute("gameState")));
+	}
 
+	/**
+	 * Returns the name of the server that is beeing represented by this object.
+	 * 
+	 * @return The name.
+	 */
+	public String getName() {
+		return name;
+	}
 
-    /**
-     * Gets the current state of the game.
-     * 
-     * @return The current state of the game.
-     * @see net.sf.freecol.server.FreeColServer#getGameState
-     */
-    public int getGameState() {
-        return gameState;
-    }
+	/**
+	 * Returns the IP-address.
+	 * 
+	 * @return The IP-address of the server.
+	 */
+	public String getAddress() {
+		return address;
+	}
 
+	/**
+	 * Returns the port in which clients may connect.
+	 * 
+	 * @return The port.
+	 */
+	public int getPort() {
+		return port;
+	}
 
-    /**
-     * Creates an XML-representation of this object.
-     * @param document The document in which the element should be created.
-     * @return The XML DOM Element representing this object.
-     */
-    public Element toXMLElement(Document document) {
-        Element element = document.createElement(getXMLElementTagName());
+	/**
+	 * Returns the number of currently active (connected and not dead) players.
+	 * 
+	 * @return The number of players.
+	 */
+	public int getCurrentlyPlaying() {
+		return currentlyPlaying;
+	}
 
-        element.setAttribute("name", name);
-        element.setAttribute("address", address);
-        element.setAttribute("port", Integer.toString(port));
-        element.setAttribute("slotsAvailable", Integer.toString(slotsAvailable));
-        element.setAttribute("currentlyPlaying", Integer.toString(currentlyPlaying));
-        element.setAttribute("isGameStarted", Boolean.toString(isGameStarted));
-        element.setAttribute("version", version);
-        element.setAttribute("gameState", Integer.toString(gameState));
-        
-        return element;
-    }
+	/**
+	 * Returns the number of players that may connect.
+	 * 
+	 * @return The number of slots available on the server.
+	 */
+	public int getSlotsAvailable() {
+		return slotsAvailable;
+	}
 
+	/**
+	 * Returns the FreeCol version of the server.
+	 *
+	 * @return The version.
+	 * @see FreeCol#getVersion
+	 */
+	public String getVersion() {
+		return version;
+	}
 
-    /**
-     * Reads attributes from the given element.
-     * @param element The XML DOM Element containing information that
-     *        should be read by this object.
-     */
-    public void readFromXMLElement(Element element) {
-        update(element);
-    }
+	/**
+	 * Gets the current state of the game.
+	 * 
+	 * @return The current state of the game.
+	 * @see net.sf.freecol.server.FreeColServer#getGameState
+	 */
+	public int getGameState() {
+		return gameState;
+	}
 
+	/**
+	 * Creates an XML-representation of this object.
+	 * 
+	 * @param document
+	 *            The document in which the element should be created.
+	 * @return The XML DOM Element representing this object.
+	 */
+	public Element toXMLElement(Document document) {
+		Element element = document.createElement(getXMLElementTagName());
 
-    /**
-     * Gets the tag name of the root element representing this object.
-     * @return "metaItem".
-     */
-    public static String getXMLElementTagName() {
-        return "serverInfo";
-    }
+		element.setAttribute("name", name);
+		element.setAttribute("address", address);
+		element.setAttribute("port", Integer.toString(port));
+		element.setAttribute("slotsAvailable", Integer.toString(slotsAvailable));
+		element.setAttribute("currentlyPlaying", Integer.toString(currentlyPlaying));
+		element.setAttribute("isGameStarted", Boolean.toString(isGameStarted));
+		element.setAttribute("version", version);
+		element.setAttribute("gameState", Integer.toString(gameState));
 
+		return element;
+	}
 
-    /**
-     * Returns a <code>String</code> representation of this object for debugging purposes.
-     */
-    @Override
-    public String toString() {
-        return name + "(" + address + ":" + port + ") " + currentlyPlaying 
-                + ", " + slotsAvailable + ", " + isGameStarted + ", " + version
-                + ", " + gameState;
-    }
+	/**
+	 * Reads attributes from the given element.
+	 * 
+	 * @param element
+	 *            The XML DOM Element containing information that should be read
+	 *            by this object.
+	 */
+	public void readFromXMLElement(Element element) {
+		update(element);
+	}
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 * 
+	 * @return "metaItem".
+	 */
+	public static String getXMLElementTagName() {
+		return "serverInfo";
+	}
+
+	/**
+	 * Returns a <code>String</code> representation of this object for debugging
+	 * purposes.
+	 *
+	 * @return the string
+	 */
+	@Override
+	public String toString() {
+		return name + "(" + address + ":" + port + ") " + currentlyPlaying + ", " + slotsAvailable + ", "
+				+ isGameStarted + ", " + version + ", " + gameState;
+	}
 
 }

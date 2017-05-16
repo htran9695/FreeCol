@@ -22,62 +22,63 @@ package net.sf.freecol.common.option;
 import net.sf.freecol.common.io.FreeColModFile;
 import net.sf.freecol.common.model.Specification;
 
-
 /**
- * Represents an option where the valid choice is a list of
- * FreeColModFiles.
+ * Represents an option where the valid choice is a list of FreeColModFiles.
  */
 public class ModListOption extends ListOption<FreeColModFile> {
 
-    /**
-     * Creates a new <code>ModListOption</code>.
-     *
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public ModListOption(Specification specification) {
-        super(specification);
+	/**
+	 * Creates a new <code>ModListOption</code>.
+	 *
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public ModListOption(Specification specification) {
+		super(specification);
 
-        setAllowDuplicates(false);
-    }
+		setAllowDuplicates(false);
+	}
 
-    /**
-     * Creates a new <code>ModListOption</code>.
-     *
-     * @param id The object identifier.
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public ModListOption(String id, Specification specification) {
-        super(id, specification);
+	/**
+	 * Creates a new <code>ModListOption</code>.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public ModListOption(String id, Specification specification) {
+		super(id, specification);
 
-        setAllowDuplicates(false);
-    }
+		setAllowDuplicates(false);
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public ModListOption clone() {
+		ModListOption ret = new ModListOption(getId(), getSpecification());
+		ret.setValues(this);
+		return ret;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ModListOption clone() {
-        ModListOption ret = new ModListOption(getId(), getSpecification());
-        ret.setValues(this);
-        return ret;
-    }
+	// Serialization
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-    // Serialization
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "modListOption".
-     */
-    public static String getXMLElementTagName() {
-        return "modListOption";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "modListOption".
+	 */
+	public static String getXMLElementTagName() {
+		return "modListOption";
+	}
 }

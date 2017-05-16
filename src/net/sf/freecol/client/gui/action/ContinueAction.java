@@ -26,40 +26,39 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.io.FreeColDirectories;
 
-
 /**
  * Action to load and start the most recent save game of the client.
  */
 public class ContinueAction extends FreeColAction {
 
-    public static final String id = "continueAction";
+	/** The Constant id. */
+	public static final String id = "continueAction";
 
+	/**
+	 * Creates a new <code>ContinueAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ContinueAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
 
-    /**
-     * Creates a new <code>ContinueAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ContinueAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
+		// interim solution to be replaced! redirect to identical NAME text
+		putValue(NAME, Messages.message("victory.continue"));
+		putValue(SHORT_DESCRIPTION, null);
+	}
 
-        // interim solution to be replaced! redirect to identical NAME text
-        putValue(NAME, Messages.message("victory.continue"));
-        putValue(SHORT_DESCRIPTION, null);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        File lastSave = FreeColDirectories.getLastSaveGameFile();
-        if (lastSave != null) {
-            getGUI().removeInGameComponents();
-            getConnectController().startSavedGame(lastSave, null);
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		File lastSave = FreeColDirectories.getLastSaveGameFile();
+		if (lastSave != null) {
+			getGUI().removeInGameComponents();
+			getConnectController().startSavedGame(lastSave, null);
+		}
+	}
 }

@@ -21,7 +21,6 @@ package net.sf.freecol.common.resources;
 
 import java.net.URI;
 
-
 /**
  * A <code>Resource</code> wrapping a <code>Video</code>.
  * 
@@ -30,28 +29,29 @@ import java.net.URI;
  */
 public class VideoResource extends Resource {
 
-    private final Video video;
+	/** The video. */
+	private final Video video;
 
-    
-    /**
-     * Do not use directly.
-     *
-     * @param resourceLocator The <code>URI</code> used when loading this
-     *     resource.
-     */
-    public VideoResource(URI resourceLocator) throws Exception {
-        super(resourceLocator);
-        
-        this.video = new Video(resourceLocator.toURL());
-    }
+	/**
+	 * Do not use directly.
+	 *
+	 * @param resourceLocator
+	 *            The <code>URI</code> used when loading this resource.
+	 * @throws Exception
+	 *             the exception
+	 */
+	public VideoResource(URI resourceLocator) throws Exception {
+		super(resourceLocator);
 
+		this.video = new Video(resourceLocator.toURL());
+	}
 
-    /**
-     * Gets the <code>Video</code> represented by this resource.
-     *
-     * @return The <code>Video</code> in its original size.
-     */
-    public Video getVideo() {
-        return this.video;
-    }
+	/**
+	 * Gets the <code>Video</code> represented by this resource.
+	 *
+	 * @return The <code>Video</code> in its original size.
+	 */
+	public Video getVideo() {
+		return this.video;
+	}
 }

@@ -47,166 +47,218 @@ import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.TileImprovementType;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
- * A collection of panels and buttons that are used to provide the
- * user with a more detailed view of certain elements on the map and
- * also to provide a means of input in case the user can't use the
- * keyboard.
+ * A collection of panels and buttons that are used to provide the user with a
+ * more detailed view of certain elements on the map and also to provide a means
+ * of input in case the user can't use the keyboard.
  *
- * The MapControls are useless by themselves, this object needs to be
- * placed on a JComponent in order to be usable.
+ * The MapControls are useless by themselves, this object needs to be placed on
+ * a JComponent in order to be usable.
  */
 public abstract class MapControls {
 
-    public static final int MAP_WIDTH = 220;
-    public static final int MAP_HEIGHT = 128;
-    public static final int GAP = 4;
-    public static final int CONTROLS_LAYER = JLayeredPane.MODAL_LAYER;
+	/** The Constant MAP_WIDTH. */
+	public static final int MAP_WIDTH = 220;
 
-    protected final FreeColClient freeColClient;
-    protected final InfoPanel infoPanel;
-    protected final MiniMap miniMap;
-    protected final UnitButton miniMapToggleBorders;
-    protected final UnitButton miniMapToggleFogOfWarButton;
-    protected final UnitButton miniMapZoomOutButton;
-    protected final UnitButton miniMapZoomInButton;
-    protected final List<UnitButton> unitButtons;
+	/** The Constant MAP_HEIGHT. */
+	public static final int MAP_HEIGHT = 128;
 
+	/** The Constant GAP. */
+	public static final int GAP = 4;
 
-    /**
-     * The basic constructor.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public MapControls(final FreeColClient freeColClient, boolean useSkin) {
-        this.freeColClient = freeColClient;
+	/** The Constant CONTROLS_LAYER. */
+	public static final int CONTROLS_LAYER = JLayeredPane.MODAL_LAYER;
 
-        infoPanel = new InfoPanel(freeColClient, useSkin);
-        miniMap = new MiniMap(freeColClient);
-        final ActionManager am = freeColClient.getActionManager();
-        unitButtons = new ArrayList<>();
+	/** The free col client. */
+	protected final FreeColClient freeColClient;
 
-        final Game game = freeColClient.getGame();
-        if (game != null) {
-            unitButtons.add(new UnitButton(am, WaitAction.id));
-            unitButtons.add(new UnitButton(am, SkipUnitAction.id));
-            unitButtons.add(new UnitButton(am, SentryAction.id));
-            unitButtons.add(new UnitButton(am, FortifyAction.id));
-            
-            final Specification spec = game.getSpecification();
-            if (spec != null) {
-                for (TileImprovementType type : spec.getTileImprovementTypeList()) {
-                    FreeColAction action = am.getFreeColAction(type.getSuffix()
-                                                               + "Action");
-                    if (!type.isNatural() && action != null
-                        && action.hasOrderButtons()) {
-                        unitButtons.add(new UnitButton(am, type.getSuffix() + "Action"));
-                    }
-                }
-            }
-            unitButtons.add(new UnitButton(am, BuildColonyAction.id));
-            unitButtons.add(new UnitButton(am, DisbandUnitAction.id));
-        }
-        miniMapToggleBorders = new UnitButton(am, MiniMapToggleViewAction.id);
-        miniMapToggleFogOfWarButton = new UnitButton(am, MiniMapToggleFogOfWarAction.id);
-        miniMapZoomOutButton = new UnitButton(am, MiniMapZoomOutAction.id);
-        miniMapZoomInButton = new UnitButton(am, MiniMapZoomInAction.id);
+	/** The info panel. */
+	protected final InfoPanel infoPanel;
 
-        miniMapToggleBorders.setFocusable(false);
-        miniMapToggleFogOfWarButton.setFocusable(false);
-        miniMapZoomOutButton.setFocusable(false);
-        miniMapZoomInButton.setFocusable(false);
+	/** The mini map. */
+	protected final MiniMap miniMap;
 
-        //
-        // Don't allow them to gain focus
-        //
-        infoPanel.setFocusable(false);
+	/** The mini map toggle borders. */
+	protected final UnitButton miniMapToggleBorders;
 
-        for (UnitButton button : unitButtons) {
-            button.setFocusable(false);
-        }
-    }
+	/** The mini map toggle fog of war button. */
+	protected final UnitButton miniMapToggleFogOfWarButton;
 
+	/** The mini map zoom out button. */
+	protected final UnitButton miniMapZoomOutButton;
 
-    /**
-     * Adds the map controls to the given component.
-     *
-     * @param component The component to add the map controls to.
-     */
-    public abstract void addToComponent(Canvas component);
+	/** The mini map zoom in button. */
+	protected final UnitButton miniMapZoomInButton;
 
-    public boolean canZoomInMapControls() {
-        return miniMap != null && miniMap.canZoomIn();
-    }
+	/** The unit buttons. */
+	protected final List<UnitButton> unitButtons;
 
-    public boolean canZoomOutMapControls() {
-        return miniMap != null && miniMap.canZoomOut();
-    }
+	/**
+	 * The basic constructor.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param useSkin
+	 *            the use skin
+	 */
+	public MapControls(final FreeColClient freeColClient, boolean useSkin) {
+		this.freeColClient = freeColClient;
 
-    public abstract boolean isShowing();
+		infoPanel = new InfoPanel(freeColClient, useSkin);
+		miniMap = new MiniMap(freeColClient);
+		final ActionManager am = freeColClient.getActionManager();
+		unitButtons = new ArrayList<>();
 
-    /**
-     * Removes the map controls from the parent canvas component.
-     *
-     * @param canvas <code>Canvas</code> parent
-     */
-    public abstract void removeFromComponent(Canvas canvas);
+		final Game game = freeColClient.getGame();
+		if (game != null) {
+			unitButtons.add(new UnitButton(am, WaitAction.id));
+			unitButtons.add(new UnitButton(am, SkipUnitAction.id));
+			unitButtons.add(new UnitButton(am, SentryAction.id));
+			unitButtons.add(new UnitButton(am, FortifyAction.id));
 
-    public abstract void repaint();
-    
-    public void toggleView() {
-        miniMap.setToggleBordersOption(!freeColClient.getClientOptions()
-            .getBoolean(ClientOptions.MINIMAP_TOGGLE_BORDERS));
-        repaint();
-    }
-    
-    public void toggleFogOfWar() {
-        miniMap.setToggleFogOfWarOption(!freeColClient.getClientOptions()
-            .getBoolean(ClientOptions.MINIMAP_TOGGLE_FOG_OF_WAR));
-        repaint();
-    }
+			final Specification spec = game.getSpecification();
+			if (spec != null) {
+				for (TileImprovementType type : spec.getTileImprovementTypeList()) {
+					FreeColAction action = am.getFreeColAction(type.getSuffix() + "Action");
+					if (!type.isNatural() && action != null && action.hasOrderButtons()) {
+						unitButtons.add(new UnitButton(am, type.getSuffix() + "Action"));
+					}
+				}
+			}
+			unitButtons.add(new UnitButton(am, BuildColonyAction.id));
+			unitButtons.add(new UnitButton(am, DisbandUnitAction.id));
+		}
+		miniMapToggleBorders = new UnitButton(am, MiniMapToggleViewAction.id);
+		miniMapToggleFogOfWarButton = new UnitButton(am, MiniMapToggleFogOfWarAction.id);
+		miniMapZoomOutButton = new UnitButton(am, MiniMapZoomOutAction.id);
+		miniMapZoomInButton = new UnitButton(am, MiniMapZoomInAction.id);
 
-    /**
-     * Updates this <code>MapControls</code>.
-     */
-    public void update() {
-        final GUI gui = freeColClient.getGUI();
-        Unit unit = gui.getActiveUnit();
+		miniMapToggleBorders.setFocusable(false);
+		miniMapToggleFogOfWarButton.setFocusable(false);
+		miniMapZoomOutButton.setFocusable(false);
+		miniMapZoomInButton.setFocusable(false);
 
-        switch (gui.getViewMode()) {
-        case GUI.MOVE_UNITS_MODE:
-            infoPanel.update(unit);
-            break;
-        case GUI.VIEW_TERRAIN_MODE:
-            infoPanel.update(gui.getSelectedTile());
-            break;
-        default:
-            break;
-        }
-        for (UnitButton ub : unitButtons) {
-            ub.setVisible(unit != null);
-        }
-    }
+		//
+		// Don't allow them to gain focus
+		//
+		infoPanel.setFocusable(false);
 
-    /**
-     * Updates this <code>InfoPanel</code>.
-     *
-     * @param mapTransform The current MapTransform.
-     */
-    public void update(MapTransform mapTransform) {
-        if (infoPanel != null) {
-            infoPanel.update(mapTransform);
-        }
-    }
-    
-    public void zoomIn() {
-        miniMap.zoomIn();
-        repaint();
-    }
+		for (UnitButton button : unitButtons) {
+			button.setFocusable(false);
+		}
+	}
 
-    public void zoomOut() {
-        miniMap.zoomOut();
-        repaint();
-    }
+	/**
+	 * Adds the map controls to the given component.
+	 *
+	 * @param component
+	 *            The component to add the map controls to.
+	 */
+	public abstract void addToComponent(Canvas component);
+
+	/**
+	 * Can zoom in map controls.
+	 *
+	 * @return true, if successful
+	 */
+	public boolean canZoomInMapControls() {
+		return miniMap != null && miniMap.canZoomIn();
+	}
+
+	/**
+	 * Can zoom out map controls.
+	 *
+	 * @return true, if successful
+	 */
+	public boolean canZoomOutMapControls() {
+		return miniMap != null && miniMap.canZoomOut();
+	}
+
+	/**
+	 * Checks if is showing.
+	 *
+	 * @return true, if is showing
+	 */
+	public abstract boolean isShowing();
+
+	/**
+	 * Removes the map controls from the parent canvas component.
+	 *
+	 * @param canvas
+	 *            <code>Canvas</code> parent
+	 */
+	public abstract void removeFromComponent(Canvas canvas);
+
+	/**
+	 * Repaint.
+	 */
+	public abstract void repaint();
+
+	/**
+	 * Toggle view.
+	 */
+	public void toggleView() {
+		miniMap.setToggleBordersOption(
+				!freeColClient.getClientOptions().getBoolean(ClientOptions.MINIMAP_TOGGLE_BORDERS));
+		repaint();
+	}
+
+	/**
+	 * Toggle fog of war.
+	 */
+	public void toggleFogOfWar() {
+		miniMap.setToggleFogOfWarOption(
+				!freeColClient.getClientOptions().getBoolean(ClientOptions.MINIMAP_TOGGLE_FOG_OF_WAR));
+		repaint();
+	}
+
+	/**
+	 * Updates this <code>MapControls</code>.
+	 */
+	public void update() {
+		final GUI gui = freeColClient.getGUI();
+		Unit unit = gui.getActiveUnit();
+
+		switch (gui.getViewMode()) {
+		case GUI.MOVE_UNITS_MODE:
+			infoPanel.update(unit);
+			break;
+		case GUI.VIEW_TERRAIN_MODE:
+			infoPanel.update(gui.getSelectedTile());
+			break;
+		default:
+			break;
+		}
+		for (UnitButton ub : unitButtons) {
+			ub.setVisible(unit != null);
+		}
+	}
+
+	/**
+	 * Updates this <code>InfoPanel</code>.
+	 *
+	 * @param mapTransform
+	 *            The current MapTransform.
+	 */
+	public void update(MapTransform mapTransform) {
+		if (infoPanel != null) {
+			infoPanel.update(mapTransform);
+		}
+	}
+
+	/**
+	 * Zoom in.
+	 */
+	public void zoomIn() {
+		miniMap.zoomIn();
+		repaint();
+	}
+
+	/**
+	 * Zoom out.
+	 */
+	public void zoomOut() {
+		miniMap.zoomOut();
+		repaint();
+	}
 }

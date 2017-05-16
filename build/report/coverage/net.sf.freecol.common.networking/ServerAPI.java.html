@@ -17,7 +17,6 @@
  *  along with FreeCol.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
  */
 
-
 package net.sf.freecol.common.networking;
 
 import java.awt.Color;
@@ -66,1441 +65,1502 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-
 /**
  * The API for client-&gt;server messaging.
  */
 public abstract class ServerAPI {
 
-<span class="nc" id="L75">    private static final Logger logger = Logger.getLogger(ServerAPI.class.getName());</span>
-
-    /** The Client used to communicate with the server. */
-    private Client client;
-
-
-    /**
-     * Creates a new &lt;code&gt;ServerAPI&lt;/code&gt;.
-     */
-<span class="nc" id="L84">    public ServerAPI() {}</span>
-
-
-    /**
-     * Do local client processing for a reply.
-     *
-     * @param reply The reply &lt;code&gt;Element&lt;/code&gt;.
-     */
-    protected abstract void doClientProcessingFor(Element reply);
-
-    /**
-     * Handle error conditions detected by the client.
-     *
-     * @param complaint The error message.
-     */
-    protected abstract void doRaiseErrorMessage(String complaint);
-
-
-    // Internal message passing routines
-
-    /**
-     * Sends an Element to the server.
-     *
-     * FIXME: remove all uses of this.
-     *
-     * @param element The &lt;code&gt;Element&lt;/code&gt; to send.
-     * @return True if the send succeeded.
-     */
-    private boolean send(Element element) {
-        try {
-<span class="nc" id="L114">            client.send(element);</span>
-<span class="nc" id="L115">        } catch (IOException e) {</span>
-<span class="nc" id="L116">            logger.log(Level.WARNING, &quot;Could not send: &quot; + element, e);</span>
-<span class="nc" id="L117">        }</span>
-<span class="nc" id="L118">        return false;</span>
-    }
-
-    /**
-     * Sends a DOMMessage to the server.
-     *
-     * @param message The &lt;code&gt;DOMMessage&lt;/code&gt; to send.
-     * @return True if the send succeeded.
-     */
-    private boolean send(DOMMessage message) {
-        try {
-<span class="nc" id="L129">            client.send(message);</span>
-<span class="nc" id="L130">            return true;</span>
-<span class="nc" id="L131">        } catch (IOException ioe) {</span>
-<span class="nc" id="L132">            logger.log(Level.WARNING, &quot;Could not send: &quot; + message.getType(),</span>
-                       ioe);
-        }
-<span class="nc" id="L135">        return false;</span>
-    }
-
-    /**
-     * Sends a DOMMessage to the server and waits for a reply.
-     *
-     * @param message The &lt;code&gt;DOMMessage&lt;/code&gt; to send.
-     * @return True if the send succeeded.
-     */
-    private boolean sendAndWait(DOMMessage message) {
-        try {
-<span class="nc" id="L146">            client.sendAndWait(message);</span>
-<span class="nc" id="L147">            return true;</span>
-<span class="nc" id="L148">        } catch (IOException ioe) {</span>
-<span class="nc" id="L149">            logger.log(Level.WARNING, &quot;Could not send: &quot; + message.getType(),</span>
-                       ioe);
-        }
-<span class="nc" id="L152">        return false;</span>
-    }
-
-    /**
-     * Sends a DOMMessage query the server and waits for a reply.
-     *
-     * @param message The &lt;code&gt;DOMMessage&lt;/code&gt; to send.
-     * @return The reply, or null if there was a problem.
-     */
-    private Element ask(DOMMessage message) {
-<span class="nc" id="L162">        Element reply = null;</span>
-        try {
-<span class="nc" id="L164">            reply = client.ask(message);</span>
-<span class="nc" id="L165">        } catch (IOException ioe) {</span>
-<span class="nc" id="L166">            logger.log(Level.WARNING, &quot;Could not ask: &quot; + message.getType(),</span>
-                       ioe);
-<span class="nc" id="L168">        }</span>
-<span class="nc" id="L169">        return reply;</span>
-    }
-
-    /**
-     * Loop sending requests and handling replies from the server until
-     * they reduce to null.
-     *
-     * @param request The initial request &lt;code&gt;Element&lt;/code&gt;.
-     */
-    private void resolve(Element request) {
-<span class="nc bnc" id="L179" title="All 2 branches missed.">        while (request != null) {</span>
-            try {
-<span class="nc" id="L181">                request = client.handleReply(client.ask(request));</span>
-<span class="nc" id="L182">            } catch (IOException ioe) {</span>
-<span class="nc" id="L183">                logger.warning(&quot;Could not resolve: &quot; + request.getTagName());</span>
-<span class="nc" id="L184">                break;</span>
-<span class="nc" id="L185">            }</span>
-        }
-<span class="nc" id="L187">    }</span>
-
-    /**
-     * Sends the specified message to the server and returns the reply,
-     * if it has the specified tag.
-     * Handle &quot;error&quot; replies if they have a messageID or when in debug mode.
-     * This routine allows code simplification in much of the following
-     * client-server communication.
-     *
-     * In following routines we follow the convention that server I/O
-     * is confined to the ask&lt;foo&gt;() routine, which typically returns
-     * true if the server interaction succeeded, which does *not*
-     * necessarily imply that the actual substance of the request was
-     * allowed (e.g. a move may result in the death of a unit rather
-     * than actually moving).
-     *
-     * @param message A &lt;code&gt;DOMMessage&lt;/code&gt; to send.
-     * @param tag The expected tag
-     * @param results A &lt;code&gt;Map&lt;/code&gt; to store special attribute results in.
-     * @return The answer from the server if it has the specified tag,
-     *         otherwise &lt;code&gt;null&lt;/code&gt;.
-     */
-    private Element askExpecting(DOMMessage message, String tag,
-                                 HashMap&lt;String, String&gt; results) {
-<span class="nc" id="L211">        Element reply = ask(message);</span>
-<span class="nc bnc" id="L212" title="All 2 branches missed.">        if (reply == null) return null;</span>
-
-<span class="nc bnc" id="L214" title="All 2 branches missed.">        if (&quot;error&quot;.equals(reply.getTagName())) {</span>
-<span class="nc" id="L215">            String messageId = reply.getAttribute(&quot;messageID&quot;);</span>
-<span class="nc" id="L216">            String messageText = reply.getAttribute(&quot;message&quot;);</span>
-<span class="nc bnc" id="L217" title="All 4 branches missed.">            if (messageId != null &amp;&amp; messageText != null</span>
-<span class="nc bnc" id="L218" title="All 2 branches missed.">                &amp;&amp; FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.COMMS)) {</span>
-                // If debugging suppress the bland but i18n compliant
-                // failure message in favour of the higher detail
-                // non-i18n text.
-<span class="nc" id="L222">                reply.removeAttribute(&quot;messageID&quot;);</span>
-            }
-<span class="nc" id="L224">            logger.warning(&quot;ServerAPI. &quot; + message.getType() + &quot; error,&quot;</span>
-                + &quot; messageId: &quot; + messageId
-                + &quot; message: &quot; + messageText);
-<span class="nc" id="L227">            client.handleReply(reply);</span>
-<span class="nc" id="L228">            return null;</span>
-        }
-
-        // Success!
-<span class="nc bnc" id="L232" title="All 4 branches missed.">        if (tag == null || tag.equals(reply.getTagName())) {</span>
-            // Do the standard processing.
-<span class="nc" id="L234">            doClientProcessingFor(reply);</span>
-            // Look for special attributes
-<span class="nc bnc" id="L236" title="All 2 branches missed.">            if (results != null) {</span>
-<span class="nc bnc" id="L237" title="All 2 branches missed.">                if (results.containsKey(&quot;*&quot;)) {</span>
-<span class="nc" id="L238">                    results.remove(&quot;*&quot;);</span>
-<span class="nc" id="L239">                    int len = reply.getAttributes().getLength();</span>
-<span class="nc bnc" id="L240" title="All 2 branches missed.">                    for (int i = 0; i &lt; len; i++) {</span>
-<span class="nc" id="L241">                        Node n = reply.getAttributes().item(i);</span>
-<span class="nc" id="L242">                        results.put(n.getNodeName(), n.getNodeValue());</span>
-                    }
-<span class="nc" id="L244">                } else {</span>
-<span class="nc bnc" id="L245" title="All 2 branches missed.">                    for (String k : results.keySet()) {</span>
-<span class="nc bnc" id="L246" title="All 2 branches missed.">                        if (reply.hasAttribute(k)) {</span>
-<span class="nc" id="L247">                            results.put(k, reply.getAttribute(k));</span>
-                        }
-<span class="nc" id="L249">                    }</span>
-                }
-            }
-<span class="nc" id="L252">            return reply;</span>
-        }
-
-        // Process multiple returns, pick out expected element if present
-<span class="nc bnc" id="L256" title="All 2 branches missed.">        if (&quot;multiple&quot;.equals(reply.getTagName())) {</span>
-<span class="nc" id="L257">            List&lt;Element&gt; replies = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L258">            NodeList nodes = reply.getChildNodes();</span>
-<span class="nc" id="L259">            Element result = null;</span>
-
-<span class="nc bnc" id="L261" title="All 2 branches missed.">            for (int i = 0; i &lt; nodes.getLength(); i++) {</span>
-<span class="nc bnc" id="L262" title="All 2 branches missed.">                if (nodes.item(i) instanceof Element</span>
-<span class="nc bnc" id="L263" title="All 2 branches missed.">                    &amp;&amp; ((Element)nodes.item(i)).getTagName().equals(tag)) {</span>
-<span class="nc" id="L264">                    result = (Element)nodes.item(i);</span>
-                } else {
-<span class="nc" id="L266">                    Element e = client.handleReply((Element)nodes.item(i));</span>
-<span class="nc bnc" id="L267" title="All 2 branches missed.">                    if (e != null) replies.add(e);</span>
-                }
-            }
-<span class="nc" id="L270">            resolve(DOMMessage.collapseElements(replies));</span>
-<span class="nc bnc" id="L271" title="All 2 branches missed.">            if (result != null) return result;</span>
-        }
-
-        // Unexpected reply.  Whine and fail.
-<span class="nc" id="L275">        String complaint = &quot;Received reply with tag &quot; + reply.getTagName()</span>
-            + &quot; which should have been &quot; + tag
-            + &quot; to message &quot; + message;
-<span class="nc" id="L278">        logger.warning(complaint);</span>
-<span class="nc" id="L279">        doRaiseErrorMessage(complaint);</span>
-<span class="nc" id="L280">        return null;</span>
-    }
-
-    /**
-     * Extends askExpecting to also handle returns from the server.
-     *
-     * @param message A &lt;code&gt;DOMMessage&lt;/code&gt; to send.
-     * @param tag The expected tag
-     * @param results A &lt;code&gt;Map&lt;/code&gt; to store special attribute results in.
-     * @return True if the server interaction succeeded and an element
-     *     with the expected tag was found in the reply, else false.
-     */
-    private boolean askHandling(DOMMessage message, String tag,
-                                HashMap&lt;String, String&gt; results) {
-<span class="nc" id="L294">        Element reply = askExpecting(message, tag, results);</span>
-<span class="nc bnc" id="L295" title="All 2 branches missed.">        if (reply == null) return false;</span>
-<span class="nc" id="L296">        resolve(client.handleReply(reply));</span>
-<span class="nc" id="L297">        return true;</span>
-    }
-
-    /**
-     * Helper to load a map.
-     *
-     * @param queries Query strings.
-     * @return A map with null mappings for the query strings.
-     */
-    private HashMap&lt;String, String&gt; loadMap(String... queries) {
-<span class="nc" id="L307">        HashMap&lt;String, String&gt; result = new HashMap&lt;&gt;();</span>
-<span class="nc bnc" id="L308" title="All 2 branches missed.">        for (String q : queries) result.put(q, null);</span>
-<span class="nc" id="L309">        return result;</span>
-    }
-
-
-    // Public routines for manipulation of the connection to the server.
-
-    /**
-     * Get the host we are connected to.
-     *
-     * @return The current host, or null if none.
-     */
-    public String getHost() {
-<span class="nc bnc" id="L321" title="All 2 branches missed.">        return (client == null) ? null : client.getHost();</span>
-    }
-
-    /**
-     * Get the port we are connected to.
-     *
-     * @return The current port, or negative if none.
-     */     
-    public int getPort() {
-<span class="nc bnc" id="L330" title="All 2 branches missed.">        return (client == null) ? -1 : client.getPort();</span>
-    }
-
-    /**
-     * Get the raw connection.
-     *
-     * Do not use this.  It exists only for debugging purposes.
-     *
-     * @return The server &lt;code&gt;Connection&lt;/code&gt;.
-     */
-    public Connection getConnection() {
-<span class="nc bnc" id="L341" title="All 2 branches missed.">        return (client == null) ? null : client.getConnection();</span>
-    }
-
-    /**
-     * Register a message handler to handle messages from the server.
-     * Used when switching from pre-game to in-game.
-     *
-     * @param messageHandler The new &lt;code&gt;MessageHandler&lt;/code&gt;.
-     */
-    public void registerMessageHandler(MessageHandler messageHandler) {
-<span class="nc bnc" id="L351" title="All 2 branches missed.">        if (client != null) {</span>
-<span class="nc" id="L352">            client.setMessageHandler(messageHandler);</span>
-        }
-<span class="nc" id="L354">    }</span>
-
-    /**
-     * Disconnect the client.
-     */
-    public void disconnect() {
-<span class="nc bnc" id="L360" title="All 2 branches missed.">        if (client != null) {</span>
-<span class="nc" id="L361">            client.disconnect();</span>
-<span class="nc" id="L362">            reset();</span>
-        }
-<span class="nc" id="L364">    }</span>
-
-    /**
-     * Just forget about the client.
-     * Only call this if sure it is dead.
-     */
-    public void reset() {
-<span class="nc" id="L371">        client = null;</span>
-<span class="nc" id="L372">    }</span>
-
-    /**
-     * Connects a client to host:port (or more).
-     *
-     * @param threadName The name for the thread.
-     * @param host The name of the machine running the
-     *     &lt;code&gt;FreeColServer&lt;/code&gt;.
-     * @param port The port to use when connecting to the host.
-     * @return True if the connection succeeded.
-     * @exception IOException on connection failure.
-     */
-    public boolean connect(String threadName, String host, int port,
-                           MessageHandler messageHandler) 
-        throws IOException {
-        int tries;
-<span class="nc bnc" id="L388" title="All 2 branches missed.">        if (port &lt; 0) {</span>
-<span class="nc" id="L389">            port = FreeCol.getServerPort();</span>
-<span class="nc" id="L390">            tries = 10;</span>
-        } else {
-<span class="nc" id="L392">            tries = 1;</span>
-        }
-<span class="nc bnc" id="L394" title="All 2 branches missed.">        for (int i = tries; i &gt; 0; i--) {</span>
-            try {
-<span class="nc" id="L396">                client = new Client(host, port, messageHandler, threadName);</span>
-<span class="nc bnc" id="L397" title="All 2 branches missed.">                if (client != null) break;</span>
-<span class="nc" id="L398">            } catch (IOException e) {</span>
-<span class="nc bnc" id="L399" title="All 2 branches missed.">                if (i &lt;= 1) throw e;</span>
-<span class="nc" id="L400">            }</span>
-        }
-<span class="nc bnc" id="L402" title="All 2 branches missed.">        return client != null;</span>
-    }
-
-
-    // Public messaging routines for game actions
-
-    /**
-     * Server query-response to abandon a colony.
-     *
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to abandon.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean abandonColony(Colony colony) {
-<span class="nc" id="L415">        return askHandling(new AbandonColonyMessage(colony),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to respond to a monarch offer.
-     *
-     * @param action The monarch action responded to.
-     * @param accept Accept or reject the offer.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean answerMonarch(MonarchAction action, boolean accept) {
-<span class="nc" id="L427">        return askHandling(new MonarchActionMessage(action, null, &quot;&quot;)</span>
-<span class="nc" id="L428">            .setResult(accept),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for finding out the skill taught at a settlement.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is asking.
-     * @param direction The direction to a settlement to ask.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean askSkill(Unit unit, Direction direction) {
-<span class="nc" id="L440">        return askHandling(new AskSkillMessage(unit, direction),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for assigning a teacher.
-     *
-     * @param student The student &lt;code&gt;Unit&lt;/code&gt;.
-     * @param teacher The teacher &lt;code&gt;Unit&lt;/code&gt;.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean assignTeacher(Unit student, Unit teacher) {
-<span class="nc" id="L452">        return askHandling(new AssignTeacherMessage(student, teacher),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for assigning a trade route to a unit.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to assign a trade route to.
-     * @param tradeRoute The &lt;code&gt;TradeRoute&lt;/code&gt; to assign.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean assignTradeRoute(Unit unit, TradeRoute tradeRoute) {
-<span class="nc" id="L464">        return askHandling(new AssignTradeRouteMessage(unit, tradeRoute),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for attacking.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to perform the attack.
-     * @param direction The direction in which to attack.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean attack(Unit unit, Direction direction) {
-<span class="nc" id="L476">        return askHandling(new AttackMessage(unit, direction),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for building a colony.
-     *
-     * @param name The name for the colony.
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that will build.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean buildColony(String name, Unit unit) {
-<span class="nc" id="L488">        return askHandling(new BuildColonyMessage(name, unit),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to buy the given goods from the natives.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is trading.
-     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
-     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to buy.
-     * @param gold The agreed price.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean buyFromSettlement(Unit unit, Settlement settlement,
-                                     Goods goods, int gold) {
-<span class="nc" id="L503">        return askHandling(new BuyMessage(unit, settlement, goods, gold),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to ask the natives if a purchase is acceptable.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is trading.
-     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
-     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to trade.
-     * @param gold The proposed price (including query on negative).
-     * @return The price of the goods.
-     */
-    public int buyProposition(Unit unit, Settlement settlement,
-                              Goods goods, int gold) {
-<span class="nc" id="L518">        HashMap&lt;String, String&gt; results = loadMap(&quot;gold&quot;);</span>
-<span class="nc bnc" id="L519" title="All 2 branches missed.">        if (askHandling(new BuyPropositionMessage(unit, settlement,</span>
-                    goods, gold), null, results)) {
-            try {
-<span class="nc" id="L522">                return Integer.parseInt(results.get(&quot;gold&quot;));</span>
-<span class="nc" id="L523">            } catch (NumberFormatException e) {}</span>
-        }
-<span class="nc" id="L525">        return NetworkConstants.NO_TRADE;</span>
-    }
-
-    /**
-     * Server query-response to cash in a treasure train.
-     *
-     * @param unit The treasure train &lt;code&gt;Unit&lt;/code&gt; to cash in.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean cashInTreasureTrain(Unit unit) {
-<span class="nc" id="L535">        return askHandling(new CashInTreasureTrainMessage(unit),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for changing unit state.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to change the state of.
-     * @param state The new &lt;code&gt;UnitState&lt;/code&gt;.
-     * @return boolean &lt;b&gt;true&lt;/b&gt; if the server interaction succeeded.
-     */
-    public boolean changeState(Unit unit, UnitState state) {
-<span class="nc" id="L547">        return askHandling(new ChangeStateMessage(unit, state),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for changing work improvement type.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to change the work type of.
-     * @param type The new &lt;code&gt;TileImprovementType&lt;/code&gt; to work on.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean changeWorkImprovementType(Unit unit,
-                                             TileImprovementType type) {
-<span class="nc" id="L560">        return askHandling(new ChangeWorkImprovementTypeMessage(unit, type),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for changing work type.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to change the work type of.
-     * @param workType The new &lt;code&gt;GoodsType&lt;/code&gt; to produce.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean changeWorkType(Unit unit, GoodsType workType) {
-<span class="nc" id="L572">        return askHandling(new ChangeWorkTypeMessage(unit, workType),</span>
-            null, null);
-    }
-
-    /**
-     * Send a chat message (pre and in-game).
-     *
-     * @param chat The text of the message.
-     * @return True if the send succeeded.
-     */
-    public boolean chat(Player player, String chat) {
-<span class="nc" id="L583">        return send(new ChatMessage(player, chat, false));</span>
-    }
-
-    /**
-     * Send a chooseFoundingFather message.
-     *
-     * @param ffs A list of &lt;code&gt;FoundingFather&lt;/code&gt;s to choose from.
-     * @param ff The chosen &lt;code&gt;FoundingFather&lt;/code&gt; (may be null).
-     * @return True if the send succeeded.
-     */
-    public boolean chooseFoundingFather(List&lt;FoundingFather&gt; ffs,
-                                        FoundingFather ff) {
-<span class="nc" id="L595">        return send(new ChooseFoundingFatherMessage(ffs, ff));</span>
-    }
-
-    /**
-     * Server query-response to claim a tile.
-     *
-     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to claim.
-     * @param claimant The &lt;code&gt;Unit&lt;/code&gt; or &lt;code&gt;Settlement&lt;/code&gt; that is
-     *     claiming the tile.
-     * @param price The amount to pay.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean claimTile(Tile tile, FreeColGameObject claimant, int price) {
-<span class="nc" id="L608">        return askHandling(new ClaimLandMessage(tile, claimant, price),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for clearing a unit speciality.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to operate on.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean clearSpeciality(Unit unit) {
-<span class="nc" id="L619">        return askHandling(new ClearSpecialityMessage(unit),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to close a transaction session for a trade.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is trading.
-     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean closeTransactionSession(Unit unit, Settlement settlement) {
-<span class="nc" id="L631">        return askHandling(new CloseTransactionMessage(unit, settlement),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to continue with a won game.
-     *
-     * @return True if the server interaction succeeded.
-     */
-    public boolean continuePlaying() {
-<span class="nc" id="L641">        return send(new TrivialMessage(&quot;continuePlaying&quot;));        </span>
-    }
-
-    /**
-     * Server query-response for declaring independence.
-     *
-     * @param nation The name for the new nation.
-     * @param country The name for the new country.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean declareIndependence(String nation, String country) {
-<span class="nc" id="L652">        return askHandling(new DeclareIndependenceMessage(nation, country),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for the special case of deciding to
-     * explore a rumour but then declining not to investigate the
-     * strange mounds.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is exploring.
-     * @param direction The &lt;code&gt;Direction&lt;/code&gt; to move.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean declineMounds(Unit unit, Direction direction) {
-<span class="nc" id="L666">        return askHandling(new DeclineMoundsMessage(unit, direction),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to give the given goods to the natives.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is trading.
-     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
-     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to give.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean deliverGiftToSettlement(Unit unit, Settlement settlement,
-                                           Goods goods) {
-<span class="nc" id="L680">        return askHandling(new DeliverGiftMessage(unit, settlement, goods),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for demanding a tribute from a native
-     * settlement.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that demands.
-     * @param direction The direction to demand in.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean demandTribute(Unit unit, Direction direction) {
-<span class="nc" id="L693">        return askHandling(new DemandTributeMessage(unit, direction),</span>
-            null, null);
-    }
-
-    /**
-     * Handler server query-response for diplomatic messages.
-     *
-     * @param ourUnit Our &lt;code&gt;Unit&lt;/code&gt; conducting the diplomacy.
-     * @param otherColony The other &lt;code&gt;Colony&lt;/code&gt; to negotiate with.
-     * @param agreement The &lt;code&gt;DiplomaticTrade&lt;/code&gt; agreement to propose.
-     * @return The resulting agreement or null if none present.
-     */
-    public DiplomaticTrade diplomacy(Game game, Unit ourUnit,
-                                     Colony otherColony, 
-                                     DiplomaticTrade agreement) {
-<span class="nc" id="L708">        Element reply = askExpecting(new DiplomacyMessage(ourUnit, otherColony,</span>
-                                                          agreement),
-            null, null);
-        // Often returns diplomacy, but also just an update on accept or
-        // null on reject.
-<span class="nc bnc" id="L713" title="All 2 branches missed.">        if (reply == null) {</span>
-<span class="nc" id="L714">            return null;</span>
-<span class="nc bnc" id="L715" title="All 2 branches missed.">        } else if (DiplomacyMessage.getXMLElementTagName().equals(reply.getTagName())) {</span>
-<span class="nc" id="L716">            return new DiplomacyMessage(game, reply).getAgreement();</span>
-        } else {
-<span class="nc" id="L718">            client.handleReply(reply);</span>
-<span class="nc" id="L719">            return null;</span>
-        }
-    }
-
-    /**
-     * Handler server query-response for diplomatic messages.
-     *
-     * @param ourUnit Out &lt;code&gt;Unit&lt;/code&gt; conducting the diplomacy.
-     * @param otherUnit The other &lt;code&gt;Unit&lt;/code&gt; to negotiate with.
-     * @param agreement The &lt;code&gt;DiplomaticTrade&lt;/code&gt; agreement to propose.
-     * @return The resulting agreement or null if none present.
-     */
-    public DiplomaticTrade diplomacy(Game game, Unit ourUnit,
-                                     Unit otherUnit, 
-                                     DiplomaticTrade agreement) {
-<span class="nc" id="L734">        Element reply = askExpecting(new DiplomacyMessage(ourUnit, otherUnit,</span>
-                                                          agreement),
-<span class="nc" id="L736">            DiplomacyMessage.getXMLElementTagName(), null);</span>
-<span class="nc bnc" id="L737" title="All 2 branches missed.">        if (reply == null) {</span>
-<span class="nc" id="L738">            return null;</span>
-<span class="nc bnc" id="L739" title="All 2 branches missed.">        } else if (DiplomacyMessage.getXMLElementTagName().equals(reply.getTagName())) {</span>
-<span class="nc" id="L740">            return new DiplomacyMessage(game, reply).getAgreement();</span>
-        } else {
-<span class="nc" id="L742">            client.handleReply(reply);</span>
-<span class="nc" id="L743">            return null;</span>
-        }
-    }
-
-    /**
-     * Handler server query-response for diplomatic messages.
-     *
-     * @param ourColony Out &lt;code&gt;Colony&lt;/code&gt; conducting the diplomacy.
-     * @param otherUnit The other &lt;code&gt;Unit&lt;/code&gt; to negotiate with.
-     * @param agreement The &lt;code&gt;DiplomaticTrade&lt;/code&gt; agreement to propose.
-     * @return The resulting agreement or null if none present.
-     */
-    public DiplomaticTrade diplomacy(Game game, Colony ourColony,
-                                     Unit otherUnit, 
-                                     DiplomaticTrade agreement) {
-<span class="nc" id="L758">        Element reply = askExpecting(new DiplomacyMessage(ourColony, otherUnit,</span>
-                                                          agreement),
-<span class="nc" id="L760">            DiplomacyMessage.getXMLElementTagName(), null);</span>
-<span class="nc bnc" id="L761" title="All 2 branches missed.">        if (reply == null) {</span>
-<span class="nc" id="L762">            return null;</span>
-<span class="nc bnc" id="L763" title="All 2 branches missed.">        } else if (DiplomacyMessage.getXMLElementTagName().equals(reply.getTagName())) {</span>
-<span class="nc" id="L764">            return new DiplomacyMessage(game, reply).getAgreement();</span>
-        } else {
-<span class="nc" id="L766">            client.handleReply(reply);</span>
-<span class="nc" id="L767">            return null;</span>
-        }
-    }
-
-    /**
-     * Server query-response for disbanding a unit.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to operate on.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean disbandUnit(Unit unit) {
-<span class="nc" id="L778">        return askHandling(new DisbandUnitMessage(unit),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for disembarking from a carrier.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is disembarking.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean disembark(Unit unit) {
-<span class="nc" id="L789">        return askHandling(new DisembarkMessage(unit),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for boarding a carrier.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is boarding.
-     * @param carrier The carrier &lt;code&gt;Unit&lt;/code&gt;.
-     * @param direction An optional direction if the unit is boarding from
-     *        an adjacent tile, or null if from the same tile.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean embark(Unit unit, Unit carrier, Direction direction) {
-<span class="nc" id="L803">        return askHandling(new EmbarkMessage(unit, carrier, direction),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for emigration.
-     *
-     * @param slot The slot from which the unit migrates, 1-3 selects
-     *             a specific one, otherwise the server will choose one.
-     * @return True if the client-server interaction succeeded.
-     */
-    public boolean emigrate(int slot) {
-<span class="nc" id="L815">        return askHandling(new EmigrateUnitMessage(slot),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for asking for the turn to end.
-     *
-     * @return True if the server interaction succeeded.
-     */
-    public boolean endTurn() {
-<span class="nc" id="L825">        return askHandling(new TrivialMessage(&quot;endTurn&quot;),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for asking to enter revenge mode (post-game).
-     *
-     * @return True if the server interaction succeeded.
-     */
-    public boolean enterRevengeMode() {
-<span class="nc" id="L835">        return askHandling(new TrivialMessage(&quot;enterRevengeMode&quot;),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for equipping a unit for a role.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to equip.
-     * @param role The &lt;code&gt;Role&lt;/code&gt; to assume.
-     * @param roleCount The role count.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean equipUnitForRole(Unit unit, Role role, int roleCount) {
-<span class="nc" id="L848">        return askHandling(new EquipForRoleMessage(unit, role, roleCount),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for responding to a first contact message.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; making contact.
-     * @param other The native &lt;code&gt;Player&lt;/code&gt; being contacted.
-     * @param tile An optional &lt;code&gt;Tile&lt;/code&gt; to offer the player if
-     *     they have made a first landing.
-     * @param result Whether the initial peace treaty was accepted.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean firstContact(Player player, Player other, Tile tile,
-                                boolean result) {
-<span class="nc" id="L864">        return askHandling(new FirstContactMessage(player, other, tile)</span>
-<span class="nc" id="L865">                .setResult(result),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to get a list of goods for sale from a settlement.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is trading.
-     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
-     * @return The goods for sale in the settlement,
-     *     or null if the server interaction failed.
-     */
-    public List&lt;Goods&gt; getGoodsForSaleInSettlement(Game game, Unit unit,
-                                                   Settlement settlement) {
-<span class="nc" id="L879">        GoodsForSaleMessage message</span>
-            = new GoodsForSaleMessage(unit, settlement, null);
-<span class="nc" id="L881">        Element reply = askExpecting(message,</span>
-<span class="nc" id="L882">            GoodsForSaleMessage.getXMLElementTagName(), null);</span>
-<span class="nc bnc" id="L883" title="All 2 branches missed.">        return (reply == null) ? Collections.&lt;Goods&gt;emptyList()</span>
-<span class="nc" id="L884">            : new GoodsForSaleMessage(game, reply).getGoods();</span>
-    }
-
-    /**
-     * Server query-response for asking for the high scores list.
-     *
-     * @return The list of high scores.
-     */
-    public List&lt;HighScore&gt; getHighScores() {
-<span class="nc" id="L893">        Element reply = askExpecting(new TrivialMessage(&quot;getHighScores&quot;),</span>
-            null, null);
-<span class="nc bnc" id="L895" title="All 2 branches missed.">        if (reply == null) return Collections.&lt;HighScore&gt;emptyList();</span>
-
-<span class="nc" id="L897">        List&lt;HighScore&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L898">        NodeList childElements = reply.getChildNodes();</span>
-<span class="nc bnc" id="L899" title="All 2 branches missed.">        for (int i = 0; i &lt; childElements.getLength(); i++) {</span>
-<span class="nc" id="L900">            result.add(new HighScore((Element)childElements.item(i)));</span>
-        }
-<span class="nc" id="L902">        return result;</span>
-    }
-
-    /**
-     * Server query-response for asking for the nation summary of a player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to summarize.
-     * @return A summary of that nation, or null on error.
-     */
-    public NationSummary getNationSummary(Player player) {
-<span class="nc" id="L912">        GetNationSummaryMessage message = new GetNationSummaryMessage(player);</span>
-<span class="nc" id="L913">        Element reply = askExpecting(message,</span>
-<span class="nc" id="L914">            GetNationSummaryMessage.getXMLElementTagName(), null);</span>
-<span class="nc bnc" id="L915" title="All 2 branches missed.">        if (reply == null) return null;</span>
-
-<span class="nc" id="L917">        return new GetNationSummaryMessage(reply).getNationSummary();</span>
-    }
-
-    /**
-     * Server query-response for creating a new trade route.
-     *
-     * @return True if the server interaction succeeded.
-     */
-    public boolean getNewTradeRoute() {
-<span class="nc" id="L926">        return askHandling(new TrivialMessage(&quot;getNewTradeRoute&quot;),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for asking about a players REF.
-     *
-     * @return A list of REF units for the player.
-     */
-    public List&lt;AbstractUnit&gt; getREFUnits() {
-<span class="nc" id="L936">        Element reply = askExpecting(new TrivialMessage(&quot;getREFUnits&quot;),</span>
-            null, null);
-<span class="nc bnc" id="L938" title="All 2 branches missed.">        if (reply == null) return Collections.&lt;AbstractUnit&gt;emptyList();</span>
-
-<span class="nc" id="L940">        List&lt;AbstractUnit&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L941">        NodeList childElements = reply.getChildNodes();</span>
-<span class="nc bnc" id="L942" title="All 2 branches missed.">        for (int index = 0; index &lt; childElements.getLength(); index++) {</span>
-<span class="nc" id="L943">            AbstractUnit unit = new AbstractUnit();</span>
-<span class="nc" id="L944">            unit.readFromXMLElement((Element) childElements.item(index));</span>
-<span class="nc" id="L945">            result.add(unit);</span>
-        }
-<span class="nc" id="L947">        return result;</span>
-    }
-
-    /**
-     * Server query-response for asking for the server statistics.
-     *
-     * @return The server statistics.
-     */
-    public java.util.Map&lt;String, String&gt; getStatistics() {
-<span class="nc" id="L956">        HashMap&lt;String, String&gt; results = loadMap(&quot;*&quot;);</span>
-<span class="nc bnc" id="L957" title="All 2 branches missed.">        return (askExpecting(new TrivialMessage(&quot;getStatistics&quot;),</span>
-                &quot;statistics&quot;, results) == null) ? null
-            : results;
-    }
-
-    /**
-     * Server query-response for inciting the natives.
-     *
-     * @param unit The missionary &lt;code&gt;Unit&lt;/code&gt;.
-     * @param direction The direction to a settlement to speak to.
-     * @param enemy An enemy &lt;code&gt;Player&lt;/code&gt;.
-     * @param gold The amount of bribe, negative to enquire.
-     * @return The amount of gold to bribe with if this was an inquiry,
-     *     zero for failure to incite and &gt;0 for successful incitement,
-     *     negative if the server interaction failed.
-     */
-    public int incite(Unit unit, Direction direction, Player enemy, int gold) {
-<span class="nc" id="L974">        HashMap&lt;String, String&gt; results = loadMap(&quot;gold&quot;);</span>
-<span class="nc bnc" id="L975" title="All 2 branches missed.">        if (!askHandling(new InciteMessage(unit, direction, enemy, gold),</span>
-<span class="nc" id="L976">                null, results)) return -1;</span>
-        try {
-<span class="nc" id="L978">            return Integer.parseInt(results.get(&quot;gold&quot;));</span>
-<span class="nc" id="L979">        } catch (NumberFormatException e) {}</span>
-<span class="nc" id="L980">        return -1;</span>
-    }
-
-    /**
-     * Server query-response for joining a colony.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that will join.
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to join.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean joinColony(Unit unit, Colony colony) {
-<span class="nc" id="L991">        return askHandling(new JoinColonyMessage(colony, unit),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for learning the skill taught at a settlement.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is asking.
-     * @param direction The direction to a settlement to ask.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean learnSkill(Unit unit, Direction direction) {
-<span class="nc" id="L1003">        return askHandling(new LearnSkillMessage(unit, direction),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for loading goods.
-     *
-     * @param loc The &lt;code&gt;Location&lt;/code&gt; where the goods are.
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to load.
-     * @param amount The amount of goods to load.
-     * @param carrier The &lt;code&gt;Unit&lt;/code&gt; to load onto.
-     * @return True if the query-response succeeds.
-     */
-    public boolean loadGoods(Location loc, GoodsType type, int amount,
-                             Unit carrier) {
-<span class="nc" id="L1018">        return askHandling(new LoadGoodsMessage(loc, type, amount, carrier),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for logging in a player (pre-game).
-     *
-     * @param userName The user name.
-     * @param version The client version.
-     * @return A &lt;code&gt;LoginMessage&lt;/code&gt; on success, or null on error.
-     */
-    public LoginMessage login(String userName, String version) {
-<span class="nc" id="L1030">        Element reply = askExpecting(new TrivialMessage(&quot;login&quot;,</span>
-                                                        &quot;userName&quot;, userName,
-                                                        &quot;version&quot;, version),
-                                     &quot;login&quot;, null);
-<span class="nc bnc" id="L1034" title="All 2 branches missed.">        return (reply == null) ? null : new LoginMessage(null, reply);</span>
-    }
-
-    /**
-     * Server query-response for logging out.
-     *
-     * @return True if the server interaction succeeded.
-     */
-    public boolean logout() {
-<span class="nc" id="L1043">        return sendAndWait(new TrivialMessage(&quot;logout&quot;,</span>
-                &quot;reason&quot;, &quot;User has quit the client.&quot;));
-    }
-
-    /**
-     * Server query-response for looting.  Handles both an initial query and
-     * the actual looting.
-     *
-     * @param winner The &lt;code&gt;Unit&lt;/code&gt; that is looting.
-     * @param defenderId The identifier of the defender unit (it may have sunk).
-     * @param goods A list of &lt;code&gt;Goods&lt;/code&gt;, if empty this is a query
-     *     as to what is to be looted which is filled into the list,
-     *     if non-empty, then the list of goods to loot.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean loot(Unit winner, String defenderId, List&lt;Goods&gt; goods) {
-<span class="nc" id="L1059">        return askHandling(new LootCargoMessage(winner, defenderId, goods),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for establishing/denouncing a mission.
-     *
-     * @param unit The missionary &lt;code&gt;Unit&lt;/code&gt;.
-     * @param direction The direction to a settlement to establish with.
-     * @param denounce True if this is a denouncement.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean missionary(Unit unit, Direction direction,
-                              boolean denounce) {
-<span class="nc" id="L1073">        return askHandling(new MissionaryMessage(unit, direction, denounce),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for moving a unit.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to move.
-     * @param direction The direction to move in.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean move(Unit unit, Direction direction) {
-<span class="nc" id="L1085">        return askHandling(new MoveMessage(unit, direction),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for moving to across the high seas.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to move.
-     * @param destination The &lt;code&gt;Location&lt;/code&gt; to move to.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean moveTo(Unit unit, Location destination) {
-<span class="nc" id="L1097">        return askHandling(new MoveToMessage(unit, destination),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for naming a new land.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that has come ashore.
-     * @param name The new land name.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean newLandName(Unit unit, String name) {
-<span class="nc" id="L1109">        return askHandling(new NewLandNameMessage(unit, name),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for naming a new region.
-     *
-     * @param region The &lt;code&gt;Region&lt;/code&gt; that is being discovered.
-     * @param tile The &lt;code&gt;Tile&lt;/code&gt; where the region is discovered.
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; discovering the region.
-     * @param name The new region name.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean newRegionName(Region region, Tile tile, Unit unit, 
-                                 String name) {
-<span class="nc" id="L1124">        return askHandling(new NewRegionNameMessage(region, tile, unit, name),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to get the transaction session for a trade.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is trading.
-     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
-     * @return An array of booleans for the buy/sell/gift status,
-     *     or null if the server interaction failed.
-     */
-    public boolean[] openTransactionSession(Unit unit, Settlement settlement) {
-<span class="nc" id="L1137">        HashMap&lt;String, String&gt; results</span>
-<span class="nc" id="L1138">            = loadMap(&quot;canBuy&quot;, &quot;canSell&quot;, &quot;canGift&quot;);</span>
-<span class="nc bnc" id="L1139" title="All 2 branches missed.">        if (askExpecting(new GetTransactionMessage(unit, settlement),</span>
-                null, results) == null
-<span class="nc bnc" id="L1141" title="All 2 branches missed.">            || results.get(&quot;canBuy&quot;) == null</span>
-<span class="nc bnc" id="L1142" title="All 2 branches missed.">            || results.get(&quot;canSell&quot;) == null</span>
-<span class="nc bnc" id="L1143" title="All 2 branches missed.">            || results.get(&quot;canGift&quot;) == null) return null;</span>
-<span class="nc" id="L1144">        return new boolean[] {</span>
-<span class="nc" id="L1145">            Boolean.parseBoolean(results.get(&quot;canBuy&quot;)),</span>
-<span class="nc" id="L1146">            Boolean.parseBoolean(results.get(&quot;canSell&quot;)),</span>
-<span class="nc" id="L1147">            Boolean.parseBoolean(results.get(&quot;canGift&quot;))</span>
-        };
-    }
-
-    /**
-     * Server query-response for tax paying arrears.
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to pay the arrears for.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean payArrears(GoodsType type) {
-<span class="nc" id="L1158">        return askHandling(new PayArrearsMessage(type),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for paying for a building.
-     *
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; that is building.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean payForBuilding(Colony colony) {
-<span class="nc" id="L1169">        return askHandling(new PayForBuildingMessage(colony),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for putting a unit outside a colony.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to put out.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean putOutsideColony(Unit unit) {
-<span class="nc" id="L1180">        return askHandling(new PutOutsideColonyMessage(unit),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for renaming an object.
-     *
-     * @param object A &lt;code&gt;FreeColGameObject&lt;/code&gt; to rename.
-     * @param name The name to apply.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean rename(FreeColGameObject object, String name) {
-<span class="nc" id="L1192">        return askHandling(new RenameMessage(object, name),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to launch the game (pre-game).
-     *
-     * @return True if the server interaction succeeded.
-     */
-    public boolean requestLaunch() {
-<span class="nc" id="L1202">        return send(new TrivialMessage(&quot;requestLaunch&quot;));    </span>
-    }
-
-    /**
-     * Server query-response to retire the player from the game.
-     *
-     * @return True if the server interaction succeeded.
-     */
-    public boolean retire() {
-<span class="nc" id="L1211">        return askHandling(new TrivialMessage(&quot;retire&quot;), null, null);</span>
-    }
-
-    /**
-     * Server query-response for the dialog on scouting a native
-     * settlement, *before* choosing to speak to the chief, attack, et
-     * al.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is speaking.
-     * @param direction The direction to a settlement to ask.
-     * @return The number of settlements of this tribe (which is
-     *     needed in the dialog following), or negative on error.
-     */
-    public String scoutSettlement(Unit unit, Direction direction) {
-<span class="nc" id="L1225">        HashMap&lt;String, String&gt; results = loadMap(&quot;settlements&quot;);</span>
-<span class="nc bnc" id="L1226" title="All 2 branches missed.">        return (askHandling(new ScoutIndianSettlementMessage(unit, direction),</span>
-<span class="nc" id="L1227">                            null, results)) ? results.get(&quot;settlements&quot;)</span>
-            : null;
-    }
-   
-    /**
-     * Server query-response for speaking with a native chief.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is speaking.
-     * @param direction The direction to a settlement to ask.
-     * @return A string describing the result,
-     *     or null if the server interaction failed.
-     */
-    public String scoutSpeakToChief(Unit unit, Direction direction) {
-<span class="nc" id="L1240">        HashMap&lt;String, String&gt; results = loadMap(&quot;result&quot;);</span>
-<span class="nc bnc" id="L1241" title="All 2 branches missed.">        return (askHandling(new ScoutSpeakToChiefMessage(unit, direction),</span>
-<span class="nc" id="L1242">                null, results)) ? results.get(&quot;result&quot;)</span>
-            : null;
-    }
-
-    /**
-     * Server query-response to ask the natives if a sale is acceptable.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is trading.
-     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
-     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to trade.
-     * @param gold The proposed price (including query on negative).
-     * @return The selling price for the goods.
-     */
-    public int sellProposition(Unit unit, Settlement settlement,
-                               Goods goods, int gold) {
-<span class="nc" id="L1257">        HashMap&lt;String, String&gt; results = loadMap(&quot;gold&quot;);</span>
-<span class="nc bnc" id="L1258" title="All 2 branches missed.">        if (askHandling(new SellPropositionMessage(unit, settlement,</span>
-                    goods, gold), null, results)) {
-            try {
-<span class="nc" id="L1261">                return Integer.parseInt(results.get(&quot;gold&quot;));</span>
-<span class="nc" id="L1262">            } catch (NumberFormatException e) {}</span>
-        }
-<span class="nc" id="L1264">        return NetworkConstants.NO_TRADE;</span>
-    }
-
-    /**
-     * Server query-response to sell the given goods to the natives.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is trading.
-     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
-     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to sell.
-     * @param gold The agreed price.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean sellToSettlement(Unit unit, Settlement settlement,
-                                    Goods goods, int gold) {
-<span class="nc" id="L1278">        return askHandling(new SellMessage(unit, settlement, goods, gold),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to set a nation's availablility (pre-game).
-     *
-     * @param nation The &lt;code&gt;Nation&lt;/code&gt; to whose availability is to be set.
-     * @param state The &lt;code&gt;NationState&lt;/code&gt; defining the availability.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean setAvailable(Nation nation, NationState state) {
-<span class="nc" id="L1290">        return askHandling(new TrivialMessage(&quot;setAvailable&quot;,</span>
-<span class="nc" id="L1291">                &quot;nation&quot;, nation.getId(),</span>
-<span class="nc" id="L1292">                &quot;state&quot;, state.toString()),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for changing a build queue.
-     *
-     * @param colony the Colony
-     * @param buildQueue the new values for the build queue
-     * @return True if the server interaction succeeded.
-     */
-    public boolean setBuildQueue(Colony colony,
-                                 List&lt;BuildableType&gt; buildQueue) {
-<span class="nc" id="L1305">        return askHandling(new SetBuildQueueMessage(colony, buildQueue),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to set a nation colour
-     * (pre-game).
-     *
-     * @param nation The &lt;code&gt;Nation&lt;/code&gt; to set the color for.
-     * @param color The &lt;code&gt;Color&lt;/code&gt; selected.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean setColor(Nation nation, Color color) {
-<span class="nc" id="L1318">        return askHandling(new TrivialMessage(&quot;setColor&quot;,</span>
-<span class="nc" id="L1319">                &quot;nation&quot;, nation.getId(),</span>
-<span class="nc" id="L1320">                &quot;color&quot;, Integer.toString(color.getRGB())),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to set the current stop.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; whose stop is to be updated.
-     * @param index The stop index.
-     * @return True if the query-response succeeds.
-     */
-    public boolean setCurrentStop(Unit unit, int index) {
-<span class="nc" id="L1332">        return askHandling(new SetCurrentStopMessage(unit, index),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to set the destination of the given unit.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to direct.
-     * @param destination The destination &lt;code&gt;Location&lt;/code&gt;.
-     * @return True if the server interaction succeeded.
-     * @see Unit#setDestination(Location)
-     */
-    public boolean setDestination(Unit unit, Location destination) {
-<span class="nc" id="L1345">        return askHandling(new SetDestinationMessage(unit, destination),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for setting goods levels.
-     *
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; where the levels are set.
-     * @param data The &lt;code&gt;ExportData&lt;/code&gt; setting.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean setGoodsLevels(Colony colony, ExportData data) {
-<span class="nc" id="L1357">        return askHandling(new SetGoodsLevelsMessage(colony, data),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to show which nation a player has selected
-     * (pre-game).
-     *
-     * @param nation The &lt;code&gt;Nation&lt;/code&gt; selected.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean setNation(Nation nation) {
-<span class="nc" id="L1369">        return askHandling(new TrivialMessage(&quot;setNation&quot;,</span>
-<span class="nc" id="L1370">                &quot;value&quot;, nation.getId()),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to show which nation type a player has selected
-     * (pre-game).
-     *
-     * @param nationType The &lt;code&gt;NationType&lt;/code&gt; selected.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean setNationType(NationType nationType) {
-<span class="nc" id="L1382">        return askHandling(new TrivialMessage(&quot;setNationType&quot;,</span>
-<span class="nc" id="L1383">                &quot;value&quot;, nationType.getId()),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for indicating that this player is ready
-     * (pre-game).
-     *
-     * @param ready The readiness state to signal.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean setReady(boolean ready) {
-<span class="nc" id="L1395">        return send(new TrivialMessage(&quot;ready&quot;,</span>
-<span class="nc" id="L1396">                &quot;value&quot;, Boolean.toString(ready)));</span>
-    }
-
-    /**
-     * Server query-response for setting the trade routes.
-     *
-     * @param routes A list of trade routes to update.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean setTradeRoutes(List&lt;TradeRoute&gt; routes) {
-<span class="nc" id="L1406">        return askHandling(new SetTradeRoutesMessage(routes),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for spying on a colony.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is spying.
-     * @param direction The &lt;code&gt;Direction&lt;/code&gt; of a colony to spy on.
-     * @return True if the client/server interaction succeeded.
-     */
-    public boolean spy(Unit unit, Direction direction) {
-<span class="nc" id="L1418">        return askHandling(new SpySettlementMessage(unit, direction),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for starting to skip turns.
-     *
-     * @return True if the server interaction succeeded.
-     */
-    public boolean startSkipping() {
-<span class="nc" id="L1428">        return send(new TrivialMessage(&quot;endTurn&quot;));</span>
-    }
-
-    /**
-     * Server query-response for training a unit in Europe.
-     *
-     * @param type The &lt;code&gt;UnitType&lt;/code&gt; to train.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean trainUnitInEurope(UnitType type) {
-<span class="nc" id="L1438">        return askHandling(new TrainUnitInEuropeMessage(type),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for unloading goods.
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to unload.
-     * @param amount The amount of goods to unload.
-     * @param carrier The &lt;code&gt;Unit&lt;/code&gt; to unload from.
-     * @return True if the query-response succeeds.
-     */
-    public boolean unloadGoods(GoodsType type, int amount, Unit carrier) {
-<span class="nc" id="L1451">        return askHandling(new UnloadGoodsMessage(type, amount, carrier),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response to update the game options
-     * (pre-game).
-     *
-     * @param gameOptions The &lt;code&gt;OptionGroup&lt;/code&gt; containing the
-     *     game options.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean updateGameOptions(OptionGroup gameOptions) {
-<span class="nc" id="L1464">        Element up = DOMMessage.createMessage(&quot;updateGameOptions&quot;);</span>
-<span class="nc" id="L1465">        up.appendChild(gameOptions.toXMLElement(up.getOwnerDocument()));</span>
-<span class="nc" id="L1466">        return send(up);        </span>
-    }
-
-    /**
-     * Server query-response to update the map generator options
-     * (pre-game).
-     *
-     * @param mapOptions The &lt;code&gt;OptionGroup&lt;/code&gt; containing the
-     *     map generator options.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean updateMapGeneratorOptions(OptionGroup mapOptions) {
-<span class="nc" id="L1478">        Element up = DOMMessage.createMessage(&quot;updateMapGeneratorOptions&quot;);</span>
-<span class="nc" id="L1479">        up.appendChild(mapOptions.toXMLElement(up.getOwnerDocument()));</span>
-<span class="nc" id="L1480">        return send(up);    </span>
-    }
-
-    /**
-     * Server query-response for asking for updating the trade route.
-     *
-     * @param route The trade route to update.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean updateTradeRoute(TradeRoute route) {
-<span class="nc" id="L1490">        return askHandling(new UpdateTradeRouteMessage(route),</span>
-            null, null);
-    }
-
-    /**
-     * Server query-response for changing a work location.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to change the workLocation of.
-     * @param workLocation The &lt;code&gt;WorkLocation&lt;/code&gt; to change to.
-     * @return True if the server interaction succeeded.
-     */
-    public boolean work(Unit unit, WorkLocation workLocation) {
-<span class="nc" id="L1502">        return askHandling(new WorkMessage(unit, workLocation),</span>
-            null, null);
-    }
+	/** The Constant logger. */
+<span class="nc" id="L74">	private static final Logger logger = Logger.getLogger(ServerAPI.class.getName());</span>
+
+	/** The Client used to communicate with the server. */
+	private Client client;
+
+	/**
+	 * Creates a new &lt;code&gt;ServerAPI&lt;/code&gt;.
+	 */
+<span class="nc" id="L82">	public ServerAPI() {</span>
+<span class="nc" id="L83">	}</span>
+
+	/**
+	 * Do local client processing for a reply.
+	 *
+	 * @param reply
+	 *            The reply &lt;code&gt;Element&lt;/code&gt;.
+	 */
+	protected abstract void doClientProcessingFor(Element reply);
+
+	/**
+	 * Handle error conditions detected by the client.
+	 *
+	 * @param complaint
+	 *            The error message.
+	 */
+	protected abstract void doRaiseErrorMessage(String complaint);
+
+	// Internal message passing routines
+
+	/**
+	 * Sends an Element to the server.
+	 *
+	 * FIXME: remove all uses of this.
+	 *
+	 * @param element
+	 *            The &lt;code&gt;Element&lt;/code&gt; to send.
+	 * @return True if the send succeeded.
+	 */
+	private boolean send(Element element) {
+		try {
+<span class="nc" id="L114">			client.send(element);</span>
+<span class="nc" id="L115">		} catch (IOException e) {</span>
+<span class="nc" id="L116">			logger.log(Level.WARNING, &quot;Could not send: &quot; + element, e);</span>
+<span class="nc" id="L117">		}</span>
+<span class="nc" id="L118">		return false;</span>
+	}
+
+	/**
+	 * Sends a DOMMessage to the server.
+	 *
+	 * @param message
+	 *            The &lt;code&gt;DOMMessage&lt;/code&gt; to send.
+	 * @return True if the send succeeded.
+	 */
+	private boolean send(DOMMessage message) {
+		try {
+<span class="nc" id="L130">			client.send(message);</span>
+<span class="nc" id="L131">			return true;</span>
+<span class="nc" id="L132">		} catch (IOException ioe) {</span>
+<span class="nc" id="L133">			logger.log(Level.WARNING, &quot;Could not send: &quot; + message.getType(), ioe);</span>
+		}
+<span class="nc" id="L135">		return false;</span>
+	}
+
+	/**
+	 * Sends a DOMMessage to the server and waits for a reply.
+	 *
+	 * @param message
+	 *            The &lt;code&gt;DOMMessage&lt;/code&gt; to send.
+	 * @return True if the send succeeded.
+	 */
+	private boolean sendAndWait(DOMMessage message) {
+		try {
+<span class="nc" id="L147">			client.sendAndWait(message);</span>
+<span class="nc" id="L148">			return true;</span>
+<span class="nc" id="L149">		} catch (IOException ioe) {</span>
+<span class="nc" id="L150">			logger.log(Level.WARNING, &quot;Could not send: &quot; + message.getType(), ioe);</span>
+		}
+<span class="nc" id="L152">		return false;</span>
+	}
+
+	/**
+	 * Sends a DOMMessage query the server and waits for a reply.
+	 *
+	 * @param message
+	 *            The &lt;code&gt;DOMMessage&lt;/code&gt; to send.
+	 * @return The reply, or null if there was a problem.
+	 */
+	private Element ask(DOMMessage message) {
+<span class="nc" id="L163">		Element reply = null;</span>
+		try {
+<span class="nc" id="L165">			reply = client.ask(message);</span>
+<span class="nc" id="L166">		} catch (IOException ioe) {</span>
+<span class="nc" id="L167">			logger.log(Level.WARNING, &quot;Could not ask: &quot; + message.getType(), ioe);</span>
+<span class="nc" id="L168">		}</span>
+<span class="nc" id="L169">		return reply;</span>
+	}
+
+	/**
+	 * Loop sending requests and handling replies from the server until they
+	 * reduce to null.
+	 *
+	 * @param request
+	 *            The initial request &lt;code&gt;Element&lt;/code&gt;.
+	 */
+	private void resolve(Element request) {
+<span class="nc bnc" id="L180" title="All 2 branches missed.">		while (request != null) {</span>
+			try {
+<span class="nc" id="L182">				request = client.handleReply(client.ask(request));</span>
+<span class="nc" id="L183">			} catch (IOException ioe) {</span>
+<span class="nc" id="L184">				logger.warning(&quot;Could not resolve: &quot; + request.getTagName());</span>
+<span class="nc" id="L185">				break;</span>
+<span class="nc" id="L186">			}</span>
+		}
+<span class="nc" id="L188">	}</span>
+
+	/**
+	 * Sends the specified message to the server and returns the reply, if it
+	 * has the specified tag. Handle &quot;error&quot; replies if they have a messageID or
+	 * when in debug mode. This routine allows code simplification in much of
+	 * the following client-server communication.
+	 *
+	 * In following routines we follow the convention that server I/O is
+	 * confined to the ask&lt;foo&gt;() routine, which typically returns true if the
+	 * server interaction succeeded, which does *not* necessarily imply that the
+	 * actual substance of the request was allowed (e.g. a move may result in
+	 * the death of a unit rather than actually moving).
+	 *
+	 * @param message
+	 *            A &lt;code&gt;DOMMessage&lt;/code&gt; to send.
+	 * @param tag
+	 *            The expected tag
+	 * @param results
+	 *            A &lt;code&gt;Map&lt;/code&gt; to store special attribute results in.
+	 * @return The answer from the server if it has the specified tag, otherwise
+	 *         &lt;code&gt;null&lt;/code&gt;.
+	 */
+	private Element askExpecting(DOMMessage message, String tag, HashMap&lt;String, String&gt; results) {
+<span class="nc" id="L212">		Element reply = ask(message);</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">		if (reply == null)</span>
+<span class="nc" id="L214">			return null;</span>
+
+<span class="nc bnc" id="L216" title="All 2 branches missed.">		if (&quot;error&quot;.equals(reply.getTagName())) {</span>
+<span class="nc" id="L217">			String messageId = reply.getAttribute(&quot;messageID&quot;);</span>
+<span class="nc" id="L218">			String messageText = reply.getAttribute(&quot;message&quot;);</span>
+<span class="nc bnc" id="L219" title="All 4 branches missed.">			if (messageId != null &amp;&amp; messageText != null</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">					&amp;&amp; FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.COMMS)) {</span>
+				// If debugging suppress the bland but i18n compliant
+				// failure message in favour of the higher detail
+				// non-i18n text.
+<span class="nc" id="L224">				reply.removeAttribute(&quot;messageID&quot;);</span>
+			}
+<span class="nc" id="L226">			logger.warning(&quot;ServerAPI. &quot; + message.getType() + &quot; error,&quot; + &quot; messageId: &quot; + messageId + &quot; message: &quot;</span>
+					+ messageText);
+<span class="nc" id="L228">			client.handleReply(reply);</span>
+<span class="nc" id="L229">			return null;</span>
+		}
+
+		// Success!
+<span class="nc bnc" id="L233" title="All 4 branches missed.">		if (tag == null || tag.equals(reply.getTagName())) {</span>
+			// Do the standard processing.
+<span class="nc" id="L235">			doClientProcessingFor(reply);</span>
+			// Look for special attributes
+<span class="nc bnc" id="L237" title="All 2 branches missed.">			if (results != null) {</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">				if (results.containsKey(&quot;*&quot;)) {</span>
+<span class="nc" id="L239">					results.remove(&quot;*&quot;);</span>
+<span class="nc" id="L240">					int len = reply.getAttributes().getLength();</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">					for (int i = 0; i &lt; len; i++) {</span>
+<span class="nc" id="L242">						Node n = reply.getAttributes().item(i);</span>
+<span class="nc" id="L243">						results.put(n.getNodeName(), n.getNodeValue());</span>
+					}
+<span class="nc" id="L245">				} else {</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">					for (String k : results.keySet()) {</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">						if (reply.hasAttribute(k)) {</span>
+<span class="nc" id="L248">							results.put(k, reply.getAttribute(k));</span>
+						}
+<span class="nc" id="L250">					}</span>
+				}
+			}
+<span class="nc" id="L253">			return reply;</span>
+		}
+
+		// Process multiple returns, pick out expected element if present
+<span class="nc bnc" id="L257" title="All 2 branches missed.">		if (&quot;multiple&quot;.equals(reply.getTagName())) {</span>
+<span class="nc" id="L258">			List&lt;Element&gt; replies = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L259">			NodeList nodes = reply.getChildNodes();</span>
+<span class="nc" id="L260">			Element result = null;</span>
+
+<span class="nc bnc" id="L262" title="All 2 branches missed.">			for (int i = 0; i &lt; nodes.getLength(); i++) {</span>
+<span class="nc bnc" id="L263" title="All 4 branches missed.">				if (nodes.item(i) instanceof Element &amp;&amp; ((Element) nodes.item(i)).getTagName().equals(tag)) {</span>
+<span class="nc" id="L264">					result = (Element) nodes.item(i);</span>
+				} else {
+<span class="nc" id="L266">					Element e = client.handleReply((Element) nodes.item(i));</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">					if (e != null)</span>
+<span class="nc" id="L268">						replies.add(e);</span>
+				}
+			}
+<span class="nc" id="L271">			resolve(DOMMessage.collapseElements(replies));</span>
+<span class="nc bnc" id="L272" title="All 2 branches missed.">			if (result != null)</span>
+<span class="nc" id="L273">				return result;</span>
+		}
+
+		// Unexpected reply. Whine and fail.
+<span class="nc" id="L277">		String complaint = &quot;Received reply with tag &quot; + reply.getTagName() + &quot; which should have been &quot; + tag</span>
+				+ &quot; to message &quot; + message;
+<span class="nc" id="L279">		logger.warning(complaint);</span>
+<span class="nc" id="L280">		doRaiseErrorMessage(complaint);</span>
+<span class="nc" id="L281">		return null;</span>
+	}
+
+	/**
+	 * Extends askExpecting to also handle returns from the server.
+	 *
+	 * @param message
+	 *            A &lt;code&gt;DOMMessage&lt;/code&gt; to send.
+	 * @param tag
+	 *            The expected tag
+	 * @param results
+	 *            A &lt;code&gt;Map&lt;/code&gt; to store special attribute results in.
+	 * @return True if the server interaction succeeded and an element with the
+	 *         expected tag was found in the reply, else false.
+	 */
+	private boolean askHandling(DOMMessage message, String tag, HashMap&lt;String, String&gt; results) {
+<span class="nc" id="L297">		Element reply = askExpecting(message, tag, results);</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">		if (reply == null)</span>
+<span class="nc" id="L299">			return false;</span>
+<span class="nc" id="L300">		resolve(client.handleReply(reply));</span>
+<span class="nc" id="L301">		return true;</span>
+	}
+
+	/**
+	 * Helper to load a map.
+	 *
+	 * @param queries
+	 *            Query strings.
+	 * @return A map with null mappings for the query strings.
+	 */
+	private HashMap&lt;String, String&gt; loadMap(String... queries) {
+<span class="nc" id="L312">		HashMap&lt;String, String&gt; result = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L313" title="All 2 branches missed.">		for (String q : queries)</span>
+<span class="nc" id="L314">			result.put(q, null);</span>
+<span class="nc" id="L315">		return result;</span>
+	}
+
+	// Public routines for manipulation of the connection to the server.
+
+	/**
+	 * Get the host we are connected to.
+	 *
+	 * @return The current host, or null if none.
+	 */
+	public String getHost() {
+<span class="nc bnc" id="L326" title="All 2 branches missed.">		return (client == null) ? null : client.getHost();</span>
+	}
+
+	/**
+	 * Get the port we are connected to.
+	 *
+	 * @return The current port, or negative if none.
+	 */
+	public int getPort() {
+<span class="nc bnc" id="L335" title="All 2 branches missed.">		return (client == null) ? -1 : client.getPort();</span>
+	}
+
+	/**
+	 * Get the raw connection.
+	 *
+	 * Do not use this. It exists only for debugging purposes.
+	 *
+	 * @return The server &lt;code&gt;Connection&lt;/code&gt;.
+	 */
+	public Connection getConnection() {
+<span class="nc bnc" id="L346" title="All 2 branches missed.">		return (client == null) ? null : client.getConnection();</span>
+	}
+
+	/**
+	 * Register a message handler to handle messages from the server. Used when
+	 * switching from pre-game to in-game.
+	 *
+	 * @param messageHandler
+	 *            The new &lt;code&gt;MessageHandler&lt;/code&gt;.
+	 */
+	public void registerMessageHandler(MessageHandler messageHandler) {
+<span class="nc bnc" id="L357" title="All 2 branches missed.">		if (client != null) {</span>
+<span class="nc" id="L358">			client.setMessageHandler(messageHandler);</span>
+		}
+<span class="nc" id="L360">	}</span>
+
+	/**
+	 * Disconnect the client.
+	 */
+	public void disconnect() {
+<span class="nc bnc" id="L366" title="All 2 branches missed.">		if (client != null) {</span>
+<span class="nc" id="L367">			client.disconnect();</span>
+<span class="nc" id="L368">			reset();</span>
+		}
+<span class="nc" id="L370">	}</span>
+
+	/**
+	 * Just forget about the client. Only call this if sure it is dead.
+	 */
+	public void reset() {
+<span class="nc" id="L376">		client = null;</span>
+<span class="nc" id="L377">	}</span>
+
+	/**
+	 * Connects a client to host:port (or more).
+	 *
+	 * @param threadName
+	 *            The name for the thread.
+	 * @param host
+	 *            The name of the machine running the
+	 *            &lt;code&gt;FreeColServer&lt;/code&gt;.
+	 * @param port
+	 *            The port to use when connecting to the host.
+	 * @param messageHandler
+	 *            the message handler
+	 * @return True if the connection succeeded.
+	 * @exception IOException
+	 *                on connection failure.
+	 */
+	public boolean connect(String threadName, String host, int port, MessageHandler messageHandler) throws IOException {
+		int tries;
+<span class="nc bnc" id="L397" title="All 2 branches missed.">		if (port &lt; 0) {</span>
+<span class="nc" id="L398">			port = FreeCol.getServerPort();</span>
+<span class="nc" id="L399">			tries = 10;</span>
+		} else {
+<span class="nc" id="L401">			tries = 1;</span>
+		}
+<span class="nc bnc" id="L403" title="All 2 branches missed.">		for (int i = tries; i &gt; 0; i--) {</span>
+			try {
+<span class="nc" id="L405">				client = new Client(host, port, messageHandler, threadName);</span>
+<span class="nc bnc" id="L406" title="All 2 branches missed.">				if (client != null)</span>
+<span class="nc" id="L407">					break;</span>
+<span class="nc" id="L408">			} catch (IOException e) {</span>
+<span class="nc bnc" id="L409" title="All 2 branches missed.">				if (i &lt;= 1)</span>
+<span class="nc" id="L410">					throw e;</span>
+<span class="nc" id="L411">			}</span>
+		}
+<span class="nc bnc" id="L413" title="All 2 branches missed.">		return client != null;</span>
+	}
+
+	// Public messaging routines for game actions
+
+	/**
+	 * Server query-response to abandon a colony.
+	 *
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; to abandon.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean abandonColony(Colony colony) {
+<span class="nc" id="L426">		return askHandling(new AbandonColonyMessage(colony), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to respond to a monarch offer.
+	 *
+	 * @param action
+	 *            The monarch action responded to.
+	 * @param accept
+	 *            Accept or reject the offer.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean answerMonarch(MonarchAction action, boolean accept) {
+<span class="nc" id="L439">		return askHandling(new MonarchActionMessage(action, null, &quot;&quot;).setResult(accept), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for finding out the skill taught at a settlement.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is asking.
+	 * @param direction
+	 *            The direction to a settlement to ask.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean askSkill(Unit unit, Direction direction) {
+<span class="nc" id="L452">		return askHandling(new AskSkillMessage(unit, direction), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for assigning a teacher.
+	 *
+	 * @param student
+	 *            The student &lt;code&gt;Unit&lt;/code&gt;.
+	 * @param teacher
+	 *            The teacher &lt;code&gt;Unit&lt;/code&gt;.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean assignTeacher(Unit student, Unit teacher) {
+<span class="nc" id="L465">		return askHandling(new AssignTeacherMessage(student, teacher), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for assigning a trade route to a unit.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to assign a trade route to.
+	 * @param tradeRoute
+	 *            The &lt;code&gt;TradeRoute&lt;/code&gt; to assign.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean assignTradeRoute(Unit unit, TradeRoute tradeRoute) {
+<span class="nc" id="L478">		return askHandling(new AssignTradeRouteMessage(unit, tradeRoute), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for attacking.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to perform the attack.
+	 * @param direction
+	 *            The direction in which to attack.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean attack(Unit unit, Direction direction) {
+<span class="nc" id="L491">		return askHandling(new AttackMessage(unit, direction), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for building a colony.
+	 *
+	 * @param name
+	 *            The name for the colony.
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that will build.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean buildColony(String name, Unit unit) {
+<span class="nc" id="L504">		return askHandling(new BuildColonyMessage(name, unit), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to buy the given goods from the natives.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is trading.
+	 * @param settlement
+	 *            The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
+	 * @param goods
+	 *            The &lt;code&gt;Goods&lt;/code&gt; to buy.
+	 * @param gold
+	 *            The agreed price.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean buyFromSettlement(Unit unit, Settlement settlement, Goods goods, int gold) {
+<span class="nc" id="L521">		return askHandling(new BuyMessage(unit, settlement, goods, gold), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to ask the natives if a purchase is acceptable.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is trading.
+	 * @param settlement
+	 *            The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
+	 * @param goods
+	 *            The &lt;code&gt;Goods&lt;/code&gt; to trade.
+	 * @param gold
+	 *            The proposed price (including query on negative).
+	 * @return The price of the goods.
+	 */
+	public int buyProposition(Unit unit, Settlement settlement, Goods goods, int gold) {
+<span class="nc" id="L538">		HashMap&lt;String, String&gt; results = loadMap(&quot;gold&quot;);</span>
+<span class="nc bnc" id="L539" title="All 2 branches missed.">		if (askHandling(new BuyPropositionMessage(unit, settlement, goods, gold), null, results)) {</span>
+			try {
+<span class="nc" id="L541">				return Integer.parseInt(results.get(&quot;gold&quot;));</span>
+<span class="nc" id="L542">			} catch (NumberFormatException e) {</span>
+			}
+		}
+<span class="nc" id="L545">		return NetworkConstants.NO_TRADE;</span>
+	}
+
+	/**
+	 * Server query-response to cash in a treasure train.
+	 *
+	 * @param unit
+	 *            The treasure train &lt;code&gt;Unit&lt;/code&gt; to cash in.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean cashInTreasureTrain(Unit unit) {
+<span class="nc" id="L556">		return askHandling(new CashInTreasureTrainMessage(unit), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for changing unit state.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to change the state of.
+	 * @param state
+	 *            The new &lt;code&gt;UnitState&lt;/code&gt;.
+	 * @return boolean &lt;b&gt;true&lt;/b&gt; if the server interaction succeeded.
+	 */
+	public boolean changeState(Unit unit, UnitState state) {
+<span class="nc" id="L569">		return askHandling(new ChangeStateMessage(unit, state), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for changing work improvement type.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to change the work type of.
+	 * @param type
+	 *            The new &lt;code&gt;TileImprovementType&lt;/code&gt; to work on.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean changeWorkImprovementType(Unit unit, TileImprovementType type) {
+<span class="nc" id="L582">		return askHandling(new ChangeWorkImprovementTypeMessage(unit, type), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for changing work type.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to change the work type of.
+	 * @param workType
+	 *            The new &lt;code&gt;GoodsType&lt;/code&gt; to produce.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean changeWorkType(Unit unit, GoodsType workType) {
+<span class="nc" id="L595">		return askHandling(new ChangeWorkTypeMessage(unit, workType), null, null);</span>
+	}
+
+	/**
+	 * Send a chat message (pre and in-game).
+	 *
+	 * @param player
+	 *            the player
+	 * @param chat
+	 *            The text of the message.
+	 * @return True if the send succeeded.
+	 */
+	public boolean chat(Player player, String chat) {
+<span class="nc" id="L608">		return send(new ChatMessage(player, chat, false));</span>
+	}
+
+	/**
+	 * Send a chooseFoundingFather message.
+	 *
+	 * @param ffs
+	 *            A list of &lt;code&gt;FoundingFather&lt;/code&gt;s to choose from.
+	 * @param ff
+	 *            The chosen &lt;code&gt;FoundingFather&lt;/code&gt; (may be null).
+	 * @return True if the send succeeded.
+	 */
+	public boolean chooseFoundingFather(List&lt;FoundingFather&gt; ffs, FoundingFather ff) {
+<span class="nc" id="L621">		return send(new ChooseFoundingFatherMessage(ffs, ff));</span>
+	}
+
+	/**
+	 * Server query-response to claim a tile.
+	 *
+	 * @param tile
+	 *            The &lt;code&gt;Tile&lt;/code&gt; to claim.
+	 * @param claimant
+	 *            The &lt;code&gt;Unit&lt;/code&gt; or &lt;code&gt;Settlement&lt;/code&gt; that is
+	 *            claiming the tile.
+	 * @param price
+	 *            The amount to pay.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean claimTile(Tile tile, FreeColGameObject claimant, int price) {
+<span class="nc" id="L637">		return askHandling(new ClaimLandMessage(tile, claimant, price), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for clearing a unit speciality.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to operate on.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean clearSpeciality(Unit unit) {
+<span class="nc" id="L648">		return askHandling(new ClearSpecialityMessage(unit), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to close a transaction session for a trade.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is trading.
+	 * @param settlement
+	 *            The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean closeTransactionSession(Unit unit, Settlement settlement) {
+<span class="nc" id="L661">		return askHandling(new CloseTransactionMessage(unit, settlement), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to continue with a won game.
+	 *
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean continuePlaying() {
+<span class="nc" id="L670">		return send(new TrivialMessage(&quot;continuePlaying&quot;));</span>
+	}
+
+	/**
+	 * Server query-response for declaring independence.
+	 *
+	 * @param nation
+	 *            The name for the new nation.
+	 * @param country
+	 *            The name for the new country.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean declareIndependence(String nation, String country) {
+<span class="nc" id="L683">		return askHandling(new DeclareIndependenceMessage(nation, country), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for the special case of deciding to explore a
+	 * rumour but then declining not to investigate the strange mounds.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is exploring.
+	 * @param direction
+	 *            The &lt;code&gt;Direction&lt;/code&gt; to move.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean declineMounds(Unit unit, Direction direction) {
+<span class="nc" id="L697">		return askHandling(new DeclineMoundsMessage(unit, direction), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to give the given goods to the natives.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is trading.
+	 * @param settlement
+	 *            The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
+	 * @param goods
+	 *            The &lt;code&gt;Goods&lt;/code&gt; to give.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean deliverGiftToSettlement(Unit unit, Settlement settlement, Goods goods) {
+<span class="nc" id="L712">		return askHandling(new DeliverGiftMessage(unit, settlement, goods), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for demanding a tribute from a native settlement.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that demands.
+	 * @param direction
+	 *            The direction to demand in.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean demandTribute(Unit unit, Direction direction) {
+<span class="nc" id="L725">		return askHandling(new DemandTributeMessage(unit, direction), null, null);</span>
+	}
+
+	/**
+	 * Handler server query-response for diplomatic messages.
+	 *
+	 * @param game
+	 *            the game
+	 * @param ourUnit
+	 *            Our &lt;code&gt;Unit&lt;/code&gt; conducting the diplomacy.
+	 * @param otherColony
+	 *            The other &lt;code&gt;Colony&lt;/code&gt; to negotiate with.
+	 * @param agreement
+	 *            The &lt;code&gt;DiplomaticTrade&lt;/code&gt; agreement to propose.
+	 * @return The resulting agreement or null if none present.
+	 */
+	public DiplomaticTrade diplomacy(Game game, Unit ourUnit, Colony otherColony, DiplomaticTrade agreement) {
+<span class="nc" id="L742">		Element reply = askExpecting(new DiplomacyMessage(ourUnit, otherColony, agreement), null, null);</span>
+		// Often returns diplomacy, but also just an update on accept or
+		// null on reject.
+<span class="nc bnc" id="L745" title="All 2 branches missed.">		if (reply == null) {</span>
+<span class="nc" id="L746">			return null;</span>
+<span class="nc bnc" id="L747" title="All 2 branches missed.">		} else if (DiplomacyMessage.getXMLElementTagName().equals(reply.getTagName())) {</span>
+<span class="nc" id="L748">			return new DiplomacyMessage(game, reply).getAgreement();</span>
+		} else {
+<span class="nc" id="L750">			client.handleReply(reply);</span>
+<span class="nc" id="L751">			return null;</span>
+		}
+	}
+
+	/**
+	 * Handler server query-response for diplomatic messages.
+	 *
+	 * @param game
+	 *            the game
+	 * @param ourUnit
+	 *            Out &lt;code&gt;Unit&lt;/code&gt; conducting the diplomacy.
+	 * @param otherUnit
+	 *            The other &lt;code&gt;Unit&lt;/code&gt; to negotiate with.
+	 * @param agreement
+	 *            The &lt;code&gt;DiplomaticTrade&lt;/code&gt; agreement to propose.
+	 * @return The resulting agreement or null if none present.
+	 */
+	public DiplomaticTrade diplomacy(Game game, Unit ourUnit, Unit otherUnit, DiplomaticTrade agreement) {
+<span class="nc" id="L769">		Element reply = askExpecting(new DiplomacyMessage(ourUnit, otherUnit, agreement),</span>
+<span class="nc" id="L770">				DiplomacyMessage.getXMLElementTagName(), null);</span>
+<span class="nc bnc" id="L771" title="All 2 branches missed.">		if (reply == null) {</span>
+<span class="nc" id="L772">			return null;</span>
+<span class="nc bnc" id="L773" title="All 2 branches missed.">		} else if (DiplomacyMessage.getXMLElementTagName().equals(reply.getTagName())) {</span>
+<span class="nc" id="L774">			return new DiplomacyMessage(game, reply).getAgreement();</span>
+		} else {
+<span class="nc" id="L776">			client.handleReply(reply);</span>
+<span class="nc" id="L777">			return null;</span>
+		}
+	}
+
+	/**
+	 * Handler server query-response for diplomatic messages.
+	 *
+	 * @param game
+	 *            the game
+	 * @param ourColony
+	 *            Out &lt;code&gt;Colony&lt;/code&gt; conducting the diplomacy.
+	 * @param otherUnit
+	 *            The other &lt;code&gt;Unit&lt;/code&gt; to negotiate with.
+	 * @param agreement
+	 *            The &lt;code&gt;DiplomaticTrade&lt;/code&gt; agreement to propose.
+	 * @return The resulting agreement or null if none present.
+	 */
+	public DiplomaticTrade diplomacy(Game game, Colony ourColony, Unit otherUnit, DiplomaticTrade agreement) {
+<span class="nc" id="L795">		Element reply = askExpecting(new DiplomacyMessage(ourColony, otherUnit, agreement),</span>
+<span class="nc" id="L796">				DiplomacyMessage.getXMLElementTagName(), null);</span>
+<span class="nc bnc" id="L797" title="All 2 branches missed.">		if (reply == null) {</span>
+<span class="nc" id="L798">			return null;</span>
+<span class="nc bnc" id="L799" title="All 2 branches missed.">		} else if (DiplomacyMessage.getXMLElementTagName().equals(reply.getTagName())) {</span>
+<span class="nc" id="L800">			return new DiplomacyMessage(game, reply).getAgreement();</span>
+		} else {
+<span class="nc" id="L802">			client.handleReply(reply);</span>
+<span class="nc" id="L803">			return null;</span>
+		}
+	}
+
+	/**
+	 * Server query-response for disbanding a unit.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to operate on.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean disbandUnit(Unit unit) {
+<span class="nc" id="L815">		return askHandling(new DisbandUnitMessage(unit), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for disembarking from a carrier.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is disembarking.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean disembark(Unit unit) {
+<span class="nc" id="L826">		return askHandling(new DisembarkMessage(unit), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for boarding a carrier.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is boarding.
+	 * @param carrier
+	 *            The carrier &lt;code&gt;Unit&lt;/code&gt;.
+	 * @param direction
+	 *            An optional direction if the unit is boarding from an adjacent
+	 *            tile, or null if from the same tile.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean embark(Unit unit, Unit carrier, Direction direction) {
+<span class="nc" id="L842">		return askHandling(new EmbarkMessage(unit, carrier, direction), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for emigration.
+	 *
+	 * @param slot
+	 *            The slot from which the unit migrates, 1-3 selects a specific
+	 *            one, otherwise the server will choose one.
+	 * @return True if the client-server interaction succeeded.
+	 */
+	public boolean emigrate(int slot) {
+<span class="nc" id="L854">		return askHandling(new EmigrateUnitMessage(slot), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for asking for the turn to end.
+	 *
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean endTurn() {
+<span class="nc" id="L863">		return askHandling(new TrivialMessage(&quot;endTurn&quot;), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for asking to enter revenge mode (post-game).
+	 *
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean enterRevengeMode() {
+<span class="nc" id="L872">		return askHandling(new TrivialMessage(&quot;enterRevengeMode&quot;), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for equipping a unit for a role.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to equip.
+	 * @param role
+	 *            The &lt;code&gt;Role&lt;/code&gt; to assume.
+	 * @param roleCount
+	 *            The role count.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean equipUnitForRole(Unit unit, Role role, int roleCount) {
+<span class="nc" id="L887">		return askHandling(new EquipForRoleMessage(unit, role, roleCount), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for responding to a first contact message.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; making contact.
+	 * @param other
+	 *            The native &lt;code&gt;Player&lt;/code&gt; being contacted.
+	 * @param tile
+	 *            An optional &lt;code&gt;Tile&lt;/code&gt; to offer the player if they have
+	 *            made a first landing.
+	 * @param result
+	 *            Whether the initial peace treaty was accepted.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean firstContact(Player player, Player other, Tile tile, boolean result) {
+<span class="nc" id="L905">		return askHandling(new FirstContactMessage(player, other, tile).setResult(result), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to get a list of goods for sale from a settlement.
+	 *
+	 * @param game
+	 *            the game
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is trading.
+	 * @param settlement
+	 *            The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
+	 * @return The goods for sale in the settlement, or null if the server
+	 *         interaction failed.
+	 */
+	public List&lt;Goods&gt; getGoodsForSaleInSettlement(Game game, Unit unit, Settlement settlement) {
+<span class="nc" id="L921">		GoodsForSaleMessage message = new GoodsForSaleMessage(unit, settlement, null);</span>
+<span class="nc" id="L922">		Element reply = askExpecting(message, GoodsForSaleMessage.getXMLElementTagName(), null);</span>
+<span class="nc bnc" id="L923" title="All 2 branches missed.">		return (reply == null) ? Collections.&lt;Goods&gt;emptyList() : new GoodsForSaleMessage(game, reply).getGoods();</span>
+	}
+
+	/**
+	 * Server query-response for asking for the high scores list.
+	 *
+	 * @return The list of high scores.
+	 */
+	public List&lt;HighScore&gt; getHighScores() {
+<span class="nc" id="L932">		Element reply = askExpecting(new TrivialMessage(&quot;getHighScores&quot;), null, null);</span>
+<span class="nc bnc" id="L933" title="All 2 branches missed.">		if (reply == null)</span>
+<span class="nc" id="L934">			return Collections.&lt;HighScore&gt;emptyList();</span>
+
+<span class="nc" id="L936">		List&lt;HighScore&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L937">		NodeList childElements = reply.getChildNodes();</span>
+<span class="nc bnc" id="L938" title="All 2 branches missed.">		for (int i = 0; i &lt; childElements.getLength(); i++) {</span>
+<span class="nc" id="L939">			result.add(new HighScore((Element) childElements.item(i)));</span>
+		}
+<span class="nc" id="L941">		return result;</span>
+	}
+
+	/**
+	 * Server query-response for asking for the nation summary of a player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to summarize.
+	 * @return A summary of that nation, or null on error.
+	 */
+	public NationSummary getNationSummary(Player player) {
+<span class="nc" id="L952">		GetNationSummaryMessage message = new GetNationSummaryMessage(player);</span>
+<span class="nc" id="L953">		Element reply = askExpecting(message, GetNationSummaryMessage.getXMLElementTagName(), null);</span>
+<span class="nc bnc" id="L954" title="All 2 branches missed.">		if (reply == null)</span>
+<span class="nc" id="L955">			return null;</span>
+
+<span class="nc" id="L957">		return new GetNationSummaryMessage(reply).getNationSummary();</span>
+	}
+
+	/**
+	 * Server query-response for creating a new trade route.
+	 *
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean getNewTradeRoute() {
+<span class="nc" id="L966">		return askHandling(new TrivialMessage(&quot;getNewTradeRoute&quot;), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for asking about a players REF.
+	 *
+	 * @return A list of REF units for the player.
+	 */
+	public List&lt;AbstractUnit&gt; getREFUnits() {
+<span class="nc" id="L975">		Element reply = askExpecting(new TrivialMessage(&quot;getREFUnits&quot;), null, null);</span>
+<span class="nc bnc" id="L976" title="All 2 branches missed.">		if (reply == null)</span>
+<span class="nc" id="L977">			return Collections.&lt;AbstractUnit&gt;emptyList();</span>
+
+<span class="nc" id="L979">		List&lt;AbstractUnit&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L980">		NodeList childElements = reply.getChildNodes();</span>
+<span class="nc bnc" id="L981" title="All 2 branches missed.">		for (int index = 0; index &lt; childElements.getLength(); index++) {</span>
+<span class="nc" id="L982">			AbstractUnit unit = new AbstractUnit();</span>
+<span class="nc" id="L983">			unit.readFromXMLElement((Element) childElements.item(index));</span>
+<span class="nc" id="L984">			result.add(unit);</span>
+		}
+<span class="nc" id="L986">		return result;</span>
+	}
+
+	/**
+	 * Server query-response for asking for the server statistics.
+	 *
+	 * @return The server statistics.
+	 */
+	public java.util.Map&lt;String, String&gt; getStatistics() {
+<span class="nc" id="L995">		HashMap&lt;String, String&gt; results = loadMap(&quot;*&quot;);</span>
+<span class="nc bnc" id="L996" title="All 2 branches missed.">		return (askExpecting(new TrivialMessage(&quot;getStatistics&quot;), &quot;statistics&quot;, results) == null) ? null : results;</span>
+	}
+
+	/**
+	 * Server query-response for inciting the natives.
+	 *
+	 * @param unit
+	 *            The missionary &lt;code&gt;Unit&lt;/code&gt;.
+	 * @param direction
+	 *            The direction to a settlement to speak to.
+	 * @param enemy
+	 *            An enemy &lt;code&gt;Player&lt;/code&gt;.
+	 * @param gold
+	 *            The amount of bribe, negative to enquire.
+	 * @return The amount of gold to bribe with if this was an inquiry, zero for
+	 *         failure to incite and &gt;0 for successful incitement, negative if
+	 *         the server interaction failed.
+	 */
+	public int incite(Unit unit, Direction direction, Player enemy, int gold) {
+<span class="nc" id="L1015">		HashMap&lt;String, String&gt; results = loadMap(&quot;gold&quot;);</span>
+<span class="nc bnc" id="L1016" title="All 2 branches missed.">		if (!askHandling(new InciteMessage(unit, direction, enemy, gold), null, results))</span>
+<span class="nc" id="L1017">			return -1;</span>
+		try {
+<span class="nc" id="L1019">			return Integer.parseInt(results.get(&quot;gold&quot;));</span>
+<span class="nc" id="L1020">		} catch (NumberFormatException e) {</span>
+		}
+<span class="nc" id="L1022">		return -1;</span>
+	}
+
+	/**
+	 * Server query-response for joining a colony.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that will join.
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; to join.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean joinColony(Unit unit, Colony colony) {
+<span class="nc" id="L1035">		return askHandling(new JoinColonyMessage(colony, unit), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for learning the skill taught at a settlement.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is asking.
+	 * @param direction
+	 *            The direction to a settlement to ask.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean learnSkill(Unit unit, Direction direction) {
+<span class="nc" id="L1048">		return askHandling(new LearnSkillMessage(unit, direction), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for loading goods.
+	 *
+	 * @param loc
+	 *            The &lt;code&gt;Location&lt;/code&gt; where the goods are.
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to load.
+	 * @param amount
+	 *            The amount of goods to load.
+	 * @param carrier
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to load onto.
+	 * @return True if the query-response succeeds.
+	 */
+	public boolean loadGoods(Location loc, GoodsType type, int amount, Unit carrier) {
+<span class="nc" id="L1065">		return askHandling(new LoadGoodsMessage(loc, type, amount, carrier), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for logging in a player (pre-game).
+	 *
+	 * @param userName
+	 *            The user name.
+	 * @param version
+	 *            The client version.
+	 * @return A &lt;code&gt;LoginMessage&lt;/code&gt; on success, or null on error.
+	 */
+	public LoginMessage login(String userName, String version) {
+<span class="nc" id="L1078">		Element reply = askExpecting(new TrivialMessage(&quot;login&quot;, &quot;userName&quot;, userName, &quot;version&quot;, version), &quot;login&quot;,</span>
+				null);
+<span class="nc bnc" id="L1080" title="All 2 branches missed.">		return (reply == null) ? null : new LoginMessage(null, reply);</span>
+	}
+
+	/**
+	 * Server query-response for logging out.
+	 *
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean logout() {
+<span class="nc" id="L1089">		return sendAndWait(new TrivialMessage(&quot;logout&quot;, &quot;reason&quot;, &quot;User has quit the client.&quot;));</span>
+	}
+
+	/**
+	 * Server query-response for looting. Handles both an initial query and the
+	 * actual looting.
+	 *
+	 * @param winner
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is looting.
+	 * @param defenderId
+	 *            The identifier of the defender unit (it may have sunk).
+	 * @param goods
+	 *            A list of &lt;code&gt;Goods&lt;/code&gt;, if empty this is a query as to
+	 *            what is to be looted which is filled into the list, if
+	 *            non-empty, then the list of goods to loot.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean loot(Unit winner, String defenderId, List&lt;Goods&gt; goods) {
+<span class="nc" id="L1107">		return askHandling(new LootCargoMessage(winner, defenderId, goods), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for establishing/denouncing a mission.
+	 *
+	 * @param unit
+	 *            The missionary &lt;code&gt;Unit&lt;/code&gt;.
+	 * @param direction
+	 *            The direction to a settlement to establish with.
+	 * @param denounce
+	 *            True if this is a denouncement.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean missionary(Unit unit, Direction direction, boolean denounce) {
+<span class="nc" id="L1122">		return askHandling(new MissionaryMessage(unit, direction, denounce), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for moving a unit.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to move.
+	 * @param direction
+	 *            The direction to move in.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean move(Unit unit, Direction direction) {
+<span class="nc" id="L1135">		return askHandling(new MoveMessage(unit, direction), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for moving to across the high seas.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to move.
+	 * @param destination
+	 *            The &lt;code&gt;Location&lt;/code&gt; to move to.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean moveTo(Unit unit, Location destination) {
+<span class="nc" id="L1148">		return askHandling(new MoveToMessage(unit, destination), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for naming a new land.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that has come ashore.
+	 * @param name
+	 *            The new land name.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean newLandName(Unit unit, String name) {
+<span class="nc" id="L1161">		return askHandling(new NewLandNameMessage(unit, name), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for naming a new region.
+	 *
+	 * @param region
+	 *            The &lt;code&gt;Region&lt;/code&gt; that is being discovered.
+	 * @param tile
+	 *            The &lt;code&gt;Tile&lt;/code&gt; where the region is discovered.
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; discovering the region.
+	 * @param name
+	 *            The new region name.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean newRegionName(Region region, Tile tile, Unit unit, String name) {
+<span class="nc" id="L1178">		return askHandling(new NewRegionNameMessage(region, tile, unit, name), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to get the transaction session for a trade.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is trading.
+	 * @param settlement
+	 *            The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
+	 * @return An array of booleans for the buy/sell/gift status, or null if the
+	 *         server interaction failed.
+	 */
+	public boolean[] openTransactionSession(Unit unit, Settlement settlement) {
+<span class="nc" id="L1192">		HashMap&lt;String, String&gt; results = loadMap(&quot;canBuy&quot;, &quot;canSell&quot;, &quot;canGift&quot;);</span>
+<span class="nc bnc" id="L1193" title="All 2 branches missed.">		if (askExpecting(new GetTransactionMessage(unit, settlement), null, results) == null</span>
+<span class="nc bnc" id="L1194" title="All 6 branches missed.">				|| results.get(&quot;canBuy&quot;) == null || results.get(&quot;canSell&quot;) == null || results.get(&quot;canGift&quot;) == null)</span>
+<span class="nc" id="L1195">			return null;</span>
+<span class="nc" id="L1196">		return new boolean[] { Boolean.parseBoolean(results.get(&quot;canBuy&quot;)),</span>
+<span class="nc" id="L1197">				Boolean.parseBoolean(results.get(&quot;canSell&quot;)), Boolean.parseBoolean(results.get(&quot;canGift&quot;)) };</span>
+	}
+
+	/**
+	 * Server query-response for tax paying arrears.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to pay the arrears for.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean payArrears(GoodsType type) {
+<span class="nc" id="L1208">		return askHandling(new PayArrearsMessage(type), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for paying for a building.
+	 *
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; that is building.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean payForBuilding(Colony colony) {
+<span class="nc" id="L1219">		return askHandling(new PayForBuildingMessage(colony), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for putting a unit outside a colony.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to put out.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean putOutsideColony(Unit unit) {
+<span class="nc" id="L1230">		return askHandling(new PutOutsideColonyMessage(unit), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for renaming an object.
+	 *
+	 * @param object
+	 *            A &lt;code&gt;FreeColGameObject&lt;/code&gt; to rename.
+	 * @param name
+	 *            The name to apply.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean rename(FreeColGameObject object, String name) {
+<span class="nc" id="L1243">		return askHandling(new RenameMessage(object, name), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to launch the game (pre-game).
+	 *
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean requestLaunch() {
+<span class="nc" id="L1252">		return send(new TrivialMessage(&quot;requestLaunch&quot;));</span>
+	}
+
+	/**
+	 * Server query-response to retire the player from the game.
+	 *
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean retire() {
+<span class="nc" id="L1261">		return askHandling(new TrivialMessage(&quot;retire&quot;), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for the dialog on scouting a native settlement,
+	 * *before* choosing to speak to the chief, attack, et al.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is speaking.
+	 * @param direction
+	 *            The direction to a settlement to ask.
+	 * @return The number of settlements of this tribe (which is needed in the
+	 *         dialog following), or negative on error.
+	 */
+	public String scoutSettlement(Unit unit, Direction direction) {
+<span class="nc" id="L1276">		HashMap&lt;String, String&gt; results = loadMap(&quot;settlements&quot;);</span>
+<span class="nc bnc" id="L1277" title="All 2 branches missed.">		return (askHandling(new ScoutIndianSettlementMessage(unit, direction), null, results))</span>
+<span class="nc" id="L1278">				? results.get(&quot;settlements&quot;) : null;</span>
+	}
+
+	/**
+	 * Server query-response for speaking with a native chief.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is speaking.
+	 * @param direction
+	 *            The direction to a settlement to ask.
+	 * @return A string describing the result, or null if the server interaction
+	 *         failed.
+	 */
+	public String scoutSpeakToChief(Unit unit, Direction direction) {
+<span class="nc" id="L1292">		HashMap&lt;String, String&gt; results = loadMap(&quot;result&quot;);</span>
+<span class="nc bnc" id="L1293" title="All 2 branches missed.">		return (askHandling(new ScoutSpeakToChiefMessage(unit, direction), null, results)) ? results.get(&quot;result&quot;)</span>
+				: null;
+	}
+
+	/**
+	 * Server query-response to ask the natives if a sale is acceptable.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is trading.
+	 * @param settlement
+	 *            The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
+	 * @param goods
+	 *            The &lt;code&gt;Goods&lt;/code&gt; to trade.
+	 * @param gold
+	 *            The proposed price (including query on negative).
+	 * @return The selling price for the goods.
+	 */
+	public int sellProposition(Unit unit, Settlement settlement, Goods goods, int gold) {
+<span class="nc" id="L1311">		HashMap&lt;String, String&gt; results = loadMap(&quot;gold&quot;);</span>
+<span class="nc bnc" id="L1312" title="All 2 branches missed.">		if (askHandling(new SellPropositionMessage(unit, settlement, goods, gold), null, results)) {</span>
+			try {
+<span class="nc" id="L1314">				return Integer.parseInt(results.get(&quot;gold&quot;));</span>
+<span class="nc" id="L1315">			} catch (NumberFormatException e) {</span>
+			}
+		}
+<span class="nc" id="L1318">		return NetworkConstants.NO_TRADE;</span>
+	}
+
+	/**
+	 * Server query-response to sell the given goods to the natives.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is trading.
+	 * @param settlement
+	 *            The &lt;code&gt;Settlement&lt;/code&gt; that is trading.
+	 * @param goods
+	 *            The &lt;code&gt;Goods&lt;/code&gt; to sell.
+	 * @param gold
+	 *            The agreed price.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean sellToSettlement(Unit unit, Settlement settlement, Goods goods, int gold) {
+<span class="nc" id="L1335">		return askHandling(new SellMessage(unit, settlement, goods, gold), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to set a nation's availablility (pre-game).
+	 *
+	 * @param nation
+	 *            The &lt;code&gt;Nation&lt;/code&gt; to whose availability is to be set.
+	 * @param state
+	 *            The &lt;code&gt;NationState&lt;/code&gt; defining the availability.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean setAvailable(Nation nation, NationState state) {
+<span class="nc" id="L1348">		return askHandling(new TrivialMessage(&quot;setAvailable&quot;, &quot;nation&quot;, nation.getId(), &quot;state&quot;, state.toString()),</span>
+				null, null);
+	}
+
+	/**
+	 * Server query-response for changing a build queue.
+	 *
+	 * @param colony
+	 *            the Colony
+	 * @param buildQueue
+	 *            the new values for the build queue
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean setBuildQueue(Colony colony, List&lt;BuildableType&gt; buildQueue) {
+<span class="nc" id="L1362">		return askHandling(new SetBuildQueueMessage(colony, buildQueue), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to set a nation colour (pre-game).
+	 *
+	 * @param nation
+	 *            The &lt;code&gt;Nation&lt;/code&gt; to set the color for.
+	 * @param color
+	 *            The &lt;code&gt;Color&lt;/code&gt; selected.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean setColor(Nation nation, Color color) {
+<span class="nc" id="L1375">		return askHandling(</span>
+<span class="nc" id="L1376">				new TrivialMessage(&quot;setColor&quot;, &quot;nation&quot;, nation.getId(), &quot;color&quot;, Integer.toString(color.getRGB())),</span>
+				null, null);
+	}
+
+	/**
+	 * Server query-response to set the current stop.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; whose stop is to be updated.
+	 * @param index
+	 *            The stop index.
+	 * @return True if the query-response succeeds.
+	 */
+	public boolean setCurrentStop(Unit unit, int index) {
+<span class="nc" id="L1390">		return askHandling(new SetCurrentStopMessage(unit, index), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to set the destination of the given unit.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to direct.
+	 * @param destination
+	 *            The destination &lt;code&gt;Location&lt;/code&gt;.
+	 * @return True if the server interaction succeeded.
+	 * @see Unit#setDestination(Location)
+	 */
+	public boolean setDestination(Unit unit, Location destination) {
+<span class="nc" id="L1404">		return askHandling(new SetDestinationMessage(unit, destination), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for setting goods levels.
+	 *
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; where the levels are set.
+	 * @param data
+	 *            The &lt;code&gt;ExportData&lt;/code&gt; setting.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean setGoodsLevels(Colony colony, ExportData data) {
+<span class="nc" id="L1417">		return askHandling(new SetGoodsLevelsMessage(colony, data), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to show which nation a player has selected
+	 * (pre-game).
+	 *
+	 * @param nation
+	 *            The &lt;code&gt;Nation&lt;/code&gt; selected.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean setNation(Nation nation) {
+<span class="nc" id="L1429">		return askHandling(new TrivialMessage(&quot;setNation&quot;, &quot;value&quot;, nation.getId()), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to show which nation type a player has selected
+	 * (pre-game).
+	 *
+	 * @param nationType
+	 *            The &lt;code&gt;NationType&lt;/code&gt; selected.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean setNationType(NationType nationType) {
+<span class="nc" id="L1441">		return askHandling(new TrivialMessage(&quot;setNationType&quot;, &quot;value&quot;, nationType.getId()), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for indicating that this player is ready
+	 * (pre-game).
+	 *
+	 * @param ready
+	 *            The readiness state to signal.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean setReady(boolean ready) {
+<span class="nc" id="L1453">		return send(new TrivialMessage(&quot;ready&quot;, &quot;value&quot;, Boolean.toString(ready)));</span>
+	}
+
+	/**
+	 * Server query-response for setting the trade routes.
+	 *
+	 * @param routes
+	 *            A list of trade routes to update.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean setTradeRoutes(List&lt;TradeRoute&gt; routes) {
+<span class="nc" id="L1464">		return askHandling(new SetTradeRoutesMessage(routes), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for spying on a colony.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is spying.
+	 * @param direction
+	 *            The &lt;code&gt;Direction&lt;/code&gt; of a colony to spy on.
+	 * @return True if the client/server interaction succeeded.
+	 */
+	public boolean spy(Unit unit, Direction direction) {
+<span class="nc" id="L1477">		return askHandling(new SpySettlementMessage(unit, direction), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for starting to skip turns.
+	 *
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean startSkipping() {
+<span class="nc" id="L1486">		return send(new TrivialMessage(&quot;endTurn&quot;));</span>
+	}
+
+	/**
+	 * Server query-response for training a unit in Europe.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;UnitType&lt;/code&gt; to train.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean trainUnitInEurope(UnitType type) {
+<span class="nc" id="L1497">		return askHandling(new TrainUnitInEuropeMessage(type), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for unloading goods.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to unload.
+	 * @param amount
+	 *            The amount of goods to unload.
+	 * @param carrier
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to unload from.
+	 * @return True if the query-response succeeds.
+	 */
+	public boolean unloadGoods(GoodsType type, int amount, Unit carrier) {
+<span class="nc" id="L1512">		return askHandling(new UnloadGoodsMessage(type, amount, carrier), null, null);</span>
+	}
+
+	/**
+	 * Server query-response to update the game options (pre-game).
+	 *
+	 * @param gameOptions
+	 *            The &lt;code&gt;OptionGroup&lt;/code&gt; containing the game options.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean updateGameOptions(OptionGroup gameOptions) {
+<span class="nc" id="L1523">		Element up = DOMMessage.createMessage(&quot;updateGameOptions&quot;);</span>
+<span class="nc" id="L1524">		up.appendChild(gameOptions.toXMLElement(up.getOwnerDocument()));</span>
+<span class="nc" id="L1525">		return send(up);</span>
+	}
+
+	/**
+	 * Server query-response to update the map generator options (pre-game).
+	 *
+	 * @param mapOptions
+	 *            The &lt;code&gt;OptionGroup&lt;/code&gt; containing the map generator
+	 *            options.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean updateMapGeneratorOptions(OptionGroup mapOptions) {
+<span class="nc" id="L1537">		Element up = DOMMessage.createMessage(&quot;updateMapGeneratorOptions&quot;);</span>
+<span class="nc" id="L1538">		up.appendChild(mapOptions.toXMLElement(up.getOwnerDocument()));</span>
+<span class="nc" id="L1539">		return send(up);</span>
+	}
+
+	/**
+	 * Server query-response for asking for updating the trade route.
+	 *
+	 * @param route
+	 *            The trade route to update.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean updateTradeRoute(TradeRoute route) {
+<span class="nc" id="L1550">		return askHandling(new UpdateTradeRouteMessage(route), null, null);</span>
+	}
+
+	/**
+	 * Server query-response for changing a work location.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to change the workLocation of.
+	 * @param workLocation
+	 *            The &lt;code&gt;WorkLocation&lt;/code&gt; to change to.
+	 * @return True if the server interaction succeeded.
+	 */
+	public boolean work(Unit unit, WorkLocation workLocation) {
+<span class="nc" id="L1563">		return askHandling(new WorkMessage(unit, workLocation), null, null);</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -25,79 +25,75 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
  * An action for unloading a unit.
  */
 public class UnloadAction extends MapboardAction {
 
-    /** The Constant id. */
-    public static final String id = "unloadAction";
+	/** The Constant id. */
+	public static final String id = "unloadAction";
 
-    /** The unit. */
-    private Unit unit = null;
+	/** The unit. */
+	private Unit unit = null;
 
+	/**
+	 * Creates an action for unloading the currently selected unit.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public UnloadAction(FreeColClient freeColClient) {
+		this(freeColClient, null);
+	}
 
-    /**
-     * Creates an action for unloading the currently selected unit.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public UnloadAction(FreeColClient freeColClient) {
-        this(freeColClient, null);
-    }
+	/**
+	 * Creates an action for unloading the <code>Unit</code> provided. If the
+	 * <code>Unit</code> is <code>null</code>, then the currently selected unit
+	 * is used instead.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param unit
+	 *            The <code>Unit</code> to unload.
+	 * @see net.sf.freecol.client.gui.MapViewer#getActiveUnit()
+	 */
+	public UnloadAction(FreeColClient freeColClient, Unit unit) {
+		super(freeColClient, id);
 
-    /**
-     * Creates an action for unloading the <code>Unit</code>
-     * provided.  If the <code>Unit</code> is <code>null</code>, then
-     * the currently selected unit is used instead.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param unit The <code>Unit</code> to unload.
-     * @see net.sf.freecol.client.gui.MapViewer#getActiveUnit()
-     */
-    public UnloadAction(FreeColClient freeColClient, Unit unit) {
-        super(freeColClient, id);
+		this.unit = unit;
+	}
 
-        this.unit = unit;
-    }
+	/**
+	 * Gets the unit.
+	 *
+	 * @return the unit
+	 */
+	private Unit getUnit() {
+		return (unit != null) ? unit : getGUI().getActiveUnit();
+	}
 
+	// Override FreeColAction
 
-    /**
-     * Gets the unit.
-     *
-     * @return the unit
-     */
-    private Unit getUnit() {
-        return (unit != null) ? unit : getGUI().getActiveUnit();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		final Unit carrier = getUnit();
+		final Player player = freeColClient.getMyPlayer();
+		return super.shouldBeEnabled() && carrier != null && carrier.isCarrier() && carrier.getCargoSpaceTaken() > 0
+				&& player != null && player.owns(carrier);
+	}
 
+	// Interface ActionListener
 
-    // Override FreeColAction
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        final Unit carrier = getUnit();
-        final Player player = freeColClient.getMyPlayer();
-        return super.shouldBeEnabled()
-            && carrier != null
-            && carrier.isCarrier()
-            && carrier.getCargoSpaceTaken() > 0
-            && player != null && player.owns(carrier);
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        Unit carrier = getUnit();
-        if (carrier != null) igc().unload(carrier);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		Unit carrier = getUnit();
+		if (carrier != null)
+			igc().unload(carrier);
+	}
 }

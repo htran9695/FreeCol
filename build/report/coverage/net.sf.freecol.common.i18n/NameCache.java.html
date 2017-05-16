@@ -37,521 +37,563 @@ import net.sf.freecol.common.model.UnitType;
 import static net.sf.freecol.common.util.RandomUtils.*;
 import static net.sf.freecol.common.util.StringUtils.*;
 
-
 /**
  * A cache of proper names of various types.
  *
- * Most of these collections auto-initialize when the public accessor
- * is called, but the cities of Cibola are different because they are
- * saved in the Game, and hence requireCitiesOfCibola has to public
- * for generating a new game, and there are clear/add/get routines to
- * allow the the collection to be serialized.
+ * Most of these collections auto-initialize when the public accessor is called,
+ * but the cities of Cibola are different because they are saved in the Game,
+ * and hence requireCitiesOfCibola has to public for generating a new game, and
+ * there are clear/add/get routines to allow the the collection to be
+ * serialized.
  */
-<span class="nc" id="L50">public class NameCache {</span>
+<span class="nc" id="L49">public class NameCache {</span>
 
-<span class="fc" id="L52">    private static final Logger logger = Logger.getLogger(NameCache.class.getName());</span>
+	/** The Constant logger. */
+<span class="fc" id="L52">	private static final Logger logger = Logger.getLogger(NameCache.class.getName());</span>
 
-    /** Default season names to use if nameCache.season.* not found. */
-<span class="fc" id="L55">    private static final String[] DEFAULT_SEASON_IDS</span>
-        = { &quot;model.season.spring.name&quot;, &quot;model.season.autumn.name&quot; };
-    
-    private final static String CIBOLA_PREFIX
-        = &quot;nameCache.lostCityRumour.cityName.&quot;;
+	/** Default season names to use if nameCache.season.* not found. */
+<span class="fc" id="L55">	private static final String[] DEFAULT_SEASON_IDS = { &quot;model.season.spring.name&quot;, &quot;model.season.autumn.name&quot; };</span>
 
-    /** Cities of Cibola. */
-<span class="fc" id="L62">    private static List&lt;String&gt; cibolaKeys = null;</span>
-<span class="fc" id="L63">    private static final Object cibolaLock = new Object();</span>
+	/** The Constant CIBOLA_PREFIX. */
+	private final static String CIBOLA_PREFIX = &quot;nameCache.lostCityRumour.cityName.&quot;;
 
-    /** Mercenary leaders. */
-<span class="fc" id="L66">    private static List&lt;String&gt; mercenaryLeaders = null;</span>
-<span class="fc" id="L67">    private static final Object mercenaryLock = new Object();</span>
+	/** Cities of Cibola. */
+<span class="fc" id="L61">	private static List&lt;String&gt; cibolaKeys = null;</span>
 
-    /** Region names and index. */
-<span class="fc" id="L70">    private static final Map&lt;String, List&lt;String&gt;&gt; regionNames</span>
-        = new HashMap&lt;&gt;();
-<span class="fc" id="L72">    private static final Object regionNameLock = new Object();</span>
-<span class="fc" id="L73">    private static final Map&lt;String, Integer&gt; regionIndex = new HashMap&lt;&gt;();</span>
+	/** The Constant cibolaLock. */
+<span class="fc" id="L64">	private static final Object cibolaLock = new Object();</span>
 
-    /** Extra river names. */
-<span class="fc" id="L76">    private static List&lt;String&gt; riverNames = null;</span>
-<span class="fc" id="L77">    private static final Object riverNameLock = new Object();</span>
+	/** Mercenary leaders. */
+<span class="fc" id="L67">	private static List&lt;String&gt; mercenaryLeaders = null;</span>
 
-    /** Season names. */
-<span class="fc" id="L80">    private static List&lt;String&gt; seasonNames = null;</span>
-<span class="fc" id="L81">    private static final Object seasonNamesLock = new Object();</span>
-<span class="fc" id="L82">    private static int seasonNumber = 0;</span>
-    
-    /** Settlement names. */
-<span class="fc" id="L85">    private static final Map&lt;Player, String&gt; capitalNames</span>
-        = new HashMap&lt;&gt;();
-<span class="fc" id="L87">    private static final Map&lt;Player, List&lt;String&gt;&gt; settlementNames</span>
-        = new HashMap&lt;&gt;();
-<span class="fc" id="L89">    private static final Object settlementNameLock = new Object();</span>
+	/** The Constant mercenaryLock. */
+<span class="fc" id="L70">	private static final Object mercenaryLock = new Object();</span>
 
-    /** Ship names. */
-<span class="fc" id="L92">    private static final Map&lt;Player, List&lt;String&gt;&gt; shipNames = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L93">    private static final Object shipNameLock = new Object();</span>
+	/** Region names and index. */
+<span class="fc" id="L73">	private static final Map&lt;String, List&lt;String&gt;&gt; regionNames = new HashMap&lt;&gt;();</span>
 
+	/** The Constant regionNameLock. */
+<span class="fc" id="L76">	private static final Object regionNameLock = new Object();</span>
 
-    /**
-     * Collects all the names with a given prefix.
-     *
-     * Note: some collections start at 0, some at 1.
-     *
-     * @param prefix The prefix to check.
-     * @param names A list to fill with the names found.
-     */
-    private static void collectNames(String prefix, List&lt;String&gt; names) {
-        String name;
-<span class="pc bpc" id="L106" title="1 of 2 branches missed.">        if (Messages.containsKey(name = prefix + &quot;0&quot;)) {</span>
-<span class="fc" id="L107">            names.add(Messages.message(name));</span>
-        }
-<span class="fc" id="L109">        int i = 1;</span>
-<span class="fc bfc" id="L110" title="All 2 branches covered.">        while (Messages.containsKey(name = prefix + Integer.toString(i))) {</span>
-<span class="fc" id="L111">            names.add(Messages.message(name));</span>
-<span class="fc" id="L112">            i++;</span>
-        }
-<span class="fc" id="L114">    }</span>
+	/** The Constant regionIndex. */
+<span class="fc" id="L79">	private static final Map&lt;String, Integer&gt; regionIndex = new HashMap&lt;&gt;();</span>
 
-    /**
-     * Initialize the cities of Cibola collection.
-     *
-     * Public for FreeColServer to initialize with a new game.
-     *
-     * @param random A pseudo-random number source.
-     */
-    public static void requireCitiesOfCibola(Random random) {
-<span class="fc" id="L124">        synchronized (cibolaLock) {</span>
-<span class="fc bfc" id="L125" title="All 2 branches covered.">            if (cibolaKeys == null) {</span>
-<span class="fc" id="L126">                cibolaKeys = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L127">                collectNames(CIBOLA_PREFIX, cibolaKeys);</span>
-<span class="fc" id="L128">                int count = cibolaKeys.size();</span>
-                // Actually, store the keys.
-<span class="fc" id="L130">                cibolaKeys.clear();</span>
-<span class="fc bfc" id="L131" title="All 2 branches covered.">                for (int i = 0; i &lt; count; i++) {</span>
-<span class="fc" id="L132">                    cibolaKeys.add(CIBOLA_PREFIX + i);</span>
-                }
-<span class="fc" id="L134">                randomShuffle(logger, &quot;Cibola&quot;, cibolaKeys, random);</span>
-            }
-<span class="pc" id="L136">        }</span>
-<span class="fc" id="L137">    }</span>
+	/** Extra river names. */
+<span class="fc" id="L82">	private static List&lt;String&gt; riverNames = null;</span>
 
-    /**
-     * Initialize the mercenary leaders collection.
-     */
-    private static void requireMercenaryLeaders() {
-<span class="nc" id="L143">        synchronized (mercenaryLock) {</span>
-<span class="nc bnc" id="L144" title="All 2 branches missed.">            if (mercenaryLeaders == null) {</span>
-<span class="nc" id="L145">                mercenaryLeaders = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L146">                collectNames(&quot;nameCache.mercenaries.&quot;, mercenaryLeaders);</span>
-            }
-<span class="nc" id="L148">        }</span>
-<span class="nc" id="L149">    }</span>
+	/** The Constant riverNameLock. */
+<span class="fc" id="L85">	private static final Object riverNameLock = new Object();</span>
 
-    /**
-     * Make a key for a player and region type.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to install region names for.
-     * @param type The &lt;code&gt;RegionType&lt;/code&gt; to get names of.
-     * @return A key for the player and region type.
-     */
-    private static String makeRegionKey(Player player, RegionType type) {
-<span class="nc" id="L159">        return player.getNationId() + &quot;.region.&quot;</span>
-<span class="nc" id="L160">            + lastPart(type.getKey(), &quot;.&quot;) + &quot;.&quot;;</span>
-    }
+	/** Season names. */
+<span class="fc" id="L88">	private static List&lt;String&gt; seasonNames = null;</span>
 
-    /**
-     * Initialize the region names for a player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to install region names for.
-     * @param type The &lt;code&gt;RegionType&lt;/code&gt; to get names of.
-     */
-    private static void requireRegionNames(Player player, RegionType type) {
-<span class="nc" id="L170">        synchronized (regionNameLock) {</span>
-<span class="nc" id="L171">            final String prefix = makeRegionKey(player, type);</span>
-<span class="nc" id="L172">            List&lt;String&gt; names = regionNames.get(prefix);</span>
-<span class="nc bnc" id="L173" title="All 2 branches missed.">            if (names == null) {</span>
-<span class="nc" id="L174">                names = new ArrayList&lt;String&gt;();</span>
-<span class="nc" id="L175">                collectNames(prefix, names);</span>
-<span class="nc" id="L176">                regionNames.put(prefix, names);</span>
-            }
-<span class="nc" id="L178">            Integer index = regionIndex.get(prefix);</span>
-<span class="nc bnc" id="L179" title="All 2 branches missed.">            if (index == null) regionIndex.put(prefix, names.size()+1);</span>
-<span class="nc" id="L180">        }</span>
-<span class="nc" id="L181">    }</span>
+	/** The Constant seasonNamesLock. */
+<span class="fc" id="L91">	private static final Object seasonNamesLock = new Object();</span>
 
-    /**
-     * Initialize the riverNames collection.
-     */
-    private static void requireRiverNames() {
-<span class="nc" id="L187">        synchronized (riverNameLock) {</span>
-<span class="nc bnc" id="L188" title="All 2 branches missed.">            if (riverNames == null) {</span>
-<span class="nc" id="L189">                riverNames = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L190">                collectNames(&quot;model.other.region.river.&quot;, riverNames);</span>
-                // Does not need to use player or system PRNG
-<span class="nc" id="L192">                Collections.shuffle(riverNames);</span>
-            }
-<span class="nc" id="L194">        }</span>
-<span class="nc" id="L195">    }</span>
+	/** The season number. */
+<span class="fc" id="L94">	private static int seasonNumber = 0;</span>
 
-    /**
-     * Initialize the seasonNames collection.
-     *
-     * @return The number of seasons.
-     */
-    private static int requireSeasonNames() {
-<span class="nc" id="L203">        synchronized (seasonNamesLock) {</span>
-<span class="nc bnc" id="L204" title="All 2 branches missed.">            if (seasonNames == null) {</span>
-<span class="nc" id="L205">                seasonNames = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L206">                collectNames(&quot;nameCache.season.&quot;, seasonNames);</span>
-<span class="nc" id="L207">                seasonNumber = seasonNames.size();</span>
-<span class="nc bnc" id="L208" title="All 2 branches missed.">                if (seasonNumber &lt; 2) {</span>
-<span class="nc" id="L209">                    seasonNames.clear();</span>
-<span class="nc bnc" id="L210" title="All 2 branches missed.">                    for (String s : DEFAULT_SEASON_IDS) {</span>
-<span class="nc" id="L211">                        seasonNames.add(Messages.message(s));</span>
-                    }
-<span class="nc" id="L213">                    seasonNumber = seasonNames.size();</span>
-                }
-            }
-<span class="nc" id="L216">            return seasonNumber;</span>
-<span class="nc" id="L217">        }</span>
-    }
+	/** Settlement names. */
+<span class="fc" id="L97">	private static final Map&lt;Player, String&gt; capitalNames = new HashMap&lt;&gt;();</span>
 
-    /**
-     * Get the nth season name.
-     *
-     * @param index The index to look up.
-     * @return The season name, or null on failure.
-     */
-    public static String getSeasonName(int index) {
-<span class="nc" id="L227">        requireSeasonNames();</span>
-<span class="nc bnc" id="L228" title="All 4 branches missed.">        if (index &gt;= 0 &amp;&amp; index &lt; seasonNumber) return seasonNames.get(index);</span>
-<span class="nc" id="L229">        return Messages.message(StringTemplate</span>
-<span class="nc" id="L230">            .template(&quot;nameCache.season.default&quot;)</span>
-<span class="nc" id="L231">            .addAmount(&quot;%number%&quot;, index+1));</span>
-    }
-    
-    /**
-     * Initialize the settlement names for a player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to install names for.
-     * @param random A pseudo-random number source.
-     */
-    private static void requireSettlementNames(Player player, Random random) {
-<span class="fc" id="L241">        synchronized (settlementNameLock) {</span>
-<span class="fc bfc" id="L242" title="All 2 branches covered.">            if (settlementNames.get(player) == null) {</span>
-<span class="fc" id="L243">                List&lt;String&gt; names = new ArrayList&lt;&gt;();</span>
-                // @compat 0.10.x
-                // Try the base names
-<span class="fc" id="L246">                collectNames(player.getNationId() + &quot;.settlementName.&quot;, names);</span>
-                // end @compat 0.10.x
+	/** The Constant settlementNames. */
+<span class="fc" id="L100">	private static final Map&lt;Player, List&lt;String&gt;&gt; settlementNames = new HashMap&lt;&gt;();</span>
 
-                // Try the spec-qualified version.
-<span class="pc bpc" id="L250" title="1 of 2 branches missed.">                if (names.isEmpty()) {</span>
-<span class="nc" id="L251">                    collectNames(player.getNationId() + &quot;.settlementName.&quot;</span>
-<span class="nc" id="L252">                        + player.getSpecification().getId() + &quot;.&quot;, names);</span>
-                }
+	/** The Constant settlementNameLock. */
+<span class="fc" id="L103">	private static final Object settlementNameLock = new Object();</span>
 
-                // If still empty use the &quot;freecol&quot; names.
-<span class="pc bpc" id="L256" title="1 of 2 branches missed.">                if (names.isEmpty()) {</span>
-<span class="nc" id="L257">                    collectNames(player.getNationId() + &quot;.settlementName.freecol.&quot;,</span>
-                                 names);
-                }
+	/** Ship names. */
+<span class="fc" id="L106">	private static final Map&lt;Player, List&lt;String&gt;&gt; shipNames = new HashMap&lt;&gt;();</span>
 
-                // Indians have capitals and need randomization
-<span class="pc bpc" id="L262" title="1 of 2 branches missed.">                if (player.isIndian()) {</span>
-<span class="fc" id="L263">                    capitalNames.put(player, names.remove(0));</span>
-<span class="pc bpc" id="L264" title="1 of 2 branches missed.">                    if (random != null) {</span>
-<span class="fc" id="L265">                        randomShuffle(logger, &quot;Settlement names&quot;, names, random);</span>
-                    }
-                }
-<span class="fc" id="L268">                settlementNames.put(player, names);</span>
-<span class="fc" id="L269">                logger.fine(&quot;Loaded &quot; + names.size() + &quot; settlement names for &quot;</span>
-<span class="fc" id="L270">                    + player.getId());</span>
-            }
-<span class="pc" id="L272">        }</span>
-<span class="fc" id="L273">    }</span>
+	/** The Constant shipNameLock. */
+<span class="fc" id="L109">	private static final Object shipNameLock = new Object();</span>
 
-    /**
-     * Initialize the shipNames for a player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to install names for.
-     * @param random A pseudo-random number source.
-     */
-    private static void requireShipNames(Player player, Random random) {
-<span class="fc" id="L282">        synchronized (shipNameLock) {</span>
-<span class="fc" id="L283">            List&lt;String&gt; names = shipNames.get(player);</span>
-<span class="pc bpc" id="L284" title="1 of 2 branches missed.">            if (names == null) {</span>
-<span class="fc" id="L285">                final String prefix = player.getNationId() + &quot;.ship.&quot;;</span>
-<span class="fc" id="L286">                names = new ArrayList&lt;String&gt;();</span>
-<span class="fc" id="L287">                collectNames(prefix, names);</span>
-<span class="pc bpc" id="L288" title="1 of 2 branches missed.">                if (random != null) {</span>
-<span class="fc" id="L289">                    randomShuffle(logger, &quot;Ship names&quot;, names, random);</span>
-                }
-<span class="fc" id="L291">                shipNames.put(player, names);</span>
-            }
-<span class="pc" id="L293">        }</span>
-<span class="fc" id="L294">    }</span>
-    
+	/**
+	 * Collects all the names with a given prefix.
+	 *
+	 * Note: some collections start at 0, some at 1.
+	 *
+	 * @param prefix
+	 *            The prefix to check.
+	 * @param names
+	 *            A list to fill with the names found.
+	 */
+	private static void collectNames(String prefix, List&lt;String&gt; names) {
+		String name;
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">		if (Messages.containsKey(name = prefix + &quot;0&quot;)) {</span>
+<span class="fc" id="L124">			names.add(Messages.message(name));</span>
+		}
+<span class="fc" id="L126">		int i = 1;</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">		while (Messages.containsKey(name = prefix + Integer.toString(i))) {</span>
+<span class="fc" id="L128">			names.add(Messages.message(name));</span>
+<span class="fc" id="L129">			i++;</span>
+		}
+<span class="fc" id="L131">	}</span>
 
-    /**
-     * Get the next name for a city of Cibola, removing it from the
-     * list of available names.
-     *
-     * @return A name for a city of Cibola, or null if exhausted.
-     */
-    public static String getNextCityOfCibola() {
-<span class="nc" id="L304">        synchronized (cibolaLock) {</span>
-<span class="nc bnc" id="L305" title="All 4 branches missed.">            return (cibolaKeys == null || cibolaKeys.isEmpty()) ? null</span>
-<span class="nc" id="L306">                : Messages.message(cibolaKeys.remove(0));</span>
-<span class="nc" id="L307">        }</span>
-    }
+	/**
+	 * Initialize the cities of Cibola collection.
+	 *
+	 * Public for FreeColServer to initialize with a new game.
+	 *
+	 * @param random
+	 *            A pseudo-random number source.
+	 */
+	public static void requireCitiesOfCibola(Random random) {
+<span class="fc" id="L142">		synchronized (cibolaLock) {</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">			if (cibolaKeys == null) {</span>
+<span class="fc" id="L144">				cibolaKeys = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L145">				collectNames(CIBOLA_PREFIX, cibolaKeys);</span>
+<span class="fc" id="L146">				int count = cibolaKeys.size();</span>
+				// Actually, store the keys.
+<span class="fc" id="L148">				cibolaKeys.clear();</span>
+<span class="fc bfc" id="L149" title="All 2 branches covered.">				for (int i = 0; i &lt; count; i++) {</span>
+<span class="fc" id="L150">					cibolaKeys.add(CIBOLA_PREFIX + i);</span>
+				}
+<span class="fc" id="L152">				randomShuffle(logger, &quot;Cibola&quot;, cibolaKeys, random);</span>
+			}
+<span class="pc" id="L154">		}</span>
+<span class="fc" id="L155">	}</span>
 
-    /**
-     * Get the current list of available cities of Cibola keys.
-     *
-     * @return A list of city names.
-     */
-    public static List&lt;String&gt; getCitiesOfCibola() {
-<span class="fc" id="L316">        synchronized (cibolaLock) {</span>
-<span class="pc bpc" id="L317" title="1 of 2 branches missed.">            return (cibolaKeys == null) ? Collections.&lt;String&gt;emptyList()</span>
-                : cibolaKeys;
-<span class="nc" id="L319">        }</span>
-    }
+	/**
+	 * Initialize the mercenary leaders collection.
+	 */
+	private static void requireMercenaryLeaders() {
+<span class="nc" id="L161">		synchronized (mercenaryLock) {</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">			if (mercenaryLeaders == null) {</span>
+<span class="nc" id="L163">				mercenaryLeaders = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L164">				collectNames(&quot;nameCache.mercenaries.&quot;, mercenaryLeaders);</span>
+			}
+<span class="nc" id="L166">		}</span>
+<span class="nc" id="L167">	}</span>
 
-    /**
-     * Clear the city of Cibola cache.
-     */
-    public static void clearCitiesOfCibola() {
-<span class="fc" id="L326">        synchronized (cibolaLock) {</span>
-<span class="pc bpc" id="L327" title="1 of 2 branches missed.">            if (cibolaKeys != null) cibolaKeys.clear();</span>
-<span class="pc" id="L328">        }</span>
-<span class="fc" id="L329">    }</span>
+	/**
+	 * Make a key for a player and region type.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to install region names for.
+	 * @param type
+	 *            The &lt;code&gt;RegionType&lt;/code&gt; to get names of.
+	 * @return A key for the player and region type.
+	 */
+	private static String makeRegionKey(Player player, RegionType type) {
+<span class="nc" id="L179">		return player.getNationId() + &quot;.region.&quot; + lastPart(type.getKey(), &quot;.&quot;) + &quot;.&quot;;</span>
+	}
 
-    /**
-     * Add a key for a city of Cibola.
-     *
-     * @param key The key to add.
-     */
-    public static void addCityOfCibola(String key) {
-<span class="fc" id="L337">        synchronized (cibolaLock) {</span>
-<span class="pc bpc" id="L338" title="1 of 2 branches missed.">            if (cibolaKeys == null) cibolaKeys = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L339">            cibolaKeys.add(key);</span>
-<span class="pc" id="L340">        }</span>
-<span class="fc" id="L341">    }</span>
+	/**
+	 * Initialize the region names for a player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to install region names for.
+	 * @param type
+	 *            The &lt;code&gt;RegionType&lt;/code&gt; to get names of.
+	 */
+	private static void requireRegionNames(Player player, RegionType type) {
+<span class="nc" id="L191">		synchronized (regionNameLock) {</span>
+<span class="nc" id="L192">			final String prefix = makeRegionKey(player, type);</span>
+<span class="nc" id="L193">			List&lt;String&gt; names = regionNames.get(prefix);</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">			if (names == null) {</span>
+<span class="nc" id="L195">				names = new ArrayList&lt;String&gt;();</span>
+<span class="nc" id="L196">				collectNames(prefix, names);</span>
+<span class="nc" id="L197">				regionNames.put(prefix, names);</span>
+			}
+<span class="nc" id="L199">			Integer index = regionIndex.get(prefix);</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">			if (index == null)</span>
+<span class="nc" id="L201">				regionIndex.put(prefix, names.size() + 1);</span>
+<span class="nc" id="L202">		}</span>
+<span class="nc" id="L203">	}</span>
 
-    /**
-     * Get a random mercenary leader index.
-     *
-     * @param random A pseudo-random number source.
-     * @return The index of a random mercenary leader.
-     */
-    public static int getMercenaryLeaderIndex(Random random) {
-<span class="nc" id="L350">        requireMercenaryLeaders();</span>
-        int n;
-<span class="nc" id="L352">        synchronized (mercenaryLock) {</span>
-<span class="nc" id="L353">            n = mercenaryLeaders.size();</span>
-<span class="nc" id="L354">        }</span>
-<span class="nc" id="L355">        return randomInt(logger, &quot;Mercenary leader&quot;, random, n);</span>
-    }
+	/**
+	 * Initialize the riverNames collection.
+	 */
+	private static void requireRiverNames() {
+<span class="nc" id="L209">		synchronized (riverNameLock) {</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">			if (riverNames == null) {</span>
+<span class="nc" id="L211">				riverNames = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L212">				collectNames(&quot;model.other.region.river.&quot;, riverNames);</span>
+				// Does not need to use player or system PRNG
+<span class="nc" id="L214">				Collections.shuffle(riverNames);</span>
+			}
+<span class="nc" id="L216">		}</span>
+<span class="nc" id="L217">	}</span>
 
-    /**
-     * Get a mercenary leader name by index.
-     *
-     * @param index The index to look up.
-     * @return The mercenary leader name.
-     */
-    public static String getMercenaryLeaderName(int index) {
-<span class="nc" id="L365">        requireMercenaryLeaders();</span>
-<span class="nc" id="L366">        synchronized (mercenaryLock) {</span>
-<span class="nc" id="L367">            return mercenaryLeaders.get(index);</span>
-<span class="nc" id="L368">        }</span>
-    }
+	/**
+	 * Initialize the seasonNames collection.
+	 *
+	 * @return The number of seasons.
+	 */
+	private static int requireSeasonNames() {
+<span class="nc" id="L225">		synchronized (seasonNamesLock) {</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">			if (seasonNames == null) {</span>
+<span class="nc" id="L227">				seasonNames = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L228">				collectNames(&quot;nameCache.season.&quot;, seasonNames);</span>
+<span class="nc" id="L229">				seasonNumber = seasonNames.size();</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">				if (seasonNumber &lt; 2) {</span>
+<span class="nc" id="L231">					seasonNames.clear();</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">					for (String s : DEFAULT_SEASON_IDS) {</span>
+<span class="nc" id="L233">						seasonNames.add(Messages.message(s));</span>
+					}
+<span class="nc" id="L235">					seasonNumber = seasonNames.size();</span>
+				}
+			}
+<span class="nc" id="L238">			return seasonNumber;</span>
+<span class="nc" id="L239">		}</span>
+	}
 
-    /**
-     * Get the new land name for a player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to query.
-     * @return The new land name of a player.
-     */
-    public static String getNewLandName(Player player) {
-<span class="pc bpc" id="L378" title="1 of 2 branches missed.">        return (player.getNewLandName() == null)</span>
-<span class="pc" id="L379">            ? Messages.message(player.getNationId() + &quot;.newLandName&quot;)</span>
-<span class="nc" id="L380">            : player.getNewLandName();</span>
-    }
+	/**
+	 * Get the nth season name.
+	 *
+	 * @param index
+	 *            The index to look up.
+	 * @return The season name, or null on failure.
+	 */
+	public static String getSeasonName(int index) {
+<span class="nc" id="L250">		requireSeasonNames();</span>
+<span class="nc bnc" id="L251" title="All 4 branches missed.">		if (index &gt;= 0 &amp;&amp; index &lt; seasonNumber)</span>
+<span class="nc" id="L252">			return seasonNames.get(index);</span>
+<span class="nc" id="L253">		return Messages.message(StringTemplate.template(&quot;nameCache.season.default&quot;).addAmount(&quot;%number%&quot;, index + 1));</span>
+	}
 
-    /**
-     * Creates a unique region name for a player by fetching a new
-     * name from the list of default names if possible.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to find a region name for.
-     * @param region The &lt;code&gt;Region&lt;/code&gt; to name.
-     * @return A suitable name.
-     */
-    public static String getRegionName(Player player, Region region) {
-<span class="nc bnc" id="L392" title="All 2 branches missed.">        if (region.hasName()) {</span>
-<span class="nc" id="L393">            return Messages.message(region.getLabel());</span>
-        }
-<span class="nc" id="L395">        final net.sf.freecol.common.model.Map map = player.getGame().getMap();</span>
-        String name;
-        int index;
+	/**
+	 * Initialize the settlement names for a player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to install names for.
+	 * @param random
+	 *            A pseudo-random number source.
+	 */
+	private static void requireSettlementNames(Player player, Random random) {
+<span class="fc" id="L265">		synchronized (settlementNameLock) {</span>
+<span class="fc bfc" id="L266" title="All 2 branches covered.">			if (settlementNames.get(player) == null) {</span>
+<span class="fc" id="L267">				List&lt;String&gt; names = new ArrayList&lt;&gt;();</span>
+				// @compat 0.10.x
+				// Try the base names
+<span class="fc" id="L270">				collectNames(player.getNationId() + &quot;.settlementName.&quot;, names);</span>
+				// end @compat 0.10.x
 
-        // Try national names first.
-<span class="nc" id="L400">        final String prefix = makeRegionKey(player, region.getType());</span>
-<span class="nc" id="L401">        requireRegionNames(player, region.getType());</span>
-<span class="nc" id="L402">        synchronized (regionNameLock) {</span>
-<span class="nc" id="L403">            List&lt;String&gt; names = regionNames.get(prefix);</span>
-<span class="nc bnc" id="L404" title="All 2 branches missed.">            while (!names.isEmpty()) {</span>
-<span class="nc" id="L405">                name = names.remove(0);</span>
-<span class="nc bnc" id="L406" title="All 2 branches missed.">                if (map.getRegionByName(name) == null) return name;</span>
-            }
-<span class="nc" id="L408">        }</span>
-            
-        // There are a bunch of extra rivers not attached to a specific
-        // nation at model.other.region.river.*.
-<span class="nc bnc" id="L412" title="All 2 branches missed.">        if (region.getType() == Region.RegionType.RIVER) {</span>
-<span class="nc" id="L413">            requireRiverNames();</span>
-<span class="nc" id="L414">            synchronized (riverNameLock) {</span>
-<span class="nc bnc" id="L415" title="All 2 branches missed.">                while (!riverNames.isEmpty()) {</span>
-<span class="nc" id="L416">                    name = riverNames.remove(0);</span>
-<span class="nc bnc" id="L417" title="All 2 branches missed.">                    if (map.getRegionByName(name) == null) return name;</span>
-                }
-<span class="nc" id="L419">            }</span>
-        }
+				// Try the spec-qualified version.
+<span class="pc bpc" id="L274" title="1 of 2 branches missed.">				if (names.isEmpty()) {</span>
+<span class="nc" id="L275">					collectNames(player.getNationId() + &quot;.settlementName.&quot; + player.getSpecification().getId() + &quot;.&quot;,</span>
+							names);
+				}
 
-        // Fall back to generic names.
-<span class="nc" id="L423">        synchronized (regionNameLock) {</span>
-<span class="nc" id="L424">            index = regionIndex.get(prefix);</span>
-<span class="nc" id="L425">        }</span>
-<span class="nc" id="L426">        StringTemplate nn = player.getNationLabel();</span>
-        do {
-<span class="nc" id="L428">            name = Messages.message(StringTemplate.label(&quot; &quot;)</span>
-<span class="nc" id="L429">                .addStringTemplate(nn)</span>
-<span class="nc" id="L430">                .addNamed(region.getType())</span>
-<span class="nc" id="L431">                .addName(String.valueOf(index)));</span>
-<span class="nc" id="L432">            index++;</span>
-<span class="nc bnc" id="L433" title="All 2 branches missed.">        } while (map.getRegionByName(name) != null);</span>
-<span class="nc" id="L434">        synchronized (regionNameLock) {</span>
-<span class="nc" id="L435">            regionIndex.put(prefix, index);</span>
-<span class="nc" id="L436">        }</span>
-<span class="nc" id="L437">        return name;</span>
-    }
+				// If still empty use the &quot;freecol&quot; names.
+<span class="pc bpc" id="L280" title="1 of 2 branches missed.">				if (names.isEmpty()) {</span>
+<span class="nc" id="L281">					collectNames(player.getNationId() + &quot;.settlementName.freecol.&quot;, names);</span>
+				}
 
-    /**
-     * Get a fallback settlement name for a player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to get a fallback
-     *     settlement name for.
-     * @return A unique fallback settlement name for the player.
-     */
-    private static String getFallbackSettlementName(Player player) {
-<span class="nc bnc" id="L448" title="All 2 branches missed.">        return Messages.message((player.isEuropean())</span>
-            ? &quot;nameCache.base.colony&quot;
-            : &quot;nameCache.base.settlement&quot;) + &quot;-&quot;;
-    }
+				// Indians have capitals and need randomization
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">				if (player.isIndian()) {</span>
+<span class="fc" id="L286">					capitalNames.put(player, names.remove(0));</span>
+<span class="pc bpc" id="L287" title="1 of 2 branches missed.">					if (random != null) {</span>
+<span class="fc" id="L288">						randomShuffle(logger, &quot;Settlement names&quot;, names, random);</span>
+					}
+				}
+<span class="fc" id="L291">				settlementNames.put(player, names);</span>
+<span class="fc" id="L292">				logger.fine(&quot;Loaded &quot; + names.size() + &quot; settlement names for &quot; + player.getId());</span>
+			}
+<span class="pc" id="L294">		}</span>
+<span class="fc" id="L295">	}</span>
 
-    /**
-     * Get the name of this players capital.  Only meaningful to natives.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to get a capital name for.
-     * @param random An optional pseudo-random number source.
-     * @return The name of this players capital.
-     */
-    public static String getCapitalName(Player player, Random random) {
-<span class="fc" id="L461">        requireSettlementNames(player, random);</span>
-<span class="fc" id="L462">        synchronized (settlementNameLock) {</span>
-<span class="fc" id="L463">            return capitalNames.get(player);</span>
-<span class="nc" id="L464">        }</span>
-    }
+	/**
+	 * Initialize the shipNames for a player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to install names for.
+	 * @param random
+	 *            A pseudo-random number source.
+	 */
+	private static void requireShipNames(Player player, Random random) {
+<span class="fc" id="L306">		synchronized (shipNameLock) {</span>
+<span class="fc" id="L307">			List&lt;String&gt; names = shipNames.get(player);</span>
+<span class="pc bpc" id="L308" title="1 of 2 branches missed.">			if (names == null) {</span>
+<span class="fc" id="L309">				final String prefix = player.getNationId() + &quot;.ship.&quot;;</span>
+<span class="fc" id="L310">				names = new ArrayList&lt;String&gt;();</span>
+<span class="fc" id="L311">				collectNames(prefix, names);</span>
+<span class="pc bpc" id="L312" title="1 of 2 branches missed.">				if (random != null) {</span>
+<span class="fc" id="L313">					randomShuffle(logger, &quot;Ship names&quot;, names, random);</span>
+				}
+<span class="fc" id="L315">				shipNames.put(player, names);</span>
+			}
+<span class="pc" id="L317">		}</span>
+<span class="fc" id="L318">	}</span>
 
-    /**
-     * Get a settlement name suitable for a player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to get a settlement name for.
-     * @param random An optional pseudo-random number source.
-     * @return A new settlement name.
-     */
-    public static String getSettlementName(Player player, Random random) {
-<span class="fc" id="L475">        requireSettlementNames(player, random);</span>
-<span class="fc" id="L476">        final Game game = player.getGame();</span>
-<span class="fc" id="L477">        synchronized (settlementNameLock) {</span>
-<span class="fc" id="L478">            List&lt;String&gt; names = settlementNames.get(player);</span>
-<span class="pc bpc" id="L479" title="1 of 2 branches missed.">            while (!names.isEmpty()) {</span>
-<span class="fc" id="L480">                String name = names.remove(0);</span>
-<span class="fc bfc" id="L481" title="All 2 branches covered.">                if (game.getSettlementByName(name) == null) return name;</span>
-<span class="fc" id="L482">            }</span>
-<span class="nc" id="L483">        }</span>
+	/**
+	 * Get the next name for a city of Cibola, removing it from the list of
+	 * available names.
+	 *
+	 * @return A name for a city of Cibola, or null if exhausted.
+	 */
+	public static String getNextCityOfCibola() {
+<span class="nc" id="L327">		synchronized (cibolaLock) {</span>
+<span class="nc bnc" id="L328" title="All 4 branches missed.">			return (cibolaKeys == null || cibolaKeys.isEmpty()) ? null : Messages.message(cibolaKeys.remove(0));</span>
+<span class="nc" id="L329">		}</span>
+	}
 
-        // Use the fallback name
-<span class="nc" id="L486">        final String base = getFallbackSettlementName(player);</span>
-<span class="nc" id="L487">        int i = player.getSettlements().size() + 1;</span>
-<span class="nc" id="L488">        String name = null;</span>
-<span class="nc bnc" id="L489" title="All 2 branches missed.">        while (game.getSettlementByName(name = base + i++) != null);</span>
-<span class="nc" id="L490">        return name;</span>
-    }           
+	/**
+	 * Get the current list of available cities of Cibola keys.
+	 *
+	 * @return A list of city names.
+	 */
+	public static List&lt;String&gt; getCitiesOfCibola() {
+<span class="fc" id="L338">		synchronized (cibolaLock) {</span>
+<span class="pc bpc" id="L339" title="1 of 2 branches missed.">			return (cibolaKeys == null) ? Collections.&lt;String&gt;emptyList() : cibolaKeys;</span>
+<span class="nc" id="L340">		}</span>
+	}
 
-    /**
-     * Puts a suggested settlement name back into the pool.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; returning the settlement name.
-     * @param name A formerly suggested settlement name.
-     */
-    public static void putSettlementName(Player player, String name) {
-<span class="nc bnc" id="L500" title="All 2 branches missed.">        if (!name.startsWith(getFallbackSettlementName(player))) {</span>
-<span class="nc" id="L501">            requireSettlementNames(player, null);</span>
-<span class="nc" id="L502">            synchronized (settlementNameLock) {</span>
-<span class="nc" id="L503">                List&lt;String&gt; names = settlementNames.get(player);</span>
-<span class="nc" id="L504">                names.add(name);</span>
-<span class="nc" id="L505">            }</span>
-        }
-<span class="nc" id="L507">    }</span>
+	/**
+	 * Clear the city of Cibola cache.
+	 */
+	public static void clearCitiesOfCibola() {
+<span class="fc" id="L347">		synchronized (cibolaLock) {</span>
+<span class="pc bpc" id="L348" title="1 of 2 branches missed.">			if (cibolaKeys != null)</span>
+<span class="fc" id="L349">				cibolaKeys.clear();</span>
+<span class="pc" id="L350">		}</span>
+<span class="fc" id="L351">	}</span>
 
-    /**
-     * Get a new default trade route name for a player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to get the name for.
-     * @return A new trade route name.
-     */
-    public static String getTradeRouteName(Player player) {
-<span class="nc" id="L516">        String base = Messages.message(&quot;nameCache.base.tradeRoute&quot;);</span>
-<span class="nc bnc" id="L517" title="All 2 branches missed.">        if (player.getTradeRouteByName(base) == null) return base;</span>
-        String name;
-<span class="nc" id="L519">        int i = 1;</span>
-<span class="nc bnc" id="L520" title="All 2 branches missed.">        while (player.getTradeRouteByName(name = base + i++) != null);</span>
-<span class="nc" id="L521">        return name;</span>
-    }
+	/**
+	 * Add a key for a city of Cibola.
+	 *
+	 * @param key
+	 *            The key to add.
+	 */
+	public static void addCityOfCibola(String key) {
+<span class="fc" id="L360">		synchronized (cibolaLock) {</span>
+<span class="pc bpc" id="L361" title="1 of 2 branches missed.">			if (cibolaKeys == null)</span>
+<span class="nc" id="L362">				cibolaKeys = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L363">			cibolaKeys.add(key);</span>
+<span class="pc" id="L364">		}</span>
+<span class="fc" id="L365">	}</span>
 
-    /**
-     * Gets a new name for a unit.
-     *
-     * Currently only names naval units, not specific to type.
-     * FIXME: specific names for types.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; who will own the unit.
-     * @param type The &lt;code&gt;UnitType&lt;/code&gt; to choose a name for.
-     * @param random A pseudo-random number source.
-     * @return A name for the unit, or null if not available.
-     */
-    public static String getUnitName(Player player, UnitType type,
-                                     Random random) {
-<span class="fc bfc" id="L537" title="All 2 branches covered.">        if (!type.isNaval()) return null;</span>
-        String name;
+	/**
+	 * Get a random mercenary leader index.
+	 *
+	 * @param random
+	 *            A pseudo-random number source.
+	 * @return The index of a random mercenary leader.
+	 */
+	public static int getMercenaryLeaderIndex(Random random) {
+<span class="nc" id="L375">		requireMercenaryLeaders();</span>
+		int n;
+<span class="nc" id="L377">		synchronized (mercenaryLock) {</span>
+<span class="nc" id="L378">			n = mercenaryLeaders.size();</span>
+<span class="nc" id="L379">		}</span>
+<span class="nc" id="L380">		return randomInt(logger, &quot;Mercenary leader&quot;, random, n);</span>
+	}
 
-        // Find a new name in the installed ship names if possible.
-<span class="fc" id="L541">        requireShipNames(player, random);</span>
-<span class="fc" id="L542">        synchronized (shipNameLock) {</span>
-<span class="fc" id="L543">            List&lt;String&gt; names = shipNames.get(player);</span>
-<span class="pc bpc" id="L544" title="1 of 2 branches missed.">            while (!names.isEmpty()) {</span>
-<span class="fc" id="L545">                name = names.remove(0);</span>
-<span class="pc bpc" id="L546" title="1 of 2 branches missed.">                if (player.getUnitByName(name) == null) return name;</span>
-            }
-<span class="nc" id="L548">        }</span>
+	/**
+	 * Get a mercenary leader name by index.
+	 *
+	 * @param index
+	 *            The index to look up.
+	 * @return The mercenary leader name.
+	 */
+	public static String getMercenaryLeaderName(int index) {
+<span class="nc" id="L391">		requireMercenaryLeaders();</span>
+<span class="nc" id="L392">		synchronized (mercenaryLock) {</span>
+<span class="nc" id="L393">			return mercenaryLeaders.get(index);</span>
+<span class="nc" id="L394">		}</span>
+	}
 
-        // Get a fallback ship name
-<span class="nc" id="L551">        final String base = Messages.message(&quot;nameCache.base.ship&quot;) + &quot;-&quot;;</span>
-<span class="nc" id="L552">        int i = 1;</span>
-<span class="nc bnc" id="L553" title="All 2 branches missed.">        while (player.getUnitByName(name = base + i++) != null);</span>
-<span class="nc" id="L554">        return name;</span>
-    }
+	/**
+	 * Get the new land name for a player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to query.
+	 * @return The new land name of a player.
+	 */
+	public static String getNewLandName(Player player) {
+<span class="pc bpc" id="L405" title="1 of 2 branches missed.">		return (player.getNewLandName() == null) ? Messages.message(player.getNationId() + &quot;.newLandName&quot;)</span>
+<span class="nc" id="L406">				: player.getNewLandName();</span>
+	}
+
+	/**
+	 * Creates a unique region name for a player by fetching a new name from the
+	 * list of default names if possible.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to find a region name for.
+	 * @param region
+	 *            The &lt;code&gt;Region&lt;/code&gt; to name.
+	 * @return A suitable name.
+	 */
+	public static String getRegionName(Player player, Region region) {
+<span class="nc bnc" id="L420" title="All 2 branches missed.">		if (region.hasName()) {</span>
+<span class="nc" id="L421">			return Messages.message(region.getLabel());</span>
+		}
+<span class="nc" id="L423">		final net.sf.freecol.common.model.Map map = player.getGame().getMap();</span>
+		String name;
+		int index;
+
+		// Try national names first.
+<span class="nc" id="L428">		final String prefix = makeRegionKey(player, region.getType());</span>
+<span class="nc" id="L429">		requireRegionNames(player, region.getType());</span>
+<span class="nc" id="L430">		synchronized (regionNameLock) {</span>
+<span class="nc" id="L431">			List&lt;String&gt; names = regionNames.get(prefix);</span>
+<span class="nc bnc" id="L432" title="All 2 branches missed.">			while (!names.isEmpty()) {</span>
+<span class="nc" id="L433">				name = names.remove(0);</span>
+<span class="nc bnc" id="L434" title="All 2 branches missed.">				if (map.getRegionByName(name) == null)</span>
+<span class="nc" id="L435">					return name;</span>
+			}
+<span class="nc" id="L437">		}</span>
+
+		// There are a bunch of extra rivers not attached to a specific
+		// nation at model.other.region.river.*.
+<span class="nc bnc" id="L441" title="All 2 branches missed.">		if (region.getType() == Region.RegionType.RIVER) {</span>
+<span class="nc" id="L442">			requireRiverNames();</span>
+<span class="nc" id="L443">			synchronized (riverNameLock) {</span>
+<span class="nc bnc" id="L444" title="All 2 branches missed.">				while (!riverNames.isEmpty()) {</span>
+<span class="nc" id="L445">					name = riverNames.remove(0);</span>
+<span class="nc bnc" id="L446" title="All 2 branches missed.">					if (map.getRegionByName(name) == null)</span>
+<span class="nc" id="L447">						return name;</span>
+				}
+<span class="nc" id="L449">			}</span>
+		}
+
+		// Fall back to generic names.
+<span class="nc" id="L453">		synchronized (regionNameLock) {</span>
+<span class="nc" id="L454">			index = regionIndex.get(prefix);</span>
+<span class="nc" id="L455">		}</span>
+<span class="nc" id="L456">		StringTemplate nn = player.getNationLabel();</span>
+		do {
+<span class="nc" id="L458">			name = Messages.message(StringTemplate.label(&quot; &quot;).addStringTemplate(nn).addNamed(region.getType())</span>
+<span class="nc" id="L459">					.addName(String.valueOf(index)));</span>
+<span class="nc" id="L460">			index++;</span>
+<span class="nc bnc" id="L461" title="All 2 branches missed.">		} while (map.getRegionByName(name) != null);</span>
+<span class="nc" id="L462">		synchronized (regionNameLock) {</span>
+<span class="nc" id="L463">			regionIndex.put(prefix, index);</span>
+<span class="nc" id="L464">		}</span>
+<span class="nc" id="L465">		return name;</span>
+	}
+
+	/**
+	 * Get a fallback settlement name for a player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to get a fallback settlement name for.
+	 * @return A unique fallback settlement name for the player.
+	 */
+	private static String getFallbackSettlementName(Player player) {
+<span class="nc bnc" id="L476" title="All 2 branches missed.">		return Messages.message((player.isEuropean()) ? &quot;nameCache.base.colony&quot; : &quot;nameCache.base.settlement&quot;) + &quot;-&quot;;</span>
+	}
+
+	/**
+	 * Get the name of this players capital. Only meaningful to natives.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to get a capital name for.
+	 * @param random
+	 *            An optional pseudo-random number source.
+	 * @return The name of this players capital.
+	 */
+	public static String getCapitalName(Player player, Random random) {
+<span class="fc" id="L489">		requireSettlementNames(player, random);</span>
+<span class="fc" id="L490">		synchronized (settlementNameLock) {</span>
+<span class="fc" id="L491">			return capitalNames.get(player);</span>
+<span class="nc" id="L492">		}</span>
+	}
+
+	/**
+	 * Get a settlement name suitable for a player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to get a settlement name for.
+	 * @param random
+	 *            An optional pseudo-random number source.
+	 * @return A new settlement name.
+	 */
+	public static String getSettlementName(Player player, Random random) {
+<span class="fc" id="L505">		requireSettlementNames(player, random);</span>
+<span class="fc" id="L506">		final Game game = player.getGame();</span>
+<span class="fc" id="L507">		synchronized (settlementNameLock) {</span>
+<span class="fc" id="L508">			List&lt;String&gt; names = settlementNames.get(player);</span>
+<span class="pc bpc" id="L509" title="1 of 2 branches missed.">			while (!names.isEmpty()) {</span>
+<span class="fc" id="L510">				String name = names.remove(0);</span>
+<span class="pc bpc" id="L511" title="1 of 2 branches missed.">				if (game.getSettlementByName(name) == null)</span>
+<span class="fc" id="L512">					return name;</span>
+<span class="nc" id="L513">			}</span>
+<span class="nc" id="L514">		}</span>
+
+		// Use the fallback name
+<span class="nc" id="L517">		final String base = getFallbackSettlementName(player);</span>
+<span class="nc" id="L518">		int i = player.getSettlements().size() + 1;</span>
+<span class="nc" id="L519">		String name = null;</span>
+<span class="nc bnc" id="L520" title="All 2 branches missed.">		while (game.getSettlementByName(name = base + i++) != null)</span>
+<span class="nc" id="L521">			;</span>
+<span class="nc" id="L522">		return name;</span>
+	}
+
+	/**
+	 * Puts a suggested settlement name back into the pool.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; returning the settlement name.
+	 * @param name
+	 *            A formerly suggested settlement name.
+	 */
+	public static void putSettlementName(Player player, String name) {
+<span class="nc bnc" id="L534" title="All 2 branches missed.">		if (!name.startsWith(getFallbackSettlementName(player))) {</span>
+<span class="nc" id="L535">			requireSettlementNames(player, null);</span>
+<span class="nc" id="L536">			synchronized (settlementNameLock) {</span>
+<span class="nc" id="L537">				List&lt;String&gt; names = settlementNames.get(player);</span>
+<span class="nc" id="L538">				names.add(name);</span>
+<span class="nc" id="L539">			}</span>
+		}
+<span class="nc" id="L541">	}</span>
+
+	/**
+	 * Get a new default trade route name for a player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to get the name for.
+	 * @return A new trade route name.
+	 */
+	public static String getTradeRouteName(Player player) {
+<span class="nc" id="L551">		String base = Messages.message(&quot;nameCache.base.tradeRoute&quot;);</span>
+<span class="nc bnc" id="L552" title="All 2 branches missed.">		if (player.getTradeRouteByName(base) == null)</span>
+<span class="nc" id="L553">			return base;</span>
+		String name;
+<span class="nc" id="L555">		int i = 1;</span>
+<span class="nc bnc" id="L556" title="All 2 branches missed.">		while (player.getTradeRouteByName(name = base + i++) != null)</span>
+<span class="nc" id="L557">			;</span>
+<span class="nc" id="L558">		return name;</span>
+	}
+
+	/**
+	 * Gets a new name for a unit.
+	 *
+	 * Currently only names naval units, not specific to type. FIXME: specific
+	 * names for types.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; who will own the unit.
+	 * @param type
+	 *            The &lt;code&gt;UnitType&lt;/code&gt; to choose a name for.
+	 * @param random
+	 *            A pseudo-random number source.
+	 * @return A name for the unit, or null if not available.
+	 */
+	public static String getUnitName(Player player, UnitType type, Random random) {
+<span class="fc bfc" id="L576" title="All 2 branches covered.">		if (!type.isNaval())</span>
+<span class="fc" id="L577">			return null;</span>
+		String name;
+
+		// Find a new name in the installed ship names if possible.
+<span class="fc" id="L581">		requireShipNames(player, random);</span>
+<span class="fc" id="L582">		synchronized (shipNameLock) {</span>
+<span class="fc" id="L583">			List&lt;String&gt; names = shipNames.get(player);</span>
+<span class="pc bpc" id="L584" title="1 of 2 branches missed.">			while (!names.isEmpty()) {</span>
+<span class="fc" id="L585">				name = names.remove(0);</span>
+<span class="pc bpc" id="L586" title="1 of 2 branches missed.">				if (player.getUnitByName(name) == null)</span>
+<span class="fc" id="L587">					return name;</span>
+			}
+<span class="nc" id="L589">		}</span>
+
+		// Get a fallback ship name
+<span class="nc" id="L592">		final String base = Messages.message(&quot;nameCache.base.ship&quot;) + &quot;-&quot;;</span>
+<span class="nc" id="L593">		int i = 1;</span>
+<span class="nc bnc" id="L594" title="All 2 branches missed.">		while (player.getUnitByName(name = base + i++) != null)</span>
+<span class="nc" id="L595">			;</span>
+<span class="nc" id="L596">		return name;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

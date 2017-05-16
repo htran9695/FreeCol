@@ -39,121 +39,114 @@ import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.resources.ResourceManager;
 
-
 /**
- * This label holds Goods data in addition to the JLabel data, which
- * makes it ideal to use for drag and drop purposes.
+ * This label holds Goods data in addition to the JLabel data, which makes it
+ * ideal to use for drag and drop purposes.
  */
-public final class GoodsLabel extends AbstractGoodsLabel
-    implements Draggable {
+public final class GoodsLabel extends AbstractGoodsLabel implements Draggable {
 
-    GUI gui;
- 
-    /**
-     * Initializes this JLabel with the given goods data.
-     *
-     * @param goods The Goods that this JLabel will visually represent.
-     */
-    public GoodsLabel(GUI gui, Goods goods) {
-        super(gui.getImageLibrary(), goods);
+	/** The gui. */
+	GUI gui;
 
-        this.gui = gui;
-        initialize();
-    }
+	/**
+	 * Initializes this JLabel with the given goods data.
+	 *
+	 * @param gui
+	 *            the gui
+	 * @param goods
+	 *            The Goods that this JLabel will visually represent.
+	 */
+	public GoodsLabel(GUI gui, Goods goods) {
+		super(gui.getImageLibrary(), goods);
 
+		this.gui = gui;
+		initialize();
+	}
 
-    /**
-     * Public routine to get a foreground color for a given goods type and
-     * amount in a given location.
-     *
-     * @param goodsType The <code>GoodsType</code> to use.
-     * @param amount The amount of goods.
-     * @param location The <code>Location</code> for the goods.
-     * @return A suitable <code>color</code>.
-     */
-    public static Color getColor(GoodsType goodsType, int amount,
-                                 Location location) {
-        String key = (!goodsType.limitIgnored()
-            && location instanceof Colony
-            && ((Colony)location).getWarehouseCapacity() < amount)
-            ? "color.foreground.GoodsLabel.capacityExceeded"
-            : (location instanceof Colony && goodsType.isStorable()
-                && ((Colony)location).getExportData(goodsType).getExported())
-            ? "color.foreground.GoodsLabel.exported"
-            : (amount == 0)
-            ? "color.foreground.GoodsLabel.zeroAmount"
-            : (amount < 0)
-            ? "color.foreground.GoodsLabel.negativeAmount"
-            : "color.foreground.GoodsLabel.positiveAmount";
-        return ResourceManager.getColor(key);
-    }
+	/**
+	 * Public routine to get a foreground color for a given goods type and
+	 * amount in a given location.
+	 *
+	 * @param goodsType
+	 *            The <code>GoodsType</code> to use.
+	 * @param amount
+	 *            The amount of goods.
+	 * @param location
+	 *            The <code>Location</code> for the goods.
+	 * @return A suitable <code>color</code>.
+	 */
+	public static Color getColor(GoodsType goodsType, int amount, Location location) {
+		String key = (!goodsType.limitIgnored() && location instanceof Colony
+				&& ((Colony) location).getWarehouseCapacity() < amount)
+						? "color.foreground.GoodsLabel.capacityExceeded"
+						: (location instanceof Colony && goodsType.isStorable()
+								&& ((Colony) location).getExportData(goodsType).getExported())
+										? "color.foreground.GoodsLabel.exported"
+										: (amount == 0) ? "color.foreground.GoodsLabel.zeroAmount"
+												: (amount < 0) ? "color.foreground.GoodsLabel.negativeAmount"
+														: "color.foreground.GoodsLabel.positiveAmount";
+		return ResourceManager.getColor(key);
+	}
 
-    /**
-     * Initialize this label.
-     */
-    private void initialize() {
-        final Goods goods = getGoods();
-        final Location location = goods.getLocation();
-        final Player player = (location instanceof Ownable)
-            ? ((Ownable)location).getOwner()
-            : null;
-        final GoodsType type = goods.getType();
-        final Specification spec = goods.getGame().getSpecification();
+	/**
+	 * Initialize this label.
+	 */
+	private void initialize() {
+		final Goods goods = getGoods();
+		final Location location = goods.getLocation();
+		final Player player = (location instanceof Ownable) ? ((Ownable) location).getOwner() : null;
+		final GoodsType type = goods.getType();
+		final Specification spec = goods.getGame().getSpecification();
 
-        if (getAmount() < GoodsContainer.CARGO_SIZE) setPartialChosen(true);
+		if (getAmount() < GoodsContainer.CARGO_SIZE)
+			setPartialChosen(true);
 
-        if (player == null
-            || !type.isStorable()
-            || player.canTrade(type)
-            || (location instanceof Colony
-                && spec.getBoolean(GameOptions.CUSTOM_IGNORE_BOYCOTT)
-                && ((Colony)location).hasAbility(Ability.EXPORT))) {
-            Utility.localizeToolTip(this, goods.getLabel(true));
-        } else {
-            Utility.localizeToolTip(this, goods.getLabel(false));
-            setIcon(getDisabledIcon());
-        }
+		if (player == null || !type.isStorable() || player.canTrade(type)
+				|| (location instanceof Colony && spec.getBoolean(GameOptions.CUSTOM_IGNORE_BOYCOTT)
+						&& ((Colony) location).hasAbility(Ability.EXPORT))) {
+			Utility.localizeToolTip(this, goods.getLabel(true));
+		} else {
+			Utility.localizeToolTip(this, goods.getLabel(false));
+			setIcon(getDisabledIcon());
+		}
 
-        setForeground(getColor(type, goods.getAmount(), location));
-        super.setText(String.valueOf(goods.getAmount()));
-    }
+		setForeground(getColor(type, goods.getAmount(), location));
+		super.setText(String.valueOf(goods.getAmount()));
+	}
 
-    /**
-     * Get the goods being labelled.
-     *
-     * @return The <code>Goods</code> we have labelled.
-     */
-    public Goods getGoods() {
-        return (Goods)getAbstractGoods();
-    }
+	/**
+	 * Get the goods being labelled.
+	 *
+	 * @return The <code>Goods</code> we have labelled.
+	 */
+	public Goods getGoods() {
+		return (Goods) getAbstractGoods();
+	}
 
+	// Override AbstractGoods
 
-    // Override AbstractGoods
+	/**
+	 * Set whether only a partial amount is to be selected.
+	 *
+	 * @param partialChosen
+	 *            The new partial choice.
+	 */
+	@Override
+	public void setPartialChosen(boolean partialChosen) {
+		super.setPartialChosen(partialChosen);
+		ImageLibrary lib = gui.getImageLibrary();
+		Image image = partialChosen ? lib.getSmallIconImage(getType()) : lib.getIconImage(getType());
+		setIcon(new ImageIcon(image));
+	}
 
-    /**
-     * Set whether only a partial amount is to be selected.
-     *
-     * @param partialChosen The new partial choice.
-     */
-    @Override
-    public void setPartialChosen(boolean partialChosen) {
-        super.setPartialChosen(partialChosen);
-        ImageLibrary lib = gui.getImageLibrary();
-        Image image = partialChosen
-            ? lib.getSmallIconImage(getType())
-            : lib.getIconImage(getType());
-        setIcon(new ImageIcon(image));
-    }
+	// Implement Draggable
 
-
-    // Implement Draggable
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isOnCarrier() {
-        Goods goods = getGoods();
-        return goods != null && goods.getLocation() instanceof Unit;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean isOnCarrier() {
+		Goods goods = getGoods();
+		return goods != null && goods.getLocation() instanceof Unit;
+	}
 }

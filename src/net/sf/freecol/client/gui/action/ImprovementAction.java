@@ -26,62 +26,58 @@ import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TileImprovementType;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
- * An action for using the active unit to add a tile improvement to
- * the unit's tile, possibly changing the tile type in the process. In
- * the original game, artificial tile improvements were clearing,
- * plowing and building a road.
+ * An action for using the active unit to add a tile improvement to the unit's
+ * tile, possibly changing the tile type in the process. In the original game,
+ * artificial tile improvements were clearing, plowing and building a road.
  */
 public class ImprovementAction extends UnitAction {
 
-    private final TileImprovementType improvement;
+	/** The improvement. */
+	private final TileImprovementType improvement;
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param improvement
+	 *            The <code>TileImprovementType</code> to make.
+	 */
+	public ImprovementAction(FreeColClient freeColClient, TileImprovementType improvement) {
+		super(freeColClient, improvement.getSuffix() + "Action");
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param improvement The <code>TileImprovementType</code> to make.
-     */
-    public ImprovementAction(FreeColClient freeColClient,
-                             TileImprovementType improvement) {
-        super(freeColClient, improvement.getSuffix() + "Action");
+		this.improvement = improvement;
+		addImageIcons(improvement.getSuffix());
+	}
 
-        this.improvement = improvement;
-        addImageIcons(improvement.getSuffix());
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		if (super.shouldBeEnabled()) {
+			Unit selectedUnit = getGUI().getActiveUnit();
+			Tile tile = selectedUnit.getTile();
+			return selectedUnit.checkSetState(Unit.UnitState.IMPROVING) && tile != null
+					&& tile.isImprovementTypeAllowed(improvement) && improvement.isWorkerAllowed(selectedUnit);
+		}
+		return false;
+	}
 
-    // Override FreeColAction
+	// Interface ActionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        if (super.shouldBeEnabled()) {
-            Unit selectedUnit = getGUI().getActiveUnit();
-            Tile tile = selectedUnit.getTile();
-            return selectedUnit.checkSetState(Unit.UnitState.IMPROVING)
-                && tile != null
-                && tile.isImprovementTypeAllowed(improvement)
-                && improvement.isWorkerAllowed(selectedUnit);
-        }
-        return false;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		Unit unit = getGUI().getActiveUnit();
+		if (unit == null)
+			return;
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        Unit unit = getGUI().getActiveUnit();
-        if (unit == null) return;
-
-        igc().changeWorkImprovementType(unit, improvement);
-    }
+		igc().changeWorkImprovementType(unit, improvement);
+	}
 }

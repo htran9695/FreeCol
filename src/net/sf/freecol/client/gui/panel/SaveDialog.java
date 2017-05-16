@@ -30,63 +30,64 @@ import javax.swing.filechooser.FileFilter;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.ChoiceItem;
 
-
 /**
  * A dialog for choosing a file to save.
  */
 public final class SaveDialog extends FreeColDialog<File> {
 
-    /**
-     * We need a magic cookie to use for the cancel response, as
-     * the JFileChooser does not tolerate setValue(null).
-     */
-    private static final File cancelFile = new File(".");
+	/**
+	 * We need a magic cookie to use for the cancel response, as the
+	 * JFileChooser does not tolerate setValue(null).
+	 */
+	private static final File cancelFile = new File(".");
 
+	/**
+	 * Creates a dialog to choose a file to load.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param frame
+	 *            The owner frame.
+	 * @param directory
+	 *            The directory to display when choosing the file.
+	 * @param fileFilters
+	 *            The available file filters in the dialog.
+	 * @param defaultName
+	 *            Name of the default save game file.
+	 */
+	public SaveDialog(FreeColClient freeColClient, JFrame frame, File directory, FileFilter[] fileFilters,
+			String defaultName) {
+		super(freeColClient, frame);
 
-    /**
-     * Creates a dialog to choose a file to load.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param frame The owner frame.
-     * @param directory The directory to display when choosing the file.
-     * @param fileFilters The available file filters in the dialog.
-     * @param defaultName Name of the default save game file.
-     */
-    public SaveDialog(FreeColClient freeColClient, JFrame frame,
-            File directory, FileFilter[] fileFilters, String defaultName) {
-        super(freeColClient, frame);
+		final JFileChooser fileChooser = new JFileChooser(directory);
+		if (fileFilters.length > 0) {
+			for (FileFilter fileFilter : fileFilters) {
+				fileChooser.addChoosableFileFilter(fileFilter);
+			}
+			fileChooser.setFileFilter(fileFilters[0]);
+			fileChooser.setAcceptAllFileFilterUsed(false);
+		}
+		fileChooser.setDialogType(JFileChooser.SAVE_DIALOG);
+		fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+		fileChooser.setFileHidingEnabled(false);
+		fileChooser.setSelectedFile(new File(defaultName));
+		fileChooser.addActionListener(
+				(ActionEvent ae) -> setValue((JFileChooser.APPROVE_SELECTION.equals(ae.getActionCommand()))
+						? fileChooser.getSelectedFile() : cancelFile));
 
-        final JFileChooser fileChooser = new JFileChooser(directory);
-        if (fileFilters.length > 0) {
-            for (FileFilter fileFilter : fileFilters) {
-                fileChooser.addChoosableFileFilter(fileFilter);
-            }
-            fileChooser.setFileFilter(fileFilters[0]);
-            fileChooser.setAcceptAllFileFilterUsed(false);
-        }
-        fileChooser.setDialogType(JFileChooser.SAVE_DIALOG);
-        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-        fileChooser.setFileHidingEnabled(false);
-        fileChooser.setSelectedFile(new File(defaultName));
-        fileChooser.addActionListener((ActionEvent ae) ->
-                setValue((JFileChooser.APPROVE_SELECTION
-                        .equals(ae.getActionCommand()))
-                    ? fileChooser.getSelectedFile() : cancelFile));
-        
-        List<ChoiceItem<File>> c = choices();
-        initializeDialog(frame, DialogType.QUESTION, true, fileChooser, null, c);
-    }
+		List<ChoiceItem<File>> c = choices();
+		initializeDialog(frame, DialogType.QUESTION, true, fileChooser, null, c);
+	}
 
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public File getResponse() {
-        if (responded()) {
-            File value = (File)getValue();
-            return (value == cancelFile) ? null : value;
-        }
-        return null;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public File getResponse() {
+		if (responded()) {
+			File value = (File) getValue();
+			return (value == cancelFile) ? null : value;
+		}
+		return null;
+	}
 }

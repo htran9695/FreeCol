@@ -23,33 +23,31 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for quitting the game.
  */
 public class QuitAction extends FreeColAction {
 
-    /** The Constant id. */
-    public static final String id = "quitAction";
+	/** The Constant id. */
+	public static final String id = "quitAction";
 
+	/**
+	 * Creates a new <code>QuitAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public QuitAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>QuitAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public QuitAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        freeColClient.askToQuit();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		freeColClient.askToQuit();
+	}
 }

@@ -30,196 +30,196 @@ import net.sf.freecol.common.io.FreeColXMLWriter;
 import net.sf.freecol.common.util.Utils;
 import net.sf.freecol.common.model.Specification;
 
-
 /**
- * Represents an option that can be a string selected from a list of
- * possible values (choices).
+ * Represents an option that can be a string selected from a list of possible
+ * values (choices).
  */
 public class StringOption extends AbstractOption<String> {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(StringOption.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(StringOption.class.getName());
 
-    /** The value of this option. */
-    private String value;
+	/** The value of this option. */
+	private String value;
 
-    /** A list of choices to provide to the UI. */
-    private final List<String> choices = new ArrayList<>();
+	/** A list of choices to provide to the UI. */
+	private final List<String> choices = new ArrayList<>();
 
+	/**
+	 * Creates a new <code>StringOption</code>.
+	 *
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public StringOption(Specification specification) {
+		super(specification);
+	}
 
-    /**
-     * Creates a new <code>StringOption</code>.
-     *
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public StringOption(Specification specification) {
-        super(specification);
-    }
+	/**
+	 * Creates a new <code>StringOption</code>.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public StringOption(String id, Specification specification) {
+		super(id, specification);
+	}
 
-    /**
-     * Creates a new <code>StringOption</code>.
-     *
-     * @param id The object identifier.
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public StringOption(String id, Specification specification) {
-        super(id, specification);
-    }
+	/**
+	 * Get the list of string choices.
+	 *
+	 * @return The list of choices.
+	 */
+	public final List<String> getChoices() {
+		return choices;
+	}
 
+	/**
+	 * Set the choices.
+	 *
+	 * @param newChoices
+	 *            The new list of choices.
+	 */
+	public final void setChoices(final List<String> newChoices) {
+		this.choices.clear();
+		this.choices.addAll(newChoices);
+	}
 
-    /**
-     * Get the list of string choices.
-     *
-     * @return The list of choices.
-     */
-    public final List<String> getChoices() {
-        return choices;
-    }
+	// Interface Option.
 
-    /**
-     * Set the choices.
-     *
-     * @param newChoices The new list of choices.
-     */
-    public final void setChoices(final List<String> newChoices) {
-        this.choices.clear();
-        this.choices.addAll(newChoices);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public StringOption clone() {
+		StringOption result = new StringOption(getId(), getSpecification());
+		result.setValues(this);
+		result.setChoices(this.choices);
+		return result;
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getValue() {
+		return value;
+	}
 
-    // Interface Option.
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void setValue(String value) {
+		final String oldValue = this.value;
+		this.value = value;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public StringOption clone() {
-        StringOption result = new StringOption(getId(), getSpecification());
-        result.setValues(this);
-        result.setChoices(this.choices);
-        return result;
-    }
+		if (isDefined && !Utils.equals(value, oldValue)) {
+			firePropertyChange(VALUE_TAG, oldValue, value);
+		}
+		isDefined = true;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getValue() {
-        return value;
-    }
+	// Override AbstractOption
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setValue(String value) {
-        final String oldValue = this.value;
-        this.value = value;
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void setValue(String valueString, String defaultValueString) {
+		setValue((valueString != null) ? valueString : defaultValueString);
+	}
 
-        if (isDefined && !Utils.equals(value, oldValue)) {
-            firePropertyChange(VALUE_TAG, oldValue, value);
-        }
-        isDefined = true;
-    }
+	// Serialization
 
+	/** The Constant CHOICE_TAG. */
+	private static final String CHOICE_TAG = "choice";
 
-    // Override AbstractOption
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void setValue(String valueString, String defaultValueString) {
-        setValue((valueString != null) ? valueString : defaultValueString);
-    }
+		xw.writeAttribute(VALUE_TAG, value);
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeChildren(xw);
 
-    // Serialization
+		for (String choice : choices) {
+			xw.writeStartElement(CHOICE_TAG);
 
-    private static final String CHOICE_TAG = "choice";
+			xw.writeAttribute(VALUE_TAG, choice);
 
+			xw.writeEndElement();
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+		// Clear containers.
+		choices.clear();
 
-        xw.writeAttribute(VALUE_TAG, value);
-    }
+		super.readChildren(xr);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeChildren(xw);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+		final String tag = xr.getLocalName();
 
-        for (String choice : choices) {
-            xw.writeStartElement(CHOICE_TAG);
+		if (CHOICE_TAG.equals(tag)) {
+			choices.add(xr.getAttribute(VALUE_TAG, (String) null));
+			xr.closeTag(CHOICE_TAG);
 
-            xw.writeAttribute(VALUE_TAG, choice);
+		} else {
+			super.readChild(xr);
+		}
+	}
 
-            xw.writeEndElement();
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder(32);
+		sb.append("[").append(getId()).append(" value=").append(value).append(" choices=[");
+		if (choices != null) {
+			for (String choice : choices)
+				sb.append(" ").append(choice);
+		}
+		sb.append("]]");
+		return sb.toString();
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
-        // Clear containers.
-        choices.clear();
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-        super.readChildren(xr);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
-        final String tag = xr.getLocalName();
-
-        if (CHOICE_TAG.equals(tag)) {
-            choices.add(xr.getAttribute(VALUE_TAG, (String)null));
-            xr.closeTag(CHOICE_TAG);
-
-        } else {
-            super.readChild(xr);
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(32);
-        sb.append("[").append(getId())
-            .append(" value=").append(value)
-            .append(" choices=[");
-        if (choices != null) {
-            for (String choice : choices) sb.append(" ").append(choice);
-        }
-        sb.append("]]");
-        return sb.toString();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "stringOption".
-     */
-    public static String getXMLElementTagName() {
-        return "stringOption";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "stringOption".
+	 */
+	public static String getXMLElementTagName() {
+		return "stringOption";
+	}
 }

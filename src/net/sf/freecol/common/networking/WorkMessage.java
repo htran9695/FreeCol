@@ -28,116 +28,111 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent to handle changes in work location.
  */
 public class WorkMessage extends DOMMessage {
 
-    /** The identifier of the unit. */
-    private final String unitId;
+	/** The identifier of the unit. */
+	private final String unitId;
 
-    /** The identifier of the work location.  */
-    private final String workLocationId;
+	/** The identifier of the work location. */
+	private final String workLocationId;
 
+	/**
+	 * Create a new <code>WorkMessage</code> for the supplied unit and work
+	 * location.
+	 *
+	 * @param unit
+	 *            The <code>Unit</code> to change the work location of.
+	 * @param workLocation
+	 *            The <code>WorkLocation</code> to change to.
+	 */
+	public WorkMessage(Unit unit, WorkLocation workLocation) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>WorkMessage</code> for the supplied unit and
-     * work location.
-     *
-     * @param unit The <code>Unit</code> to change the work location of.
-     * @param workLocation The <code>WorkLocation</code> to change to.
-     */
-    public WorkMessage(Unit unit, WorkLocation workLocation) {
-        super(getXMLElementTagName());
+		this.unitId = unit.getId();
+		this.workLocationId = workLocation.getId();
+	}
 
-        this.unitId = unit.getId();
-        this.workLocationId = workLocation.getId();
-    }
+	/**
+	 * Create a new <code>WorkMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public WorkMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>WorkMessage</code> from a supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public WorkMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.unitId = element.getAttribute("unit");
+		this.workLocationId = element.getAttribute("workLocation");
+	}
 
-        this.unitId = element.getAttribute("unit");
-        this.workLocationId = element.getAttribute("workLocation");
-    }
+	/**
+	 * Handle a "work"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the message.
+	 * @param player
+	 *            The <code>Player</code> the message applies to.
+	 * @param connection
+	 *            The <code>Connection</code> message received on.
+	 * @return An update encapsulating the work location change or an error
+	 *         <code>Element</code> on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
+		final Game game = server.getGame();
 
+		Unit unit;
+		try {
+			unit = player.getOurFreeColGameObject(unitId, Unit.class);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
 
-    /**
-     * Handle a "work"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the message.
-     * @param player The <code>Player</code> the message applies to.
-     * @param connection The <code>Connection</code> message received on.
-     * @return An update encapsulating the work location change or an
-     *     error <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
-        final Game game = server.getGame();
+		if (!unit.hasTile()) {
+			return DOMMessage.clientError("Unit is not on the map: " + unitId);
+		}
 
-        Unit unit;
-        try {
-            unit = player.getOurFreeColGameObject(unitId, Unit.class);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
+		Colony colony = unit.getTile().getColony();
+		if (colony == null) {
+			return DOMMessage.clientError("Unit is not at a colony: " + unitId);
+		}
 
-        if (!unit.hasTile()) {
-            return DOMMessage.clientError("Unit is not on the map: "
-                + unitId);
-        }
+		WorkLocation workLocation = game.getFreeColGameObject(workLocationId, WorkLocation.class);
+		if (workLocation == null) {
+			return DOMMessage.clientError("Not a work location: " + workLocationId);
+		} else if (workLocation.getColony() != colony) {
+			return DOMMessage
+					.clientError("Work location is not in the colony" + " where the unit is: " + workLocationId);
+		} else if (!workLocation.canAdd(unit)) {
+			return DOMMessage.clientError(
+					"Can not add " + unit + " to " + workLocation + ": " + workLocation.getNoAddReason(unit));
+		}
 
-        Colony colony = unit.getTile().getColony();
-        if (colony == null) {
-            return DOMMessage.clientError("Unit is not at a colony: "
-                + unitId);
-        }
+		// Work.
+		return server.getInGameController().work(serverPlayer, unit, workLocation);
+	}
 
-        WorkLocation workLocation
-            = game.getFreeColGameObject(workLocationId, WorkLocation.class);
-        if (workLocation == null) {
-            return DOMMessage.clientError("Not a work location: "
-                + workLocationId);
-        } else if (workLocation.getColony() != colony) {
-            return DOMMessage.clientError("Work location is not in the colony"
-                + " where the unit is: " + workLocationId);
-        } else if (!workLocation.canAdd(unit)) {
-            return DOMMessage.clientError("Can not add " + unit
-                + " to " + workLocation
-                + ": " + workLocation.getNoAddReason(unit));
-        }
+	/**
+	 * Convert this WorkMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		return createMessage(getXMLElementTagName(), "unit", unitId, "workLocation", workLocationId);
+	}
 
-        // Work.
-        return server.getInGameController()
-            .work(serverPlayer, unit, workLocation);
-    }
-
-    /**
-     * Convert this WorkMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        return createMessage(getXMLElementTagName(),
-            "unit", unitId,
-            "workLocation", workLocationId);
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "work".
-     */
-    public static String getXMLElementTagName() {
-        return "work";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "work".
+	 */
+	public static String getXMLElementTagName() {
+		return "work";
+	}
 }

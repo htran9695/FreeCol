@@ -40,102 +40,104 @@ import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.resources.ResourceManager;
 
-
 /**
  * A general panel for information display.
  */
 public class InformationPanel extends FreeColPanel {
 
-    /**
-     * Creates an information panel that shows the given texts and
-     * images, and an "OK" button.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param text The text to be displayed in the panel.
-     * @param image The image to be displayed in the panel.
-     */
-    public InformationPanel(FreeColClient freeColClient,
-                            String text, FreeColObject fco, ImageIcon image) {
-        this(freeColClient, new String[] { text }, new FreeColObject[] { fco },
-             new ImageIcon[] { image });
-    }
+	/**
+	 * Creates an information panel that shows the given texts and images, and
+	 * an "OK" button.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param text
+	 *            The text to be displayed in the panel.
+	 * @param fco
+	 *            the fco
+	 * @param image
+	 *            The image to be displayed in the panel.
+	 */
+	public InformationPanel(FreeColClient freeColClient, String text, FreeColObject fco, ImageIcon image) {
+		this(freeColClient, new String[] { text }, new FreeColObject[] { fco }, new ImageIcon[] { image });
+	}
 
-    /**
-     * Creates an information panel that shows the given
-     * texts and images, and an "OK" button.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param texts The texts to be displayed in the panel.
-     * @param fcos The source <code>FreeColObject</code> for the text.
-     * @param images The images to be displayed in the panel.
-     */
-    public InformationPanel(FreeColClient freeColClient, String[] texts,
-                            FreeColObject[] fcos, ImageIcon[] images) {
-        super(freeColClient, new MigLayout("wrap 1, insets 200 10 10 10",
-                "[510]", "[242]20[20]"));
+	/**
+	 * Creates an information panel that shows the given texts and images, and
+	 * an "OK" button.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param texts
+	 *            The texts to be displayed in the panel.
+	 * @param fcos
+	 *            The source <code>FreeColObject</code> for the text.
+	 * @param images
+	 *            The images to be displayed in the panel.
+	 */
+	public InformationPanel(FreeColClient freeColClient, String[] texts, FreeColObject[] fcos, ImageIcon[] images) {
+		super(freeColClient, new MigLayout("wrap 1, insets 200 10 10 10", "[510]", "[242]20[20]"));
 
-        final SwingGUI gui = getGUI();
-        JPanel textPanel = new MigPanel();
-        textPanel.setOpaque(false);
-        textPanel.setLayout(new MigLayout("wrap 2", "", "top"));
-        for (int i = 0; i < texts.length; i++) {
-            if (images != null && images[i] != null) {
-                textPanel.add(new JLabel(images[i]));
-                textPanel.add(Utility.getDefaultTextArea(texts[i],
-                    new Dimension(475-images[i].getIconWidth(), 185)));
-            } else {
-                textPanel.add(Utility.getDefaultTextArea(texts[i],
-                    new Dimension(475, 185)), "skip");
-            }
-            StringTemplate disp = displayLabel(fcos[i]);
-            if (disp == null) continue;
-            JButton button = Utility.localizedButton(StringTemplate
-                .template("informationPanel.display")
-                .addStringTemplate("%object%", disp));
-            final FreeColObject fco = fcos[i];
-            button.addActionListener((ActionEvent ae) -> {
-                    gui.displayObject(fco);
-                });
-            textPanel.add(button, "skip");
-        }
+		final SwingGUI gui = getGUI();
+		JPanel textPanel = new MigPanel();
+		textPanel.setOpaque(false);
+		textPanel.setLayout(new MigLayout("wrap 2", "", "top"));
+		for (int i = 0; i < texts.length; i++) {
+			if (images != null && images[i] != null) {
+				textPanel.add(new JLabel(images[i]));
+				textPanel.add(Utility.getDefaultTextArea(texts[i], new Dimension(475 - images[i].getIconWidth(), 185)));
+			} else {
+				textPanel.add(Utility.getDefaultTextArea(texts[i], new Dimension(475, 185)), "skip");
+			}
+			StringTemplate disp = displayLabel(fcos[i]);
+			if (disp == null)
+				continue;
+			JButton button = Utility.localizedButton(
+					StringTemplate.template("informationPanel.display").addStringTemplate("%object%", disp));
+			final FreeColObject fco = fcos[i];
+			button.addActionListener((ActionEvent ae) -> {
+				gui.displayObject(fco);
+			});
+			textPanel.add(button, "skip");
+		}
 
-        JScrollPane scrollPane = new JScrollPane(textPanel,
-            JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-            JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        // correct way to make scroll pane opaque
-        scrollPane.getViewport().setOpaque(false);
-        scrollPane.setBorder(null);
-        setBorder(null);
+		JScrollPane scrollPane = new JScrollPane(textPanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+				JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+		// correct way to make scroll pane opaque
+		scrollPane.getViewport().setOpaque(false);
+		scrollPane.setBorder(null);
+		setBorder(null);
 
-        add(scrollPane);
-        add(okButton, "tag ok");
-    }
+		add(scrollPane);
+		add(okButton, "tag ok");
+	}
 
-    /**
-     * A label for an FCO that can meaningfully be displayed.
-     *
-     * @param fco The <code>FreeColObject</code> to check.
-     * @return A <code>StringTemplate</code> label, or null if nothing found.
-     */
-    private StringTemplate displayLabel(FreeColObject fco) {
-        return (fco instanceof Tile && ((Tile)fco).hasSettlement())
-            ? displayLabel(((Tile)fco).getSettlement())
+	/**
+	 * A label for an FCO that can meaningfully be displayed.
+	 *
+	 * @param fco
+	 *            The <code>FreeColObject</code> to check.
+	 * @return A <code>StringTemplate</code> label, or null if nothing found.
+	 */
+	private StringTemplate displayLabel(FreeColObject fco) {
+		return (fco instanceof Tile && ((Tile) fco).hasSettlement()) ? displayLabel(((Tile) fco).getSettlement())
 
-            : (fco instanceof Unit)
-            ? displayLabel((FreeColObject)((Unit)fco).getLocation())
+				: (fco instanceof Unit) ? displayLabel((FreeColObject) ((Unit) fco).getLocation())
 
-            : (fco instanceof Location)
-            ? ((Location)fco).getLocationLabelFor(getMyPlayer())
+						: (fco instanceof Location) ? ((Location) fco).getLocationLabelFor(getMyPlayer())
 
-            : null;
-    }
+								: null;
+	}
 
+	// Override JComponent
 
-    // Override JComponent
-
-    @Override
-    public void paintComponent(Graphics g) {
-        g.drawImage(ResourceManager.getImage("image.skin.InformationPanel"),
-            0, 0, this);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.JComponent#paintComponent(java.awt.Graphics)
+	 */
+	@Override
+	public void paintComponent(Graphics g) {
+		g.drawImage(ResourceManager.getImage("image.skin.InformationPanel"), 0, 0, this);
+	}
 }

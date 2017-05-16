@@ -32,104 +32,103 @@ import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.Player;
 
-
 /**
  * This label represents a cargo type on the European market.
  */
-public final class MarketLabel extends AbstractGoodsLabel
-    implements Draggable, PropertyChangeListener {
+public final class MarketLabel extends AbstractGoodsLabel implements Draggable, PropertyChangeListener {
 
-    /** The enclosing market. */
-    private final Market market;
+	/** The enclosing market. */
+	private final Market market;
 
+	/**
+	 * Initializes this JLabel with the given goods type.
+	 *
+	 * @param lib
+	 *            the lib
+	 * @param type
+	 *            The <code>GoodsType</code> to represent.
+	 * @param market
+	 *            The <code>Market</code> in which to trade the goods.
+	 */
+	public MarketLabel(ImageLibrary lib, GoodsType type, Market market) {
+		super(lib, new AbstractGoods(type, GoodsContainer.CARGO_SIZE));
 
-    /**
-     * Initializes this JLabel with the given goods type.
-     *
-     * @param type The <code>GoodsType</code> to represent.
-     * @param market The <code>Market</code> in which to trade the goods.
-     */
-    public MarketLabel(ImageLibrary lib, GoodsType type, Market market) {
-        super(lib, new AbstractGoods(type, GoodsContainer.CARGO_SIZE));
+		if (market == null)
+			throw new IllegalArgumentException("Null market");
+		this.market = market;
+		update();
+	}
 
-        if (market == null) throw new IllegalArgumentException("Null market");
-        this.market = market;
-        update();
-    }
+	/**
+	 * Wrap the label with a border.
+	 *
+	 * @return This <code>MarketLabel</code>.
+	 */
+	public MarketLabel addBorder() {
+		setBorder(Utility.TOPCELLBORDER);
+		setVerticalTextPosition(JLabel.BOTTOM);
+		setHorizontalTextPosition(JLabel.CENTER);
+		return this;
+	}
 
+	/**
+	 * Update this label.
+	 */
+	public void update() {
+		final GoodsType type = getType();
+		final Player player = market.getOwner();
+		String toolTipText = Messages.getName(type);
+		if (player == null || player.canTrade(type)) {
+			setEnabled(true);
+		} else {
+			toolTipText = Messages.message(type.getLabel());
+			setEnabled(false);
+		}
+		if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.MENUS)) {
+			toolTipText += " " + market.getAmountInMarket(type);
+		}
+		setToolTipText(toolTipText);
 
-    /**
-     * Wrap the label with a border.
-     *
-     * @return This <code>MarketLabel</code>.
-     */
-    public MarketLabel addBorder() {
-        setBorder(Utility.TOPCELLBORDER);
-        setVerticalTextPosition(JLabel.BOTTOM);
-        setHorizontalTextPosition(JLabel.CENTER);
-        return this;
-    }
+		setText(market.getPaidForSale(type) + "/" + market.getCostToBuy(type));
+	}
 
-    /**
-     * Update this label.
-     */
-    public void update() {
-        final GoodsType type = getType();
-        final Player player = market.getOwner();
-        String toolTipText = Messages.getName(type);
-        if (player == null || player.canTrade(type)) {
-            setEnabled(true);
-        } else {
-            toolTipText = Messages.message(type.getLabel());
-            setEnabled(false);
-        }
-        if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.MENUS)) {
-            toolTipText += " " + market.getAmountInMarket(type);
-        }
-        setToolTipText(toolTipText);
-        
-        setText(market.getPaidForSale(type) + "/" + market.getCostToBuy(type));
-    }
+	/**
+	 * Get this MarketLabel's market.
+	 *
+	 * @return The enclosing <code>Market</code>.
+	 */
+	public Market getMarket() {
+		return market;
+	}
 
-    /**
-     * Get this MarketLabel's market.
-     *
-     * @return The enclosing <code>Market</code>.
-     */
-    public Market getMarket() {
-        return market;
-    }
+	/**
+	 * Sets the amount of the goods wrapped by this Label to
+	 * GoodsContainer.CARGO_SIZE.
+	 */
+	@Override
+	public void setDefaultAmount() {
+		setAmount(GoodsContainer.CARGO_SIZE);
+	}
 
-    /**
-     * Sets the amount of the goods wrapped by this Label to
-     * GoodsContainer.CARGO_SIZE.
-     */
-    @Override
-    public void setDefaultAmount() {
-        setAmount(GoodsContainer.CARGO_SIZE);
-    }
+	// Implement Draggable
 
+	/**
+	 * Is this label on a carrier? No, it is in a market!.
+	 *
+	 * @return False.
+	 */
+	@Override
+	public boolean isOnCarrier() {
+		return false;
+	}
 
-    // Implement Draggable
+	// Interface PropertyChangeListener
 
-    /**
-     * Is this label on a carrier?  No, it is in a market!
-     *
-     * @return False.
-     */
-    @Override
-    public boolean isOnCarrier() {
-        return false;
-    }
-
-
-    // Interface PropertyChangeListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void propertyChange(PropertyChangeEvent event) {
-        update(); // Just update the text and tool tip.
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void propertyChange(PropertyChangeEvent event) {
+		update(); // Just update the text and tool tip.
+	}
 }

@@ -37,89 +37,93 @@ import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.TypeCountMap;
 import net.sf.freecol.common.model.UnitType;
 
-
 /**
  * This panel displays the Labour Report.
  */
-public final class ReportLabourDetailPanel extends ReportPanel
-    implements ActionListener {
-    
-    private final Map<UnitType, Map<Location, Integer>> data;
-    private final TypeCountMap<UnitType> unitCount;
-    private final List<Colony> colonies;
-    private final UnitType unitType;
+public final class ReportLabourDetailPanel extends ReportPanel implements ActionListener {
 
-    
-    /**
-     * Creates the detail portion of a labour report.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param unitType The <code>UnitType</code> to display detail for.
-     * @param data The location data.
-     * @param unitCount The unit counts by type.
-     * @param colonies A list of <code>Colony</code>s for this player.
-     */
-    public ReportLabourDetailPanel(FreeColClient freeColClient,
-                                   UnitType unitType,
-                                   Map<UnitType, Map<Location, Integer>> data,  
-                                   TypeCountMap<UnitType> unitCount,
-                                   List<Colony> colonies) {
-        super(freeColClient, "report.labour.details");
+	/** The data. */
+	private final Map<UnitType, Map<Location, Integer>> data;
 
-        this.unitType = unitType;
-        this.data = data;
-        this.unitCount = unitCount;
-        this.colonies = colonies;
-    }
+	/** The unit count. */
+	private final TypeCountMap<UnitType> unitCount;
 
+	/** The colonies. */
+	private final List<Colony> colonies;
 
-    @Override
-    public void initialize() {
-        JPanel detailPanel = new MigPanel();
-        detailPanel.setLayout(new MigLayout("wrap 7", "[]30[][]30[][]30[][]",
-                                            ""));
-        detailPanel.setOpaque(false);
+	/** The unit type. */
+	private final UnitType unitType;
 
+	/**
+	 * Creates the detail portion of a labour report.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param unitType
+	 *            The <code>UnitType</code> to display detail for.
+	 * @param data
+	 *            The location data.
+	 * @param unitCount
+	 *            The unit counts by type.
+	 * @param colonies
+	 *            A list of <code>Colony</code>s for this player.
+	 */
+	public ReportLabourDetailPanel(FreeColClient freeColClient, UnitType unitType,
+			Map<UnitType, Map<Location, Integer>> data, TypeCountMap<UnitType> unitCount, List<Colony> colonies) {
+		super(freeColClient, "report.labour.details");
 
-        // summary
-        detailPanel.add(new JLabel(new ImageIcon(getImageLibrary().getUnitImage(unitType))), "spany");
-        detailPanel.add(Utility.localizedLabel(unitType));
-        detailPanel.add(new JLabel(String.valueOf(unitCount.getCount(unitType))), "wrap 10");
-        boolean canTrain = false;
-        Map<Location, Integer> unitLocations = data.get(unitType);
-        for (Colony colony : colonies) {
-            if (unitLocations.get(colony) != null) {
-                String colonyName = colony.getName();
-                if (colony.canTrain(unitType)) {
-                    canTrain = true;
-                    colonyName += "*";
-                }
-                JButton colonyButton = Utility.getLinkButton(colonyName, null,
-                    colony.getId());
-                colonyButton.addActionListener(this);
-                detailPanel.add(colonyButton);
-                JLabel countLabel = new JLabel(unitLocations.get(colony).toString());
-                countLabel.setForeground(Utility.LINK_COLOR);
-                detailPanel.add(countLabel);
-            }
-        }
-        for (Entry<Location, Integer> entry : unitLocations.entrySet()) {
-            if (!(entry.getKey() instanceof Colony)) {
-                String locationName
-                    = Messages.message(entry.getKey().getLocationLabel());
-                JButton linkButton = Utility.getLinkButton(locationName, null,
-                    entry.getKey().getId());
-                linkButton.addActionListener(this);
-                detailPanel.add(linkButton);
-                JLabel countLabel = new JLabel(entry.getValue().toString());
-                countLabel.setForeground(Utility.LINK_COLOR);
-                detailPanel.add(countLabel);
-            }
-        }
-        if (canTrain) {
-            detailPanel.add(Utility.localizedLabel("report.labour.canTrain"),
-                            "newline 20, span");
-        }
-        reportPanel.add(detailPanel);
-    }
+		this.unitType = unitType;
+		this.data = data;
+		this.unitCount = unitCount;
+		this.colonies = colonies;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see net.sf.freecol.client.gui.panel.ReportPanel#initialize()
+	 */
+	@Override
+	public void initialize() {
+		JPanel detailPanel = new MigPanel();
+		detailPanel.setLayout(new MigLayout("wrap 7", "[]30[][]30[][]30[][]", ""));
+		detailPanel.setOpaque(false);
+
+		// summary
+		detailPanel.add(new JLabel(new ImageIcon(getImageLibrary().getUnitImage(unitType))), "spany");
+		detailPanel.add(Utility.localizedLabel(unitType));
+		detailPanel.add(new JLabel(String.valueOf(unitCount.getCount(unitType))), "wrap 10");
+		boolean canTrain = false;
+		Map<Location, Integer> unitLocations = data.get(unitType);
+		for (Colony colony : colonies) {
+			if (unitLocations.get(colony) != null) {
+				String colonyName = colony.getName();
+				if (colony.canTrain(unitType)) {
+					canTrain = true;
+					colonyName += "*";
+				}
+				JButton colonyButton = Utility.getLinkButton(colonyName, null, colony.getId());
+				colonyButton.addActionListener(this);
+				detailPanel.add(colonyButton);
+				JLabel countLabel = new JLabel(unitLocations.get(colony).toString());
+				countLabel.setForeground(Utility.LINK_COLOR);
+				detailPanel.add(countLabel);
+			}
+		}
+		for (Entry<Location, Integer> entry : unitLocations.entrySet()) {
+			if (!(entry.getKey() instanceof Colony)) {
+				String locationName = Messages.message(entry.getKey().getLocationLabel());
+				JButton linkButton = Utility.getLinkButton(locationName, null, entry.getKey().getId());
+				linkButton.addActionListener(this);
+				detailPanel.add(linkButton);
+				JLabel countLabel = new JLabel(entry.getValue().toString());
+				countLabel.setForeground(Utility.LINK_COLOR);
+				detailPanel.add(countLabel);
+			}
+		}
+		if (canTrain) {
+			detailPanel.add(Utility.localizedLabel("report.labour.canTrain"), "newline 20, span");
+		}
+		reportPanel.add(detailPanel);
+	}
 }

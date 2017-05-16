@@ -24,49 +24,47 @@ import java.awt.event.ActionEvent;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
  * An action for assigning a trade route to the currently selected unit.
  */
 public class AssignTradeRouteAction extends UnitAction {
 
-    /** The Constant id. */
-    public static final String id = "assignTradeRouteAction";
+	/** The Constant id. */
+	public static final String id = "assignTradeRouteAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public AssignTradeRouteAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public AssignTradeRouteAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		if (super.shouldBeEnabled()) {
+			Unit unit = getGUI().getActiveUnit();
+			return (unit != null && unit.isCarrier());
+		}
+		return false;
+	}
 
-    // Override FreeColAction
+	// Interface ActionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        if (super.shouldBeEnabled()) {
-            Unit unit = getGUI().getActiveUnit();
-            return (unit != null && unit.isCarrier());
-        }
-        return false;
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        Unit unit = getGUI().getActiveUnit();
-        if (unit != null) getGUI().showTradeRoutePanel(unit);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		Unit unit = getGUI().getActiveUnit();
+		if (unit != null)
+			getGUI().showTradeRoutePanel(unit);
+	}
 }

@@ -42,723 +42,829 @@ import net.sf.freecol.common.model.PathNode;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.util.LogBuilder;
 
-
 /**
- * An class describing the action needed to make progress in a
- * transportation action for a specific transportable.
+ * An class describing the action needed to make progress in a transportation
+ * action for a specific transportable.
  */
 public class Cargo {
 
-<span class="fc" id="L52">    private static final Logger logger = Logger.getLogger(Cargo.class.getName());</span>
-
-    /** Abandon cargo after three blockages. */
-    private static final int MAX_TRY = 3;
-
-    /** The actions to perform at the target. */
-<span class="pc" id="L58">    public static enum CargoMode {</span>
-<span class="fc" id="L59">        LOAD,       // Go to target and load transportable</span>
-<span class="fc" id="L60">        UNLOAD,     // Go to target and unload transportable</span>
-<span class="fc" id="L61">        PICKUP,     // Go to drop node target, transportable unit to embark</span>
-<span class="fc" id="L62">        DROPOFF,    // Go to drop node target, transportable unit to disembark</span>
-<span class="fc" id="L63">        DUMP;       // Just dump this transportable at the next opportunity</span>
-
-        public boolean isCollection() {
-<span class="pc bpc" id="L66" title="1 of 4 branches missed.">            return this == LOAD || this == PICKUP;</span>
-        }
-    }
-
-    /**
-     * Container for a plan for a transportable to get to TWAIT where
-     * a carrier collects it from CWAIT (may equal TWAIT) and takes it
-     * to CDST, whence the transportable goes to TDST (may equal
-     * CDST).
-     */
-<span class="fc" id="L76">    public static class CargoPlan {</span>
-
-        /** The key locations along the path taken by cargo and carrier. */
-        public Location twait, cwait, cdst, tdst;
-
-        /** Expected total duration of this plan when it is initialized. */
-        public int turns;
-
-        /** Current state of the plan. */
-        public CargoMode mode;
-
-        /** Is the destination a fallback destination? */
-        public boolean fallback;
-
-        /**
-         * Plan the transport of a transportable with a given carrier.
-         *
-         * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to deliver.
-         * @param carrier The carrier &lt;code&gt;Unit&lt;/code&gt; to use.
-         * @param destination The destination &lt;code&gt;Location&lt;/code&gt; to take the
-         *     transportable to, using the transport destination if null.
-         * @param allowFallback Allow a fallback plan that does not complete
-         *     the transport but does at least improve matters.
-         * @return Null on success, an error message on failure.
-         */
-        public String initialize(TransportableAIObject t, Unit carrier,
-                                 Location destination, boolean allowFallback) {
-            // Do some sanity checking
-<span class="pc bpc" id="L104" title="1 of 2 branches missed.">            if (t.isDisposed()) {</span>
-<span class="nc" id="L105">                return &quot;invalid-disposed&quot;;</span>
-<span class="pc bpc" id="L106" title="1 of 2 branches missed.">            } else if (carrier == null) {</span>
-<span class="nc" id="L107">                return &quot;invalid-null-carrier&quot;;</span>
-<span class="fc bfc" id="L108" title="All 2 branches covered.">            } else if (destination == null</span>
-<span class="pc bpc" id="L109" title="1 of 2 branches missed.">                &amp;&amp; (destination = t.getTransportDestination()) == null) {</span>
-<span class="nc" id="L110">                return &quot;invalid-null-destination&quot;;</span>
-            }
-<span class="fc" id="L112">            this.tdst = Location.upLoc(destination);</span>
-<span class="fc" id="L113">            final Location src = t.getLocation();</span>
-<span class="fc bfc" id="L114" title="All 2 branches covered.">            final boolean carrying = src == carrier;</span>
-<span class="pc bpc" id="L115" title="1 of 4 branches missed.">            if (!carrying &amp;&amp; src instanceof Unit) {</span>
-                // FIXME: drop this and allow multi-stage plans?
-<span class="nc" id="L117">                return &quot;invalid-collected-elsewhere&quot;;</span>
-            }
-
-            // Get the path to the destination, possibly allowing fallback
-            // to a destination that at least improves matters.
-<span class="fc" id="L122">            PathNode deliver = t.getDeliveryPath(carrier, tdst);</span>
-<span class="fc" id="L123">            fallback = false;</span>
-<span class="pc bpc" id="L124" title="1 of 4 branches missed.">            if (deliver == null &amp;&amp; allowFallback) {</span>
-<span class="fc" id="L125">                deliver = t.getIntermediatePath(carrier, tdst);</span>
-<span class="fc" id="L126">                fallback = true;</span>
-            }
-<span class="fc bfc" id="L128" title="All 2 branches covered.">            if (deliver == null) {</span>
-<span class="fc" id="L129">                return &quot;no-deliver &quot; + t</span>
-<span class="fc" id="L130">                    + &quot;/&quot; + carrier.toShortString()</span>
-<span class="fc" id="L131">                    + &quot; -&gt; &quot; + tdst.toShortString();</span>
-            }
-
-            // Where is the transportable collected?  At the first
-            // path node where it is on the carrier.
-<span class="fc" id="L136">            PathNode pick = deliver.getCarrierMove();</span>
-<span class="pc bpc" id="L137" title="1 of 2 branches missed.">            if (pick == null) return &quot;invalid-transport-not-needed&quot;;</span>
-            // The pickup node determines the c/twait locations.
-<span class="fc bfc" id="L139" title="All 2 branches covered.">            if (carrying) {</span>
-<span class="fc" id="L140">                this.twait = this.cwait = null;</span>
-            } else {
-<span class="fc" id="L142">                this.cwait = Location.upLoc(pick.getLocation());</span>
-                // If there is a previous non-carrier move on the delivery
-                // path, that is where the transportable should wait.
-                // This will be true for units moving directly from land
-                // to a naval carrier, but usually false when collection
-                // occurs in a colony (as for goods).
-<span class="pc bpc" id="L148" title="1 of 2 branches missed.">                PathNode prev = (pick.previous == null) ? pick : pick.previous;</span>
-<span class="fc" id="L149">                this.twait = Location.upLoc(prev.getLocation());</span>
-            }
-
-            // Can the carrier reach the pickup point?  If already
-            // carrying this is obviously moot.
-<span class="fc" id="L154">            PathNode collect = null;</span>
-<span class="fc bfc" id="L155" title="All 2 branches covered.">            if (!carrying</span>
-<span class="pc bpc" id="L156" title="1 of 2 branches missed.">                &amp;&amp; (collect = carrier.findPath(this.cwait)) == null) {</span>
-<span class="nc" id="L157">                return &quot;no-collect &quot; + t</span>
-<span class="nc" id="L158">                    + &quot;/&quot; + carrier.toShortString()</span>
-<span class="nc" id="L159">                    + &quot; at &quot; + this.cwait.toShortString();</span>
-            }
-                
-            // Where is the transportable dropped?  At the drop node,
-            // or at its predecessor from the carrier point of view.
-<span class="fc" id="L164">            PathNode drop = pick.getTransportDropNode();</span>
-<span class="pc bpc" id="L165" title="2 of 4 branches missed.">            if (drop == null || drop.previous == null) {</span>
-<span class="nc" id="L166">                throw new IllegalStateException(&quot;Cargo failure &quot; + t</span>
-<span class="nc" id="L167">                    + &quot; &quot; + deliver.fullPathToString()</span>
-<span class="nc" id="L168">                    + &quot; &quot; + pick.fullPathToString()</span>
-                    + &quot; &quot; + drop);
-            }
-<span class="fc" id="L171">            this.cdst = Location.upLoc(drop.previous.getLocation());</span>
-
-            // The transportable ends up at the end of the delivery path.
-<span class="fc" id="L174">            this.tdst = Location.upLoc(deliver.getLastNode().getLocation());</span>
-
-            // Total turns is just that of the delivery path if the
-            // transportable has been collected.  Otherwise, it is the
-            // maximum of the turns for the transportable and carrier to
-            // reach the collection point, plus the turns from there to
-            // the destination.
-            //
-            // The mode depends whether the carrier and transportable
-            // have the same terminal points.
-<span class="fc bfc" id="L184" title="All 2 branches covered.">            if (carrying) {</span>
-<span class="fc" id="L185">                this.turns = deliver.getTotalTurns();</span>
-<span class="pc bpc" id="L186" title="1 of 4 branches missed.">                this.mode = (this.cdst instanceof Europe</span>
-                    || this.cdst == this.tdst) ? CargoMode.UNLOAD
-                    : CargoMode.DROPOFF;
-            } else {
-<span class="fc" id="L190">                this.turns = Math.max(pick.getTurns(), collect.getTotalTurns())</span>
-<span class="fc" id="L191">                    + pick.getTotalTurns();</span>
-<span class="pc bpc" id="L192" title="2 of 4 branches missed.">                this.mode = (this.cwait instanceof Europe</span>
-                    || this.cwait == this.twait) ? CargoMode.LOAD
-                    : CargoMode.PICKUP;
-            }
-<span class="fc" id="L196">            return null;</span>
-        }
-    }
-
-    /** The AI object to be transported. */
-    private TransportableAIObject transportable;
-
-    /** The carrier that is providing transportation. */
-    private Unit carrier;
-
-    /** Counter for failed tries. */
-    private int tries;
-
-    /** Space left on the carrier. */
-    private int spaceLeft;
-
-    /** Wrap location for cargoes of the same destination. */
-    private List&lt;Cargo&gt; wrapped;
-
-    /** The plan to execute the transport. */
-    private CargoPlan plan;
-
-
-    /**
-     * Create a new cargo.
-     *
-     * @param transportable The &lt;code&gt;TransportableAIObject&lt;/code&gt;
-     *     to transport.
-     * @param carrier The carrier &lt;code&gt;Unit&lt;/code&gt;.
-     * @param plan The &lt;code&gt;CargoPlan&lt;/code&gt; to perform.
-     */
-    private Cargo(TransportableAIObject transportable, Unit carrier,
-<span class="fc" id="L228">                  CargoPlan plan) {</span>
-<span class="fc" id="L229">        this.transportable = transportable;</span>
-<span class="fc" id="L230">        this.carrier = carrier;</span>
-<span class="fc" id="L231">        this.tries = 0;</span>
-<span class="fc" id="L232">        this.spaceLeft = carrier.getSpaceLeft();</span>
-<span class="fc" id="L233">        this.wrapped = null;</span>
-<span class="fc" id="L234">        this.plan = plan;</span>
-<span class="fc" id="L235">    }</span>
-
-    /**
-     * Create a new cargo from a stream.
-     *
-     * @param aiMain The &lt;code&gt;AIMain&lt;/code&gt; root.
-     * @param xr The input stream containing the XML.
-     * @exception XMLStreamException if a problem was encountered
-     *     during parsing.
-     */
-<span class="nc" id="L245">    public Cargo(AIMain aiMain, FreeColXMLReader xr) throws XMLStreamException {</span>
-<span class="nc" id="L246">        readFromXML(aiMain, xr);</span>
-<span class="nc" id="L247">    }</span>
-
-
-    /**
-     * Initialize this cargo.
-     *
-     * @param destination The destination &lt;code&gt;Location&lt;/code&gt; to take
-     *     the transportable to, defaulting to the transport destination
-     *     if null.
-     * @param allowFallback Allow a fallback transport.
-     * @return A reason the planning failed, null if it succeeded.
-     */
-    private String initialize(Location destination, boolean allowFallback) {
-<span class="nc" id="L260">        return this.plan.initialize(this.transportable, this.carrier,</span>
-                                    destination, allowFallback);
-    }
-
-    /**
-     * Update the current delivery at the current fallback tolerance.
-     *
-     * @return A reason the planning failed, null if it succeeded.
-     */
-    public String update() {
-<span class="fc" id="L270">        return this.plan.initialize(this.transportable, this.carrier, null,</span>
-                                    this.plan.fallback);
-    }
-
-    /**
-     * Make a new cargo with given transportable and carrier.
-     *
-     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to transport.
-     * @param carrier The carrier &lt;code&gt;Unit&lt;/code&gt; to perform the transport.
-     * @return The new &lt;code&gt;Cargo&lt;/code&gt;.
-     * @exception FreeColException on failure of the planning stage.
-     */
-    public static Cargo newCargo(TransportableAIObject t, Unit carrier)
-        throws FreeColException {
-<span class="fc" id="L284">        return newCargo(t, carrier, t.getTransportDestination(), true);</span>
-    }
-
-    /**
-     * Make a new cargo with given transportable, carrier and explicit
-     * destination and fallback state.
-     *
-     * @param t The &lt;code&gt;TransportableAIObject&lt;/code&gt; to transport.
-     * @param carrier The carrier &lt;code&gt;Unit&lt;/code&gt; to perform the transport.
-     * @param destination The destination &lt;code&gt;Location&lt;/code&gt; for
-     *     the transportable.
-     * @param allowFallback Allow a fallback destination.
-     * @return The new &lt;code&gt;Cargo&lt;/code&gt;.
-     * @exception FreeColException on failure of the planning stage.
-     */
-    public static Cargo newCargo(TransportableAIObject t, Unit carrier,
-                                 Location destination, boolean allowFallback)
-        throws FreeColException {
-<span class="fc" id="L302">        Cargo cargo = new Cargo(t, carrier, new CargoPlan());</span>
-<span class="fc" id="L303">        String reason = cargo.plan.initialize(t, carrier, destination,</span>
-                                              allowFallback);
-<span class="fc bfc" id="L305" title="All 2 branches covered.">        if (reason != null) throw new FreeColException(reason);</span>
-<span class="fc" id="L306">        return cargo;</span>
-    }
-
-    /**
-     * Reset this cargo to dump to the nearest available location.
-     *
-     * @return A reason for failing to reset, or null on succes.
-     */
-    public String dump() {
-<span class="nc bnc" id="L315" title="All 2 branches missed.">        if (!isCarried()) return &quot;not-carried&quot;;</span>
-<span class="nc" id="L316">        PathNode path = carrier.getTrivialPath();</span>
-<span class="nc bnc" id="L317" title="All 2 branches missed.">        if (path == null) return &quot;no-trivial-path&quot;;</span>
-<span class="nc" id="L318">        String reason = initialize(path.getLastNode().getLocation(), false);</span>
-<span class="nc bnc" id="L319" title="All 2 branches missed.">        if (reason != null) return reason;</span>
-<span class="nc" id="L320">        this.plan.mode = CargoMode.DUMP;</span>
-<span class="nc" id="L321">        return null;</span>
-    }
-
-    /**
-     * Get the transportable.
-     *
-     * @return The &lt;code&gt;TransportableAIObject&lt;/code&gt; to transport.
-     */
-    public TransportableAIObject getTransportable() {
-<span class="fc" id="L330">        return transportable;</span>
-    }
-
-    public Unit getCarrier() {
-<span class="nc" id="L334">        return carrier;</span>
-    }
-
-    public int getTries() {
-<span class="nc" id="L338">        return this.tries;</span>
-    }
-
-    public int getSpaceLeft() {
-<span class="nc" id="L342">        return spaceLeft;</span>
-    }
-
-    public void setSpaceLeft(int spaceLeft) {
-<span class="fc" id="L346">        this.spaceLeft = spaceLeft;</span>
-<span class="fc" id="L347">    }</span>
-
-    public boolean isValid() {
-<span class="pc bpc" id="L350" title="2 of 4 branches missed.">        return plan != null &amp;&amp; plan.mode != null;</span>
-    }
-
-    public CargoMode getMode() {
-<span class="fc" id="L354">        return plan.mode;</span>
-    }
-
-    public String getModeString() {
-<span class="fc" id="L358">        CargoMode mode = getMode();</span>
-<span class="pc bpc" id="L359" title="1 of 2 branches missed.">        return (mode == null) ? &quot;null&quot;</span>
-<span class="fc" id="L360">            : mode.toString().toLowerCase(Locale.US);</span>
-    }
-
-    public int getTurns() {
-<span class="nc" id="L364">        return plan.turns;</span>
-    }
-
-    public boolean isFallback() {
-<span class="nc" id="L368">        return plan.fallback;</span>
-    }
-
-    public Location getTransportTarget() {
-<span class="fc bfc" id="L372" title="All 2 branches covered.">        return (getMode().isCollection()) ? plan.twait : plan.tdst;</span>
-    }
-
-    public Location getCarrierTarget() {
-<span class="fc bfc" id="L376" title="All 2 branches covered.">        return (getMode().isCollection()) ? plan.cwait : plan.cdst;</span>
-    }
-
-    public void clear() {
-<span class="nc" id="L380">        this.transportable = null;</span>
-<span class="nc" id="L381">        this.carrier = null;</span>
-<span class="nc" id="L382">        this.plan.mode = null;</span>
-<span class="nc" id="L383">    }</span>
-
-    /**
-     * Is the transportable on board the carrier?
-     *
-     * @return True if the transportable is being carried by the carrier.
-     */
-    public boolean isCarried() {
-<span class="pc bpc" id="L391" title="1 of 2 branches missed.">        return transportable != null</span>
-<span class="fc bfc" id="L392" title="All 2 branches covered.">            &amp;&amp; transportable.getLocation() == carrier;</span>
-    }
-        
-    /**
-     * Is this cargo collectable?  That is, is it and the carrier
-     * at their collection points, and in a collectable mode.
-     *
-     * @return True if the cargo can be collected.
-     */
-    public boolean isCollectable() {
-<span class="pc bpc" id="L402" title="1 of 4 branches missed.">        if (!getMode().isCollection() || isCarried()) return false;</span>
-<span class="pc bpc" id="L403" title="1 of 2 branches missed.">        return Map.isSameLocation(plan.twait, transportable.getLocation())</span>
-<span class="pc bpc" id="L404" title="1 of 2 branches missed.">            &amp;&amp; Map.isSameLocation(plan.cwait, carrier.getLocation());</span>
-    }
-            
-    /**
-     * Is this cargo deliverable?  That is, has it arrived at the target
-     * on board the carrier in a deliverable mode.
-     *
-     * @return True if the cargo can be delivered to the target.
-     */
-    public boolean isDeliverable() {
-<span class="pc bpc" id="L414" title="1 of 4 branches missed.">        if (getMode().isCollection() || !isCarried()) return false;</span>
-<span class="fc" id="L415">        return Map.isSameLocation(plan.cdst, carrier.getLocation());</span>
-    }
-
-    /**
-     * Is this cargo delivered, or otherwise removed?  That is, is the
-     * cargo not on board the carrier in a deliverable mode?
-     *
-     * @return True if the cargo has been delivered.
-     */
-    public boolean isDelivered() {
-<span class="pc bpc" id="L425" title="1 of 4 branches missed.">        return !getMode().isCollection() &amp;&amp; !isCarried();</span>
-    }
-
-    /**
-     * Does this cargo have a potential delivery path?
-     *
-     * @return True if the carrier can deliver the cargo.
-     */
-    public boolean hasPath() {
-<span class="pc bpc" id="L434" title="1 of 2 branches missed.">        return carrier.findPath(getCarrierTarget()) != null;</span>
-    }
-
-    /**
-     * Get the movement direction to join the carrier.
-     *
-     * @return The &lt;code&gt;Direction&lt;/code&gt; to join by.
-     */
-    public Direction getJoinDirection() {
-<span class="nc bnc" id="L443" title="All 4 branches missed.">        return (carrier.isInEurope() || plan.cwait == plan.twait) ? null</span>
-<span class="nc" id="L444">            : carrier.getGame().getMap().getDirection(plan.twait.getTile(),</span>
-<span class="nc" id="L445">                                                      plan.cwait.getTile());</span>
-    }
-
-    /**
-     * Get the movement direction to leave the carrier.
-     *
-     * @return The &lt;code&gt;Direction&lt;/code&gt; to leave by.
-     */
-    public Direction getLeaveDirection() {
-<span class="nc bnc" id="L454" title="All 4 branches missed.">        if (!carrier.hasTile() || plan.cdst == plan.tdst) return null;</span>
-<span class="nc" id="L455">        TransportableAIObject t = getTransportable();</span>
-<span class="nc" id="L456">        PathNode path = t.getDeliveryPath(getCarrier(), plan.tdst);</span>
-<span class="nc bnc" id="L457" title="All 4 branches missed.">        return (path == null || path.next == null) ? null</span>
-<span class="nc" id="L458">            : path.next.getDirection();</span>
-    }
-
-    /**
-     * How much space would be needed to add this transportable?
-     *
-     * @return The extra space required.
-     */
-    public int getNewSpace() {
-<span class="pc bpc" id="L467" title="1 of 2 branches missed.">        if (!isValid()) return 0;</span>
-<span class="fc" id="L468">        int ret = 0;</span>
-<span class="fc bfc" id="L469" title="All 2 branches covered.">        ret += (getMode().isCollection()) ? getTransportable().getSpaceTaken()</span>
-<span class="fc" id="L470">            : -getTransportable().getSpaceTaken();</span>
-<span class="pc bpc" id="L471" title="1 of 2 branches missed.">        if (hasWrapped()) {</span>
-<span class="nc" id="L472">            ret += wrapped.stream().mapToInt(c -&gt; c.getNewSpace()).sum();</span>
-        }
-<span class="fc" id="L474">        return ret;</span>
-    }
-
-    /**
-     * Does this cargo wrap others?
-     *
-     * @return True if wrapped transportables are present.
-     */
-    public boolean hasWrapped() {
-<span class="pc bpc" id="L483" title="1 of 2 branches missed.">        return wrapped != null;</span>
-    }
-
-    /**
-     * TransportableAIObjects can be `wrapped' if they have the
-     * same target and advancing them reduces the space on the carrier.
-     *
-     * @param other The other &lt;code&gt;TransportableAIObject&lt;/code&gt;
-     *     to consider.
-     * @return True if the transportables can be wrapped.
-     */
-    public boolean couldWrap(Cargo other) {
-<span class="nc bnc" id="L495" title="All 2 branches missed.">        return getCarrierTarget() == other.getCarrierTarget()</span>
-<span class="nc bnc" id="L496" title="All 4 branches missed.">            &amp;&amp; getNewSpace() &lt; 0 &amp;&amp; other.getNewSpace() &lt; 0;</span>
-    }
-
-    /**
-     * Wrap a Cargo into this one.
-     *
-     * @param other The other &lt;code&gt;Cargo&lt;/code&gt; to wrap.
-     */
-    public void wrap(Cargo other) {
-<span class="nc bnc" id="L505" title="All 2 branches missed.">        if (other == this) {</span>
-<span class="nc" id="L506">            throw new IllegalStateException(&quot;Autowrap at&quot; + this);</span>
-        }
-<span class="nc bnc" id="L508" title="All 2 branches missed.">        if (wrapped == null) wrapped = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L509">        wrapped.add(other);</span>
-<span class="nc" id="L510">    }</span>
-
-    /**
-     * Unwrap this cargo.
-     *
-     * @return The cargoes that were wrapped.
-     */
-    public List&lt;Cargo&gt; unwrap() {
-<span class="nc bnc" id="L518" title="All 2 branches missed.">        if (wrapped == null) {</span>
-<span class="nc" id="L519">            throw new IllegalStateException(&quot;Bogus unwrap &quot; + this);</span>
-        }
-<span class="nc" id="L521">        List&lt;Cargo&gt; result = wrapped;</span>
-<span class="nc" id="L522">        wrapped = null;</span>
-<span class="nc" id="L523">        return result;</span>
-    }
-            
-    /**
-     * Should this &lt;code&gt;Cargo&lt;/code&gt; be retried after encountering
-     * a blockage?  For now, just tries three times.
-     *
-     * FIXME: be smarter.
-     *
-     * @return True if the &lt;code&gt;Cargo&lt;/code&gt; should be retried.
-     */
-    public boolean retry() {
-<span class="nc bnc" id="L535" title="All 2 branches missed.">        return tries++ &lt; MAX_TRY;</span>
-    }
-
-    /**
-     * Reset the tries counter.
-     */
-    public void resetTries() {
-<span class="fc" id="L542">        this.tries = 0;</span>
-<span class="fc" id="L543">    }</span>
-
-    /**
-     * Does this cargo involve trade with Europe in a given goods type?
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to check.
-     * @return True if this cargo is of the given type and to be
-     *     collected or delivered to Europe.
-     */
-    public boolean isEuropeanTrade(GoodsType type) {
-<span class="nc bnc" id="L553" title="All 2 branches missed.">        return transportable instanceof AIGoods</span>
-<span class="nc bnc" id="L554" title="All 2 branches missed.">            &amp;&amp; ((AIGoods)transportable).getGoodsType() == type</span>
-<span class="nc bnc" id="L555" title="All 2 branches missed.">            &amp;&amp; getCarrierTarget() instanceof Europe;</span>
-    }
-
-    /**
-     * Check the integrity of this cargo.
-     *
-     * @param aiCarrier The &lt;code&gt;AIUnit&lt;/code&gt; version of the carrier.
-     * @return A reason for integrity failure, or null if none.
-     */
-    public String check(AIUnit aiCarrier) {
-<span class="pc bpc" id="L565" title="1 of 2 branches missed.">        if (transportable == null) {</span>
-<span class="nc" id="L566">            return &quot;null transportable&quot;;</span>
-<span class="pc bpc" id="L567" title="1 of 2 branches missed.">        } else if (transportable.isDisposed()) {</span>
-<span class="nc" id="L568">            return &quot;disposed transportable&quot;;</span>
-        }
-            
-<span class="fc" id="L571">        Locatable l = transportable.getTransportLocatable();</span>
-<span class="pc bpc" id="L572" title="1 of 2 branches missed.">        if (l == null) {</span>
-<span class="nc" id="L573">            return &quot;null locatable: &quot; + transportable;</span>
-<span class="pc bpc" id="L574" title="1 of 2 branches missed.">        } else if (l instanceof FreeColGameObject</span>
-<span class="nc bnc" id="L575" title="All 2 branches missed.">            &amp;&amp; ((FreeColGameObject)l).isDisposed()) {</span>
-<span class="nc" id="L576">            return &quot;locatable disposed&quot;;</span>
-        }
-            
-<span class="fc" id="L579">        Location tLoc = l.getLocation();</span>
-<span class="pc bpc" id="L580" title="1 of 4 branches missed.">        if (tLoc instanceof Unit &amp;&amp; tLoc != carrier) {</span>
-<span class="nc" id="L581">            return &quot;carrier usurped&quot;; // On another carrier!</span>
-        }
-<span class="fc" id="L583">        return null;</span>
-    }
-
-    /**
-     * Can this cargo be queued at the given index in a list of cargoes?
-     *
-     * TODO: be smarter and break out of the loop if the cargo reaches
-     * its delivery point.
-     *
-     * @param carrier The &lt;code&gt;Unit&lt;/code&gt; to queue to.
-     * @param index The queuing position to test.
-     * @param cargoes A list of &lt;code&gt;Cargo&lt;/code&gt;s.
-     * @return True if there is space to add the cargo.
-     */
-    public boolean canQueueAt(Unit carrier, int index, List&lt;Cargo&gt; cargoes) {
-<span class="nc" id="L598">        final int maxHolds = carrier.getCargoCapacity();</span>
-<span class="nc" id="L599">        final int newSpace = this.getNewSpace();</span>
-<span class="nc" id="L600">        Cargo tr = cargoes.get(index);</span>
-<span class="nc bnc" id="L601" title="All 2 branches missed.">        for (int j = index; j &lt; cargoes.size(); j++) {</span>
-<span class="nc bnc" id="L602" title="All 2 branches missed.">            int holds = (j == 0) ? carrier.getCargoSpaceTaken()</span>
-<span class="nc" id="L603">                : maxHolds - cargoes.get(j-1).getSpaceLeft();</span>
-<span class="nc" id="L604">            holds += newSpace;</span>
-<span class="nc bnc" id="L605" title="All 4 branches missed.">            if (holds &lt; 0 || holds &gt; maxHolds) return false;</span>
-        }
-<span class="nc" id="L607">        return true;</span>
-    }
-
-    /**
-     * Abbreviated string representation for this cargo.
-     *
-     * @return A short descriptive string.
-     */
-    public String toShortString() {
-<span class="fc" id="L616">        LogBuilder lb = new LogBuilder(32);</span>
-<span class="fc" id="L617">        lb.add(getModeString(), &quot; &quot;, transportable);</span>
-<span class="fc" id="L618">        Location lt = getTransportTarget();</span>
-<span class="pc bpc" id="L619" title="1 of 2 branches missed.">        lb.add(&quot; @ &quot;, ((lt == null) ? &quot;null&quot; : lt.toShortString()));</span>
-<span class="fc" id="L620">        Location ct = getCarrierTarget();</span>
-<span class="pc bpc" id="L621" title="1 of 2 branches missed.">        if (ct != lt) lb.add(&quot;/&quot;, ct.toShortString());</span>
-<span class="fc" id="L622">        return lb.toString();</span>
-    }
-
-
-    // Override Object
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-<span class="nc" id="L633">        LogBuilder lb = new LogBuilder(64);</span>
-<span class="nc" id="L634">        lb.add(&quot;[&quot;, transportable,</span>
-<span class="nc" id="L635">            &quot; &quot;, getModeString(),</span>
-<span class="nc bnc" id="L636" title="All 2 branches missed.">            &quot; &quot;, getTurns(), &quot;/&quot;, tries, &quot; space=&quot;, spaceLeft,</span>
-            ((wrapped == null) ? &quot;&quot; : &quot; wrap&quot;));
-<span class="nc bnc" id="L638" title="All 4 branches missed.">        if (plan.twait != null &amp;&amp; plan.cwait != null) {</span>
-<span class="nc" id="L639">            lb.add(&quot; &quot;, plan.twait.toShortString(),</span>
-<span class="nc" id="L640">                &quot;/&quot;, plan.cwait.toShortString());</span>
-        }
-<span class="nc bnc" id="L642" title="All 4 branches missed.">        if (plan.cdst != null &amp;&amp; plan.tdst != null) {</span>
-<span class="nc" id="L643">            lb.add(&quot;-&gt;&quot;, plan.cdst.toShortString(),</span>
-<span class="nc" id="L644">                &quot;/&quot;, plan.tdst.toShortString());</span>
-        }
-<span class="nc" id="L646">        lb.add(&quot; &quot;, plan.fallback, &quot;]&quot;);</span>
-<span class="nc" id="L647">        return lb.toString();</span>
-    }            
-
-
-    // Serialization
-    // Cargo is not yet an AIObject or FreeColObject, but that may happen.
-
-    private static final String CDST_TAG = &quot;cdst&quot;;
-    private static final String CWAIT_TAG = &quot;cwait&quot;;
-    private static final String CARRIER_TAG = &quot;carrier&quot;;
-    private static final String FALLBACK_TAG = &quot;fallback&quot;;
-    private static final String MODE_TAG = &quot;mode&quot;;
-    private static final String SPACELEFT_TAG = &quot;space&quot;;
-    private static final String TDST_TAG = &quot;tdst&quot;;
-    private static final String TRIES_TAG = &quot;tries&quot;;
-    private static final String TURNS_TAG = &quot;turns&quot;;
-    private static final String TWAIT_TAG = &quot;twait&quot;;
-    // Used to use TARGET_TAG = &quot;target&quot;
-
-
-    public void toXML(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="nc" id="L668">        xw.writeStartElement(getXMLElementTagName());</span>
-
-<span class="nc" id="L670">        xw.writeAttribute(FreeColObject.ID_ATTRIBUTE_TAG,</span>
-<span class="nc" id="L671">                          (AIObject)getTransportable());</span>
-
-<span class="nc" id="L673">        xw.writeAttribute(CARRIER_TAG, getCarrier());</span>
-
-<span class="nc" id="L675">        xw.writeAttribute(TRIES_TAG, getTries());</span>
-
-<span class="nc" id="L677">        xw.writeAttribute(SPACELEFT_TAG, getSpaceLeft());</span>
-
-<span class="nc bnc" id="L679" title="All 2 branches missed.">        if (plan.twait != null) {</span>
-<span class="nc" id="L680">            xw.writeLocationAttribute(TWAIT_TAG, plan.twait);</span>
-        }
-
-<span class="nc bnc" id="L683" title="All 2 branches missed.">        if (plan.cwait != null) {</span>
-<span class="nc" id="L684">            xw.writeLocationAttribute(CWAIT_TAG, plan.cwait);</span>
-        }
-
-<span class="nc bnc" id="L687" title="All 2 branches missed.">        if (plan.cdst != null) {</span>
-<span class="nc" id="L688">            xw.writeLocationAttribute(CDST_TAG, plan.cdst);</span>
-        }
-
-<span class="nc bnc" id="L691" title="All 2 branches missed.">        if (plan.tdst != null) {</span>
-<span class="nc" id="L692">            xw.writeLocationAttribute(TDST_TAG, plan.tdst);</span>
-        }
-
-<span class="nc" id="L695">        xw.writeAttribute(TURNS_TAG, plan.turns);</span>
-
-<span class="nc" id="L697">        xw.writeAttribute(MODE_TAG, plan.mode);</span>
-
-<span class="nc" id="L699">        xw.writeAttribute(FALLBACK_TAG, plan.fallback);</span>
-
-<span class="nc" id="L701">        xw.writeEndElement();</span>
-<span class="nc" id="L702">    }</span>
-
-    public void readFromXML(AIMain aiMain, FreeColXMLReader xr) throws XMLStreamException {
-<span class="nc" id="L705">        final Game game = aiMain.getGame();</span>
-
-<span class="nc" id="L707">        String tid = xr.readId();</span>
-<span class="nc" id="L708">        TransportableAIObject tao = null;</span>
-<span class="nc bnc" id="L709" title="All 2 branches missed.">        if (tid != null) {</span>
-<span class="nc" id="L710">            AIObject aio = aiMain.getAIObject(tid);</span>
-<span class="nc bnc" id="L711" title="All 2 branches missed.">            if (aio == null) {</span>
-<span class="nc bnc" id="L712" title="All 2 branches missed.">                if (tid.startsWith(Unit.getXMLElementTagName())) {</span>
-<span class="nc" id="L713">                    tao = new AIUnit(aiMain, tid);</span>
-<span class="nc bnc" id="L714" title="All 2 branches missed.">                } else if (tid.startsWith(AIGoods.getXMLElementTagName())) {</span>
-<span class="nc" id="L715">                    tao = new AIGoods(aiMain, tid);</span>
-                }
-            } else {
-<span class="nc" id="L718">                tao = (TransportableAIObject)aio;</span>
-            }
-        }
-<span class="nc bnc" id="L721" title="All 2 branches missed.">        if (tao == null) {</span>
-<span class="nc" id="L722">            throw new XMLStreamException(&quot;Transportable expected: &quot; + tid);</span>
-        }
-<span class="nc" id="L724">        this.transportable = tao;</span>
-
-<span class="nc" id="L726">        this.carrier = xr.getAttribute(game, CARRIER_TAG,</span>
-                                       Unit.class, (Unit)null);
-
-<span class="nc" id="L729">        this.tries = xr.getAttribute(TRIES_TAG, 0);</span>
-        
-<span class="nc" id="L731">        this.spaceLeft = xr.getAttribute(SPACELEFT_TAG, -1);</span>
-            
-<span class="nc" id="L733">        this.wrapped = null;</span>
-
-<span class="nc" id="L735">        this.plan = new CargoPlan();</span>
-
-<span class="nc" id="L737">        this.plan.twait = xr.getLocationAttribute(game, TWAIT_TAG, false);</span>
-
-<span class="nc" id="L739">        this.plan.cwait = xr.getLocationAttribute(game, CWAIT_TAG, false);</span>
-
-<span class="nc" id="L741">        this.plan.cdst = xr.getLocationAttribute(game, CDST_TAG, false);</span>
-
-<span class="nc" id="L743">        this.plan.tdst = xr.getLocationAttribute(game, TDST_TAG, false);</span>
-            
-<span class="nc" id="L745">        this.plan.turns = xr.getAttribute(TURNS_TAG, -1);</span>
-
-<span class="nc" id="L747">        this.plan.mode = xr.getAttribute(MODE_TAG, </span>
-                                         CargoMode.class, (CargoMode)null);
-
-<span class="nc" id="L750">        this.plan.fallback = xr.getAttribute(FALLBACK_TAG, false);</span>
-
-<span class="nc" id="L752">        xr.closeTag(getXMLElementTagName());</span>
-<span class="nc" id="L753">    }</span>
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return &quot;cargo&quot;
-     */
-    public static String getXMLElementTagName() {
-<span class="nc" id="L761">        return &quot;cargo&quot;;</span>
-    }
+	/** The Constant logger. */
+<span class="fc" id="L52">	private static final Logger logger = Logger.getLogger(Cargo.class.getName());</span>
+
+	/** Abandon cargo after three blockages. */
+	private static final int MAX_TRY = 3;
+
+	/** The actions to perform at the target. */
+<span class="pc" id="L58">	public static enum CargoMode {</span>
+
+		/** The load. */
+<span class="fc" id="L61">		LOAD,</span>
+		/** The unload. */
+		// Go to target and load transportable
+<span class="fc" id="L64">		UNLOAD,</span>
+		/** The pickup. */
+		// Go to target and unload transportable
+<span class="fc" id="L67">		PICKUP,</span>
+		/** The dropoff. */
+		// Go to drop node target, transportable unit to embark
+<span class="fc" id="L70">		DROPOFF,</span>
+		/** The dump. */
+		// Go to drop node target, transportable unit to disembark
+<span class="fc" id="L73">		DUMP; // Just dump this transportable at the next opportunity</span>
+
+		/**
+		 * Checks if is collection.
+		 *
+		 * @return true, if is collection
+		 */
+		public boolean isCollection() {
+<span class="pc bpc" id="L81" title="1 of 4 branches missed.">			return this == LOAD || this == PICKUP;</span>
+		}
+	}
+
+	/**
+	 * Container for a plan for a transportable to get to TWAIT where a carrier
+	 * collects it from CWAIT (may equal TWAIT) and takes it to CDST, whence the
+	 * transportable goes to TDST (may equal CDST).
+	 */
+<span class="fc" id="L90">	public static class CargoPlan {</span>
+
+		/** The key locations along the path taken by cargo and carrier. */
+		public Location twait, cwait, cdst, tdst;
+
+		/** Expected total duration of this plan when it is initialized. */
+		public int turns;
+
+		/** Current state of the plan. */
+		public CargoMode mode;
+
+		/** Is the destination a fallback destination?. */
+		public boolean fallback;
+
+		/**
+		 * Plan the transport of a transportable with a given carrier.
+		 *
+		 * @param t
+		 *            The &lt;code&gt;TransportableAIObject&lt;/code&gt; to deliver.
+		 * @param carrier
+		 *            The carrier &lt;code&gt;Unit&lt;/code&gt; to use.
+		 * @param destination
+		 *            The destination &lt;code&gt;Location&lt;/code&gt; to take the
+		 *            transportable to, using the transport destination if null.
+		 * @param allowFallback
+		 *            Allow a fallback plan that does not complete the transport
+		 *            but does at least improve matters.
+		 * @return Null on success, an error message on failure.
+		 */
+		public String initialize(TransportableAIObject t, Unit carrier, Location destination, boolean allowFallback) {
+			// Do some sanity checking
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">			if (t.isDisposed()) {</span>
+<span class="nc" id="L122">				return &quot;invalid-disposed&quot;;</span>
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">			} else if (carrier == null) {</span>
+<span class="nc" id="L124">				return &quot;invalid-null-carrier&quot;;</span>
+<span class="pc bpc" id="L125" title="1 of 4 branches missed.">			} else if (destination == null &amp;&amp; (destination = t.getTransportDestination()) == null) {</span>
+<span class="nc" id="L126">				return &quot;invalid-null-destination&quot;;</span>
+			}
+<span class="fc" id="L128">			this.tdst = Location.upLoc(destination);</span>
+<span class="fc" id="L129">			final Location src = t.getLocation();</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">			final boolean carrying = src == carrier;</span>
+<span class="pc bpc" id="L131" title="1 of 4 branches missed.">			if (!carrying &amp;&amp; src instanceof Unit) {</span>
+				// FIXME: drop this and allow multi-stage plans?
+<span class="nc" id="L133">				return &quot;invalid-collected-elsewhere&quot;;</span>
+			}
+
+			// Get the path to the destination, possibly allowing fallback
+			// to a destination that at least improves matters.
+<span class="fc" id="L138">			PathNode deliver = t.getDeliveryPath(carrier, tdst);</span>
+<span class="fc" id="L139">			fallback = false;</span>
+<span class="pc bpc" id="L140" title="1 of 4 branches missed.">			if (deliver == null &amp;&amp; allowFallback) {</span>
+<span class="fc" id="L141">				deliver = t.getIntermediatePath(carrier, tdst);</span>
+<span class="fc" id="L142">				fallback = true;</span>
+			}
+<span class="fc bfc" id="L144" title="All 2 branches covered.">			if (deliver == null) {</span>
+<span class="fc" id="L145">				return &quot;no-deliver &quot; + t + &quot;/&quot; + carrier.toShortString() + &quot; -&gt; &quot; + tdst.toShortString();</span>
+			}
+
+			// Where is the transportable collected? At the first
+			// path node where it is on the carrier.
+<span class="fc" id="L150">			PathNode pick = deliver.getCarrierMove();</span>
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">			if (pick == null)</span>
+<span class="nc" id="L152">				return &quot;invalid-transport-not-needed&quot;;</span>
+			// The pickup node determines the c/twait locations.
+<span class="fc bfc" id="L154" title="All 2 branches covered.">			if (carrying) {</span>
+<span class="fc" id="L155">				this.twait = this.cwait = null;</span>
+			} else {
+<span class="fc" id="L157">				this.cwait = Location.upLoc(pick.getLocation());</span>
+				// If there is a previous non-carrier move on the delivery
+				// path, that is where the transportable should wait.
+				// This will be true for units moving directly from land
+				// to a naval carrier, but usually false when collection
+				// occurs in a colony (as for goods).
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">				PathNode prev = (pick.previous == null) ? pick : pick.previous;</span>
+<span class="fc" id="L164">				this.twait = Location.upLoc(prev.getLocation());</span>
+			}
+
+			// Can the carrier reach the pickup point? If already
+			// carrying this is obviously moot.
+<span class="fc" id="L169">			PathNode collect = null;</span>
+<span class="pc bpc" id="L170" title="1 of 4 branches missed.">			if (!carrying &amp;&amp; (collect = carrier.findPath(this.cwait)) == null) {</span>
+<span class="nc" id="L171">				return &quot;no-collect &quot; + t + &quot;/&quot; + carrier.toShortString() + &quot; at &quot; + this.cwait.toShortString();</span>
+			}
+
+			// Where is the transportable dropped? At the drop node,
+			// or at its predecessor from the carrier point of view.
+<span class="fc" id="L176">			PathNode drop = pick.getTransportDropNode();</span>
+<span class="pc bpc" id="L177" title="2 of 4 branches missed.">			if (drop == null || drop.previous == null) {</span>
+<span class="nc" id="L178">				throw new IllegalStateException(&quot;Cargo failure &quot; + t + &quot; &quot; + deliver.fullPathToString() + &quot; &quot;</span>
+<span class="nc" id="L179">						+ pick.fullPathToString() + &quot; &quot; + drop);</span>
+			}
+<span class="fc" id="L181">			this.cdst = Location.upLoc(drop.previous.getLocation());</span>
+
+			// The transportable ends up at the end of the delivery path.
+<span class="fc" id="L184">			this.tdst = Location.upLoc(deliver.getLastNode().getLocation());</span>
+
+			// Total turns is just that of the delivery path if the
+			// transportable has been collected. Otherwise, it is the
+			// maximum of the turns for the transportable and carrier to
+			// reach the collection point, plus the turns from there to
+			// the destination.
+			//
+			// The mode depends whether the carrier and transportable
+			// have the same terminal points.
+<span class="fc bfc" id="L194" title="All 2 branches covered.">			if (carrying) {</span>
+<span class="fc" id="L195">				this.turns = deliver.getTotalTurns();</span>
+<span class="pc bpc" id="L196" title="1 of 4 branches missed.">				this.mode = (this.cdst instanceof Europe || this.cdst == this.tdst) ? CargoMode.UNLOAD</span>
+						: CargoMode.DROPOFF;
+			} else {
+<span class="fc" id="L199">				this.turns = Math.max(pick.getTurns(), collect.getTotalTurns()) + pick.getTotalTurns();</span>
+<span class="pc bpc" id="L200" title="2 of 4 branches missed.">				this.mode = (this.cwait instanceof Europe || this.cwait == this.twait) ? CargoMode.LOAD</span>
+						: CargoMode.PICKUP;
+			}
+<span class="fc" id="L203">			return null;</span>
+		}
+	}
+
+	/** The AI object to be transported. */
+	private TransportableAIObject transportable;
+
+	/** The carrier that is providing transportation. */
+	private Unit carrier;
+
+	/** Counter for failed tries. */
+	private int tries;
+
+	/** Space left on the carrier. */
+	private int spaceLeft;
+
+	/** Wrap location for cargoes of the same destination. */
+	private List&lt;Cargo&gt; wrapped;
+
+	/** The plan to execute the transport. */
+	private CargoPlan plan;
+
+	/**
+	 * Create a new cargo.
+	 *
+	 * @param transportable
+	 *            The &lt;code&gt;TransportableAIObject&lt;/code&gt; to transport.
+	 * @param carrier
+	 *            The carrier &lt;code&gt;Unit&lt;/code&gt;.
+	 * @param plan
+	 *            The &lt;code&gt;CargoPlan&lt;/code&gt; to perform.
+	 */
+<span class="fc" id="L235">	private Cargo(TransportableAIObject transportable, Unit carrier, CargoPlan plan) {</span>
+<span class="fc" id="L236">		this.transportable = transportable;</span>
+<span class="fc" id="L237">		this.carrier = carrier;</span>
+<span class="fc" id="L238">		this.tries = 0;</span>
+<span class="fc" id="L239">		this.spaceLeft = carrier.getSpaceLeft();</span>
+<span class="fc" id="L240">		this.wrapped = null;</span>
+<span class="fc" id="L241">		this.plan = plan;</span>
+<span class="fc" id="L242">	}</span>
+
+	/**
+	 * Create a new cargo from a stream.
+	 *
+	 * @param aiMain
+	 *            The &lt;code&gt;AIMain&lt;/code&gt; root.
+	 * @param xr
+	 *            The input stream containing the XML.
+	 * @exception XMLStreamException
+	 *                if a problem was encountered during parsing.
+	 */
+<span class="nc" id="L254">	public Cargo(AIMain aiMain, FreeColXMLReader xr) throws XMLStreamException {</span>
+<span class="nc" id="L255">		readFromXML(aiMain, xr);</span>
+<span class="nc" id="L256">	}</span>
+
+	/**
+	 * Initialize this cargo.
+	 *
+	 * @param destination
+	 *            The destination &lt;code&gt;Location&lt;/code&gt; to take the
+	 *            transportable to, defaulting to the transport destination if
+	 *            null.
+	 * @param allowFallback
+	 *            Allow a fallback transport.
+	 * @return A reason the planning failed, null if it succeeded.
+	 */
+	private String initialize(Location destination, boolean allowFallback) {
+<span class="nc" id="L270">		return this.plan.initialize(this.transportable, this.carrier, destination, allowFallback);</span>
+	}
+
+	/**
+	 * Update the current delivery at the current fallback tolerance.
+	 *
+	 * @return A reason the planning failed, null if it succeeded.
+	 */
+	public String update() {
+<span class="fc" id="L279">		return this.plan.initialize(this.transportable, this.carrier, null, this.plan.fallback);</span>
+	}
+
+	/**
+	 * Make a new cargo with given transportable and carrier.
+	 *
+	 * @param t
+	 *            The &lt;code&gt;TransportableAIObject&lt;/code&gt; to transport.
+	 * @param carrier
+	 *            The carrier &lt;code&gt;Unit&lt;/code&gt; to perform the transport.
+	 * @return The new &lt;code&gt;Cargo&lt;/code&gt;.
+	 * @exception FreeColException
+	 *                on failure of the planning stage.
+	 */
+	public static Cargo newCargo(TransportableAIObject t, Unit carrier) throws FreeColException {
+<span class="fc" id="L294">		return newCargo(t, carrier, t.getTransportDestination(), true);</span>
+	}
+
+	/**
+	 * Make a new cargo with given transportable, carrier and explicit
+	 * destination and fallback state.
+	 *
+	 * @param t
+	 *            The &lt;code&gt;TransportableAIObject&lt;/code&gt; to transport.
+	 * @param carrier
+	 *            The carrier &lt;code&gt;Unit&lt;/code&gt; to perform the transport.
+	 * @param destination
+	 *            The destination &lt;code&gt;Location&lt;/code&gt; for the transportable.
+	 * @param allowFallback
+	 *            Allow a fallback destination.
+	 * @return The new &lt;code&gt;Cargo&lt;/code&gt;.
+	 * @exception FreeColException
+	 *                on failure of the planning stage.
+	 */
+	public static Cargo newCargo(TransportableAIObject t, Unit carrier, Location destination, boolean allowFallback)
+			throws FreeColException {
+<span class="fc" id="L315">		Cargo cargo = new Cargo(t, carrier, new CargoPlan());</span>
+<span class="fc" id="L316">		String reason = cargo.plan.initialize(t, carrier, destination, allowFallback);</span>
+<span class="fc bfc" id="L317" title="All 2 branches covered.">		if (reason != null)</span>
+<span class="fc" id="L318">			throw new FreeColException(reason);</span>
+<span class="fc" id="L319">		return cargo;</span>
+	}
+
+	/**
+	 * Reset this cargo to dump to the nearest available location.
+	 *
+	 * @return A reason for failing to reset, or null on succes.
+	 */
+	public String dump() {
+<span class="nc bnc" id="L328" title="All 2 branches missed.">		if (!isCarried())</span>
+<span class="nc" id="L329">			return &quot;not-carried&quot;;</span>
+<span class="nc" id="L330">		PathNode path = carrier.getTrivialPath();</span>
+<span class="nc bnc" id="L331" title="All 2 branches missed.">		if (path == null)</span>
+<span class="nc" id="L332">			return &quot;no-trivial-path&quot;;</span>
+<span class="nc" id="L333">		String reason = initialize(path.getLastNode().getLocation(), false);</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">		if (reason != null)</span>
+<span class="nc" id="L335">			return reason;</span>
+<span class="nc" id="L336">		this.plan.mode = CargoMode.DUMP;</span>
+<span class="nc" id="L337">		return null;</span>
+	}
+
+	/**
+	 * Get the transportable.
+	 *
+	 * @return The &lt;code&gt;TransportableAIObject&lt;/code&gt; to transport.
+	 */
+	public TransportableAIObject getTransportable() {
+<span class="fc" id="L346">		return transportable;</span>
+	}
+
+	/**
+	 * Gets the carrier.
+	 *
+	 * @return the carrier
+	 */
+	public Unit getCarrier() {
+<span class="nc" id="L355">		return carrier;</span>
+	}
+
+	/**
+	 * Gets the tries.
+	 *
+	 * @return the tries
+	 */
+	public int getTries() {
+<span class="nc" id="L364">		return this.tries;</span>
+	}
+
+	/**
+	 * Gets the space left.
+	 *
+	 * @return the space left
+	 */
+	public int getSpaceLeft() {
+<span class="nc" id="L373">		return spaceLeft;</span>
+	}
+
+	/**
+	 * Sets the space left.
+	 *
+	 * @param spaceLeft
+	 *            the new space left
+	 */
+	public void setSpaceLeft(int spaceLeft) {
+<span class="fc" id="L383">		this.spaceLeft = spaceLeft;</span>
+<span class="fc" id="L384">	}</span>
+
+	/**
+	 * Checks if is valid.
+	 *
+	 * @return true, if is valid
+	 */
+	public boolean isValid() {
+<span class="pc bpc" id="L392" title="2 of 4 branches missed.">		return plan != null &amp;&amp; plan.mode != null;</span>
+	}
+
+	/**
+	 * Gets the mode.
+	 *
+	 * @return the mode
+	 */
+	public CargoMode getMode() {
+<span class="fc" id="L401">		return plan.mode;</span>
+	}
+
+	/**
+	 * Gets the mode string.
+	 *
+	 * @return the mode string
+	 */
+	public String getModeString() {
+<span class="fc" id="L410">		CargoMode mode = getMode();</span>
+<span class="pc bpc" id="L411" title="1 of 2 branches missed.">		return (mode == null) ? &quot;null&quot; : mode.toString().toLowerCase(Locale.US);</span>
+	}
+
+	/**
+	 * Gets the turns.
+	 *
+	 * @return the turns
+	 */
+	public int getTurns() {
+<span class="nc" id="L420">		return plan.turns;</span>
+	}
+
+	/**
+	 * Checks if is fallback.
+	 *
+	 * @return true, if is fallback
+	 */
+	public boolean isFallback() {
+<span class="nc" id="L429">		return plan.fallback;</span>
+	}
+
+	/**
+	 * Gets the transport target.
+	 *
+	 * @return the transport target
+	 */
+	public Location getTransportTarget() {
+<span class="fc bfc" id="L438" title="All 2 branches covered.">		return (getMode().isCollection()) ? plan.twait : plan.tdst;</span>
+	}
+
+	/**
+	 * Gets the carrier target.
+	 *
+	 * @return the carrier target
+	 */
+	public Location getCarrierTarget() {
+<span class="fc bfc" id="L447" title="All 2 branches covered.">		return (getMode().isCollection()) ? plan.cwait : plan.cdst;</span>
+	}
+
+	/**
+	 * Clear.
+	 */
+	public void clear() {
+<span class="nc" id="L454">		this.transportable = null;</span>
+<span class="nc" id="L455">		this.carrier = null;</span>
+<span class="nc" id="L456">		this.plan.mode = null;</span>
+<span class="nc" id="L457">	}</span>
+
+	/**
+	 * Is the transportable on board the carrier?.
+	 *
+	 * @return True if the transportable is being carried by the carrier.
+	 */
+	public boolean isCarried() {
+<span class="pc bpc" id="L465" title="1 of 4 branches missed.">		return transportable != null &amp;&amp; transportable.getLocation() == carrier;</span>
+	}
+
+	/**
+	 * Is this cargo collectable? That is, is it and the carrier at their
+	 * collection points, and in a collectable mode.
+	 *
+	 * @return True if the cargo can be collected.
+	 */
+	public boolean isCollectable() {
+<span class="pc bpc" id="L475" title="1 of 4 branches missed.">		if (!getMode().isCollection() || isCarried())</span>
+<span class="fc" id="L476">			return false;</span>
+<span class="pc bpc" id="L477" title="1 of 2 branches missed.">		return Map.isSameLocation(plan.twait, transportable.getLocation())</span>
+<span class="pc bpc" id="L478" title="1 of 2 branches missed.">				&amp;&amp; Map.isSameLocation(plan.cwait, carrier.getLocation());</span>
+	}
+
+	/**
+	 * Is this cargo deliverable? That is, has it arrived at the target on board
+	 * the carrier in a deliverable mode.
+	 *
+	 * @return True if the cargo can be delivered to the target.
+	 */
+	public boolean isDeliverable() {
+<span class="pc bpc" id="L488" title="1 of 4 branches missed.">		if (getMode().isCollection() || !isCarried())</span>
+<span class="fc" id="L489">			return false;</span>
+<span class="fc" id="L490">		return Map.isSameLocation(plan.cdst, carrier.getLocation());</span>
+	}
+
+	/**
+	 * Is this cargo delivered, or otherwise removed? That is, is the cargo not
+	 * on board the carrier in a deliverable mode?.
+	 *
+	 * @return True if the cargo has been delivered.
+	 */
+	public boolean isDelivered() {
+<span class="pc bpc" id="L500" title="1 of 4 branches missed.">		return !getMode().isCollection() &amp;&amp; !isCarried();</span>
+	}
+
+	/**
+	 * Does this cargo have a potential delivery path?.
+	 *
+	 * @return True if the carrier can deliver the cargo.
+	 */
+	public boolean hasPath() {
+<span class="pc bpc" id="L509" title="1 of 2 branches missed.">		return carrier.findPath(getCarrierTarget()) != null;</span>
+	}
+
+	/**
+	 * Get the movement direction to join the carrier.
+	 *
+	 * @return The &lt;code&gt;Direction&lt;/code&gt; to join by.
+	 */
+	public Direction getJoinDirection() {
+<span class="nc bnc" id="L518" title="All 4 branches missed.">		return (carrier.isInEurope() || plan.cwait == plan.twait) ? null</span>
+<span class="nc" id="L519">				: carrier.getGame().getMap().getDirection(plan.twait.getTile(), plan.cwait.getTile());</span>
+	}
+
+	/**
+	 * Get the movement direction to leave the carrier.
+	 *
+	 * @return The &lt;code&gt;Direction&lt;/code&gt; to leave by.
+	 */
+	public Direction getLeaveDirection() {
+<span class="nc bnc" id="L528" title="All 4 branches missed.">		if (!carrier.hasTile() || plan.cdst == plan.tdst)</span>
+<span class="nc" id="L529">			return null;</span>
+<span class="nc" id="L530">		TransportableAIObject t = getTransportable();</span>
+<span class="nc" id="L531">		PathNode path = t.getDeliveryPath(getCarrier(), plan.tdst);</span>
+<span class="nc bnc" id="L532" title="All 4 branches missed.">		return (path == null || path.next == null) ? null : path.next.getDirection();</span>
+	}
+
+	/**
+	 * How much space would be needed to add this transportable?.
+	 *
+	 * @return The extra space required.
+	 */
+	public int getNewSpace() {
+<span class="pc bpc" id="L541" title="1 of 2 branches missed.">		if (!isValid())</span>
+<span class="nc" id="L542">			return 0;</span>
+<span class="fc" id="L543">		int ret = 0;</span>
+<span class="fc bfc" id="L544" title="All 2 branches covered.">		ret += (getMode().isCollection()) ? getTransportable().getSpaceTaken() : -getTransportable().getSpaceTaken();</span>
+<span class="pc bpc" id="L545" title="1 of 2 branches missed.">		if (hasWrapped()) {</span>
+<span class="nc" id="L546">			ret += wrapped.stream().mapToInt(c -&gt; c.getNewSpace()).sum();</span>
+		}
+<span class="fc" id="L548">		return ret;</span>
+	}
+
+	/**
+	 * Does this cargo wrap others?.
+	 *
+	 * @return True if wrapped transportables are present.
+	 */
+	public boolean hasWrapped() {
+<span class="pc bpc" id="L557" title="1 of 2 branches missed.">		return wrapped != null;</span>
+	}
+
+	/**
+	 * TransportableAIObjects can be `wrapped' if they have the same target and
+	 * advancing them reduces the space on the carrier.
+	 *
+	 * @param other
+	 *            The other &lt;code&gt;TransportableAIObject&lt;/code&gt; to consider.
+	 * @return True if the transportables can be wrapped.
+	 */
+	public boolean couldWrap(Cargo other) {
+<span class="nc bnc" id="L569" title="All 6 branches missed.">		return getCarrierTarget() == other.getCarrierTarget() &amp;&amp; getNewSpace() &lt; 0 &amp;&amp; other.getNewSpace() &lt; 0;</span>
+	}
+
+	/**
+	 * Wrap a Cargo into this one.
+	 *
+	 * @param other
+	 *            The other &lt;code&gt;Cargo&lt;/code&gt; to wrap.
+	 */
+	public void wrap(Cargo other) {
+<span class="nc bnc" id="L579" title="All 2 branches missed.">		if (other == this) {</span>
+<span class="nc" id="L580">			throw new IllegalStateException(&quot;Autowrap at&quot; + this);</span>
+		}
+<span class="nc bnc" id="L582" title="All 2 branches missed.">		if (wrapped == null)</span>
+<span class="nc" id="L583">			wrapped = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L584">		wrapped.add(other);</span>
+<span class="nc" id="L585">	}</span>
+
+	/**
+	 * Unwrap this cargo.
+	 *
+	 * @return The cargoes that were wrapped.
+	 */
+	public List&lt;Cargo&gt; unwrap() {
+<span class="nc bnc" id="L593" title="All 2 branches missed.">		if (wrapped == null) {</span>
+<span class="nc" id="L594">			throw new IllegalStateException(&quot;Bogus unwrap &quot; + this);</span>
+		}
+<span class="nc" id="L596">		List&lt;Cargo&gt; result = wrapped;</span>
+<span class="nc" id="L597">		wrapped = null;</span>
+<span class="nc" id="L598">		return result;</span>
+	}
+
+	/**
+	 * Should this &lt;code&gt;Cargo&lt;/code&gt; be retried after encountering a blockage?
+	 * For now, just tries three times.
+	 *
+	 * FIXME: be smarter.
+	 *
+	 * @return True if the &lt;code&gt;Cargo&lt;/code&gt; should be retried.
+	 */
+	public boolean retry() {
+<span class="nc bnc" id="L610" title="All 2 branches missed.">		return tries++ &lt; MAX_TRY;</span>
+	}
+
+	/**
+	 * Reset the tries counter.
+	 */
+	public void resetTries() {
+<span class="fc" id="L617">		this.tries = 0;</span>
+<span class="fc" id="L618">	}</span>
+
+	/**
+	 * Does this cargo involve trade with Europe in a given goods type?.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to check.
+	 * @return True if this cargo is of the given type and to be collected or
+	 *         delivered to Europe.
+	 */
+	public boolean isEuropeanTrade(GoodsType type) {
+<span class="nc bnc" id="L629" title="All 4 branches missed.">		return transportable instanceof AIGoods &amp;&amp; ((AIGoods) transportable).getGoodsType() == type</span>
+<span class="nc bnc" id="L630" title="All 2 branches missed.">				&amp;&amp; getCarrierTarget() instanceof Europe;</span>
+	}
+
+	/**
+	 * Check the integrity of this cargo.
+	 *
+	 * @param aiCarrier
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; version of the carrier.
+	 * @return A reason for integrity failure, or null if none.
+	 */
+	public String check(AIUnit aiCarrier) {
+<span class="pc bpc" id="L641" title="1 of 2 branches missed.">		if (transportable == null) {</span>
+<span class="nc" id="L642">			return &quot;null transportable&quot;;</span>
+<span class="pc bpc" id="L643" title="1 of 2 branches missed.">		} else if (transportable.isDisposed()) {</span>
+<span class="nc" id="L644">			return &quot;disposed transportable&quot;;</span>
+		}
+
+<span class="fc" id="L647">		Locatable l = transportable.getTransportLocatable();</span>
+<span class="pc bpc" id="L648" title="1 of 2 branches missed.">		if (l == null) {</span>
+<span class="nc" id="L649">			return &quot;null locatable: &quot; + transportable;</span>
+<span class="pc bpc" id="L650" title="3 of 4 branches missed.">		} else if (l instanceof FreeColGameObject &amp;&amp; ((FreeColGameObject) l).isDisposed()) {</span>
+<span class="nc" id="L651">			return &quot;locatable disposed&quot;;</span>
+		}
+
+<span class="fc" id="L654">		Location tLoc = l.getLocation();</span>
+<span class="pc bpc" id="L655" title="1 of 4 branches missed.">		if (tLoc instanceof Unit &amp;&amp; tLoc != carrier) {</span>
+<span class="nc" id="L656">			return &quot;carrier usurped&quot;; // On another carrier!</span>
+		}
+<span class="fc" id="L658">		return null;</span>
+	}
+
+	/**
+	 * Can this cargo be queued at the given index in a list of cargoes?
+	 *
+	 * TODO: be smarter and break out of the loop if the cargo reaches its
+	 * delivery point.
+	 *
+	 * @param carrier
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to queue to.
+	 * @param index
+	 *            The queuing position to test.
+	 * @param cargoes
+	 *            A list of &lt;code&gt;Cargo&lt;/code&gt;s.
+	 * @return True if there is space to add the cargo.
+	 */
+	public boolean canQueueAt(Unit carrier, int index, List&lt;Cargo&gt; cargoes) {
+<span class="nc" id="L676">		final int maxHolds = carrier.getCargoCapacity();</span>
+<span class="nc" id="L677">		final int newSpace = this.getNewSpace();</span>
+<span class="nc" id="L678">		Cargo tr = cargoes.get(index);</span>
+<span class="nc bnc" id="L679" title="All 2 branches missed.">		for (int j = index; j &lt; cargoes.size(); j++) {</span>
+<span class="nc bnc" id="L680" title="All 2 branches missed.">			int holds = (j == 0) ? carrier.getCargoSpaceTaken() : maxHolds - cargoes.get(j - 1).getSpaceLeft();</span>
+<span class="nc" id="L681">			holds += newSpace;</span>
+<span class="nc bnc" id="L682" title="All 4 branches missed.">			if (holds &lt; 0 || holds &gt; maxHolds)</span>
+<span class="nc" id="L683">				return false;</span>
+		}
+<span class="nc" id="L685">		return true;</span>
+	}
+
+	/**
+	 * Abbreviated string representation for this cargo.
+	 *
+	 * @return A short descriptive string.
+	 */
+	public String toShortString() {
+<span class="fc" id="L694">		LogBuilder lb = new LogBuilder(32);</span>
+<span class="fc" id="L695">		lb.add(getModeString(), &quot; &quot;, transportable);</span>
+<span class="fc" id="L696">		Location lt = getTransportTarget();</span>
+<span class="pc bpc" id="L697" title="1 of 2 branches missed.">		lb.add(&quot; @ &quot;, ((lt == null) ? &quot;null&quot; : lt.toShortString()));</span>
+<span class="fc" id="L698">		Location ct = getCarrierTarget();</span>
+<span class="pc bpc" id="L699" title="1 of 2 branches missed.">		if (ct != lt)</span>
+<span class="nc" id="L700">			lb.add(&quot;/&quot;, ct.toShortString());</span>
+<span class="fc" id="L701">		return lb.toString();</span>
+	}
+
+	// Override Object
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+<span class="nc" id="L711">		LogBuilder lb = new LogBuilder(64);</span>
+<span class="nc bnc" id="L712" title="All 2 branches missed.">		lb.add(&quot;[&quot;, transportable, &quot; &quot;, getModeString(), &quot; &quot;, getTurns(), &quot;/&quot;, tries, &quot; space=&quot;, spaceLeft,</span>
+				((wrapped == null) ? &quot;&quot; : &quot; wrap&quot;));
+<span class="nc bnc" id="L714" title="All 4 branches missed.">		if (plan.twait != null &amp;&amp; plan.cwait != null) {</span>
+<span class="nc" id="L715">			lb.add(&quot; &quot;, plan.twait.toShortString(), &quot;/&quot;, plan.cwait.toShortString());</span>
+		}
+<span class="nc bnc" id="L717" title="All 4 branches missed.">		if (plan.cdst != null &amp;&amp; plan.tdst != null) {</span>
+<span class="nc" id="L718">			lb.add(&quot;-&gt;&quot;, plan.cdst.toShortString(), &quot;/&quot;, plan.tdst.toShortString());</span>
+		}
+<span class="nc" id="L720">		lb.add(&quot; &quot;, plan.fallback, &quot;]&quot;);</span>
+<span class="nc" id="L721">		return lb.toString();</span>
+	}
+
+	// Serialization
+	// Cargo is not yet an AIObject or FreeColObject, but that may happen.
+
+	/** The Constant CDST_TAG. */
+	private static final String CDST_TAG = &quot;cdst&quot;;
+
+	/** The Constant CWAIT_TAG. */
+	private static final String CWAIT_TAG = &quot;cwait&quot;;
+
+	/** The Constant CARRIER_TAG. */
+	private static final String CARRIER_TAG = &quot;carrier&quot;;
+
+	/** The Constant FALLBACK_TAG. */
+	private static final String FALLBACK_TAG = &quot;fallback&quot;;
+
+	/** The Constant MODE_TAG. */
+	private static final String MODE_TAG = &quot;mode&quot;;
+
+	/** The Constant SPACELEFT_TAG. */
+	private static final String SPACELEFT_TAG = &quot;space&quot;;
+
+	/** The Constant TDST_TAG. */
+	private static final String TDST_TAG = &quot;tdst&quot;;
+
+	/** The Constant TRIES_TAG. */
+	private static final String TRIES_TAG = &quot;tries&quot;;
+
+	/** The Constant TURNS_TAG. */
+	private static final String TURNS_TAG = &quot;turns&quot;;
+
+	/** The Constant TWAIT_TAG. */
+	private static final String TWAIT_TAG = &quot;twait&quot;;
+	// Used to use TARGET_TAG = &quot;target&quot;
+
+	/**
+	 * To XML.
+	 *
+	 * @param xw
+	 *            the xw
+	 * @throws XMLStreamException
+	 *             the XML stream exception
+	 */
+	public void toXML(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="nc" id="L767">		xw.writeStartElement(getXMLElementTagName());</span>
+
+<span class="nc" id="L769">		xw.writeAttribute(FreeColObject.ID_ATTRIBUTE_TAG, (AIObject) getTransportable());</span>
+
+<span class="nc" id="L771">		xw.writeAttribute(CARRIER_TAG, getCarrier());</span>
+
+<span class="nc" id="L773">		xw.writeAttribute(TRIES_TAG, getTries());</span>
+
+<span class="nc" id="L775">		xw.writeAttribute(SPACELEFT_TAG, getSpaceLeft());</span>
+
+<span class="nc bnc" id="L777" title="All 2 branches missed.">		if (plan.twait != null) {</span>
+<span class="nc" id="L778">			xw.writeLocationAttribute(TWAIT_TAG, plan.twait);</span>
+		}
+
+<span class="nc bnc" id="L781" title="All 2 branches missed.">		if (plan.cwait != null) {</span>
+<span class="nc" id="L782">			xw.writeLocationAttribute(CWAIT_TAG, plan.cwait);</span>
+		}
+
+<span class="nc bnc" id="L785" title="All 2 branches missed.">		if (plan.cdst != null) {</span>
+<span class="nc" id="L786">			xw.writeLocationAttribute(CDST_TAG, plan.cdst);</span>
+		}
+
+<span class="nc bnc" id="L789" title="All 2 branches missed.">		if (plan.tdst != null) {</span>
+<span class="nc" id="L790">			xw.writeLocationAttribute(TDST_TAG, plan.tdst);</span>
+		}
+
+<span class="nc" id="L793">		xw.writeAttribute(TURNS_TAG, plan.turns);</span>
+
+<span class="nc" id="L795">		xw.writeAttribute(MODE_TAG, plan.mode);</span>
+
+<span class="nc" id="L797">		xw.writeAttribute(FALLBACK_TAG, plan.fallback);</span>
+
+<span class="nc" id="L799">		xw.writeEndElement();</span>
+<span class="nc" id="L800">	}</span>
+
+	/**
+	 * Read from XML.
+	 *
+	 * @param aiMain
+	 *            the ai main
+	 * @param xr
+	 *            the xr
+	 * @throws XMLStreamException
+	 *             the XML stream exception
+	 */
+	public void readFromXML(AIMain aiMain, FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L813">		final Game game = aiMain.getGame();</span>
+
+<span class="nc" id="L815">		String tid = xr.readId();</span>
+<span class="nc" id="L816">		TransportableAIObject tao = null;</span>
+<span class="nc bnc" id="L817" title="All 2 branches missed.">		if (tid != null) {</span>
+<span class="nc" id="L818">			AIObject aio = aiMain.getAIObject(tid);</span>
+<span class="nc bnc" id="L819" title="All 2 branches missed.">			if (aio == null) {</span>
+<span class="nc bnc" id="L820" title="All 2 branches missed.">				if (tid.startsWith(Unit.getXMLElementTagName())) {</span>
+<span class="nc" id="L821">					tao = new AIUnit(aiMain, tid);</span>
+<span class="nc bnc" id="L822" title="All 2 branches missed.">				} else if (tid.startsWith(AIGoods.getXMLElementTagName())) {</span>
+<span class="nc" id="L823">					tao = new AIGoods(aiMain, tid);</span>
+				}
+			} else {
+<span class="nc" id="L826">				tao = (TransportableAIObject) aio;</span>
+			}
+		}
+<span class="nc bnc" id="L829" title="All 2 branches missed.">		if (tao == null) {</span>
+<span class="nc" id="L830">			throw new XMLStreamException(&quot;Transportable expected: &quot; + tid);</span>
+		}
+<span class="nc" id="L832">		this.transportable = tao;</span>
+
+<span class="nc" id="L834">		this.carrier = xr.getAttribute(game, CARRIER_TAG, Unit.class, (Unit) null);</span>
+
+<span class="nc" id="L836">		this.tries = xr.getAttribute(TRIES_TAG, 0);</span>
+
+<span class="nc" id="L838">		this.spaceLeft = xr.getAttribute(SPACELEFT_TAG, -1);</span>
+
+<span class="nc" id="L840">		this.wrapped = null;</span>
+
+<span class="nc" id="L842">		this.plan = new CargoPlan();</span>
+
+<span class="nc" id="L844">		this.plan.twait = xr.getLocationAttribute(game, TWAIT_TAG, false);</span>
+
+<span class="nc" id="L846">		this.plan.cwait = xr.getLocationAttribute(game, CWAIT_TAG, false);</span>
+
+<span class="nc" id="L848">		this.plan.cdst = xr.getLocationAttribute(game, CDST_TAG, false);</span>
+
+<span class="nc" id="L850">		this.plan.tdst = xr.getLocationAttribute(game, TDST_TAG, false);</span>
+
+<span class="nc" id="L852">		this.plan.turns = xr.getAttribute(TURNS_TAG, -1);</span>
+
+<span class="nc" id="L854">		this.plan.mode = xr.getAttribute(MODE_TAG, CargoMode.class, (CargoMode) null);</span>
+
+<span class="nc" id="L856">		this.plan.fallback = xr.getAttribute(FALLBACK_TAG, false);</span>
+
+<span class="nc" id="L858">		xr.closeTag(getXMLElementTagName());</span>
+<span class="nc" id="L859">	}</span>
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return &quot;cargo&quot;
+	 */
+	public static String getXMLElementTagName() {
+<span class="nc" id="L867">		return &quot;cargo&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

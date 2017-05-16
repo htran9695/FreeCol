@@ -26,31 +26,32 @@ import net.miginfocom.swing.MigLayout;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.HistoryEvent;
 
-
 /**
  * This panel displays the History Report.
  */
 public final class ReportHistoryPanel extends ReportPanel {
 
-    /**
-     * The constructor that will add the items to this panel.
-     * 
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ReportHistoryPanel(FreeColClient freeColClient) {
-        super(freeColClient, "reportHistoryAction");
+	/**
+	 * The constructor that will add the items to this panel.
+	 * 
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ReportHistoryPanel(FreeColClient freeColClient) {
+		super(freeColClient, "reportHistoryAction");
 
-        List<HistoryEvent> history = getMyPlayer().getHistory();
+		List<HistoryEvent> history = getMyPlayer().getHistory();
 
-        // Display Panel
-        reportPanel.removeAll();
-        if (history.isEmpty()) return;
+		// Display Panel
+		reportPanel.removeAll();
+		if (history.isEmpty())
+			return;
 
-        reportPanel.setLayout(new MigLayout("wrap 2", "[]20[fill]", ""));
+		reportPanel.setLayout(new MigLayout("wrap 2", "[]20[fill]", ""));
 
-        for (HistoryEvent event : history) {
-            reportPanel.add(Utility.localizedLabel(event.getTurn().getLabel()));
-            reportPanel.add(Utility.localizedTextArea(event, 40));
-        }
-    }
+		for (HistoryEvent event : history) {
+			reportPanel.add(Utility.localizedLabel(event.getTurn().getLabel()));
+			reportPanel.add(Utility.localizedTextArea(event, 40));
+		}
+	}
 }

@@ -23,34 +23,33 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for disbanding the active unit.
  */
 public class DisbandUnitAction extends UnitAction {
 
-    public static final String id = "disbandUnitAction";
+	/** The Constant id. */
+	public static final String id = "disbandUnitAction";
 
+	/**
+	 * Creates a new <code>DisbandUnitAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public DisbandUnitAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
 
-    /**
-     * Creates a new <code>DisbandUnitAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public DisbandUnitAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
+		addImageIcons("disband");
+	}
 
-        addImageIcons("disband");
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        igc().disbandUnit(getGUI().getActiveUnit());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		igc().disbandUnit(getGUI().getActiveUnit());
+	}
 }

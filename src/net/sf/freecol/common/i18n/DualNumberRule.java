@@ -19,25 +19,24 @@
 
 package net.sf.freecol.common.i18n;
 
-
 /**
- * Number optimized for languages that distinguish the categories one,
- * two and other.
+ * Number optimized for languages that distinguish the categories one, two and
+ * other.
  */
 public class DualNumberRule extends Number {
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Category getCategory(double input) {
-        if (input == 1) {
-            return Category.one;
-        } else if (input == 2) {
-            return Category.two;
-        } else {
-            return Category.other;
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Category getCategory(double input) {
+		if (input == 1) {
+			return Category.one;
+		} else if (input == 2) {
+			return Category.two;
+		} else {
+			return Category.other;
+		}
+	}
 
 }

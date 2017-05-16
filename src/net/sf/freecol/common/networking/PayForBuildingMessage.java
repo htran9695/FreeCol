@@ -27,85 +27,83 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent when paying for a building.
  */
 public class PayForBuildingMessage extends DOMMessage {
 
-    /** The identifier of the colony that is building. */
-    private final String colonyId;
+	/** The identifier of the colony that is building. */
+	private final String colonyId;
 
+	/**
+	 * Create a new <code>PayForBuildingMessage</code> with the supplied colony.
+	 *
+	 * @param colony
+	 *            The <code>Colony</code> that is building.
+	 */
+	public PayForBuildingMessage(Colony colony) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>PayForBuildingMessage</code> with the
-     * supplied colony.
-     *
-     * @param colony The <code>Colony</code> that is building.
-     */
-    public PayForBuildingMessage(Colony colony) {
-        super(getXMLElementTagName());
+		this.colonyId = colony.getId();
+	}
 
-        this.colonyId = colony.getId();
-    }
+	/**
+	 * Create a new <code>PayForBuildingMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public PayForBuildingMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>PayForBuildingMessage</code> from a
-     * supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public PayForBuildingMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.colonyId = element.getAttribute("colony");
+	}
 
-        this.colonyId = element.getAttribute("colony");
-    }
+	/**
+	 * Handle a "payForBuilding"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the message.
+	 * @param player
+	 *            The <code>Player</code> the message applies to.
+	 * @param connection
+	 *            The <code>Connection</code> message was received on.
+	 *
+	 * @return An update containing the payForBuildingd unit, or an error
+	 *         <code>Element</code> on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
 
+		Colony colony;
+		try {
+			colony = player.getOurFreeColGameObject(colonyId, Colony.class);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
 
-    /**
-     * Handle a "payForBuilding"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the message.
-     * @param player The <code>Player</code> the message applies to.
-     * @param connection The <code>Connection</code> message was received on.
-     *
-     * @return An update containing the payForBuildingd unit,
-     *         or an error <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
+		// Proceed to pay.
+		return server.getInGameController().payForBuilding(serverPlayer, colony);
+	}
 
-        Colony colony;
-        try {
-            colony = player.getOurFreeColGameObject(colonyId, Colony.class);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
+	/**
+	 * Convert this PayForBuildingMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		return createMessage(getXMLElementTagName(), "colony", colonyId);
+	}
 
-        // Proceed to pay.
-        return server.getInGameController()
-            .payForBuilding(serverPlayer, colony);
-    }
-
-    /**
-     * Convert this PayForBuildingMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        return createMessage(getXMLElementTagName(),
-            "colony", colonyId);
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "payForBuilding".
-     */
-    public static String getXMLElementTagName() {
-        return "payForBuilding";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "payForBuilding".
+	 */
+	public static String getXMLElementTagName() {
+		return "payForBuilding";
+	}
 }

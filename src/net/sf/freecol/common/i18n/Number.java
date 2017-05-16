@@ -21,50 +21,67 @@ package net.sf.freecol.common.i18n;
 
 import java.util.logging.Logger;
 
-
 /**
- * Classes implementing this interface can determine the category and
- * the index of a double based on the number rules for a language.
+ * Classes implementing this interface can determine the category and the index
+ * of a double based on the number rules for a language.
  *
- * See the
- * <a href="http://cldr.unicode.org/index/cldr-spec/plural-rules">
+ * See the <a href="http://cldr.unicode.org/index/cldr-spec/plural-rules">
  * Common Locale Data Repository</a>.
  */
 public abstract class Number implements Selector {
 
-    public enum Category { zero, one, two, few, many, other };
+	/**
+	 * The Enum Category.
+	 */
+	public enum Category {
+		/** The zero. */
+		zero,
+		/** The one. */
+		one,
+		/** The two. */
+		two,
+		/** The few. */
+		few,
+		/** The many. */
+		many,
+		/** The other. */
+		other
+	};
 
-    private static final Logger logger = Logger.getLogger(Number.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(Number.class.getName());
 
-    /**
-     * Return the category the selector value belongs to.
-     *
-     * @param selector a <code>double</code> value
-     * @return a <code>Category</code> value
-     */
-    public abstract Category getCategory(double selector);
+	/**
+	 * Return the category the selector value belongs to.
+	 *
+	 * @param selector
+	 *            a <code>double</code> value
+	 * @return a <code>Category</code> value
+	 */
+	public abstract Category getCategory(double selector);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getKey(String selector, String template) {
-        try {
-            return getKey(Double.parseDouble(selector));
-        } catch(NumberFormatException e) {
-            logger.warning("Syntax error in string template '" + template + "'");
-            return Category.other.toString();
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getKey(String selector, String template) {
+		try {
+			return getKey(Double.parseDouble(selector));
+		} catch (NumberFormatException e) {
+			logger.warning("Syntax error in string template '" + template + "'");
+			return Category.other.toString();
+		}
+	}
 
-    /**
-     * Return the key of the rule this selector matches. The key is the
-     * string representation of the Category.
-     *
-     * @param selector a <code>double</code> value
-     * @return a <code>String</code> value
-     */
-    public String getKey(double selector) {
-        return getCategory(selector).toString();
-    }
+	/**
+	 * Return the key of the rule this selector matches. The key is the string
+	 * representation of the Category.
+	 *
+	 * @param selector
+	 *            a <code>double</code> value
+	 * @return a <code>String</code> value
+	 */
+	public String getKey(double selector) {
+		return getCategory(selector).toString();
+	}
 }

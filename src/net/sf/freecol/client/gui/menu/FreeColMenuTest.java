@@ -39,121 +39,156 @@ import javax.swing.JTextArea;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.FreeColFrame;
 
-
 /**
  * Test the menus.
  */
 public class FreeColMenuTest implements ActionListener, ItemListener {
-    JTextArea output;
-    JScrollPane scrollPane;
-    final String newline = "\n";
 
-    public JMenuBar createMenuBar() {
-        JMenuBar menuBar = null;
+	/** The output. */
+	JTextArea output;
 
-        FreeColClient client = new FreeColClient(null, null);
-        client.startClient(null, null, true, true, null, null);
+	/** The scroll pane. */
+	JScrollPane scrollPane;
 
-        //Create the menu bar.
-        menuBar = new InGameMenuBar(client, null);
-        client.updateActions();
-        ((FreeColMenuBar)menuBar).update();
+	/** The newline. */
+	final String newline = "\n";
 
-        return menuBar;
-    }
+	/**
+	 * Creates the menu bar.
+	 *
+	 * @return the j menu bar
+	 */
+	public JMenuBar createMenuBar() {
+		JMenuBar menuBar = null;
 
-    public Container createContentPane() {
-        //Create the content-pane-to-be.
-        JPanel contentPane = new JPanel(new BorderLayout());
-        contentPane.setOpaque(true);
+		FreeColClient client = new FreeColClient(null, null);
+		client.startClient(null, null, true, true, null, null);
 
-        //Create a scrolled text area.
-        output = new JTextArea(5, 30);
-        output.setEditable(false);
-        scrollPane = new JScrollPane(output);
+		// Create the menu bar.
+		menuBar = new InGameMenuBar(client, null);
+		client.updateActions();
+		((FreeColMenuBar) menuBar).update();
 
-        //Add the text area to the content pane.
-        contentPane.add(scrollPane, BorderLayout.CENTER);
+		return menuBar;
+	}
 
-        return contentPane;
-    }
+	/**
+	 * Creates the content pane.
+	 *
+	 * @return the container
+	 */
+	public Container createContentPane() {
+		// Create the content-pane-to-be.
+		JPanel contentPane = new JPanel(new BorderLayout());
+		contentPane.setOpaque(true);
 
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        JMenuItem source = (JMenuItem)ae.getSource();
-        String s = "Action event detected."
-                   + newline
-                   + "    Event source: " + source.getText()
-                   + " (an instance of " + getClassName(source) + ")";
-        output.append(s + newline);
-        output.setCaretPosition(output.getDocument().getLength());
-    }
+		// Create a scrolled text area.
+		output = new JTextArea(5, 30);
+		output.setEditable(false);
+		scrollPane = new JScrollPane(output);
 
-    @Override
-    public void itemStateChanged(ItemEvent e) {
-        JMenuItem source = (JMenuItem)(e.getSource());
-        String s = "Item event detected."
-                   + newline
-                   + "    Event source: " + source.getText()
-                   + " (an instance of " + getClassName(source) + ")"
-                   + newline
-                   + "    New state: "
-                   + ((e.getStateChange() == ItemEvent.SELECTED) ?
-                     "selected":"unselected");
-        output.append(s + newline);
-        output.setCaretPosition(output.getDocument().getLength());
-    }
+		// Add the text area to the content pane.
+		contentPane.add(scrollPane, BorderLayout.CENTER);
 
-    // Returns just the class name -- no package info.
-    protected String getClassName(Object o) {
-        String classString = o.getClass().getName();
-        int dotIndex = classString.lastIndexOf('.');
-        return classString.substring(dotIndex+1);
-    }
+		return contentPane;
+	}
 
-    /** Returns an ImageIcon, or null if the path was invalid.
-     *
-     * @param path String
-     * @return <code>ImageIcon</code>
-     */
-    protected static ImageIcon createImageIcon(String path) {
-        java.net.URL imgURL = FreeColMenuTest.class.getResource(path);
-        if (imgURL != null) {
-            return new ImageIcon(imgURL);
-        } else {
-            System.err.println("Couldn't find file: " + path);
-            return null;
-        }
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * java.awt.event.ActionListener#actionPerformed(java.awt.event.ActionEvent)
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		JMenuItem source = (JMenuItem) ae.getSource();
+		String s = "Action event detected." + newline + "    Event source: " + source.getText() + " (an instance of "
+				+ getClassName(source) + ")";
+		output.append(s + newline);
+		output.setCaretPosition(output.getDocument().getLength());
+	}
 
-    /**
-     * Create the GUI and show it.  For thread safety,
-     * this method should be invoked from the
-     * event-dispatching thread.
-     */
-    private static void createAndShowGUI() {
-        //Create and set up the window.
-        //JFrame frame = new JFrame("MenuDemo");
-        FreeColClient client = new FreeColClient(null, null);
-        client.startClient(null, null, true, true, null, null);
-        FreeColFrame frame = new FreeColFrame(client,
-            GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice(),
-            null, null, true, null);
-        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * java.awt.event.ItemListener#itemStateChanged(java.awt.event.ItemEvent)
+	 */
+	@Override
+	public void itemStateChanged(ItemEvent e) {
+		JMenuItem source = (JMenuItem) (e.getSource());
+		String s = "Item event detected." + newline + "    Event source: " + source.getText() + " (an instance of "
+				+ getClassName(source) + ")" + newline + "    New state: "
+				+ ((e.getStateChange() == ItemEvent.SELECTED) ? "selected" : "unselected");
+		output.append(s + newline);
+		output.setCaretPosition(output.getDocument().getLength());
+	}
 
-        //Create and set up the content pane.
-        FreeColMenuTest demo = new FreeColMenuTest();
-        frame.setJMenuBar(demo.createMenuBar());
-        frame.setContentPane(demo.createContentPane());
+	/**
+	 * Gets the class name.
+	 *
+	 * @param o
+	 *            the o
+	 * @return the class name
+	 */
+	// Returns just the class name -- no package info.
+	protected String getClassName(Object o) {
+		String classString = o.getClass().getName();
+		int dotIndex = classString.lastIndexOf('.');
+		return classString.substring(dotIndex + 1);
+	}
 
-        //Display the window.
-        frame.setPreferredSize(new Dimension(450, 260));
-        frame.setVisible(true);
-    }
+	/**
+	 * Returns an ImageIcon, or null if the path was invalid.
+	 *
+	 * @param path
+	 *            String
+	 * @return <code>ImageIcon</code>
+	 */
+	protected static ImageIcon createImageIcon(String path) {
+		java.net.URL imgURL = FreeColMenuTest.class.getResource(path);
+		if (imgURL != null) {
+			return new ImageIcon(imgURL);
+		} else {
+			System.err.println("Couldn't find file: " + path);
+			return null;
+		}
+	}
 
-    public static void main(String[] args) {
-        //Schedule a job for the event-dispatching thread:
-        //creating and showing this application's GUI.
-        javax.swing.SwingUtilities.invokeLater(() -> { createAndShowGUI(); });
-    }
+	/**
+	 * Create the GUI and show it. For thread safety, this method should be
+	 * invoked from the event-dispatching thread.
+	 */
+	private static void createAndShowGUI() {
+		// Create and set up the window.
+		// JFrame frame = new JFrame("MenuDemo");
+		FreeColClient client = new FreeColClient(null, null);
+		client.startClient(null, null, true, true, null, null);
+		FreeColFrame frame = new FreeColFrame(client,
+				GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice(), null, null, true, null);
+		frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+
+		// Create and set up the content pane.
+		FreeColMenuTest demo = new FreeColMenuTest();
+		frame.setJMenuBar(demo.createMenuBar());
+		frame.setContentPane(demo.createContentPane());
+
+		// Display the window.
+		frame.setPreferredSize(new Dimension(450, 260));
+		frame.setVisible(true);
+	}
+
+	/**
+	 * The main method.
+	 *
+	 * @param args
+	 *            the arguments
+	 */
+	public static void main(String[] args) {
+		// Schedule a job for the event-dispatching thread:
+		// creating and showing this application's GUI.
+		javax.swing.SwingUtilities.invokeLater(() -> {
+			createAndShowGUI();
+		});
+	}
 }

@@ -29,72 +29,72 @@ import net.miginfocom.swing.MigLayout;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.StringTemplate;
 
-
 /**
  * The panel that allows a choice of tribute amount.
  */
-public final class SelectTributeAmountDialog
-    extends FreeColInputDialog<Integer> {
+public final class SelectTributeAmountDialog extends FreeColInputDialog<Integer> {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(SelectTributeAmountDialog.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(SelectTributeAmountDialog.class.getName());
 
-    private static final int COLUMNS = 5;
+	/** The Constant COLUMNS. */
+	private static final int COLUMNS = 5;
 
-    /** The field to contain the input. */
-    private final JTextField input;
+	/** The field to contain the input. */
+	private final JTextField input;
 
-    /** The maxumum amount allowed. */
-    private final int maximum;
+	/** The maxumum amount allowed. */
+	private final int maximum;
 
+	/**
+	 * The constructor to use.
+	 *
+	 * @param freeColClient
+	 *            The enclosing <code>FreeColClient</code>.
+	 * @param frame
+	 *            The owner frame.
+	 * @param question
+	 *            A <code>StringTemplate</code> describing the input required.
+	 * @param maximum
+	 *            The inclusive maximum integer input value.
+	 */
+	public SelectTributeAmountDialog(FreeColClient freeColClient, JFrame frame, StringTemplate question, int maximum) {
+		super(freeColClient, frame);
 
-    /**
-     * The constructor to use.
-     *
-     * @param freeColClient The enclosing <code>FreeColClient</code>.
-     * @param frame The owner frame.
-     * @param question A <code>StringTemplate</code> describing the
-     *     input required.
-     * @param maximum The inclusive maximum integer input value.
-     */
-    public SelectTributeAmountDialog(FreeColClient freeColClient, JFrame frame,
-            StringTemplate question, int maximum) {
-        super(freeColClient, frame);
+		this.maximum = maximum;
+		this.input = new JTextField(Integer.toString(maximum), COLUMNS);
 
-        this.maximum = maximum;
-        this.input = new JTextField(Integer.toString(maximum), COLUMNS);
+		MigPanel panel = new MigPanel(new MigLayout("wrap 1"));
+		panel.add(Utility.localizedTextArea(question));
+		panel.add(this.input);
 
-        MigPanel panel = new MigPanel(new MigLayout("wrap 1"));
-        panel.add(Utility.localizedTextArea(question));
-        panel.add(this.input);
-        
-        panel.setSize(panel.getPreferredSize());
+		panel.setSize(panel.getPreferredSize());
 
-        initializeInputDialog(frame, true, panel, null, "ok", "cancel");
-    }
+		initializeInputDialog(frame, true, panel, null, "ok", "cancel");
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected Integer getInputValue() {
-        int result;
-        try {
-            result = Integer.parseInt(input.getText());
-        } catch (NumberFormatException nfe) {
-            return null;
-        }
-        return (result <= 0 || result > maximum) ? null : result;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected Integer getInputValue() {
+		int result;
+		try {
+			result = Integer.parseInt(input.getText());
+		} catch (NumberFormatException nfe) {
+			return null;
+		}
+		return (result <= 0 || result > maximum) ? null : result;
+	}
 
+	// Override Component
 
-    // Override Component
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void requestFocus() {
-        this.input.requestFocus();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void requestFocus() {
+		this.input.requestFocus();
+	}
 }

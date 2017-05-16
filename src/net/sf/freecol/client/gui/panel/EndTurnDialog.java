@@ -49,172 +49,185 @@ import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
- * Centers the map on a known settlement or colony.  Pressing ENTER
- * opens a panel if appropriate.
+ * Centers the map on a known settlement or colony. Pressing ENTER opens a panel
+ * if appropriate.
  */
 public final class EndTurnDialog extends FreeColConfirmDialog {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(EndTurnDialog.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(EndTurnDialog.class.getName());
 
-    /**
-     * We need to wrap the Unit class in order to make the JList
-     * support keystroke navigation.  JList.getNextMatch uses the
-     * toString() method, but the toString() method of FreeCol objects
-     * provides debugging information rather than a searchable name.
-     */
-    private static class UnitWrapper {
+	/**
+	 * We need to wrap the Unit class in order to make the JList support
+	 * keystroke navigation. JList.getNextMatch uses the toString() method, but
+	 * the toString() method of FreeCol objects provides debugging information
+	 * rather than a searchable name.
+	 */
+	private static class UnitWrapper {
 
-        public final Unit unit;
-        public final String name;
-        public final String location;
+		/** The unit. */
+		public final Unit unit;
 
+		/** The name. */
+		public final String name;
 
-        public UnitWrapper(Unit unit) {
-            this.unit = unit;
-            this.name = unit.getDescription(Unit.UnitLabelType.NATIONAL);
-            this.location = Messages.message(unit.getLocation()
-                .getLocationLabelFor(unit.getOwner()));
-        }
+		/** The location. */
+		public final String location;
 
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public String toString() {
-            return name;
-        }
-    }
+		/**
+		 * Instantiates a new unit wrapper.
+		 *
+		 * @param unit
+		 *            the unit
+		 */
+		public UnitWrapper(Unit unit) {
+			this.unit = unit;
+			this.name = unit.getDescription(Unit.UnitLabelType.NATIONAL);
+			this.location = Messages.message(unit.getLocation().getLocationLabelFor(unit.getOwner()));
+		}
 
-    private class UnitCellRenderer implements ListCellRenderer<UnitWrapper> {
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public String toString() {
+			return name;
+		}
+	}
 
-        private final JPanel itemPanel = new MigPanel();
-        private final JPanel selectedPanel = new MigPanel();
-        private final JLabel imageLabel = new JLabel();
-        private final JLabel nameLabel = new JLabel();
-        private final JLabel locationLabel = new JLabel();
+	/**
+	 * The Class UnitCellRenderer.
+	 */
+	private class UnitCellRenderer implements ListCellRenderer<UnitWrapper> {
 
+		/** The item panel. */
+		private final JPanel itemPanel = new MigPanel();
 
-        public UnitCellRenderer() {
-            itemPanel.setOpaque(false);
-            itemPanel.setLayout(new MigLayout("", "[60]"));
-            selectedPanel.setOpaque(false);
-            selectedPanel.setLayout(new MigLayout("", "[60]"));
-            selectedPanel.setUI((PanelUI)FreeColSelectedPanelUI.createUI(selectedPanel));
-            locationLabel.setFont(locationLabel.getFont()
-                .deriveFont(Font.ITALIC));
-        }
+		/** The selected panel. */
+		private final JPanel selectedPanel = new MigPanel();
 
+		/** The image label. */
+		private final JLabel imageLabel = new JLabel();
 
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Component getListCellRendererComponent(JList<? extends UnitWrapper> list,
-                                                      UnitWrapper value,
-                                                      int index,
-                                                      boolean isSelected,
-                                                      boolean cellHasFocus) {
-            imageLabel.setIcon(new ImageIcon(
-                getImageLibrary().getSmallerUnitImage(value.unit)));
-            nameLabel.setText(value.name);
-            locationLabel.setText(value.location);
+		/** The name label. */
+		private final JLabel nameLabel = new JLabel();
 
-            JPanel panel = (isSelected) ? selectedPanel : itemPanel;
-            panel.removeAll();
-            panel.add(imageLabel, "center, width 40!, height 40!");
-            panel.add(nameLabel, "split 2, flowy");
-            panel.add(locationLabel);
-            return panel;
-        }
-    }
+		/** The location label. */
+		private final JLabel locationLabel = new JLabel();
 
+		/**
+		 * Instantiates a new unit cell renderer.
+		 */
+		public UnitCellRenderer() {
+			itemPanel.setOpaque(false);
+			itemPanel.setLayout(new MigLayout("", "[60]"));
+			selectedPanel.setOpaque(false);
+			selectedPanel.setLayout(new MigLayout("", "[60]"));
+			selectedPanel.setUI((PanelUI) FreeColSelectedPanelUI.createUI(selectedPanel));
+			locationLabel.setFont(locationLabel.getFont().deriveFont(Font.ITALIC));
+		}
 
-    /** The list of units to display. */
-    private final JList<UnitWrapper> unitList;
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public Component getListCellRendererComponent(JList<? extends UnitWrapper> list, UnitWrapper value, int index,
+				boolean isSelected, boolean cellHasFocus) {
+			imageLabel.setIcon(new ImageIcon(getImageLibrary().getSmallerUnitImage(value.unit)));
+			nameLabel.setText(value.name);
+			locationLabel.setText(value.location);
 
+			JPanel panel = (isSelected) ? selectedPanel : itemPanel;
+			panel.removeAll();
+			panel.add(imageLabel, "center, width 40!, height 40!");
+			panel.add(nameLabel, "split 2, flowy");
+			panel.add(locationLabel);
+			return panel;
+		}
+	}
 
-    /**
-     * The constructor to use.
-     * 
-     * @param freeColClient The freecol client.
-     * @param frame The owner frame.
-     * @param units The unit list.
-     */
-    public EndTurnDialog(FreeColClient freeColClient, JFrame frame, List<Unit> units) {
-        super(freeColClient, frame);
+	/** The list of units to display. */
+	private final JList<UnitWrapper> unitList;
 
-        final Player player = getMyPlayer();
+	/**
+	 * The constructor to use.
+	 * 
+	 * @param freeColClient
+	 *            The freecol client.
+	 * @param frame
+	 *            The owner frame.
+	 * @param units
+	 *            The unit list.
+	 */
+	public EndTurnDialog(FreeColClient freeColClient, JFrame frame, List<Unit> units) {
+		super(freeColClient, frame);
 
-        JLabel header = Utility.localizedHeader(Messages.nameKey("endTurnDialog"), false);
-        JTextArea text = Utility.localizedTextArea(StringTemplate
-            .template("endTurnDialog.areYouSure")
-            .addAmount("%number%", units.size()));
+		final Player player = getMyPlayer();
 
-        DefaultListModel<UnitWrapper> model = new DefaultListModel<>();
-        for (Unit unit : units) {
-            model.addElement(new UnitWrapper(unit));
-        }
+		JLabel header = Utility.localizedHeader(Messages.nameKey("endTurnDialog"), false);
+		JTextArea text = Utility.localizedTextArea(
+				StringTemplate.template("endTurnDialog.areYouSure").addAmount("%number%", units.size()));
 
-        this.unitList = new JList<>(model);
-        this.unitList.setCellRenderer(new UnitCellRenderer());
-        this.unitList.setFixedCellHeight(48);
-        this.unitList.getInputMap().put(KeyStroke.getKeyStroke("ENTER"),
-                                        "select");
-        this.unitList.getActionMap().put("select", new AbstractAction() {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    selectUnit();
-                }
-            });
-        this.unitList.getInputMap().put(KeyStroke.getKeyStroke("ESCAPE"),
-                                        "quit");
-        this.unitList.getActionMap().put("quit", new AbstractAction() {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    EndTurnDialog.this.setValue(options.get(1));
-                }
-            });
-        this.unitList.addListSelectionListener(new ListSelectionListener() {
-                @Override
-                public void valueChanged(ListSelectionEvent e) {
-                    if (e.getValueIsAdjusting()) return;
-                    selectUnit();
-                }
-            });
-        JScrollPane listScroller = new JScrollPane(this.unitList);
+		DefaultListModel<UnitWrapper> model = new DefaultListModel<>();
+		for (Unit unit : units) {
+			model.addElement(new UnitWrapper(unit));
+		}
 
-        MigPanel panel = new MigPanel(new MigLayout("wrap 1, fill",
-                                                    "[400, align center]"));
-        panel.add(header);
-        panel.add(text, "newline 20");
-        panel.add(listScroller, "newline 10");
-        panel.setSize(panel.getPreferredSize());
+		this.unitList = new JList<>(model);
+		this.unitList.setCellRenderer(new UnitCellRenderer());
+		this.unitList.setFixedCellHeight(48);
+		this.unitList.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "select");
+		this.unitList.getActionMap().put("select", new AbstractAction() {
+			@Override
+			public void actionPerformed(ActionEvent ae) {
+				selectUnit();
+			}
+		});
+		this.unitList.getInputMap().put(KeyStroke.getKeyStroke("ESCAPE"), "quit");
+		this.unitList.getActionMap().put("quit", new AbstractAction() {
+			@Override
+			public void actionPerformed(ActionEvent ae) {
+				EndTurnDialog.this.setValue(options.get(1));
+			}
+		});
+		this.unitList.addListSelectionListener(new ListSelectionListener() {
+			@Override
+			public void valueChanged(ListSelectionEvent e) {
+				if (e.getValueIsAdjusting())
+					return;
+				selectUnit();
+			}
+		});
+		JScrollPane listScroller = new JScrollPane(this.unitList);
 
-        ImageIcon icon = new ImageIcon(
-            getImageLibrary().getMiscIconImage(player.getNation()));
-        initializeConfirmDialog(frame, false, panel, icon, "ok", "cancel");
-    }
+		MigPanel panel = new MigPanel(new MigLayout("wrap 1, fill", "[400, align center]"));
+		panel.add(header);
+		panel.add(text, "newline 20");
+		panel.add(listScroller, "newline 10");
+		panel.setSize(panel.getPreferredSize());
 
-    /**
-     * Select the current unit in the list.
-     */
-    private void selectUnit() {
-        UnitWrapper wrapper = this.unitList.getSelectedValue();
-        if (wrapper != null && wrapper.unit != null) {
-            if (wrapper.unit.isInEurope()) {
-                getGUI().showEuropePanel();
-            } else {
-                getGUI().setActiveUnit(wrapper.unit);
-                if (wrapper.unit.getColony() != null) {
-                    getGUI().showColonyPanel(wrapper.unit.getColony(),
-                                             wrapper.unit);
-                } else if (wrapper.unit.hasTile()) {
-                    getGUI().setFocus(wrapper.unit.getTile());
-                }
-            }
-        }
-    }
+		ImageIcon icon = new ImageIcon(getImageLibrary().getMiscIconImage(player.getNation()));
+		initializeConfirmDialog(frame, false, panel, icon, "ok", "cancel");
+	}
+
+	/**
+	 * Select the current unit in the list.
+	 */
+	private void selectUnit() {
+		UnitWrapper wrapper = this.unitList.getSelectedValue();
+		if (wrapper != null && wrapper.unit != null) {
+			if (wrapper.unit.isInEurope()) {
+				getGUI().showEuropePanel();
+			} else {
+				getGUI().setActiveUnit(wrapper.unit);
+				if (wrapper.unit.getColony() != null) {
+					getGUI().showColonyPanel(wrapper.unit.getColony(), wrapper.unit);
+				} else if (wrapper.unit.hasTile()) {
+					getGUI().setFocus(wrapper.unit.getTile());
+				}
+			}
+		}
+	}
 }

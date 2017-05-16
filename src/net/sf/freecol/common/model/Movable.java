@@ -17,28 +17,25 @@
  *  along with FreeCol.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 package net.sf.freecol.common.model;
 
 /**
- * An object that can move from one Location to another under its own
- * power.
+ * An object that can move from one Location to another under its own power.
  */
 public interface Movable {
 
-    /**
-     * Returns the amount of moves this Movable has left.
-     *
-     * @return The amount of moves this Movable has left.
-     */
-    public int getMovesLeft();
+	/**
+	 * Returns the amount of moves this Movable has left.
+	 *
+	 * @return The amount of moves this Movable has left.
+	 */
+	public int getMovesLeft();
 
-    /**
-     * Gets the amount of moves this Movable has at the beginning of
-     * each turn.
-     *
-     * @return The amount of moves this Movable has at the beginning
-     * of each turn.
-     */
-    public int getInitialMovesLeft();
+	/**
+	 * Gets the amount of moves this Movable has at the beginning of each turn.
+	 *
+	 * @return The amount of moves this Movable has at the beginning of each
+	 *         turn.
+	 */
+	public int getInitialMovesLeft();
 }

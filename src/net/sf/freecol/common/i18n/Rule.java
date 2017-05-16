@@ -26,93 +26,111 @@ import java.util.StringTokenizer;
 
 import static net.sf.freecol.common.util.CollectionUtils.*;
 
-
 /**
- * A rule consists of any number of relations combined with "and" and
- * "or" operators. The "and" operator binds more strongly, and there
- * are no grouping features.
+ * A rule consists of any number of relations combined with "and" and "or"
+ * operators. The "and" operator binds more strongly, and there are no grouping
+ * features.
  */
 public class Rule {
 
-    private final List<List<Relation>> conditions = new ArrayList<>();
+	/** The conditions. */
+	private final List<List<Relation>> conditions = new ArrayList<>();
 
+	/**
+	 * Instantiates a new rule.
+	 *
+	 * @param input
+	 *            the input
+	 */
+	public Rule(String input) {
+		parse(input);
+	}
 
-    public Rule(String input) {
-        parse(input);
-    }
+	/**
+	 * Adds a list of relations combined with the "and" operator.
+	 *
+	 * @param condition
+	 *            a list of relations combined with the "and" operator
+	 */
+	public void add(List<Relation> condition) {
+		conditions.add(condition);
+	}
 
+	/**
+	 * Returns true if this rule matches the given number.
+	 *
+	 * The outer conditions are or-combined (using anyMatch), the inner
+	 * conditions are and-combined (using allMatch).
+	 *
+	 * @param number
+	 *            The number to test.
+	 * @return True if the number matches this rule.
+	 */
+	public boolean matches(double number) {
+		return any(conditions, andConditions -> all(andConditions, r -> r.matches(number)));
+	}
 
-    /**
-     * Adds a list of relations combined with the "and" operator.
-     *
-     * @param condition a list of relations combined with the "and" operator
-     */
-    public void add(List<Relation> condition) {
-        conditions.add(condition);
-    }
+	/**
+	 * Parses a string.
+	 *
+	 * @param input
+	 *            a <code>String</code> value
+	 */
+	public final void parse(String input) {
+		StringTokenizer st = new StringTokenizer(input.toLowerCase(Locale.US), " .");
+		List<String> tokens = new ArrayList<>();
+		while (st.hasMoreTokens()) {
+			String token = st.nextToken();
+			if ("or".equals(token)) {
+				conditions.add(parseCondition(tokens));
+				tokens.clear();
+			} else {
+				tokens.add(token);
+			}
+		}
+		conditions.add(parseCondition(tokens));
+	}
 
-    /**
-     * Returns true if this rule matches the given number.
-     *
-     * The outer conditions are or-combined (using anyMatch), the
-     * inner conditions are and-combined (using allMatch).
-     *
-     * @param number The number to test.
-     * @return True if the number matches this rule.
-     */
-    public boolean matches(double number) {
-        return any(conditions,
-            andConditions -> all(andConditions, r -> r.matches(number)));
-    }
+	/**
+	 * Parses the condition.
+	 *
+	 * @param input
+	 *            the input
+	 * @return the list
+	 */
+	private List<Relation> parseCondition(List<String> input) {
+		List<String> tokens = new ArrayList<>();
+		List<Relation> result = new ArrayList<>();
+		for (String token : input) {
+			if ("and".equals(token)) {
+				result.add(new Relation(tokens));
+				tokens.clear();
+			} else {
+				tokens.add(token);
+			}
+		}
+		result.add(new Relation(tokens));
+		return result;
+	}
 
-    /**
-     * Parses a string.
-     *
-     * @param input a <code>String</code> value
-     */
-    public final void parse(String input) {
-        StringTokenizer st = new StringTokenizer(input.toLowerCase(Locale.US), " .");
-        List<String> tokens = new ArrayList<>();
-        while (st.hasMoreTokens()) {
-            String token = st.nextToken();
-            if ("or".equals(token)) {
-                conditions.add(parseCondition(tokens));
-                tokens.clear();
-            } else {
-                tokens.add(token);
-            }
-        }
-        conditions.add(parseCondition(tokens));
-    }
-
-    private List<Relation> parseCondition(List<String> input) {
-        List<String> tokens = new ArrayList<>();
-        List<Relation> result = new ArrayList<>();
-        for (String token : input) {
-            if ("and".equals(token)) {
-                result.add(new Relation(tokens));
-                tokens.clear();
-            } else {
-                tokens.add(token);
-            }
-        }
-        result.add(new Relation(tokens));
-        return result;
-    }
-
-    @Override
-    public String toString() {
-        final String andString = " and ";
-        final String orString = " or ";
-        StringBuilder sb = new StringBuilder(32);
-        for (List<Relation> andCondition : conditions) {
-            for (Relation relation : andCondition) {
-                sb.append(relation).append(andString);
-            }
-            sb.setLength(sb.length() - andString.length());
-            sb.insert(0, orString);
-        }
-        sb.delete(0, orString.length());
-        return sb.toString();
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		final String andString = " and ";
+		final String orString = " or ";
+		StringBuilder sb = new StringBuilder(32);
+		for (List<Relation> andCondition : conditions) {
+			for (Relation relation : andCondition) {
+				sb.append(relation).append(andString);
+			}
+			sb.setLength(sb.length() - andString.length());
+			sb.insert(0, orString);
+		}
+		sb.delete(0, orString.length());
+		return sb.toString();
+	}
 }

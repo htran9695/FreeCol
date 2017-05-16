@@ -39,170 +39,175 @@ import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.option.OptionGroup;
 
-
 /**
  * Dialog for displaying and modifying the difficulty level.
  *
  * @see OptionGroup
  */
-public final class DifficultyDialog extends OptionsDialog
-    implements TreeSelectionListener {
+public final class DifficultyDialog extends OptionsDialog implements TreeSelectionListener {
 
-    private static final Logger logger = Logger.getLogger(DifficultyDialog.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(DifficultyDialog.class.getName());
 
-    /** File filters array to filter for XML files. */
-    private static final FileFilter[] filters = { null };
+	/** File filters array to filter for XML files. */
+	private static final FileFilter[] filters = { null };
 
-    /** The currently selected subgroup. */
-    private OptionGroup selected;
+	/** The currently selected subgroup. */
+	private OptionGroup selected;
 
-    /**
-     * We need our own copy of the specification, as the dialog is
-     * used before the game has been started.
-     */
-    private final Specification specification;
+	/**
+	 * We need our own copy of the specification, as the dialog is used before
+	 * the game has been started.
+	 */
+	private final Specification specification;
 
+	/**
+	 * Use this constructor to display the difficulty level of the current game
+	 * read-only.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param frame
+	 *            The owner frame.
+	 * @param specification
+	 *            The <code>Specification</code> to base the difficulty on.
+	 * @param level
+	 *            An <code>OptionGroup</code> encapsulating the difficulty level
+	 *            to display.
+	 * @param editable
+	 *            Is the dialog editable?
+	 */
+	public DifficultyDialog(FreeColClient freeColClient, JFrame frame, Specification specification, OptionGroup level,
+			boolean editable) {
+		super(freeColClient, frame, editable, level, "difficultyDialog", FreeColDirectories.CUSTOM_DIFFICULTY_FILE_NAME,
+				"model.difficulty.custom");
 
-    /**
-     * Use this constructor to display the difficulty level of the
-     * current game read-only.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param frame The owner frame.
-     * @param specification The <code>Specification</code> to base the
-     *     difficulty on.
-     * @param level An <code>OptionGroup</code> encapsulating the difficulty
-     *     level to display.
-     * @param editable Is the dialog editable?
-     */
-    public DifficultyDialog(FreeColClient freeColClient, JFrame frame,
-            Specification specification, OptionGroup level, boolean editable) {
-        super(freeColClient, frame, editable, level, "difficultyDialog",
-              FreeColDirectories.CUSTOM_DIFFICULTY_FILE_NAME,
-              "model.difficulty.custom");
+		this.specification = specification;
+		this.selected = level;
 
-        this.specification = specification;
-        this.selected = level;
+		getOptionUI().getTree().addTreeSelectionListener(this);
 
-        getOptionUI().getTree().addTreeSelectionListener(this);
+		if (isEditable()) {
+			loadDefaultOptions();
 
-        if (isEditable()) {
-            loadDefaultOptions();
+			JButton resetButton = Utility.localizedButton("reset");
+			addResetAction(resetButton);
 
-            JButton resetButton = Utility.localizedButton("reset");
-            addResetAction(resetButton);
-            
-            JButton loadButton = Utility.localizedButton("load");
-            addLoadAction(loadButton);
-                    
-            JButton saveButton = Utility.localizedButton("save");
-            addSaveAction(saveButton);
+			JButton loadButton = Utility.localizedButton("load");
+			addLoadAction(loadButton);
 
-            this.panel.add(resetButton, "span, split 3");
-            this.panel.add(loadButton);
-            this.panel.add(saveButton);
-        }
-        initialize(frame);
-    }
+			JButton saveButton = Utility.localizedButton("save");
+			addSaveAction(saveButton);
 
+			this.panel.add(resetButton, "span, split 3");
+			this.panel.add(loadButton);
+			this.panel.add(saveButton);
+		}
+		initialize(frame);
+	}
 
-    /**
-     * Gets this dialog's instance of the <code>Specification</code>.
-     *
-     * @return The <code>Specification</code>.
-     */
-    @Override
-    public Specification getSpecification() {
-        return specification;
-    }
+	/**
+	 * Gets this dialog's instance of the <code>Specification</code>.
+	 *
+	 * @return The <code>Specification</code>.
+	 */
+	@Override
+	public Specification getSpecification() {
+		return specification;
+	}
 
+	// Internals
 
-    // Internals
+	/**
+	 * Add a reset action to a button.
+	 *
+	 * @param button
+	 *            The <code>JButton</code> to add the action to.
+	 */
+	private void addResetAction(JButton button) {
+		button.addActionListener((ActionEvent ae) -> {
+			getOptionUI().reset();
+		});
+	}
 
-    /**
-     * Add a reset action to a button.
-     *
-     * @param button The <code>JButton</code> to add the action to.
-     */
-    private void addResetAction(JButton button) {
-        button.addActionListener((ActionEvent ae) -> {
-                getOptionUI().reset();
-            });
-    }
+	/**
+	 * Add a load action to a button.
+	 *
+	 * @param button
+	 *            The <code>JButton</code> to add the action to.
+	 */
+	private void addLoadAction(JButton button) {
+		initializeFilters();
+		button.addActionListener((ActionEvent ae) -> {
+			File dir = FreeColDirectories.getOptionsDirectory();
+			File file = getGUI().showLoadDialog(dir, filters);
+			if (file != null && load(file)) {
+				invalidate();
+				validate();
+				repaint();
+			}
+		});
+	}
 
-    /**
-     * Add a load action to a button.
-     *
-     * @param button The <code>JButton</code> to add the action to.
-     */
-    private void addLoadAction(JButton button) {
-        initializeFilters();
-        button.addActionListener((ActionEvent ae) -> {
-                File dir = FreeColDirectories.getOptionsDirectory();
-                File file = getGUI().showLoadDialog(dir, filters);
-                if (file != null && load(file)) {
-                    invalidate();
-                    validate();
-                    repaint();
-                }
-            });
-    }
+	/**
+	 * Add a save action to a button.
+	 *
+	 * @param button
+	 *            The <code>JButton</code> to add the action to.
+	 */
+	private void addSaveAction(JButton button) {
+		initializeFilters();
+		button.addActionListener((ActionEvent ae) -> {
+			File dir = FreeColDirectories.getOptionsDirectory();
+			File file = getGUI().showSaveDialog(dir, filters, getDefaultFileName());
+			if (file != null) {
+				getOptionUI().updateOption();
+				save(file);
+			}
+		});
+	}
 
-    /**
-     * Add a save action to a button.
-     *
-     * @param button The <code>JButton</code> to add the action to.
-     */
-    private void addSaveAction(JButton button) {
-        initializeFilters();
-        button.addActionListener((ActionEvent ae) -> {
-                File dir = FreeColDirectories.getOptionsDirectory();
-                File file = getGUI().showSaveDialog(dir, filters,
-                                                    getDefaultFileName());
-                if (file != null) {
-                    getOptionUI().updateOption();
-                    save(file);
-                }
-            });
-    }
+	/**
+	 * Initialize the XML file filter.
+	 */
+	private void initializeFilters() {
+		synchronized (filters) {
+			if (filters[0] == null) {
+				String desc = Messages.message("filter.xml");
+				filters[0] = new FileNameExtensionFilter(desc, "xml");
+			}
+		}
+	}
 
-    /**
-     * Initialize the XML file filter.
-     */
-    private void initializeFilters() {
-        synchronized (filters) {
-            if (filters[0] == null) {
-                String desc = Messages.message("filter.xml");
-                filters[0] = new FileNameExtensionFilter(desc, "xml");
-            }
-        }
-    }
+	// Implement TreeSelectionListener
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * javax.swing.event.TreeSelectionListener#valueChanged(javax.swing.event.
+	 * TreeSelectionEvent)
+	 */
+	@Override
+	public void valueChanged(TreeSelectionEvent event) {
+		TreePath path = event.getPath();
+		if (path.getPathCount() >= 2) {
+			DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getPathComponent(1);
+			this.selected = (OptionGroup) node.getUserObject();
+		}
+	}
 
-    // Implement TreeSelectionListener
+	// Override OptionsDialog
 
-    @Override
-    public void valueChanged(TreeSelectionEvent event) {
-        TreePath path = event.getPath();
-        if (path.getPathCount() >= 2) {
-            DefaultMutableTreeNode node
-                = (DefaultMutableTreeNode)path.getPathComponent(1);
-            this.selected = (OptionGroup)node.getUserObject();
-        }
-    }
-
-
-    // Override OptionsDialog
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public OptionGroup getResponse() {
-        OptionGroup value = super.getResponse();
-        if (value != null) {
-            FreeCol.setDifficulty(value);
-        }
-        return value;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public OptionGroup getResponse() {
+		OptionGroup value = super.getResponse();
+		if (value != null) {
+			FreeCol.setDifficulty(value);
+		}
+		return value;
+	}
 }

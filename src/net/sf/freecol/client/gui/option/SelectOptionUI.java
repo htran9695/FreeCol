@@ -26,64 +26,62 @@ import javax.swing.JComponent;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.option.SelectOption;
 
-
 /**
  * This class provides visualization for a
- * {@link net.sf.freecol.common.option.SelectOption} in order to enable
- * values to be both seen and changed.
+ * {@link net.sf.freecol.common.option.SelectOption} in order to enable values
+ * to be both seen and changed.
  */
 public final class SelectOptionUI extends OptionUI<SelectOption> {
 
-    private final JComboBox<String> box = new JComboBox<>();
+	/** The box. */
+	private final JComboBox<String> box = new JComboBox<>();
 
+	/**
+	 * Creates a new <code>SelectOptionUI</code> for the given
+	 * <code>SelectOption</code>.
+	 *
+	 * @param option
+	 *            The <code>SelectOption</code> to make a user interface for.
+	 * @param editable
+	 *            Whether user can modify the setting.
+	 */
+	public SelectOptionUI(final SelectOption option, boolean editable) {
+		super(option, editable);
 
-    /**
-     * Creates a new <code>SelectOptionUI</code> for the given
-     * <code>SelectOption</code>.
-     *
-     * @param option The <code>SelectOption</code> to make a user
-     *     interface for.
-     * @param editable Whether user can modify the setting.
-     */
-    public SelectOptionUI(final SelectOption option, boolean editable) {
-        super(option, editable);
+		DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
+		for (String string : option.getItemValues().values()) {
+			model.addElement(option.localizeLabels() ? Messages.message(string) : string);
+		}
 
-        DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
-        for (String string : option.getItemValues().values()) {
-            model.addElement(option.localizeLabels() ? Messages.message(string)
-                : string);
-        }
+		box.setModel(model);
+		box.setSelectedIndex(option.getValue());
 
-        box.setModel(model);
-        box.setSelectedIndex(option.getValue());
+		initialize();
+	}
 
-        initialize();
-    }
+	// Implement OptionUI
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public JComponent getComponent() {
+		return box;
+	}
 
-    // Implement OptionUI
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void updateOption() {
+		getOption().setValue(box.getSelectedIndex());
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public JComponent getComponent() {
-        return box;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateOption() {
-        getOption().setValue(box.getSelectedIndex());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void reset() {
-        box.setSelectedIndex(getOption().getValue());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void reset() {
+		box.setSelectedIndex(getOption().getValue());
+	}
 }

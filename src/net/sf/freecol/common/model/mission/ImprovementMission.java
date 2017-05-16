@@ -32,163 +32,162 @@ import static net.sf.freecol.common.util.CollectionUtils.*;
 
 import org.w3c.dom.Element;
 
-
 /**
- * The ImprovementMission causes a Unit to add a TileImprovement to a
- * particular Tile.
+ * The ImprovementMission causes a Unit to add a TileImprovement to a particular
+ * Tile.
  */
 public class ImprovementMission extends AbstractMission {
 
-    /**
-     * The improvement of this Mission.
-     */
-    private TileImprovement improvement;
+	/**
+	 * The improvement of this Mission.
+	 */
+	private TileImprovement improvement;
 
+	/**
+	 * Creates a new <code>ImprovementMission</code> instance.
+	 *
+	 * @param game
+	 *            a <code>Game</code> value
+	 */
+	public ImprovementMission(Game game) {
+		super(game);
+	}
 
-    /**
-     * Creates a new <code>ImprovementMission</code> instance.
-     *
-     * @param game a <code>Game</code> value
-     */
-    public ImprovementMission(Game game) {
-        super(game);
-    }
+	/**
+	 * Creates a new <code>ImprovementMission</code> instance.
+	 *
+	 * @param game
+	 *            a <code>Game</code> value
+	 * @param xr
+	 *            a <code>FreeColXMLReader</code> value
+	 * @exception XMLStreamException
+	 *                if an error occurs
+	 */
+	public ImprovementMission(Game game, FreeColXMLReader xr) throws XMLStreamException {
+		super(game, xr);
+	}
 
-    /**
-     * Creates a new <code>ImprovementMission</code> instance.
-     *
-     * @param game a <code>Game</code> value
-     * @param xr a <code>FreeColXMLReader</code> value
-     * @exception XMLStreamException if an error occurs
-     */
-    public ImprovementMission(Game game,
-                              FreeColXMLReader xr) throws XMLStreamException {
-        super(game, xr);
-    }
+	/**
+	 * Creates a new <code>ImprovementMission</code> instance.
+	 *
+	 * @param game
+	 *            a <code>Game</code> value
+	 * @param e
+	 *            an <code>Element</code> value
+	 */
+	public ImprovementMission(Game game, Element e) {
+		super(game, e);
+		readFromXMLElement(e);
+	}
 
-    /**
-     * Creates a new <code>ImprovementMission</code> instance.
-     *
-     * @param game a <code>Game</code> value
-     * @param e an <code>Element</code> value
-     */
-    public ImprovementMission(Game game, Element e) {
-        super(game, e);
-        readFromXMLElement(e);
-    }
+	/**
+	 * Creates a new <code>ImprovementMission</code> instance.
+	 *
+	 * @param game
+	 *            a <code>Game</code> value
+	 * @param id
+	 *            The object identifier.
+	 */
+	public ImprovementMission(Game game, String id) {
+		super(game, id);
+	}
 
-    /**
-     * Creates a new <code>ImprovementMission</code> instance.
-     *
-     * @param game a <code>Game</code> value
-     * @param id The object identifier.
-     */
-    public ImprovementMission(Game game, String id) {
-        super(game, id);
-    }
+	/**
+	 * Get the <code>Improvement</code> value.
+	 *
+	 * @return an <code>TileImprovement</code> value
+	 */
+	public final TileImprovement getImprovement() {
+		return improvement;
+	}
 
-    /**
-     * Get the <code>Improvement</code> value.
-     *
-     * @return an <code>TileImprovement</code> value
-     */
-    public final TileImprovement getImprovement() {
-        return improvement;
-    }
+	/**
+	 * Set the <code>Improvement</code> value.
+	 *
+	 * @param newImprovement
+	 *            The new Improvement value.
+	 */
+	public final void setImprovement(final TileImprovement newImprovement) {
+		this.improvement = newImprovement;
+	}
 
-    /**
-     * Set the <code>Improvement</code> value.
-     *
-     * @param newImprovement The new Improvement value.
-     */
-    public final void setImprovement(final TileImprovement newImprovement) {
-        this.improvement = newImprovement;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public MissionState doMission() {
+		// FIXME: get rid of magic numbers: either add a pioneerWork
+		// attribute to UnitType, or introduce an expertRole ability
+		// and add the work to the Role definition
+		int work = getUnit().hasAbility(Ability.EXPERT_PIONEER) ? 2 : 1;
+		setTurnCount(getTurnCount() - work);
+		getUnit().setMovesLeft(0);
+		return (getTurnCount() <= 0) ? MissionState.COMPLETED : MissionState.OK;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public MissionState doMission() {
-        // FIXME: get rid of magic numbers: either add a pioneerWork
-        // attribute to UnitType, or introduce an expertRole ability
-        // and add the work to the Role definition
-        int work = getUnit().hasAbility(Ability.EXPERT_PIONEER) ? 2 : 1;
-        setTurnCount(getTurnCount() - work);
-        getUnit().setMovesLeft(0);
-        return (getTurnCount() <= 0)
-            ? MissionState.COMPLETED : MissionState.OK;
-    }
+	/**
+	 * Returns true if the mission is still valid.
+	 *
+	 * @return a <code>boolean</code> value
+	 */
+	@Override
+	public boolean isValid() {
+		return super.isValid() && improvement != null && improvement.isWorkerAllowed(getUnit());
+	}
 
+	/**
+	 * Returns true if the given Unit is allowed to build at least one
+	 * TileImprovementType.
+	 *
+	 * @param unit
+	 *            an <code>Unit</code> value
+	 * @return false
+	 */
+	public static boolean isValidFor(Unit unit) {
+		final Specification spec = unit.getGame().getSpecification();
+		return any(spec.getTileImprovementTypeList(), ti -> ti.isWorkerAllowed(unit));
+	}
 
-    /**
-     * Returns true if the mission is still valid.
-     *
-     * @return a <code>boolean</code> value
-     */
-    @Override
-    public boolean isValid() {
-        return super.isValid()
-            && improvement != null
-            && improvement.isWorkerAllowed(getUnit());
-    }
+	// Serialization.
 
-    /**
-     * Returns true if the given Unit is allowed to build at least one
-     * TileImprovementType.
-     *
-     * @param unit an <code>Unit</code> value
-     * @return false
-     */
-    public static boolean isValidFor(Unit unit) {
-        final Specification spec = unit.getGame().getSpecification();
-        return any(spec.getTileImprovementTypeList(),
-            ti -> ti.isWorkerAllowed(unit));
-    }
+	/** The Constant IMPROVEMENT_TAG. */
+	private static final String IMPROVEMENT_TAG = "improvement";
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-    // Serialization.
+		xw.writeAttribute(IMPROVEMENT_TAG, improvement);
+	}
 
-    private static final String IMPROVEMENT_TAG = "improvement";
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		super.readAttributes(xr);
 
+		improvement = xr.makeFreeColGameObject(getGame(), IMPROVEMENT_TAG, TileImprovement.class, true);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-        xw.writeAttribute(IMPROVEMENT_TAG, improvement);
-    }
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        super.readAttributes(xr);
-
-        improvement = xr.makeFreeColGameObject(getGame(), IMPROVEMENT_TAG,
-                                               TileImprovement.class, true);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "improvementMission"
-     */
-    public static String getXMLElementTagName() {
-        return "improvementMission";
-    }
-
-
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "improvementMission"
+	 */
+	public static String getXMLElementTagName() {
+		return "improvementMission";
+	}
 
 }

@@ -24,37 +24,35 @@ import java.awt.event.ActionEvent;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for displaying a Labour Report.
  */
 public class ReportLabourAction extends FreeColAction {
 
-    public static final String id = "reportLabourAction";
+	/** The Constant id. */
+	public static final String id = "reportLabourAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ReportLabourAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ReportLabourAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        if (getClientOptions().getInteger(ClientOptions.LABOUR_REPORT)
-            == ClientOptions.LABOUR_REPORT_CLASSIC) {
-            getGUI().showReportLabourPanel();
-        } else {
-            getGUI().showCompactLabourReport();
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		if (getClientOptions().getInteger(ClientOptions.LABOUR_REPORT) == ClientOptions.LABOUR_REPORT_CLASSIC) {
+			getGUI().showReportLabourPanel();
+		} else {
+			getGUI().showCompactLabourReport();
+		}
+	}
 }

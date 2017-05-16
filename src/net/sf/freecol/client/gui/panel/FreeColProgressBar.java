@@ -34,196 +34,207 @@ import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.StringTemplate;
 
-
 /**
- * Implements a simple progress bar suitable for use with
- * FreeCol. Unlike JProgressBar, it also displays the expected
- * increase next turn as well as the estimated time until completion.
- * Used in the colony panel for the building progress.
+ * Implements a simple progress bar suitable for use with FreeCol. Unlike
+ * JProgressBar, it also displays the expected increase next turn as well as the
+ * estimated time until completion. Used in the colony panel for the building
+ * progress.
  */
 public class FreeColProgressBar extends JPanel {
 
-    /** The min. */
-    // The minimum value of the progress bar
-    private int min = 0;
+	/** The min. */
+	// The minimum value of the progress bar
+	private int min = 0;
 
-    /** The max. */
-    // The maximum value of the progress bar
-    private int max = 100;
+	/** The max. */
+	// The maximum value of the progress bar
+	private int max = 100;
 
-    /** The value. */
-    // The current value of the progress bar
-    private int value = 0;
+	/** The value. */
+	// The current value of the progress bar
+	private int value = 0;
 
-    /** The step. */
-    // The expected increase next turn
-    private int step = 0;
+	/** The step. */
+	// The expected increase next turn
+	private int step = 0;
 
-    /** The icon width. */
-    private int iconWidth;
+	/** The icon width. */
+	private int iconWidth;
 
-    /** The icon height. */
-    private final int iconHeight = ImageLibrary.ICON_SIZE.height / 2;
+	/** The icon height. */
+	private final int iconHeight = ImageLibrary.ICON_SIZE.height / 2;
 
-    /**
-     * The type of goods this progress bar is for. The default value of null
-     * indicates no goods type.
-     */
-    private GoodsType goodsType = null;
+	/**
+	 * The type of goods this progress bar is for. The default value of null
+	 * indicates no goods type.
+	 */
+	private GoodsType goodsType = null;
 
+	/** The image. */
+	private Image image;
 
-    /** The image. */
-    private Image image;
+	/**
+	 * Creates a new <code>FreeColProgressBar</code> instance.
+	 *
+	 * @param goodsType
+	 *            the type of goods produced
+	 */
+	public FreeColProgressBar(GoodsType goodsType) {
+		this(goodsType, 0, 100, 0, 0);
+	}
 
+	/**
+	 * Creates a new <code>FreeColProgressBar</code> instance.
+	 *
+	 * @param goodsType
+	 *            the type of goods produced
+	 * @param min
+	 *            the minimum value of the progress bar
+	 * @param max
+	 *            the maximum value of the progress bar
+	 */
+	public FreeColProgressBar(GoodsType goodsType, int min, int max) {
+		this(goodsType, min, max, 0, 0);
+	}
 
-    /**
-     * Creates a new <code>FreeColProgressBar</code> instance.
-     *
-     * @param goodsType the type of goods produced
-     */
-    public FreeColProgressBar(GoodsType goodsType) {
-        this(goodsType, 0, 100, 0, 0);
-    }
+	/**
+	 * Creates a new <code>FreeColProgressBar</code> instance.
+	 *
+	 * @param goodsType
+	 *            the type of goods produced
+	 * @param min
+	 *            the minimum value of the progress bar
+	 * @param max
+	 *            the maximum value of the progress bar
+	 * @param value
+	 *            the current value of the progress bar
+	 * @param step
+	 *            the expected increase next turn
+	 */
+	public FreeColProgressBar(GoodsType goodsType, int min, int max, int value, int step) {
+		this.goodsType = goodsType;
+		this.min = min;
+		this.max = max;
+		this.value = value;
+		this.step = step;
 
-    /**
-     * Creates a new <code>FreeColProgressBar</code> instance.
-     *
-     * @param goodsType the type of goods produced
-     * @param min the minimum value of the progress bar
-     * @param max the maximum value of the progress bar
-     */
-    public FreeColProgressBar(GoodsType goodsType, int min, int max) {
-        this(goodsType, min, max, 0, 0);
-    }
+		setBorder(Utility.PROGRESS_BORDER);
+		if (goodsType != null) {
+			image = ImageLibrary.getMiscImage("image.icon." + goodsType.getId(), new Dimension(-1, iconHeight));
+			iconWidth = image.getWidth(this);
+		}
+		setPreferredSize(new Dimension(200, 20));
+	}
 
-    /**
-     * Creates a new <code>FreeColProgressBar</code> instance.
-     *
-     * @param goodsType the type of goods produced
-     * @param min the minimum value of the progress bar
-     * @param max the maximum value of the progress bar
-     * @param value the current value of the progress bar
-     * @param step the expected increase next turn
-     */
-    public FreeColProgressBar(GoodsType goodsType, int min, int max, int value, int step) {
-        this.goodsType = goodsType;
-        this.min = min;
-        this.max = max;
-        this.value = value;
-        this.step = step;
+	/**
+	 * Update the data of the progress bar.
+	 *
+	 * @param value
+	 *            the current value of the progress bar
+	 * @param step
+	 *            the expected increase next turn
+	 */
+	public void update(int value, int step) {
+		update(min, max, value, step);
+	}
 
-        setBorder(Utility.PROGRESS_BORDER);
-        if (goodsType != null) {
-            image = ImageLibrary.getMiscImage("image.icon." + goodsType.getId(),
-                new Dimension(-1, iconHeight));
-            iconWidth = image.getWidth(this);
-        }
-        setPreferredSize(new Dimension(200, 20));
-    }
+	/**
+	 * Upate the data of the progress bar.
+	 *
+	 * @param min
+	 *            the minimum value of the progress bar
+	 * @param max
+	 *            the maximum value of the progress bar
+	 * @param value
+	 *            the current value of the progress bar
+	 * @param step
+	 *            the expected increase next turn
+	 */
+	public void update(int min, int max, int value, int step) {
+		this.min = min;
+		this.max = max;
+		this.value = value;
+		this.step = step;
+		repaint();
+	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.JComponent#paintComponent(java.awt.Graphics)
+	 */
+	@Override
+	protected void paintComponent(Graphics g) {
 
-    /**
-     * Update the data of the progress bar.
-     *
-     * @param value the current value of the progress bar
-     * @param step the expected increase next turn
-     */
-    public void update(int value, int step) {
-        update(min, max, value, step);
-    }
+		Graphics2D g2d = (Graphics2D) g.create();
+		g2d.setFont(FontLibrary.createFont(FontLibrary.FontType.SIMPLE, FontLibrary.FontSize.TINY));
+		int width = getWidth() - getInsets().left - getInsets().right;
+		int height = getHeight() - getInsets().top - getInsets().bottom;
 
-    /**
-     * Upate the data of the progress bar.
-     *
-     * @param min the minimum value of the progress bar
-     * @param max the maximum value of the progress bar
-     * @param value the current value of the progress bar
-     * @param step the expected increase next turn
-     */
-    public void update(int min, int max, int value, int step) {
-        this.min = min;
-        this.max = max;
-        this.value = value;
-        this.step = step;
-        repaint();
-    }
+		if (image != null && iconWidth < 0) {
+			iconWidth = image.getWidth(this);
+		}
 
-    /* (non-Javadoc)
-     * @see javax.swing.JComponent#paintComponent(java.awt.Graphics)
-     */
-    @Override
-    protected void paintComponent(Graphics g) {
+		if (isOpaque()) {
+			ImageLibrary.drawTiledImage("image.background.FreeColProgressBar", g, this, getInsets());
+		}
 
-        Graphics2D g2d = (Graphics2D) g.create();
-        g2d.setFont(FontLibrary.createFont(FontLibrary.FontType.SIMPLE,
-            FontLibrary.FontSize.TINY));
-        int width = getWidth() - getInsets().left - getInsets().right;
-        int height = getHeight() - getInsets().top - getInsets().bottom;
+		int dvalue = 0;
+		if (value >= max) {
+			dvalue = width;
+		} else if (max > 0) {
+			dvalue = width * value / max;
+		}
+		if (dvalue > 0) {
+			if (dvalue > width) {
+				dvalue = width;
+			}
+			g2d.setColor(new Color(0, 0, 0, 70));
+			g2d.fillRect(getInsets().left, getInsets().top, dvalue, height);
+		}
 
-        if (image != null && iconWidth < 0) {
-            iconWidth = image.getWidth(this);
-        }
+		int dstep = 0;
+		if (max > 0) {
+			dstep = width * step / max;
+			if (dstep > 0) {
+				if (dstep + dvalue > width) {
+					dstep = width - dvalue;
+				}
+				g2d.setColor(new Color(0, 0, 0, 40));
+				g2d.fillRect(getInsets().left + dvalue, getInsets().top, dstep, height);
+			}
+		}
 
-        if (isOpaque()) {
-            ImageLibrary.drawTiledImage("image.background.FreeColProgressBar", g, this, getInsets());
-        }
+		String stepSignal = (step < 0) ? "-" : "+";
+		String progressString = String.valueOf(value) + stepSignal + Math.abs(step) + "/" + max;
+		String turnsString = Messages.message("notApplicable");
+		if (max <= value) {
+			turnsString = "0";
+		} else if (step > 0) {
+			// There is progress, find how many turns necessary with current
+			// production
+			int turns = (max - value) / step;
+			if ((max - value) % step > 0) {
+				turns++;
+			}
+			turnsString = Integer.toString(turns);
+		}
+		progressString += " " + Messages.message(
+				StringTemplate.template("freeColProgressBar.turnsToComplete").addName("%number%", turnsString));
 
-        int dvalue = 0;
-        if (value >= max) {
-            dvalue = width;
-        } else if (max > 0) {
-            dvalue = width * value / max;
-        }
-        if (dvalue > 0) {
-            if (dvalue > width) {
-                dvalue = width;
-            }
-            g2d.setColor(new Color(0, 0, 0, 70));
-            g2d.fillRect(getInsets().left, getInsets().top, dvalue, height);
-        }
+		int stringWidth = g2d.getFontMetrics().stringWidth(progressString);
+		int stringHeight = g2d.getFontMetrics().getAscent() + g2d.getFontMetrics().getDescent();
+		int restWidth = getWidth() - stringWidth;
 
-        int dstep = 0;
-        if (max > 0) {
-            dstep = width * step / max;
-            if (dstep > 0) {
-                if (dstep + dvalue > width) {
-                    dstep = width - dvalue;
-                }
-                g2d.setColor(new Color(0, 0, 0, 40));
-                g2d.fillRect(getInsets().left + dvalue, getInsets().top, dstep, height);
-            }
-        }
+		if (goodsType != null) {
+			restWidth -= iconWidth;
+			g2d.drawImage(image, restWidth / 2, (getHeight() - iconHeight) / 2, null);
+		}
 
-        String stepSignal = (step < 0) ? "-" : "+";
-        String progressString = String.valueOf(value) + stepSignal + Math.abs(step) + "/" + max;
-        String turnsString = Messages.message("notApplicable");
-        if (max <= value) {
-            turnsString = "0";
-        } else if (step > 0) {
-            // There is progress, find how many turns necessary with current production
-            int turns = (max - value) / step;
-            if ((max - value) % step > 0) {
-                turns++;
-            }
-            turnsString = Integer.toString(turns);
-        }
-        progressString += " " + Messages.message(StringTemplate
-            .template("freeColProgressBar.turnsToComplete")
-            .addName("%number%", turnsString));
+		g2d.setColor(Color.BLACK);
+		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		g2d.drawString(progressString, restWidth / 2 + iconWidth, getHeight() / 2 + stringHeight / 4);
 
-        int stringWidth = g2d.getFontMetrics().stringWidth(progressString);
-        int stringHeight = g2d.getFontMetrics().getAscent() + g2d.getFontMetrics().getDescent();
-        int restWidth = getWidth() - stringWidth;
-
-        if (goodsType != null) {
-            restWidth -= iconWidth;
-            g2d.drawImage(image, restWidth / 2, (getHeight() - iconHeight) / 2, null);
-        }
-
-        g2d.setColor(Color.BLACK);
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.drawString(progressString, restWidth / 2 + iconWidth, getHeight() / 2 + stringHeight / 4);
-
-        g2d.dispose();
-    }
+		g2d.dispose();
+	}
 }

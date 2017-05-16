@@ -25,64 +25,68 @@ import java.util.logging.Logger;
 
 import javax.swing.JLabel;
 
-
 /**
- * Represents an image selection that can be selected and
- * dragged/dropped to/from Swing components.
+ * Represents an image selection that can be selected and dragged/dropped
+ * to/from Swing components.
  */
 public final class ImageSelection implements Transferable {
-    
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(ImageSelection.class.getName());
 
-    //private static final DataFlavor[] flavors = {DataFlavor.imageFlavor};
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(ImageSelection.class.getName());
 
-    private final JLabel label;
+	// private static final DataFlavor[] flavors = {DataFlavor.imageFlavor};
 
-    /**
-     * The constructor to use.
-     *
-     * @param label The data that this ImageSelection should hold.
-     */
-    public ImageSelection(JLabel label) {
-        this.label = label;
-    }
+	/** The label. */
+	private final JLabel label;
 
-    /**
-     * Get the data that this Transferable represents or null if
-     * the data is not of the given flavor.
-     *
-     * @param flavor The flavor that the data should have.
-     * @return The data that this Transferable represents, or null if
-     *     the data is not of the given flavor.
-     */
-    @Override
-    public Object getTransferData(DataFlavor flavor) {
-        if (isDataFlavorSupported(flavor)) {
-            return label;
-        }
-        return null;
-    }
+	/**
+	 * The constructor to use.
+	 *
+	 * @param label
+	 *            The data that this ImageSelection should hold.
+	 */
+	public ImageSelection(JLabel label) {
+		this.label = label;
+	}
 
-    /**
-     * Get the flavors that are supported by this Transferable.
-     *
-     * @return The flavors that are supported by this Transferable.
-     */
-    @Override
-    public DataFlavor[] getTransferDataFlavors() {
-        return new DataFlavor[] { DefaultTransferHandler.flavor };
-    }
+	/**
+	 * Get the data that this Transferable represents or null if the data is not
+	 * of the given flavor.
+	 *
+	 * @param flavor
+	 *            The flavor that the data should have.
+	 * @return The data that this Transferable represents, or null if the data
+	 *         is not of the given flavor.
+	 */
+	@Override
+	public Object getTransferData(DataFlavor flavor) {
+		if (isDataFlavorSupported(flavor)) {
+			return label;
+		}
+		return null;
+	}
 
-    /**
-     * Checks if the given data flavor is supported by this Transferable.
-     *
-     * @param flavor The data flavor to check.
-     * @return True if the given data flavor is supported by this Transferable.
-     * 'false' otherwise.
-     */
-    @Override
-    public boolean isDataFlavorSupported(DataFlavor flavor) {
-        return flavor.equals(DefaultTransferHandler.flavor);
-    }
+	/**
+	 * Get the flavors that are supported by this Transferable.
+	 *
+	 * @return The flavors that are supported by this Transferable.
+	 */
+	@Override
+	public DataFlavor[] getTransferDataFlavors() {
+		return new DataFlavor[] { DefaultTransferHandler.flavor };
+	}
+
+	/**
+	 * Checks if the given data flavor is supported by this Transferable.
+	 *
+	 * @param flavor
+	 *            The data flavor to check.
+	 * @return True if the given data flavor is supported by this Transferable.
+	 *         'false' otherwise.
+	 */
+	@Override
+	public boolean isDataFlavorSupported(DataFlavor flavor) {
+		return flavor.equals(DefaultTransferHandler.flavor);
+	}
 }

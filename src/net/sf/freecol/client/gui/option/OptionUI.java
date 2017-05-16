@@ -42,146 +42,182 @@ import net.sf.freecol.common.option.StringOption;
 import net.sf.freecol.common.option.TextOption;
 import net.sf.freecol.common.option.UnitListOption;
 
-
 /**
  * This class provides common methods for various Option UIs.
+ *
+ * @param <T>
+ *            the generic type
  */
 public abstract class OptionUI<T extends Option<?>> implements OptionUpdater {
 
-    /** Whether the Option should be editable. */
-    private boolean editable;
+	/** Whether the Option should be editable. */
+	private boolean editable;
 
-    /** The label to use for the Option. */
-    private JLabel label = new JLabel();
+	/** The label to use for the Option. */
+	private JLabel label = new JLabel();
 
-    /** The Option value itself. */
-    private T option;
+	/** The Option value itself. */
+	private T option;
 
+	/**
+	 * Constructor.
+	 *
+	 * @param option
+	 *            The <code>Option</code> to display.
+	 * @param editable
+	 *            True if the option should be editable.
+	 */
+	public OptionUI(T option, boolean editable) {
+		this.option = option;
+		this.editable = editable;
 
-    /**
-     * Constructor.
-     *
-     * @param option The <code>Option</code> to display.
-     * @param editable True if the option should be editable.
-     */
-    public OptionUI(T option, boolean editable) {
-        this.option = option;
-        this.editable = editable;
+		String name = Messages.getName(option.getId());
+		String text = Messages.getBestDescription(option);
+		label.setText(name);
+		label.setToolTipText(text);
+	}
 
-        String name = Messages.getName(option.getId());
-        String text = Messages.getBestDescription(option);
-        label.setText(name);
-        label.setToolTipText(text);
-    }
+	/**
+	 * Set up component.
+	 */
+	protected void initialize() {
+		JComponent component = getComponent();
+		component.setToolTipText(label.getToolTipText());
+		component.setEnabled(editable);
+		component.setOpaque(false);
+	}
 
+	/**
+	 * Gets the option.
+	 *
+	 * @return the option
+	 */
+	public final T getOption() {
+		return option;
+	}
 
-    /**
-     * Set up component.
-     */
-    protected void initialize() {
-        JComponent component = getComponent();
-        component.setToolTipText(label.getToolTipText());
-        component.setEnabled(editable);
-        component.setOpaque(false);
-    }
+	/**
+	 * Sets the option.
+	 *
+	 * @param newOption
+	 *            the new option
+	 */
+	public final void setOption(final T newOption) {
+		this.option = newOption;
+	}
 
-    public final T getOption() {
-        return option;
-    }
+	/**
+	 * Checks if is editable.
+	 *
+	 * @return true, if is editable
+	 */
+	public final boolean isEditable() {
+		return editable;
+	}
 
-    public final void setOption(final T newOption) {
-        this.option = newOption;
-    }
+	/**
+	 * Sets the editable.
+	 *
+	 * @param newEditable
+	 *            the new editable
+	 */
+	public final void setEditable(final boolean newEditable) {
+		this.editable = newEditable;
+	}
 
-    public final boolean isEditable() {
-        return editable;
-    }
+	/**
+	 * Get an option UI for a given option.
+	 *
+	 * @param gui
+	 *            The <code>GUI</code> to use.
+	 * @param option
+	 *            The <code>Option</code> to check.
+	 * @param editable
+	 *            Should the result be editable.
+	 * @return A suitable <code>OptionUI</code>, or null if none found.
+	 */
+	public static OptionUI getOptionUI(GUI gui, Option option, boolean editable) {
+		if (option instanceof BooleanOption) {
+			return new BooleanOptionUI((BooleanOption) option, editable);
+		} else if (option instanceof FileOption) {
+			return new FileOptionUI(gui, (FileOption) option, editable);
+		} else if (option instanceof PercentageOption) {
+			return new PercentageOptionUI((PercentageOption) option, editable);
+		} else if (option instanceof RangeOption) {
+			return new RangeOptionUI((RangeOption) option, editable);
+		} else if (option instanceof SelectOption) {
+			return new SelectOptionUI((SelectOption) option, editable);
+		} else if (option instanceof IntegerOption) {
+			return new IntegerOptionUI((IntegerOption) option, editable);
+		} else if (option instanceof StringOption) {
+			return new StringOptionUI((StringOption) option, editable);
+		} else if (option instanceof LanguageOption) {
+			return new LanguageOptionUI((LanguageOption) option, editable);
+		} else if (option instanceof AudioMixerOption) {
+			return new AudioMixerOptionUI(gui, (AudioMixerOption) option, editable);
+		} else if (option instanceof FreeColAction) {
+			return new FreeColActionUI((FreeColAction) option, editable);
+		} else if (option instanceof AbstractUnitOption) {
+			return new AbstractUnitOptionUI((AbstractUnitOption) option, editable);
+		} else if (option instanceof ModOption) {
+			return new ModOptionUI((ModOption) option, editable);
+		} else if (option instanceof UnitListOption) {
+			return new ListOptionUI<>(gui, (UnitListOption) option, editable);
+		} else if (option instanceof ModListOption) {
+			return new ListOptionUI<>(gui, (ModListOption) option, editable);
+		} else if (option instanceof TextOption) {
+			return new TextOptionUI((TextOption) option, editable);
+		} else {
+			return null;
+		}
+	}
 
-    public final void setEditable(final boolean newEditable) {
-        this.editable = newEditable;
-    }
+	// Routines to be implemented/overridden
 
-    /**
-     * Get an option UI for a given option.
-     *
-     * @param gui The <code>GUI</code> to use.
-     * @param option The <code>Option</code> to check.
-     * @param editable Should the result be editable.
-     * @return A suitable <code>OptionUI</code>, or null if none found.
-     */
-    public static OptionUI getOptionUI(GUI gui, Option option, boolean editable) {
-        if (option instanceof BooleanOption) {
-            return new BooleanOptionUI((BooleanOption)option, editable);
-        } else if (option instanceof FileOption) {
-            return new FileOptionUI(gui, (FileOption)option, editable);
-        } else if (option instanceof PercentageOption) {
-            return new PercentageOptionUI((PercentageOption)option, editable);
-        } else if (option instanceof RangeOption) {
-            return new RangeOptionUI((RangeOption)option, editable);
-        } else if (option instanceof SelectOption) {
-            return new SelectOptionUI((SelectOption)option, editable);
-        } else if (option instanceof IntegerOption) {
-            return new IntegerOptionUI((IntegerOption)option, editable);
-        } else if (option instanceof StringOption) {
-            return new StringOptionUI((StringOption)option, editable);
-        } else if (option instanceof LanguageOption) {
-            return new LanguageOptionUI((LanguageOption)option, editable);
-        } else if (option instanceof AudioMixerOption) {
-            return new AudioMixerOptionUI(gui, (AudioMixerOption)option, editable);
-        } else if (option instanceof FreeColAction) {
-            return new FreeColActionUI((FreeColAction)option, editable);
-        } else if (option instanceof AbstractUnitOption) {
-            return new AbstractUnitOptionUI((AbstractUnitOption)option, editable);
-        } else if (option instanceof ModOption) {
-            return new ModOptionUI((ModOption)option, editable);
-        } else if (option instanceof UnitListOption) {
-            return new ListOptionUI<>(gui, (UnitListOption)option, editable);
-        } else if (option instanceof ModListOption) {
-            return new ListOptionUI<>(gui, (ModListOption)option, editable);
-        } else if (option instanceof TextOption) {
-            return new TextOptionUI((TextOption)option, editable);
-        } else {
-            return null;
-        }
-    }
+	/**
+	 * Gets the j label.
+	 *
+	 * @return the j label
+	 */
+	public JLabel getJLabel() {
+		return label;
+	}
 
+	/**
+	 * Sets the label.
+	 *
+	 * @param label
+	 *            the new label
+	 */
+	protected void setLabel(JLabel label) {
+		this.label = label;
+	}
 
-    // Routines to be implemented/overridden
+	/**
+	 * Get a ListCellRenderer suitable for the wrapped Option.
+	 *
+	 * @return A suitable ListCellRenderer.
+	 */
+	public ListCellRenderer getListCellRenderer() {
+		return null;
+	}
 
-    public JLabel getJLabel() {
-        return label;
-    }
+	/**
+	 * Get the <code>Component</code> used to set the value of the Option.
+	 *
+	 * @return a <code>JComponent</code> value
+	 */
+	public abstract JComponent getComponent();
 
-    protected void setLabel(JLabel label) {
-        this.label = label;
-    }
+	/**
+	 * Update the value of the Option from the UI's component.
+	 */
+	@Override
+	public abstract void updateOption();
 
-    /**
-     * Get a ListCellRenderer suitable for the wrapped Option.
-     *
-     * @return A suitable ListCellRenderer.
-     */
-    public ListCellRenderer getListCellRenderer() {
-        return null;
-    }
-
-    /**
-     * Get the <code>Component</code> used to set the value of the
-     * Option.
-     *
-     * @return a <code>JComponent</code> value
-     */
-    public abstract JComponent getComponent();
-
-    /**
-     * Update the value of the Option from the UI's component.
-     */
-    @Override
-    public abstract void updateOption();
-
-    /**
-     * Reset the value of the UI's component from the Option.
-     */
-    @Override
-    public abstract void reset();
+	/**
+	 * Reset the value of the UI's component from the Option.
+	 */
+	@Override
+	public abstract void reset();
 }

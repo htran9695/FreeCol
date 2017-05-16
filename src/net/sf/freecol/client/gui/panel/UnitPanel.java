@@ -27,179 +27,178 @@ import java.util.logging.Logger;
 import net.sf.freecol.common.model.TradeRoute;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
- * This class provides common functionality for sub-panels of a
- * PortPanel that display UnitLabels.
+ * This class provides common functionality for sub-panels of a PortPanel that
+ * display UnitLabels.
  */
-public abstract class UnitPanel extends MigPanel
-    implements PropertyChangeListener {
+public abstract class UnitPanel extends MigPanel implements PropertyChangeListener {
 
-    private static final Logger logger = Logger.getLogger(UnitPanel.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(UnitPanel.class.getName());
 
-    /** The panel containing the units to display. */
-    private PortPanel portPanel;
+	/** The panel containing the units to display. */
+	private PortPanel portPanel;
 
-    /** Whether this panel is editable. */
-    private final boolean editable;
+	/** Whether this panel is editable. */
+	private final boolean editable;
 
+	/**
+	 * Create a unit panel.
+	 *
+	 * @param portPanel
+	 *            A <code>PortPanel</code> to supply units.
+	 * @param name
+	 *            An optional name for the panel.
+	 * @param editable
+	 *            True if the panel can be edited.
+	 */
+	public UnitPanel(PortPanel portPanel, String name, boolean editable) {
+		if (portPanel == null)
+			throw new RuntimeException("Null port panel.");
+		this.portPanel = portPanel;
+		this.editable = editable;
+		setName(name);
+	}
 
-    /**
-     * Create a unit panel.
-     *
-     * @param portPanel A <code>PortPanel</code> to supply units.
-     * @param name An optional name for the panel.
-     * @param editable True if the panel can be edited.
-     */
-    public UnitPanel(PortPanel portPanel, String name, boolean editable) {
-        if (portPanel == null) throw new RuntimeException("Null port panel.");
-        this.portPanel = portPanel;
-        this.editable = editable;
-        setName(name);
-    }
+	/**
+	 * Initialize this unit panel.
+	 */
+	public void initialize() {
+		cleanup();
+		addPropertyChangeListeners();
+		update();
+		Unit active = portPanel.getGUI().getActiveUnit();
+		if (active != null && active.isCarrier())
+			setSelectedUnit(active);
+	}
 
+	/**
+	 * Clean up this unit panel.
+	 */
+	public void cleanup() {
+		removePropertyChangeListeners();
+	}
 
-    /**
-     * Initialize this unit panel.
-     */
-    public void initialize() {
-        cleanup();
-        addPropertyChangeListeners();
-        update();
-        Unit active = portPanel.getGUI().getActiveUnit();
-        if (active != null && active.isCarrier()) setSelectedUnit(active);
-    }
+	/**
+	 * Add any property change listeners.
+	 */
+	protected void addPropertyChangeListeners() {
+		// do nothing
+	}
 
-    /**
-     * Clean up this unit panel.
-     */
-    public void cleanup() {
-        removePropertyChangeListeners();
-    }
+	/**
+	 * Remove any property change listeners.
+	 */
+	protected void removePropertyChangeListeners() {
+		// do nothing
+	}
 
-    /**
-     * Add any property change listeners.
-     */
-    protected void addPropertyChangeListeners() {
-        // do nothing
-    }
+	/**
+	 * Update this unit panel.
+	 */
+	public void update() {
+		removeAll();
 
-    /**
-     * Remove any property change listeners.
-     */
-    protected void removePropertyChangeListeners() {
-        // do nothing
-    }
+		if (portPanel != null) {
+			for (Unit unit : portPanel.getUnitList()) {
+				if (!accepts(unit))
+					continue;
 
-    /**
-     * Update this unit panel.
-     */
-    public void update() {
-        removeAll();
+				UnitLabel unitLabel = new UnitLabel(portPanel.getFreeColClient(), unit);
+				TradeRoute tradeRoute = unit.getTradeRoute();
+				if (tradeRoute != null) {
+					unitLabel.setDescriptionLabel(
+							unit.getDescription(Unit.UnitLabelType.NATIONAL) + " (" + tradeRoute.getName() + ")");
+				}
+				if (editable) {
+					unitLabel.setTransferHandler(portPanel.getTransferHandler());
+					unitLabel.addMouseListener(portPanel.getPressListener());
+				}
+				add(unitLabel);
+			}
+		}
 
-        if (portPanel != null) {
-            for (Unit unit : portPanel.getUnitList()) {
-                if (!accepts(unit)) continue;
-                    
-                UnitLabel unitLabel
-                    = new UnitLabel(portPanel.getFreeColClient(), unit);
-                TradeRoute tradeRoute = unit.getTradeRoute();
-                if (tradeRoute != null) {
-                    unitLabel.setDescriptionLabel(unit
-                        .getDescription(Unit.UnitLabelType.NATIONAL)
-                        + " (" + tradeRoute.getName() + ")");
-                }
-                if (editable) {
-                    unitLabel.setTransferHandler(portPanel.getTransferHandler());
-                    unitLabel.addMouseListener(portPanel.getPressListener());
-                }
-                add(unitLabel);
-            }
-        }
+		selectLabel();
+		revalidate();
+		repaint();
+	}
 
-        selectLabel();
-        revalidate();
-        repaint();
-    }
+	/**
+	 * Get the port panel that supplies units to this panel.
+	 *
+	 * @return The <code>PortPanel</code>.
+	 */
+	public PortPanel getPortPanel() {
+		return portPanel;
+	}
 
+	/**
+	 * Is this panel editable?.
+	 *
+	 * @return True if the panel is editable.
+	 */
+	public boolean isEditable() {
+		return editable;
+	}
 
-    /**
-     * Get the port panel that supplies units to this panel.
-     *
-     * @return The <code>PortPanel</code>.
-     */
-    public PortPanel getPortPanel() {
-        return portPanel;
-    }
+	/**
+	 * Can this panel accepts the given Unit.
+	 *
+	 * @param unit
+	 *            The <code>Unit</code> to check.
+	 * @return True if the unit can be added.
+	 */
+	public abstract boolean accepts(Unit unit);
 
-    /**
-     * Is this panel editable?
-     *
-     * @return True if the panel is editable.
-     */
-    public boolean isEditable() {
-        return editable;
-    }
+	/**
+	 * Select a UnitLabel based on some criterion.
+	 */
+	public void selectLabel() {
+		// Default to doing nothing
+	}
 
-    /**
-     * Can this panel accepts the given Unit.
-     *
-     * @param unit The <code>Unit</code> to check.
-     * @return True if the unit can be added.
-     */
-    public abstract boolean accepts(Unit unit);
+	/**
+	 * Select a given unit.
+	 *
+	 * @param unit
+	 *            The <code>Unit</code> to select.
+	 * @return True if the selection succeeds.
+	 */
+	public boolean setSelectedUnit(Unit unit) {
+		for (Component component : getComponents()) {
+			if (component instanceof UnitLabel) {
+				UnitLabel label = (UnitLabel) component;
+				if (label.getUnit() == unit) {
+					getPortPanel().setSelectedUnitLabel(label);
+					return true;
+				}
+			}
+		}
+		return false;
+	}
 
-    /**
-     * Select a UnitLabel based on some criterion.
-     */
-    public void selectLabel() {
-        // Default to doing nothing
-    }
+	// Interface PropertyChangeListener
 
-    /**
-     * Select a given unit.
-     *
-     * @param unit The <code>Unit</code> to select.
-     * @return True if the selection succeeds.
-     */
-    public boolean setSelectedUnit(Unit unit) {
-        for (Component component : getComponents()) {
-            if (component instanceof UnitLabel) {
-                UnitLabel label = (UnitLabel)component;
-                if (label.getUnit() == unit) {
-                    getPortPanel().setSelectedUnitLabel(label);
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-        
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void propertyChange(PropertyChangeEvent event) {
+		logger.finest(getName() + " change " + event.getPropertyName() + ": " + event.getOldValue() + " -> "
+				+ event.getNewValue());
+		update();
+	}
 
-    // Interface PropertyChangeListener
+	// Override Component
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void propertyChange(PropertyChangeEvent event) {
-        logger.finest(getName() + " change " + event.getPropertyName()
-                      + ": " + event.getOldValue()
-                      + " -> " + event.getNewValue());
-        update();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void removeNotify() {
+		super.removeNotify();
 
-
-    // Override Component
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void removeNotify() {
-        super.removeNotify();
-
-        removePropertyChangeListeners();
-        portPanel = null;
-    }
+		removePropertyChangeListeners();
+		portPanel = null;
+	}
 }

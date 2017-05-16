@@ -80,1100 +80,1047 @@ import net.sf.freecol.server.model.ServerColony;
 import net.sf.freecol.server.model.ServerPlayer;
 import net.sf.freecol.server.model.ServerUnit;
 
-
 /**
  * Utilities for in game debug support.
  *
- * Several client GUI features have optional debug routines.  These
- * routines are typically quite special in that they need to intrusive
- * things with the server, and do not have much in common with the
- * client code while still sometimes needing user interaction.  They
- * also have considerable similarity amongst themselves.  So they have
- * been collected here.
+ * Several client GUI features have optional debug routines. These routines are
+ * typically quite special in that they need to intrusive things with the
+ * server, and do not have much in common with the client code while still
+ * sometimes needing user interaction. They also have considerable similarity
+ * amongst themselves. So they have been collected here.
  *
- * The client GUI features that are the source of these routines are:
- *   - The colony panel
- *   - The debug menu
- *   - The tile popup menu
+ * The client GUI features that are the source of these routines are: - The
+ * colony panel - The debug menu - The tile popup menu
  */
-<span class="nc" id="L99">public class DebugUtils {</span>
-
-<span class="nc" id="L101">    private static final Logger logger = Logger.getLogger(DebugUtils.class.getName());</span>
-
-
-    /**
-     * Debug action to add buildings to the user colonies.
-     *
-     * Called from the debug menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param buildingTitle A label for the choice dialog.
-     */
-    public static void addBuildings(final FreeColClient freeColClient,
-                                    String buildingTitle) {
-<span class="nc" id="L114">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L115">        final Game game = freeColClient.getGame();</span>
-<span class="nc" id="L116">        final GUI gui = freeColClient.getGUI();</span>
-<span class="nc" id="L117">        final Player player = freeColClient.getMyPlayer();</span>
-
-<span class="nc" id="L119">        BuildingType buildingType = gui.getChoice(null, buildingTitle,</span>
-            &quot;cancel&quot;,
-<span class="nc" id="L121">            game.getSpecification().getBuildingTypeList().stream()</span>
-<span class="nc" id="L122">                .map(bt -&gt; {</span>
-<span class="nc" id="L123">                        String msg = Messages.getName(bt);</span>
-<span class="nc" id="L124">                        return new ChoiceItem&lt;BuildingType&gt;(msg, bt);</span>
-                    })
-<span class="nc" id="L126">                .sorted().collect(Collectors.toList()));</span>
-<span class="nc bnc" id="L127" title="All 2 branches missed.">        if (buildingType == null) return;</span>
-
-<span class="nc" id="L129">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L130">        final BuildingType sBuildingType = server.getSpecification()</span>
-<span class="nc" id="L131">            .getBuildingType(buildingType.getId());</span>
-<span class="nc" id="L132">        final Player sPlayer = sGame.getFreeColGameObject(player.getId(),</span>
-                                                          Player.class);
-<span class="nc" id="L134">        List&lt;String&gt; results = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L135">        int fails = 0;</span>
-<span class="nc bnc" id="L136" title="All 2 branches missed.">        for (Colony sColony : sPlayer.getColonies()) {</span>
-<span class="nc" id="L137">            Colony.NoBuildReason reason</span>
-<span class="nc" id="L138">                = sColony.getNoBuildReason(sBuildingType, null);</span>
-<span class="nc" id="L139">            results.add(sColony.getName() + &quot;: &quot; + reason);</span>
-<span class="nc bnc" id="L140" title="All 2 branches missed.">            if (reason == Colony.NoBuildReason.NONE) {</span>
-<span class="nc bnc" id="L141" title="All 2 branches missed.">                if (sBuildingType.isDefenceType()) {</span>
-<span class="nc" id="L142">                    sColony.getTile().cacheUnseen();//+til</span>
-                }
-<span class="nc" id="L144">                Building sBuilding = new ServerBuilding(sGame, sColony,</span>
-                                                        sBuildingType);
-<span class="nc" id="L146">                sColony.addBuilding(sBuilding);//-til</span>
-<span class="nc" id="L147">            } else {</span>
-<span class="nc" id="L148">                fails++;</span>
-            }
-<span class="nc" id="L150">        }</span>
-<span class="nc" id="L151">        gui.showInformationMessage(join(&quot;, &quot;, results));</span>
-<span class="nc bnc" id="L152" title="All 2 branches missed.">        if (fails &lt; sPlayer.getNumberOfSettlements()) {</span>
-            // Brutally resynchronize
-<span class="nc" id="L154">            freeColClient.getConnectController().reconnect();</span>
-        }
-<span class="nc" id="L156">    }</span>
-
-    /**
-     * Debug action to add a founding father.
-     *
-     * Called from the debug menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param fatherTitle A label for the choice dialog.
-     */
-    public static void addFathers(final FreeColClient freeColClient,
-                                  String fatherTitle) {
-<span class="nc" id="L168">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L169">        final GUI gui = freeColClient.getGUI();</span>
-<span class="nc" id="L170">        final Player player = freeColClient.getMyPlayer();</span>
-<span class="nc" id="L171">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L172">        final Specification sSpec = sGame.getSpecification();</span>
-<span class="nc" id="L173">        final Player sPlayer = sGame.getFreeColGameObject(player.getId(),</span>
-                                                          Player.class);
-
-<span class="nc" id="L176">        FoundingFather father = gui.getChoice(null, fatherTitle,</span>
-            &quot;cancel&quot;,
-<span class="nc" id="L178">            sSpec.getFoundingFathers().stream()</span>
-<span class="nc bnc" id="L179" title="All 2 branches missed.">                .filter(f -&gt; !sPlayer.hasFather(f))</span>
-<span class="nc" id="L180">                .map(f -&gt; {</span>
-<span class="nc" id="L181">                        String msg = Messages.getName(f);</span>
-<span class="nc" id="L182">                        return new ChoiceItem&lt;FoundingFather&gt;(msg, f);</span>
-                    })
-<span class="nc" id="L184">                .sorted().collect(Collectors.toList()));</span>
-<span class="nc bnc" id="L185" title="All 2 branches missed.">        if (father != null) {</span>
-<span class="nc" id="L186">            server.getInGameController()</span>
-<span class="nc" id="L187">                .addFoundingFather((ServerPlayer)sPlayer, father);</span>
-        }
-<span class="nc" id="L189">    }</span>
-
-    /**
-     * Debug action to add gold.
-     *
-     * Called from the debug menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     */
-    public static void addGold(final FreeColClient freeColClient) {
-<span class="nc" id="L199">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L200">        final GUI gui = freeColClient.getGUI();</span>
-<span class="nc" id="L201">        final Player player = freeColClient.getMyPlayer();</span>
-<span class="nc" id="L202">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L203">        final Player sPlayer = sGame.getFreeColGameObject(player.getId(),</span>
-                                                          Player.class);
-
-<span class="nc" id="L206">        String response = gui.getInput(null,</span>
-<span class="nc" id="L207">            StringTemplate.template(&quot;prompt.selectGold&quot;),</span>
-<span class="nc" id="L208">            Integer.toString(1000), &quot;ok&quot;, &quot;cancel&quot;);</span>
-<span class="nc bnc" id="L209" title="All 4 branches missed.">        if (response == null || response.isEmpty()) return;</span>
-        int gold;
-        try {
-<span class="nc" id="L212">            gold = Integer.parseInt(response);</span>
-<span class="nc" id="L213">        } catch (NumberFormatException x) {</span>
-<span class="nc" id="L214">            return;</span>
-<span class="nc" id="L215">        }</span>
-<span class="nc" id="L216">        player.modifyGold(gold);</span>
-<span class="nc" id="L217">        sPlayer.modifyGold(gold);</span>
-<span class="nc" id="L218">    }</span>
-
-    /**
-     * Debug action to add immigration.
-     *
-     * Called from the debug menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     */
-    public static void addImmigration(final FreeColClient freeColClient) {
-<span class="nc" id="L228">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L229">        final GUI gui = freeColClient.getGUI();</span>
-<span class="nc" id="L230">        final Player player = freeColClient.getMyPlayer();</span>
-<span class="nc" id="L231">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L232">        final Player sPlayer = sGame.getFreeColGameObject(player.getId(),</span>
-                                                          Player.class);
-
-<span class="nc" id="L235">        String response = gui.getInput(null,</span>
-<span class="nc" id="L236">            StringTemplate.template(&quot;prompt.selectImmigration&quot;),</span>
-<span class="nc" id="L237">            Integer.toString(100), &quot;ok&quot;, &quot;cancel&quot;);</span>
-<span class="nc bnc" id="L238" title="All 4 branches missed.">        if (response == null || response.isEmpty()) return;</span>
-        int crosses;
-        try {
-<span class="nc" id="L241">            crosses = Integer.parseInt(response);</span>
-<span class="nc" id="L242">        } catch (NumberFormatException x) {</span>
-<span class="nc" id="L243">            return;</span>
-<span class="nc" id="L244">        }</span>
-<span class="nc" id="L245">        player.modifyImmigration(crosses);</span>
-<span class="nc" id="L246">        sPlayer.modifyImmigration(crosses);</span>
-<span class="nc" id="L247">    }</span>
-
-    /**
-     * Debug action to add liberty to the player colonies.
-     *
-     * Called from the debug menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     */
-    public static void addLiberty(final FreeColClient freeColClient) {
-<span class="nc" id="L257">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L258">        final GUI gui = freeColClient.getGUI();</span>
-<span class="nc" id="L259">        final Player player = freeColClient.getMyPlayer();</span>
-<span class="nc" id="L260">        final Game sGame = server.getGame();</span>
-
-<span class="nc" id="L262">        String response = gui.getInput(null,</span>
-<span class="nc" id="L263">            StringTemplate.template(&quot;prompt.selectLiberty&quot;),</span>
-<span class="nc" id="L264">            Integer.toString(100), &quot;ok&quot;, &quot;cancel&quot;);</span>
-<span class="nc bnc" id="L265" title="All 4 branches missed.">        if (response == null || response.isEmpty()) return;</span>
-        int liberty;
-        try {
-<span class="nc" id="L268">            liberty = Integer.parseInt(response);</span>
-<span class="nc" id="L269">        } catch (NumberFormatException x) {</span>
-<span class="nc" id="L270">            return;</span>
-<span class="nc" id="L271">        }</span>
-<span class="nc bnc" id="L272" title="All 2 branches missed.">        for (Colony c : player.getColonies()) {</span>
-<span class="nc" id="L273">            c.addLiberty(liberty);</span>
-<span class="nc" id="L274">            sGame.getFreeColGameObject(c.getId(), Colony.class)</span>
-<span class="nc" id="L275">                .addLiberty(liberty);</span>
-<span class="nc" id="L276">        }</span>
-<span class="nc" id="L277">    }</span>
-
-    /**
-     * Adds a change listener to a menu (the debug menu in fact),
-     * that changes the label on a menu item when the skip status changes.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param menu The menu to add the change listener to.
-     * @param item The menu item whose label should change.
-     */
-    public static void addSkipChangeListener(final FreeColClient freeColClient,
-                                             JMenu menu, final JMenuItem item) {
-<span class="nc" id="L289">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc bnc" id="L290" title="All 2 branches missed.">        if (server == null) return;</span>
-
-<span class="nc" id="L292">        menu.addChangeListener((ChangeEvent e) -&gt; {</span>
-<span class="nc" id="L293">                boolean skipping = server.getInGameController()</span>
-<span class="nc bnc" id="L294" title="All 2 branches missed.">                    .getSkippedTurns() &gt; 0;</span>
-<span class="nc bnc" id="L295" title="All 2 branches missed.">                item.setText(Messages.message((skipping)</span>
-                        ? &quot;menuBar.debug.stopSkippingTurns&quot;
-                        : &quot;menuBar.debug.skipTurns&quot;));
-<span class="nc" id="L298">            });</span>
-<span class="nc" id="L299">    }</span>
-
-    /**
-     * Debug action to add a new unit to a tile.
-     *
-     * Called from tile popup menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to add to.
-     */
-    public static void addNewUnitToTile(final FreeColClient freeColClient,
-                                        Tile tile) {
-<span class="nc" id="L311">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L312">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L313">        final Specification sSpec = sGame.getSpecification();</span>
-<span class="nc" id="L314">        final Player player = freeColClient.getMyPlayer();</span>
-<span class="nc" id="L315">        final Player sPlayer = sGame.getFreeColGameObject(player.getId(),</span>
-                                                          Player.class);
-<span class="nc" id="L317">        final Tile sTile = sGame.getFreeColGameObject(tile.getId(), Tile.class);</span>
-<span class="nc" id="L318">        final GUI gui = freeColClient.getGUI();</span>
-
-<span class="nc" id="L320">        UnitType unitChoice = gui.getChoice(null,</span>
-<span class="nc" id="L321">            StringTemplate.template(&quot;prompt.selectUnitType&quot;), &quot;cancel&quot;,</span>
-<span class="nc" id="L322">            sSpec.getUnitTypeList().stream()</span>
-<span class="nc" id="L323">                .map(ut -&gt; {</span>
-<span class="nc" id="L324">                        String msg = Messages.getName(ut);</span>
-<span class="nc" id="L325">                        return new ChoiceItem&lt;UnitType&gt;(msg, ut);</span>
-                    })
-<span class="nc" id="L327">                .sorted().collect(Collectors.toList()));</span>
-<span class="nc bnc" id="L328" title="All 2 branches missed.">        if (unitChoice == null) return;</span>
-
-<span class="nc" id="L330">        Unit carrier = null, sCarrier = null;</span>
-<span class="nc bnc" id="L331" title="All 4 branches missed.">        if (!sTile.isLand() &amp;&amp; !unitChoice.isNaval()) {</span>
-<span class="nc bnc" id="L332" title="All 2 branches missed.">            sCarrier = find(sTile.getUnitList(), u -&gt; u.isNaval()</span>
-<span class="nc bnc" id="L333" title="All 2 branches missed.">                &amp;&amp; u.getSpaceLeft() &gt;= unitChoice.getSpaceTaken());</span>
-        }
-<span class="nc bnc" id="L335" title="All 2 branches missed.">        Location loc = (sCarrier != null) ? sCarrier : sTile;</span>
-<span class="nc" id="L336">        ServerUnit sUnit = new ServerUnit(sGame, loc, sPlayer,</span>
-                                          unitChoice);//-vis(sPlayer)
-<span class="nc" id="L338">        ((ServerPlayer)sPlayer).exploreForUnit(sUnit);</span>
-<span class="nc" id="L339">        sUnit.setMovesLeft(sUnit.getInitialMovesLeft());</span>
-<span class="nc" id="L340">        sPlayer.invalidateCanSeeTiles();//+vis(sPlayer)</span>
-
-<span class="nc" id="L342">        freeColClient.getConnectController().reconnect();</span>
-        // Note &quot;game&quot; is no longer valid after reconnect.
-<span class="nc" id="L344">        Unit unit = freeColClient.getGame()</span>
-<span class="nc" id="L345">            .getFreeColGameObject(sUnit.getId(), Unit.class);</span>
-<span class="nc bnc" id="L346" title="All 2 branches missed.">        if (unit != null) {</span>
-<span class="nc" id="L347">            gui.setActiveUnit(unit);</span>
-<span class="nc" id="L348">            gui.refresh();</span>
-<span class="nc" id="L349">            gui.resetMenuBar();</span>
-        }
-<span class="nc" id="L351">    }</span>
-
-    /**
-     * Debug action to add goods to a unit.
-     *
-     * Called from tile popup menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to add to.
-     */
-    public static void addUnitGoods(final FreeColClient freeColClient,
-                                    final Unit unit) {
-<span class="nc" id="L363">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L364">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L365">        final Specification sSpec = sGame.getSpecification();</span>
-<span class="nc" id="L366">        final GUI gui = freeColClient.getGUI();</span>
-
-<span class="nc" id="L368">        List&lt;ChoiceItem&lt;GoodsType&gt;&gt; gtl = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L369" title="All 2 branches missed.">        for (GoodsType t : sSpec.getGoodsTypeList()) {</span>
-<span class="nc bnc" id="L370" title="All 4 branches missed.">            if (t.isFoodType() &amp;&amp; t != sSpec.getPrimaryFoodType()) continue;</span>
-<span class="nc" id="L371">            String msg = Messages.getName(t);</span>
-<span class="nc" id="L372">            gtl.add(new ChoiceItem&lt;&gt;(msg, t));</span>
-<span class="nc" id="L373">        }</span>
-<span class="nc" id="L374">        Collections.sort(gtl);</span>
-<span class="nc" id="L375">        GoodsType goodsType = gui.getChoice(null,</span>
-<span class="nc" id="L376">            StringTemplate.template(&quot;prompt.selectGoodsType&quot;),</span>
-            &quot;cancel&quot;,
-<span class="nc" id="L378">            sSpec.getGoodsTypeList().stream()</span>
-<span class="nc bnc" id="L379" title="All 4 branches missed.">            .filter(gt -&gt; !gt.isFoodType() || gt == sSpec.getPrimaryFoodType())</span>
-<span class="nc" id="L380">            .map(gt -&gt; {</span>
-<span class="nc" id="L381">                    String msg = Messages.getName(gt);</span>
-<span class="nc" id="L382">                    return new ChoiceItem&lt;GoodsType&gt;(msg, gt);</span>
-                })
-<span class="nc" id="L384">            .sorted().collect(Collectors.toList()));</span>
-<span class="nc bnc" id="L385" title="All 2 branches missed.">        if (goodsType == null) return;</span>
-
-<span class="nc" id="L387">        String amount = gui.getInput(null,</span>
-<span class="nc" id="L388">            StringTemplate.template(&quot;prompt.selectGoodsAmount&quot;),</span>
-            &quot;20&quot;, &quot;ok&quot;, &quot;cancel&quot;);
-<span class="nc bnc" id="L390" title="All 2 branches missed.">        if (amount == null) return;</span>
-
-        int a;
-        try {
-<span class="nc" id="L394">            a = Integer.parseInt(amount);</span>
-<span class="nc" id="L395">        } catch (NumberFormatException nfe) {</span>
-<span class="nc" id="L396">            return;</span>
-<span class="nc" id="L397">        }</span>
-<span class="nc" id="L398">        GoodsType sGoodsType = sSpec.getGoodsType(goodsType.getId());</span>
-<span class="nc" id="L399">        GoodsContainer ugc = unit.getGoodsContainer();</span>
-<span class="nc" id="L400">        GoodsContainer sgc = sGame.getFreeColGameObject(ugc.getId(),</span>
-                                                        GoodsContainer.class);
-<span class="nc" id="L402">        ugc.setAmount(goodsType, a);</span>
-<span class="nc" id="L403">        sgc.setAmount(sGoodsType, a);</span>
-<span class="nc" id="L404">    }</span>
-
-    /**
-     * Debug action to apply a disaster to a colony.
-     *
-     * Called from tile popup menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to apply a disaster to.
-     */
-    public static void applyDisaster(final FreeColClient freeColClient,
-                                     final Colony colony) {
-<span class="nc" id="L416">        final GUI gui = freeColClient.getGUI();</span>
-<span class="nc" id="L417">        List&lt;RandomChoice&lt;Disaster&gt;&gt; disasters = colony.getDisasters();</span>
-<span class="nc bnc" id="L418" title="All 2 branches missed.">        if (disasters.isEmpty()) {</span>
-<span class="nc" id="L419">            gui.showErrorMessage(StringTemplate</span>
-<span class="nc" id="L420">                .template(&quot;error.disasterNotAvailable&quot;)</span>
-<span class="nc" id="L421">                .addName(&quot;%colony%&quot;, colony.getName()));</span>
-<span class="nc" id="L422">            return;</span>
-        }
-<span class="nc" id="L424">        Disaster disaster = gui.getChoice(null,</span>
-<span class="nc" id="L425">            StringTemplate.template(&quot;prompt.selectDisaster&quot;), &quot;cancel&quot;,</span>
-<span class="nc" id="L426">            disasters.stream()</span>
-<span class="nc" id="L427">                .map(rc -&gt; {</span>
-<span class="nc" id="L428">                        String label = Messages.getName(rc.getObject())</span>
-<span class="nc" id="L429">                            + &quot; &quot; + Integer.toString(rc.getProbability());</span>
-<span class="nc" id="L430">                        return new ChoiceItem&lt;Disaster&gt;(label, rc.getObject());</span>
-                    })
-<span class="nc" id="L432">                .sorted().collect(Collectors.toList()));</span>
-<span class="nc bnc" id="L433" title="All 2 branches missed.">        if (disaster == null) return;</span>
-
-<span class="nc" id="L435">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L436">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L437">        final ServerColony sColony = sGame.getFreeColGameObject(colony.getId(),</span>
-            ServerColony.class);
-<span class="nc" id="L439">        final Disaster sDisaster = sGame.getSpecification()</span>
-<span class="nc" id="L440">            .getDisaster(disaster.getId());</span>
-<span class="nc bnc" id="L441" title="All 2 branches missed.">        if (server.getInGameController().debugApplyDisaster(sColony, sDisaster)</span>
-            &lt;= 0) {
-<span class="nc" id="L443">            gui.showErrorMessage(StringTemplate</span>
-<span class="nc" id="L444">                .template(&quot;error.disasterAvoided&quot;)</span>
-<span class="nc" id="L445">                .addName(&quot;%colony%&quot;, colony.getName())</span>
-<span class="nc" id="L446">                .addNamed(&quot;%disaster%&quot;, disaster));</span>
-        }
-<span class="nc" id="L448">        freeColClient.getInGameController().nextModelMessage();</span>
-<span class="nc" id="L449">    }</span>
-
-    /**
-     * Debug action to change ownership of a colony.
-     *
-     * Called from tile popup menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to take ownership of.
-     */
-    public static void changeOwnership(final FreeColClient freeColClient,
-                                       final Colony colony) {
-<span class="nc" id="L461">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L462">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L463">        final ServerColony sColony = sGame.getFreeColGameObject(colony.getId(),</span>
-            ServerColony.class);
-<span class="nc" id="L465">        final GUI gui = freeColClient.getGUI();</span>
-<span class="nc" id="L466">        final Game game = freeColClient.getGame();</span>
-
-<span class="nc" id="L468">        Player player = gui.getChoice(null,</span>
-<span class="nc" id="L469">            StringTemplate.template(&quot;prompt.selectOwner&quot;), &quot;cancel&quot;,</span>
-<span class="nc" id="L470">            game.getLiveEuropeanPlayers(colony.getOwner()).stream()</span>
-<span class="nc" id="L471">                .map(p -&gt; {</span>
-<span class="nc" id="L472">                        String msg = Messages.message(p.getCountryLabel());</span>
-<span class="nc" id="L473">                        return new ChoiceItem&lt;Player&gt;(msg, p);</span>
-                    })
-<span class="nc" id="L475">                .sorted().collect(Collectors.toList()));</span>
-<span class="nc bnc" id="L476" title="All 2 branches missed.">        if (player == null) return;</span>
-
-<span class="nc" id="L478">        ServerPlayer sPlayer = sGame.getFreeColGameObject(player.getId(),</span>
-                                                          ServerPlayer.class);
-<span class="nc" id="L480">        server.getInGameController().debugChangeOwner(sColony, sPlayer);</span>
-
-<span class="nc" id="L482">        Player myPlayer = freeColClient.getMyPlayer();</span>
-<span class="nc bnc" id="L483" title="All 2 branches missed.">        if (gui.getActiveUnit() != null</span>
-<span class="nc bnc" id="L484" title="All 2 branches missed.">            &amp;&amp; gui.getActiveUnit().getOwner() != myPlayer) {</span>
-<span class="nc" id="L485">            freeColClient.getInGameController().nextActiveUnit();</span>
-        }
-<span class="nc" id="L487">        gui.refresh();</span>
-<span class="nc" id="L488">        gui.resetMenuBar();</span>
-<span class="nc" id="L489">    }</span>
-
-    /**
-     * Debug action to change ownership of a unit.
-     *
-     * Called from tile popup menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to take ownership of.
-     */
-    public static void changeOwnership(final FreeColClient freeColClient,
-                                       final Unit unit) {
-<span class="nc" id="L501">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L502">        final GUI gui = freeColClient.getGUI();</span>
-<span class="nc" id="L503">        final Game game = unit.getGame();</span>
-
-<span class="nc" id="L505">        Player player = gui.getChoice(null,</span>
-<span class="nc" id="L506">            StringTemplate.template(&quot;prompt.selectOwner&quot;), &quot;cancel&quot;,</span>
-<span class="nc" id="L507">            game.getLivePlayers(null).stream()</span>
-<span class="nc" id="L508">            .filter(p -&gt; unit.getType().isAvailableTo(p))</span>
-<span class="nc" id="L509">            .map(p -&gt; {</span>
-<span class="nc" id="L510">                    String msg = Messages.message(p.getCountryLabel());</span>
-<span class="nc" id="L511">                    return new ChoiceItem&lt;Player&gt;(msg, p);</span>
-                })
-<span class="nc" id="L513">            .sorted().collect(Collectors.toList()));</span>
-<span class="nc bnc" id="L514" title="All 4 branches missed.">        if (player == null || unit.getOwner() == player) return;</span>
-
-<span class="nc" id="L516">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L517">        ServerUnit sUnit = sGame.getFreeColGameObject(unit.getId(), </span>
-                                                      ServerUnit.class);
-<span class="nc" id="L519">        ServerPlayer sPlayer = sGame.getFreeColGameObject(player.getId(),</span>
-                                                          ServerPlayer.class);
-<span class="nc" id="L521">        server.getInGameController().debugChangeOwner(sUnit, sPlayer);</span>
-
-<span class="nc" id="L523">        Player myPlayer = freeColClient.getMyPlayer();</span>
-<span class="nc bnc" id="L524" title="All 2 branches missed.">        if (unit.getOwner() == myPlayer) {</span>
-<span class="nc" id="L525">            gui.setActiveUnit(unit);</span>
-        } else {
-<span class="nc" id="L527">            freeColClient.getInGameController().nextActiveUnit();</span>
-        }
-<span class="nc" id="L529">        gui.refresh();</span>
-<span class="nc" id="L530">        gui.resetMenuBar();</span>
-<span class="nc" id="L531">    }</span>
-
-    /**
-     * Debug action to change the roles of a unit.
-     *
-     * Called from tile popup menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to change the role of.
-     */
-    public static void changeRole(final FreeColClient freeColClient,
-                                  final Unit unit) {
-<span class="nc" id="L543">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L544">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L545">        final Unit sUnit = sGame.getFreeColGameObject(unit.getId(), Unit.class);</span>
-<span class="nc" id="L546">        final GUI gui = freeColClient.getGUI();</span>
-
-<span class="nc" id="L548">        Role roleChoice = gui.getChoice(null,</span>
-<span class="nc" id="L549">            StringTemplate.template(&quot;prompt.selectRole&quot;), &quot;cancel&quot;,</span>
-<span class="nc" id="L550">            sGame.getSpecification().getRoles().stream()</span>
-<span class="nc" id="L551">                .map(r -&gt; new ChoiceItem&lt;Role&gt;(r.getId(), r))</span>
-<span class="nc" id="L552">                .sorted().collect(Collectors.toList()));</span>
-<span class="nc bnc" id="L553" title="All 2 branches missed.">        if (roleChoice == null) return;</span>
-
-<span class="nc" id="L555">        sUnit.changeRole(roleChoice, roleChoice.getMaximumCount());</span>
-<span class="nc" id="L556">        freeColClient.getConnectController().reconnect();</span>
-<span class="nc" id="L557">    }</span>
-
-    /**
-     * Debug action to check for client-server desynchronization.
-     *
-     * Called from the debug menu and client controller.
-     * TODO: This is still fairly new and messy.  Defer i18n for a while.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @return True if desynchronization found.
-     */
-    public static boolean checkDesyncAction(final FreeColClient freeColClient) {
-<span class="nc" id="L569">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L570">        final Game game = freeColClient.getGame();</span>
-<span class="nc" id="L571">        final Map map = game.getMap();</span>
-<span class="nc" id="L572">        final Player player = freeColClient.getMyPlayer();</span>
-<span class="nc" id="L573">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L574">        final Map sMap = sGame.getMap();</span>
-<span class="nc" id="L575">        final ServerPlayer sPlayer = sGame.getFreeColGameObject(player.getId(),</span>
-                                                                ServerPlayer.class);
-
-<span class="nc" id="L578">        boolean problemDetected = false;</span>
-<span class="nc" id="L579">        LogBuilder lb = new LogBuilder(256);</span>
-<span class="nc" id="L580">        lb.add(&quot;Desynchronization detected\n&quot;);</span>
-<span class="nc bnc" id="L581" title="All 2 branches missed.">        for (Tile t : sMap.getAllTiles()) {</span>
-<span class="nc bnc" id="L582" title="All 2 branches missed.">            if (!sPlayer.canSee(t)) continue;</span>
-<span class="nc bnc" id="L583" title="All 2 branches missed.">            for (Unit u : t.getUnitList()) {</span>
-<span class="nc bnc" id="L584" title="All 2 branches missed.">                if (!sPlayer.owns(u)</span>
-<span class="nc bnc" id="L585" title="All 4 branches missed.">                    &amp;&amp; (t.hasSettlement() || u.isOnCarrier())) continue;</span>
-<span class="nc bnc" id="L586" title="All 2 branches missed.">                if (game.getFreeColGameObject(u.getId(), Unit.class) == null) {</span>
-<span class="nc" id="L587">                    lb.add(&quot;Unit missing on client-side.\n&quot;, &quot;  Server: &quot;,</span>
-<span class="nc" id="L588">                           u.getDescription(Unit.UnitLabelType.NATIONAL),</span>
-<span class="nc" id="L589">                           &quot;(&quot;, u.getId(), &quot;) from: &quot;, </span>
-<span class="nc" id="L590">                           u.getLocation().getId(), &quot;.\n&quot;);</span>
-                    try {
-<span class="nc" id="L592">                        lb.add(&quot;  Client: &quot;, map.getTile(u.getTile().getX(),</span>
-<span class="nc" id="L593">                               u.getTile().getY()).getFirstUnit().getId(),</span>
-                               &quot;\n&quot;);
-<span class="nc" id="L595">                    } catch (NullPointerException npe) {}</span>
-<span class="nc" id="L596">                    problemDetected = true;</span>
-                } else {
-<span class="nc" id="L598">                    Unit cUnit = game.getFreeColGameObject(u.getId(),</span>
-                                                           Unit.class);
-<span class="nc bnc" id="L600" title="All 2 branches missed.">                    if (cUnit.hasTile()</span>
-<span class="nc bnc" id="L601" title="All 2 branches missed.">                        &amp;&amp; !cUnit.getTile().getId().equals(u.getTile().getId())) {</span>
-<span class="nc" id="L602">                        lb.add(&quot;Unit located on different tiles.\n&quot;,</span>
-<span class="nc" id="L603">                            &quot;  Server: &quot;, u.getDescription(Unit.UnitLabelType.NATIONAL),</span>
-<span class="nc" id="L604">                            &quot;(&quot;, u.getId(), &quot;) from: &quot;,</span>
-<span class="nc" id="L605">                            u.getLocation().getId(), &quot;\n&quot;,</span>
-<span class="nc" id="L606">                            &quot;  Client: &quot;, cUnit.getDescription(Unit.UnitLabelType.NATIONAL),</span>
-<span class="nc" id="L607">                            &quot;(&quot;, cUnit.getId(), &quot;) at: &quot;,</span>
-<span class="nc" id="L608">                            cUnit.getLocation().getId(), &quot;\n&quot;);</span>
-<span class="nc" id="L609">                        problemDetected = true;</span>
-                    }
-                }
-<span class="nc" id="L612">            }</span>
-<span class="nc" id="L613">            Tile ct = game.getFreeColGameObject(t.getId(), Tile.class);</span>
-<span class="nc" id="L614">            Settlement sSettlement = t.getSettlement();</span>
-<span class="nc" id="L615">            Settlement cSettlement = ct.getSettlement();</span>
-<span class="nc bnc" id="L616" title="All 2 branches missed.">            if (sSettlement == null) {</span>
-<span class="nc bnc" id="L617" title="All 2 branches missed.">                if (cSettlement == null) {</span>
-                    ;// OK
-                } else {
-<span class="nc" id="L620">                    lb.add(&quot;Settlement still present in client: &quot;, cSettlement);</span>
-<span class="nc" id="L621">                    problemDetected = true;</span>
-                }
-            } else {
-<span class="nc bnc" id="L624" title="All 2 branches missed.">                if (cSettlement == null) {</span>
-<span class="nc" id="L625">                    lb.add(&quot;Settlement not present in client: &quot;, sSettlement);</span>
-<span class="nc" id="L626">                    problemDetected = true;</span>
-<span class="nc bnc" id="L627" title="All 2 branches missed.">                } else if (sSettlement.getId().equals(cSettlement.getId())) {</span>
-                    ;// OK
-                } else {
-<span class="nc" id="L630">                    lb.add(&quot;Settlements differ.\n  Server: &quot;,</span>
-<span class="nc" id="L631">                        sSettlement.toString(), &quot;\n  Client: &quot;, </span>
-<span class="nc" id="L632">                        cSettlement.toString(), &quot;\n&quot;);</span>
-                }
-            }
-<span class="nc" id="L635">        }</span>
-
-<span class="nc" id="L637">        boolean goodsProblemDetected = false;</span>
-<span class="nc bnc" id="L638" title="All 2 branches missed.">        for (GoodsType sg : sGame.getSpecification().getGoodsTypeList()) {</span>
-<span class="nc" id="L639">            int sPrice = sPlayer.getMarket().getBidPrice(sg, 1);</span>
-<span class="nc" id="L640">            GoodsType cg = game.getSpecification().getGoodsType(sg.getId());</span>
-<span class="nc" id="L641">            int cPrice = player.getMarket().getBidPrice(cg, 1);</span>
-<span class="nc bnc" id="L642" title="All 2 branches missed.">            if (sPrice != cPrice) {</span>
-<span class="nc" id="L643">                lb.add(&quot;Goods prices for &quot;, sg, &quot; differ.\n&quot;);</span>
-<span class="nc" id="L644">                goodsProblemDetected = true;</span>
-            }
-<span class="nc" id="L646">        }</span>
-<span class="nc bnc" id="L647" title="All 2 branches missed.">        if (goodsProblemDetected) {</span>
-<span class="nc" id="L648">            lb.add(&quot;  Server:\n&quot;, sPlayer.getMarket(), &quot;\n&quot;,</span>
-<span class="nc" id="L649">                &quot;  Client:\n&quot;, player.getMarket(), &quot;\n&quot;);</span>
-<span class="nc" id="L650">            problemDetected = true;</span>
-        }
-
-<span class="nc bnc" id="L653" title="All 2 branches missed.">        if (problemDetected) {</span>
-<span class="nc" id="L654">            lb.shrink(&quot;\n&quot;);</span>
-<span class="nc" id="L655">            String err = lb.toString();</span>
-<span class="nc" id="L656">            freeColClient.getGUI().showInformationMessage(err);</span>
-<span class="nc" id="L657">            logger.severe(err);</span>
-        }
-<span class="nc" id="L659">        return problemDetected;</span>
-    }
-
-    /**
-     * Debug action to display an AI colony plan.
-     *
-     * Called from tile popup menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to summarize.
-     */
-    public static void displayColonyPlan(final FreeColClient freeColClient,
-                                         final Colony colony) {
-<span class="nc" id="L672">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L673">        final AIMain aiMain = server.getAIMain();</span>
-<span class="nc" id="L674">        final AIColony aiColony = aiMain.getAIColony(colony);</span>
-<span class="nc bnc" id="L675" title="All 2 branches missed.">        if (aiColony == null) {</span>
-<span class="nc" id="L676">            freeColClient.getGUI().showErrorMessage(StringTemplate</span>
-<span class="nc" id="L677">                .template(&quot;error.notAIColony&quot;)</span>
-<span class="nc" id="L678">                .addName(&quot;%colony%&quot;, colony.getName()));</span>
-        } else {
-            // TODO: Missing i18n
-<span class="nc" id="L681">            freeColClient.getGUI().showInformationMessage(aiColony.planToString());</span>
-        }
-<span class="nc" id="L683">    }</span>
-
-    /**
-     * Debug action to create a string showing the colony value for
-     * a given tile and player.
-     *
-     * Note: passing the freeColClient is redundant for now, but will
-     * be needed if/when we move getColonyValue into the AI.
-     *
-     * @param tile The colony &lt;code&gt;Tile&lt;/code&gt; to evaluate.
-     * @return A string describing the colony value of a tile.
-     */
-    public static String getColonyValue(Tile tile) {
-<span class="nc" id="L696">        Player player = FreeColDebugger.debugDisplayColonyValuePlayer();</span>
-<span class="nc bnc" id="L697" title="All 2 branches missed.">        if (player == null) return null;</span>
-<span class="nc" id="L698">        int value = player.getColonyValue(tile);</span>
-<span class="nc bnc" id="L699" title="All 2 branches missed.">        if (value &lt; 0) {</span>
-<span class="nc" id="L700">            return Player.NoValueType.fromValue(value).toString();</span>
-        }
-<span class="nc" id="L702">        return Integer.toString(value);</span>
-    }
-
-    /**
-     * Debug action to display Europe.
-     *
-     * Called from the debug popup menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     */
-    public static void displayEurope(final FreeColClient freeColClient) {
-<span class="nc" id="L713">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L714">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L715">        final AIMain aiMain = server.getAIMain();</span>
-
-<span class="nc" id="L717">        LogBuilder lb = new LogBuilder(256);</span>
-<span class="nc" id="L718">        List&lt;Unit&gt; inEurope = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L719">        List&lt;Unit&gt; toEurope = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L720">        List&lt;Unit&gt; toAmerica = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L721">        HashMap&lt;String,List&lt;Unit&gt;&gt; units = new HashMap&lt;&gt;();</span>
-<span class="nc bnc" id="L722" title="All 2 branches missed.">        for (Player tp : sGame.getLiveEuropeanPlayers(null)) {</span>
-<span class="nc" id="L723">            Player p = sGame.getFreeColGameObject(tp.getId(), Player.class);</span>
-<span class="nc bnc" id="L724" title="All 2 branches missed.">            if (p.getEurope() == null) continue;</span>
-<span class="nc" id="L725">            inEurope.clear();</span>
-<span class="nc" id="L726">            toEurope.clear();</span>
-<span class="nc" id="L727">            toAmerica.clear();</span>
-<span class="nc" id="L728">            units.clear();</span>
-<span class="nc" id="L729">            units.put(Messages.message(&quot;sailingToEurope&quot;), toEurope);</span>
-<span class="nc" id="L730">            units.put(Messages.getName(p.getEurope()), inEurope);</span>
-<span class="nc" id="L731">            units.put(Messages.message(&quot;sailingToAmerica&quot;), toAmerica);</span>
-<span class="nc" id="L732">            lb.add(&quot;\n==&quot;, Messages.message(p.getCountryLabel()), &quot;==\n&quot;);</span>
-
-<span class="nc bnc" id="L734" title="All 2 branches missed.">            for (Unit u : p.getEurope().getUnitList()) {</span>
-<span class="nc bnc" id="L735" title="All 2 branches missed.">                if (u.getDestination() instanceof Map) {</span>
-<span class="nc" id="L736">                    toAmerica.add(u);</span>
-<span class="nc" id="L737">                    continue;</span>
-                }
-<span class="nc bnc" id="L739" title="All 2 branches missed.">                if (u.getDestination() instanceof Europe) {</span>
-<span class="nc" id="L740">                    toEurope.add(u);</span>
-<span class="nc" id="L741">                    continue;</span>
-                }
-<span class="nc" id="L743">                inEurope.add(u);</span>
-<span class="nc" id="L744">            }</span>
-
-<span class="nc bnc" id="L746" title="All 2 branches missed.">            for (Entry&lt;String, List&lt;Unit&gt;&gt; entry : units.entrySet()) {</span>
-<span class="nc" id="L747">                final String label = entry.getKey();</span>
-<span class="nc" id="L748">                final List&lt;Unit&gt; list = entry.getValue();</span>
-<span class="nc bnc" id="L749" title="All 2 branches missed.">                if (list.isEmpty()) continue;</span>
-<span class="nc" id="L750">                lb.add(&quot;\n-&gt;&quot;, label, &quot;\n&quot;);</span>
-<span class="nc bnc" id="L751" title="All 2 branches missed.">                for (Unit u : list) {</span>
-<span class="nc" id="L752">                    lb.add(&quot;\n&quot;, u.getDescription(Unit.UnitLabelType.NATIONAL));</span>
-<span class="nc bnc" id="L753" title="All 2 branches missed.">                    if (u.isDamaged()) {</span>
-<span class="nc" id="L754">                        lb.add(&quot; (&quot;, Messages.message(u.getRepairLabel()),</span>
-                            &quot;)&quot;);
-                    } else {
-<span class="nc" id="L757">                        lb.add(&quot;    &quot;);</span>
-<span class="nc" id="L758">                        AIUnit aiu = aiMain.getAIUnit(u);</span>
-<span class="nc bnc" id="L759" title="All 2 branches missed.">                        if (!aiu.hasMission()) {</span>
-<span class="nc" id="L760">                            lb.add(&quot; (&quot;, Messages.message(&quot;none&quot;), &quot;)&quot;);</span>
-                        } else {
-<span class="nc" id="L762">                            lb.add(aiu.getMission().toString()</span>
-<span class="nc" id="L763">                                .replaceAll(&quot;\n&quot;, &quot;    \n&quot;));</span>
-                        }
-                    }
-<span class="nc" id="L766">                }</span>
-<span class="nc" id="L767">                lb.add(&quot;\n&quot;);</span>
-<span class="nc" id="L768">            }</span>
-<span class="nc" id="L769">            lb.add(&quot;\n-&gt;&quot;, Messages.message(&quot;immigrants&quot;), &quot;\n\n&quot;);</span>
-<span class="nc bnc" id="L770" title="All 2 branches missed.">            for (UnitType unitType : p.getEurope().getRecruitables()) {</span>
-<span class="nc" id="L771">                lb.add(Messages.getName(unitType), &quot;\n&quot;);</span>
-<span class="nc" id="L772">            }</span>
-<span class="nc" id="L773">            lb.add(&quot;\n&quot;);</span>
-<span class="nc" id="L774">        }</span>
-<span class="nc" id="L775">        freeColClient.getGUI().showInformationMessage(lb.toString());</span>
-<span class="nc" id="L776">    }</span>
-
-    /**
-     * Debug action to display a mission.
-     *
-     * Called from tile popup menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to display.
-     */
-    public static void displayMission(final FreeColClient freeColClient,
-                                      final Unit unit) {
-<span class="nc" id="L788">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L789">        final AIMain aiMain = server.getAIMain();</span>
-<span class="nc" id="L790">        final AIUnit aiUnit = aiMain.getAIUnit(unit);</span>
-<span class="nc" id="L791">        Mission m = aiUnit.getMission();</span>
-<span class="nc bnc" id="L792" title="All 4 branches missed.">        String msg = (m == null) ? Messages.message(&quot;none&quot;)</span>
-<span class="nc" id="L793">            : (m instanceof TransportMission) ? ((TransportMission)m).toFullString()</span>
-<span class="nc" id="L794">            : m.toString();</span>
-<span class="nc" id="L795">        freeColClient.getGUI().showInformationMessage(msg);</span>
-<span class="nc" id="L796">    }</span>
-
-    /**
-     * Debug action to dump a players units/iterators to stderr.
-     *
-     * Called from the debug menu.
-     * TODO: missing i18n
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     */
-    public static void displayUnits(final FreeColClient freeColClient) {
-<span class="nc" id="L807">        final Player player = freeColClient.getMyPlayer();</span>
-<span class="nc" id="L808">        List&lt;Unit&gt; all = player.getUnits();</span>
-<span class="nc" id="L809">        LogBuilder lb = new LogBuilder(256);</span>
-<span class="nc" id="L810">        lb.add(&quot;\nActive units:\n&quot;);</span>
-
-<span class="nc" id="L812">        Unit u, first = player.getNextActiveUnit();</span>
-<span class="nc bnc" id="L813" title="All 2 branches missed.">        if (first != null) {</span>
-<span class="nc" id="L814">            lb.add(first.toString(), &quot;\nat &quot;, first.getLocation(), &quot;\n&quot;);</span>
-<span class="nc" id="L815">            all.remove(first);</span>
-<span class="nc bnc" id="L816" title="All 2 branches missed.">            while (player.hasNextActiveUnit()</span>
-<span class="nc bnc" id="L817" title="All 2 branches missed.">                &amp;&amp; (u = player.getNextActiveUnit()) != first) {</span>
-<span class="nc" id="L818">                lb.add(u, &quot;\nat &quot;, u.getLocation(), &quot;\n&quot;);</span>
-<span class="nc" id="L819">                all.remove(u);</span>
-            }
-        }
-<span class="nc" id="L822">        lb.add(&quot;Going-to units:\n&quot;);</span>
-<span class="nc" id="L823">        first = player.getNextGoingToUnit();</span>
-<span class="nc bnc" id="L824" title="All 2 branches missed.">        if (first != null) {</span>
-<span class="nc" id="L825">            all.remove(first);</span>
-<span class="nc" id="L826">            lb.add(first, &quot;\nat &quot;, first.getLocation(), &quot;\n&quot;);</span>
-<span class="nc bnc" id="L827" title="All 2 branches missed.">            while (player.hasNextGoingToUnit()</span>
-<span class="nc bnc" id="L828" title="All 2 branches missed.">                &amp;&amp; (u = player.getNextGoingToUnit()) != first) {</span>
-<span class="nc" id="L829">                lb.add(u, &quot;\nat &quot;, u.getLocation(), &quot;\n&quot;);</span>
-<span class="nc" id="L830">                all.remove(u);</span>
-            }
-        }
-<span class="nc" id="L833">        lb.add(&quot;Remaining units:\n&quot;);</span>
-<span class="nc bnc" id="L834" title="All 2 branches missed.">        while (!all.isEmpty()) {</span>
-<span class="nc" id="L835">            u = all.remove(0);</span>
-<span class="nc" id="L836">            lb.add(u, &quot;\nat &quot;, u.getLocation(), &quot;\n&quot;);</span>
-        }
-
-<span class="nc" id="L839">        freeColClient.getGUI().showInformationMessage(lb.toString());</span>
-<span class="nc" id="L840">    }</span>
-
-    /**
-     * Debug action to dump a tile to stderr.
-     *
-     * Called from tile popup menu.
-     * Not concerned with i18n for stderr output.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to dump.
-     */
-    public static void dumpTile(final FreeColClient freeColClient,
-                                final Tile tile) {
-<span class="nc" id="L853">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L854">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L855">        final Player player = freeColClient.getMyPlayer();</span>
-
-<span class="nc" id="L857">        System.err.println(&quot;\nClient (&quot; + player.getId() + &quot;):&quot;);</span>
-<span class="nc" id="L858">        tile.save(System.err, WriteScope.toClient(player), true);</span>
-<span class="nc" id="L859">        System.err.println(&quot;\n\nServer:&quot;);</span>
-<span class="nc" id="L860">        Tile sTile = sGame.getFreeColGameObject(tile.getId(), Tile.class);</span>
-<span class="nc" id="L861">        sTile.save(System.err, WriteScope.toServer(), true);</span>
-<span class="nc" id="L862">        System.err.println(&quot;\n\nSave:&quot;);</span>
-<span class="nc" id="L863">        sTile.save(System.err, WriteScope.toSave(), true);</span>
-<span class="nc" id="L864">        System.err.println(&quot;\n&quot;);</span>
-<span class="nc" id="L865">    }</span>
-
-    /**
-     * Debug action to reset the moves left of the units on a tile.
-     *
-     * Called from tile popup menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param units The &lt;code&gt;Unit&lt;/code&gt;s to reactivate.
-     */
-    public static void resetMoves(final FreeColClient freeColClient,
-                                  List&lt;Unit&gt; units) {
-<span class="nc" id="L877">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L878">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L879">        final GUI gui = freeColClient.getGUI();</span>
-
-<span class="nc" id="L881">        boolean first = true;</span>
-<span class="nc bnc" id="L882" title="All 2 branches missed.">        for (Unit u : units) {</span>
-<span class="nc" id="L883">            Unit su = sGame.getFreeColGameObject(u.getId(), Unit.class);</span>
-<span class="nc" id="L884">            u.setMovesLeft(u.getInitialMovesLeft());</span>
-<span class="nc" id="L885">            su.setMovesLeft(su.getInitialMovesLeft());</span>
-<span class="nc bnc" id="L886" title="All 2 branches missed.">            if (first) {</span>
-<span class="nc" id="L887">                gui.setActiveUnit(u);</span>
-<span class="nc" id="L888">                first = false;</span>
-            }
-<span class="nc bnc" id="L890" title="All 2 branches missed.">            for (Unit u2 : u.getUnitList()) {</span>
-<span class="nc" id="L891">                Unit su2 = sGame.getFreeColGameObject(u2.getId(), Unit.class);</span>
-<span class="nc" id="L892">                u2.setMovesLeft(u2.getInitialMovesLeft());</span>
-<span class="nc" id="L893">                su2.setMovesLeft(su2.getInitialMovesLeft());</span>
-<span class="nc" id="L894">            }</span>
-<span class="nc" id="L895">        }</span>
-<span class="nc" id="L896">        gui.refresh();</span>
-<span class="nc" id="L897">        gui.resetMenuBar();</span>
-<span class="nc" id="L898">    }</span>
-
-    /**
-     * Debug action to reveal or hide the map.
-     *
-     * Called from the debug menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param reveal If true, reveal the map, else hide the map.
-     */
-    public static void revealMap(final FreeColClient freeColClient,
-                                 boolean reveal) {
-<span class="nc" id="L910">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L911">        final Game game = freeColClient.getGame();</span>
-
-<span class="nc" id="L913">        server.exploreMapForAllPlayers(reveal);</span>
-
-        // Removes fog of war when revealing the whole map
-        // Restores previous setting when hiding it back again
-<span class="nc" id="L917">        BooleanOption fogOfWarSetting = game.getSpecification()</span>
-<span class="nc" id="L918">            .getBooleanOption(GameOptions.FOG_OF_WAR);</span>
-<span class="nc bnc" id="L919" title="All 2 branches missed.">        if (reveal) {</span>
-<span class="nc" id="L920">            FreeColDebugger.setNormalGameFogOfWar(fogOfWarSetting.getValue());</span>
-<span class="nc" id="L921">            fogOfWarSetting.setValue(false);</span>
-        } else {
-<span class="nc" id="L923">            fogOfWarSetting.setValue(FreeColDebugger.getNormalGameFogOfWar());</span>
-        }
-<span class="nc" id="L925">    }</span>
-
-    /**
-     * Debug action to set the amount of goods in a colony.
-     *
-     * Called from the colony panel.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to set goods amounts in.
-     */
-    public static void setColonyGoods(final FreeColClient freeColClient,
-                                      final Colony colony) {
-<span class="nc" id="L937">        final Specification spec = colony.getSpecification();</span>
-<span class="nc" id="L938">        GoodsType goodsType = freeColClient.getGUI().getChoice(null,</span>
-<span class="nc" id="L939">            StringTemplate.template(&quot;prompt.selectGoodsType&quot;), &quot;cancel&quot;,</span>
-<span class="nc" id="L940">            spec.getGoodsTypeList().stream()</span>
-<span class="nc bnc" id="L941" title="All 4 branches missed.">                .filter(gt -&gt; !gt.isFoodType() || gt == spec.getPrimaryFoodType())</span>
-<span class="nc" id="L942">                .map(gt -&gt; {</span>
-<span class="nc" id="L943">                        String msg = Messages.getName(gt);</span>
-<span class="nc" id="L944">                        return new ChoiceItem&lt;GoodsType&gt;(msg, gt);</span>
-                    })
-<span class="nc" id="L946">                .sorted().collect(Collectors.toList()));</span>
-<span class="nc bnc" id="L947" title="All 2 branches missed.">        if (goodsType == null) return;</span>
-
-<span class="nc" id="L949">        String response = freeColClient.getGUI().getInput(null,</span>
-<span class="nc" id="L950">                StringTemplate.template(&quot;prompt.selectGoodsAmount&quot;),</span>
-<span class="nc" id="L951">                Integer.toString(colony.getGoodsCount(goodsType)),</span>
-                &quot;ok&quot;, &quot;cancel&quot;);
-<span class="nc bnc" id="L953" title="All 4 branches missed.">        if (response == null || response.isEmpty()) return;</span>
-        int a;
-        try {
-<span class="nc" id="L956">            a = Integer.parseInt(response);</span>
-<span class="nc" id="L957">        } catch (NumberFormatException nfe) {</span>
-<span class="nc" id="L958">            return;</span>
-<span class="nc" id="L959">        }</span>
-
-<span class="nc" id="L961">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L962">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L963">        final Specification sSpec = server.getSpecification();</span>
-<span class="nc" id="L964">        final GoodsType sGoodsType = sSpec.getGoodsType(goodsType.getId());</span>
-<span class="nc" id="L965">        GoodsContainer cgc = colony.getGoodsContainer();</span>
-<span class="nc" id="L966">        GoodsContainer sgc = sGame.getFreeColGameObject(cgc.getId(),</span>
-                                                        GoodsContainer.class);
-<span class="nc" id="L968">        cgc.setAmount(goodsType, a);</span>
-<span class="nc" id="L969">        sgc.setAmount(sGoodsType, a);</span>
-<span class="nc" id="L970">    }</span>
-
-    /**
-     * Debug action to set the next monarch action.
-     *
-     * Called from the debug menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param monarchTitle A label for the choice dialog.
-     */
-    public static void setMonarchAction(final FreeColClient freeColClient,
-                                        String monarchTitle) {
-<span class="nc" id="L982">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L983">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L984">        final Player player = freeColClient.getMyPlayer();</span>
-<span class="nc" id="L985">        final ServerPlayer sPlayer = sGame.getFreeColGameObject(player.getId(),</span>
-            ServerPlayer.class);
-<span class="nc" id="L987">        final GUI gui = freeColClient.getGUI();</span>
-
-<span class="nc" id="L989">        MonarchAction action = gui.getChoice(null, monarchTitle,</span>
-            &quot;cancel&quot;,
-<span class="nc" id="L991">            Arrays.stream(MonarchAction.values())</span>
-<span class="nc" id="L992">                .map(a -&gt; new ChoiceItem&lt;MonarchAction&gt;(a))</span>
-<span class="nc" id="L993">                .sorted().collect(Collectors.toList()));</span>
-<span class="nc bnc" id="L994" title="All 2 branches missed.">        if (action == null) return;</span>
-        
-<span class="nc" id="L996">        server.getInGameController().setMonarchAction(sPlayer, action);</span>
-<span class="nc" id="L997">    }</span>
-
-    /**
-     * Debug action to set the lost city rumour type on a tile.
-     *
-     * Called from tile popup menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to operate on.
-     */
-    public static void setRumourType(final FreeColClient freeColClient,
-                                     final Tile tile) {
-<span class="nc" id="L1009">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L1010">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L1011">        final Tile sTile = sGame.getFreeColGameObject(tile.getId(),</span>
-                                                      Tile.class);
-
-<span class="nc" id="L1014">        RumourType rumourChoice = freeColClient.getGUI().getChoice(null,</span>
-<span class="nc" id="L1015">            StringTemplate.template(&quot;prompt.selectLostCityRumour&quot;),</span>
-            &quot;cancel&quot;,
-<span class="nc" id="L1017">            Arrays.stream(RumourType.values())</span>
-<span class="nc bnc" id="L1018" title="All 2 branches missed.">                .filter(r -&gt; r != RumourType.NO_SUCH_RUMOUR)</span>
-<span class="nc" id="L1019">                .map(r -&gt; new ChoiceItem&lt;RumourType&gt;(r.toString(), r))</span>
-<span class="nc" id="L1020">                .sorted().collect(Collectors.toList()));</span>
-<span class="nc bnc" id="L1021" title="All 2 branches missed.">        if (rumourChoice == null) return;</span>
-
-<span class="nc" id="L1023">        tile.getTileItemContainer().getLostCityRumour().setType(rumourChoice);</span>
-<span class="nc" id="L1024">        sTile.getTileItemContainer().getLostCityRumour()</span>
-<span class="nc" id="L1025">            .setType(rumourChoice);</span>
-<span class="nc" id="L1026">    }</span>
-
-    /**
-     * Debug action to skip turns.
-     *
-     * Called from the debug menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     */
-    public static void skipTurns(FreeColClient freeColClient) {
-<span class="nc" id="L1036">        freeColClient.skipTurns(0); // Clear existing skipping</span>
-
-<span class="nc" id="L1038">        String response = freeColClient.getGUI().getInput(null,</span>
-<span class="nc" id="L1039">            StringTemplate.key(&quot;prompt.selectTurnsToSkip&quot;),</span>
-<span class="nc" id="L1040">            Integer.toString(10), &quot;ok&quot;, &quot;cancel&quot;);</span>
-<span class="nc bnc" id="L1041" title="All 4 branches missed.">        if (response == null || response.isEmpty()) return;</span>
-        int skip;
-        try {
-<span class="nc" id="L1044">            skip = Integer.parseInt(response);</span>
-<span class="nc" id="L1045">        } catch (NumberFormatException nfe) {</span>
-<span class="nc" id="L1046">            skip = -1;</span>
-<span class="nc" id="L1047">        }</span>
-<span class="nc bnc" id="L1048" title="All 2 branches missed.">        if (skip &gt; 0) freeColClient.skipTurns(skip);</span>
-<span class="nc" id="L1049">    }</span>
-
-    /**
-     * Debug action to step the random number generator.
-     *
-     * Called from the debug menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     */
-    public static void stepRNG(FreeColClient freeColClient) {
-<span class="nc" id="L1059">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L1060">        final GUI gui = freeColClient.getGUI();</span>
-
-<span class="nc" id="L1062">        boolean more = true;</span>
-<span class="nc bnc" id="L1063" title="All 2 branches missed.">        while (more) {</span>
-<span class="nc" id="L1064">            int val = server.getInGameController().stepRandom();</span>
-<span class="nc" id="L1065">            more = gui.confirm(null, StringTemplate</span>
-<span class="nc" id="L1066">                .template(&quot;prompt.stepRNG&quot;)</span>
-<span class="nc" id="L1067">                .addAmount(&quot;%value%&quot;, val),</span>
-                &quot;more&quot;, &quot;cancel&quot;);
-<span class="nc" id="L1069">        }</span>
-<span class="nc" id="L1070">    }</span>
-
-    /**
-     * Debug action to summarize information about a native settlement
-     * that is normally hidden.
-     *
-     * Called from tile popup menu.
-     * TODO: missing i18n
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param is The &lt;code&gt;IndianSettlement&lt;/code&gt; to summarize.
-     */
-    public static void summarizeSettlement(final FreeColClient freeColClient,
-                                           final IndianSettlement is) {
-<span class="nc" id="L1084">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L1085">        final Game sGame = server.getGame();</span>
-<span class="nc" id="L1086">        final AIMain aiMain = server.getAIMain();</span>
-<span class="nc" id="L1087">        final Specification sSpec = sGame.getSpecification();</span>
-<span class="nc" id="L1088">        final IndianSettlement sis = sGame.getFreeColGameObject(is.getId(),</span>
-            IndianSettlement.class);
-
-<span class="nc" id="L1091">        LogBuilder lb = new LogBuilder(256);</span>
-<span class="nc" id="L1092">        lb.add(sis.getName(), &quot;\n\nAlarm\n&quot;);</span>
-<span class="nc" id="L1093">        Player mostHated = sis.getMostHated();</span>
-<span class="nc bnc" id="L1094" title="All 2 branches missed.">        for (Player p : sGame.getLiveEuropeanPlayers(null)) {</span>
-<span class="nc" id="L1095">            Tension tension = sis.getAlarm(p);</span>
-<span class="nc bnc" id="L1096" title="All 2 branches missed.">            lb.add(Messages.message(p.getNationLabel()),</span>
-                   &quot; &quot;, ((tension == null) ? &quot;(none)&quot;
-<span class="nc bnc" id="L1098" title="All 2 branches missed.">                       : Integer.toString(tension.getValue())),</span>
-                   ((mostHated == p) ? &quot; (most hated)&quot; : &quot;&quot;),
-<span class="nc" id="L1100">                   &quot; &quot;, Messages.message(sis.getAlarmLevelKey(p)),</span>
-<span class="nc" id="L1101">                   &quot; &quot;, sis.getContactLevel(p), &quot;\n&quot;);</span>
-<span class="nc" id="L1102">        }</span>
-
-<span class="nc" id="L1104">        lb.add(&quot;\nGoods Present\n&quot;);</span>
-<span class="nc bnc" id="L1105" title="All 2 branches missed.">        for (Goods goods : sis.getCompactGoods()) {</span>
-<span class="nc" id="L1106">            lb.add(Messages.message(goods.getLabel(true)), &quot;\n&quot;);</span>
-<span class="nc" id="L1107">        }</span>
-
-<span class="nc" id="L1109">        lb.add(&quot;\nGoods Production\n&quot;);</span>
-<span class="nc bnc" id="L1110" title="All 2 branches missed.">        for (GoodsType type : sSpec.getGoodsTypeList()) {</span>
-<span class="nc" id="L1111">            int prod = sis.getTotalProductionOf(type);</span>
-<span class="nc bnc" id="L1112" title="All 2 branches missed.">            if (prod &gt; 0) {</span>
-<span class="nc" id="L1113">                lb.add(Messages.getName(type), &quot; &quot;, prod, &quot;\n&quot;);</span>
-            }
-<span class="nc" id="L1115">        }</span>
-
-<span class="nc" id="L1117">        lb.add(&quot;\nPrices (buy 1/100 / sell 1/100)\n&quot;);</span>
-<span class="nc" id="L1118">        GoodsType[] wanted = sis.getWantedGoods();</span>
-<span class="nc bnc" id="L1119" title="All 2 branches missed.">        for (GoodsType type : sSpec.getStorableGoodsTypeList()) {</span>
-            int i;
-<span class="nc bnc" id="L1121" title="All 2 branches missed.">            for (i = wanted.length - 1; i &gt;= 0; i--) {</span>
-<span class="nc bnc" id="L1122" title="All 2 branches missed.">                if (type == wanted[i]) break;</span>
-            }
-<span class="nc" id="L1124">            lb.add(Messages.getName(type),</span>
-<span class="nc" id="L1125">                   &quot;: &quot;, sis.getPriceToBuy(type, 1),</span>
-<span class="nc" id="L1126">                   &quot;/&quot;, sis.getPriceToBuy(type, 100),</span>
-<span class="nc" id="L1127">                   &quot; / &quot;, sis.getPriceToSell(type, 1),</span>
-<span class="nc bnc" id="L1128" title="All 2 branches missed.">                   &quot;/&quot;, sis.getPriceToSell(type, 100),</span>
-<span class="nc" id="L1129">                   ((i &lt; 0) ? &quot;&quot; : &quot; wanted[&quot; + Integer.toString(i) + &quot;]&quot;),</span>
-                   &quot;\n&quot;);
-<span class="nc" id="L1131">        }</span>
-
-<span class="nc" id="L1133">        lb.add(&quot;\nUnits present\n&quot;);</span>
-<span class="nc bnc" id="L1134" title="All 2 branches missed.">        for (Unit u : sis.getUnitList()) {</span>
-<span class="nc" id="L1135">            Mission m = aiMain.getAIUnit(u).getMission();</span>
-<span class="nc" id="L1136">            lb.add(u, &quot; at &quot;, u.getLocation());</span>
-<span class="nc bnc" id="L1137" title="All 2 branches missed.">            if (m != null) {</span>
-<span class="nc" id="L1138">                lb.add(&quot; &quot;, m.getClass(), &quot;.&quot;);</span>
-            }
-<span class="nc" id="L1140">            lb.add(&quot;\n&quot;);</span>
-<span class="nc" id="L1141">        }</span>
-<span class="nc" id="L1142">        lb.add(&quot;\nUnits owned\n&quot;);</span>
-<span class="nc bnc" id="L1143" title="All 2 branches missed.">        for (Unit u : sis.getOwnedUnits()) {</span>
-<span class="nc" id="L1144">            Mission m = aiMain.getAIUnit(u).getMission();</span>
-<span class="nc" id="L1145">            lb.add(u, &quot; at &quot;, u.getLocation());</span>
-<span class="nc bnc" id="L1146" title="All 2 branches missed.">            if (m != null) {</span>
-<span class="nc" id="L1147">                lb.add(&quot; &quot;, m.getClass(), &quot;.&quot;);</span>
-            }
-<span class="nc" id="L1149">            lb.add(&quot;\n&quot;);</span>
-<span class="nc" id="L1150">        }</span>
-
-<span class="nc" id="L1152">        lb.add(&quot;\nTiles\n&quot;);</span>
-<span class="nc bnc" id="L1153" title="All 2 branches missed.">        for (Tile t : sis.getOwnedTiles()) lb.add(t, &quot;\n&quot;);</span>
-
-<span class="nc" id="L1155">        lb.add(&quot;\nConvert Progress = &quot;, sis.getConvertProgress());</span>
-<span class="nc" id="L1156">        lb.add(&quot;\nLast Tribute = &quot;, sis.getLastTribute());</span>
-
-<span class="nc" id="L1158">        freeColClient.getGUI().showInformationMessage(lb.toString());</span>
-<span class="nc" id="L1159">    }</span>
-
-    /**
-     * Debug action to run the AI.
-     *
-     * Called from the debug menu.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     */
-    public static void useAI(final FreeColClient freeColClient) {
-<span class="nc" id="L1169">        final FreeColServer server = freeColClient.getFreeColServer();</span>
-<span class="nc" id="L1170">        final Player player = freeColClient.getMyPlayer();</span>
-<span class="nc" id="L1171">        final AIMain aiMain = server.getAIMain();</span>
-<span class="nc" id="L1172">        final AIPlayer ap = aiMain.getAIPlayer(player);</span>
-
-<span class="nc" id="L1174">        ap.setDebuggingConnection(freeColClient.askServer().getConnection());</span>
-<span class="nc" id="L1175">        ap.startWorking();</span>
-<span class="nc" id="L1176">        freeColClient.getConnectController().reconnect();</span>
-<span class="nc" id="L1177">    }</span>
+<span class="nc" id="L95">public class DebugUtils {</span>
+
+	/** The Constant logger. */
+<span class="nc" id="L98">	private static final Logger logger = Logger.getLogger(DebugUtils.class.getName());</span>
+
+	/**
+	 * Debug action to add buildings to the user colonies.
+	 *
+	 * Called from the debug menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param buildingTitle
+	 *            A label for the choice dialog.
+	 */
+	public static void addBuildings(final FreeColClient freeColClient, String buildingTitle) {
+<span class="nc" id="L111">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L112">		final Game game = freeColClient.getGame();</span>
+<span class="nc" id="L113">		final GUI gui = freeColClient.getGUI();</span>
+<span class="nc" id="L114">		final Player player = freeColClient.getMyPlayer();</span>
+
+<span class="nc" id="L116">		BuildingType buildingType = gui.getChoice(null, buildingTitle, &quot;cancel&quot;,</span>
+<span class="nc" id="L117">				game.getSpecification().getBuildingTypeList().stream().map(bt -&gt; {</span>
+<span class="nc" id="L118">					String msg = Messages.getName(bt);</span>
+<span class="nc" id="L119">					return new ChoiceItem&lt;BuildingType&gt;(msg, bt);</span>
+<span class="nc" id="L120">				}).sorted().collect(Collectors.toList()));</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">		if (buildingType == null)</span>
+<span class="nc" id="L122">			return;</span>
+
+<span class="nc" id="L124">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L125">		final BuildingType sBuildingType = server.getSpecification().getBuildingType(buildingType.getId());</span>
+<span class="nc" id="L126">		final Player sPlayer = sGame.getFreeColGameObject(player.getId(), Player.class);</span>
+<span class="nc" id="L127">		List&lt;String&gt; results = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L128">		int fails = 0;</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">		for (Colony sColony : sPlayer.getColonies()) {</span>
+<span class="nc" id="L130">			Colony.NoBuildReason reason = sColony.getNoBuildReason(sBuildingType, null);</span>
+<span class="nc" id="L131">			results.add(sColony.getName() + &quot;: &quot; + reason);</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">			if (reason == Colony.NoBuildReason.NONE) {</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">				if (sBuildingType.isDefenceType()) {</span>
+<span class="nc" id="L134">					sColony.getTile().cacheUnseen();// +til</span>
+				}
+<span class="nc" id="L136">				Building sBuilding = new ServerBuilding(sGame, sColony, sBuildingType);</span>
+<span class="nc" id="L137">				sColony.addBuilding(sBuilding);// -til</span>
+<span class="nc" id="L138">			} else {</span>
+<span class="nc" id="L139">				fails++;</span>
+			}
+<span class="nc" id="L141">		}</span>
+<span class="nc" id="L142">		gui.showInformationMessage(join(&quot;, &quot;, results));</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">		if (fails &lt; sPlayer.getNumberOfSettlements()) {</span>
+			// Brutally resynchronize
+<span class="nc" id="L145">			freeColClient.getConnectController().reconnect();</span>
+		}
+<span class="nc" id="L147">	}</span>
+
+	/**
+	 * Debug action to add a founding father.
+	 *
+	 * Called from the debug menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param fatherTitle
+	 *            A label for the choice dialog.
+	 */
+	public static void addFathers(final FreeColClient freeColClient, String fatherTitle) {
+<span class="nc" id="L160">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L161">		final GUI gui = freeColClient.getGUI();</span>
+<span class="nc" id="L162">		final Player player = freeColClient.getMyPlayer();</span>
+<span class="nc" id="L163">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L164">		final Specification sSpec = sGame.getSpecification();</span>
+<span class="nc" id="L165">		final Player sPlayer = sGame.getFreeColGameObject(player.getId(), Player.class);</span>
+
+<span class="nc" id="L167">		FoundingFather father = gui.getChoice(null, fatherTitle, &quot;cancel&quot;,</span>
+<span class="nc bnc" id="L168" title="All 2 branches missed.">				sSpec.getFoundingFathers().stream().filter(f -&gt; !sPlayer.hasFather(f)).map(f -&gt; {</span>
+<span class="nc" id="L169">					String msg = Messages.getName(f);</span>
+<span class="nc" id="L170">					return new ChoiceItem&lt;FoundingFather&gt;(msg, f);</span>
+<span class="nc" id="L171">				}).sorted().collect(Collectors.toList()));</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">		if (father != null) {</span>
+<span class="nc" id="L173">			server.getInGameController().addFoundingFather((ServerPlayer) sPlayer, father);</span>
+		}
+<span class="nc" id="L175">	}</span>
+
+	/**
+	 * Debug action to add gold.
+	 *
+	 * Called from the debug menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 */
+	public static void addGold(final FreeColClient freeColClient) {
+<span class="nc" id="L186">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L187">		final GUI gui = freeColClient.getGUI();</span>
+<span class="nc" id="L188">		final Player player = freeColClient.getMyPlayer();</span>
+<span class="nc" id="L189">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L190">		final Player sPlayer = sGame.getFreeColGameObject(player.getId(), Player.class);</span>
+
+<span class="nc" id="L192">		String response = gui.getInput(null, StringTemplate.template(&quot;prompt.selectGold&quot;), Integer.toString(1000), &quot;ok&quot;,</span>
+				&quot;cancel&quot;);
+<span class="nc bnc" id="L194" title="All 4 branches missed.">		if (response == null || response.isEmpty())</span>
+<span class="nc" id="L195">			return;</span>
+		int gold;
+		try {
+<span class="nc" id="L198">			gold = Integer.parseInt(response);</span>
+<span class="nc" id="L199">		} catch (NumberFormatException x) {</span>
+<span class="nc" id="L200">			return;</span>
+<span class="nc" id="L201">		}</span>
+<span class="nc" id="L202">		player.modifyGold(gold);</span>
+<span class="nc" id="L203">		sPlayer.modifyGold(gold);</span>
+<span class="nc" id="L204">	}</span>
+
+	/**
+	 * Debug action to add immigration.
+	 *
+	 * Called from the debug menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 */
+	public static void addImmigration(final FreeColClient freeColClient) {
+<span class="nc" id="L215">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L216">		final GUI gui = freeColClient.getGUI();</span>
+<span class="nc" id="L217">		final Player player = freeColClient.getMyPlayer();</span>
+<span class="nc" id="L218">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L219">		final Player sPlayer = sGame.getFreeColGameObject(player.getId(), Player.class);</span>
+
+<span class="nc" id="L221">		String response = gui.getInput(null, StringTemplate.template(&quot;prompt.selectImmigration&quot;), Integer.toString(100),</span>
+				&quot;ok&quot;, &quot;cancel&quot;);
+<span class="nc bnc" id="L223" title="All 4 branches missed.">		if (response == null || response.isEmpty())</span>
+<span class="nc" id="L224">			return;</span>
+		int crosses;
+		try {
+<span class="nc" id="L227">			crosses = Integer.parseInt(response);</span>
+<span class="nc" id="L228">		} catch (NumberFormatException x) {</span>
+<span class="nc" id="L229">			return;</span>
+<span class="nc" id="L230">		}</span>
+<span class="nc" id="L231">		player.modifyImmigration(crosses);</span>
+<span class="nc" id="L232">		sPlayer.modifyImmigration(crosses);</span>
+<span class="nc" id="L233">	}</span>
+
+	/**
+	 * Debug action to add liberty to the player colonies.
+	 *
+	 * Called from the debug menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 */
+	public static void addLiberty(final FreeColClient freeColClient) {
+<span class="nc" id="L244">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L245">		final GUI gui = freeColClient.getGUI();</span>
+<span class="nc" id="L246">		final Player player = freeColClient.getMyPlayer();</span>
+<span class="nc" id="L247">		final Game sGame = server.getGame();</span>
+
+<span class="nc" id="L249">		String response = gui.getInput(null, StringTemplate.template(&quot;prompt.selectLiberty&quot;), Integer.toString(100),</span>
+				&quot;ok&quot;, &quot;cancel&quot;);
+<span class="nc bnc" id="L251" title="All 4 branches missed.">		if (response == null || response.isEmpty())</span>
+<span class="nc" id="L252">			return;</span>
+		int liberty;
+		try {
+<span class="nc" id="L255">			liberty = Integer.parseInt(response);</span>
+<span class="nc" id="L256">		} catch (NumberFormatException x) {</span>
+<span class="nc" id="L257">			return;</span>
+<span class="nc" id="L258">		}</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">		for (Colony c : player.getColonies()) {</span>
+<span class="nc" id="L260">			c.addLiberty(liberty);</span>
+<span class="nc" id="L261">			sGame.getFreeColGameObject(c.getId(), Colony.class).addLiberty(liberty);</span>
+<span class="nc" id="L262">		}</span>
+<span class="nc" id="L263">	}</span>
+
+	/**
+	 * Adds a change listener to a menu (the debug menu in fact), that changes
+	 * the label on a menu item when the skip status changes.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param menu
+	 *            The menu to add the change listener to.
+	 * @param item
+	 *            The menu item whose label should change.
+	 */
+	public static void addSkipChangeListener(final FreeColClient freeColClient, JMenu menu, final JMenuItem item) {
+<span class="nc" id="L277">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">		if (server == null)</span>
+<span class="nc" id="L279">			return;</span>
+
+<span class="nc" id="L281">		menu.addChangeListener((ChangeEvent e) -&gt; {</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">			boolean skipping = server.getInGameController().getSkippedTurns() &gt; 0;</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">			item.setText(Messages.message((skipping) ? &quot;menuBar.debug.stopSkippingTurns&quot; : &quot;menuBar.debug.skipTurns&quot;));</span>
+<span class="nc" id="L284">		});</span>
+<span class="nc" id="L285">	}</span>
+
+	/**
+	 * Debug action to add a new unit to a tile.
+	 *
+	 * Called from tile popup menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param tile
+	 *            The &lt;code&gt;Tile&lt;/code&gt; to add to.
+	 */
+	public static void addNewUnitToTile(final FreeColClient freeColClient, Tile tile) {
+<span class="nc" id="L298">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L299">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L300">		final Specification sSpec = sGame.getSpecification();</span>
+<span class="nc" id="L301">		final Player player = freeColClient.getMyPlayer();</span>
+<span class="nc" id="L302">		final Player sPlayer = sGame.getFreeColGameObject(player.getId(), Player.class);</span>
+<span class="nc" id="L303">		final Tile sTile = sGame.getFreeColGameObject(tile.getId(), Tile.class);</span>
+<span class="nc" id="L304">		final GUI gui = freeColClient.getGUI();</span>
+
+<span class="nc" id="L306">		UnitType unitChoice = gui.getChoice(null, StringTemplate.template(&quot;prompt.selectUnitType&quot;), &quot;cancel&quot;,</span>
+<span class="nc" id="L307">				sSpec.getUnitTypeList().stream().map(ut -&gt; {</span>
+<span class="nc" id="L308">					String msg = Messages.getName(ut);</span>
+<span class="nc" id="L309">					return new ChoiceItem&lt;UnitType&gt;(msg, ut);</span>
+<span class="nc" id="L310">				}).sorted().collect(Collectors.toList()));</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">		if (unitChoice == null)</span>
+<span class="nc" id="L312">			return;</span>
+
+<span class="nc" id="L314">		Unit carrier = null, sCarrier = null;</span>
+<span class="nc bnc" id="L315" title="All 4 branches missed.">		if (!sTile.isLand() &amp;&amp; !unitChoice.isNaval()) {</span>
+<span class="nc bnc" id="L316" title="All 4 branches missed.">			sCarrier = find(sTile.getUnitList(), u -&gt; u.isNaval() &amp;&amp; u.getSpaceLeft() &gt;= unitChoice.getSpaceTaken());</span>
+		}
+<span class="nc bnc" id="L318" title="All 2 branches missed.">		Location loc = (sCarrier != null) ? sCarrier : sTile;</span>
+<span class="nc" id="L319">		ServerUnit sUnit = new ServerUnit(sGame, loc, sPlayer, unitChoice);// -vis(sPlayer)</span>
+<span class="nc" id="L320">		((ServerPlayer) sPlayer).exploreForUnit(sUnit);</span>
+<span class="nc" id="L321">		sUnit.setMovesLeft(sUnit.getInitialMovesLeft());</span>
+<span class="nc" id="L322">		sPlayer.invalidateCanSeeTiles();// +vis(sPlayer)</span>
+
+<span class="nc" id="L324">		freeColClient.getConnectController().reconnect();</span>
+		// Note &quot;game&quot; is no longer valid after reconnect.
+<span class="nc" id="L326">		Unit unit = freeColClient.getGame().getFreeColGameObject(sUnit.getId(), Unit.class);</span>
+<span class="nc bnc" id="L327" title="All 2 branches missed.">		if (unit != null) {</span>
+<span class="nc" id="L328">			gui.setActiveUnit(unit);</span>
+<span class="nc" id="L329">			gui.refresh();</span>
+<span class="nc" id="L330">			gui.resetMenuBar();</span>
+		}
+<span class="nc" id="L332">	}</span>
+
+	/**
+	 * Debug action to add goods to a unit.
+	 *
+	 * Called from tile popup menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to add to.
+	 */
+	public static void addUnitGoods(final FreeColClient freeColClient, final Unit unit) {
+<span class="nc" id="L345">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L346">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L347">		final Specification sSpec = sGame.getSpecification();</span>
+<span class="nc" id="L348">		final GUI gui = freeColClient.getGUI();</span>
+
+<span class="nc" id="L350">		List&lt;ChoiceItem&lt;GoodsType&gt;&gt; gtl = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L351" title="All 2 branches missed.">		for (GoodsType t : sSpec.getGoodsTypeList()) {</span>
+<span class="nc bnc" id="L352" title="All 4 branches missed.">			if (t.isFoodType() &amp;&amp; t != sSpec.getPrimaryFoodType())</span>
+<span class="nc" id="L353">				continue;</span>
+<span class="nc" id="L354">			String msg = Messages.getName(t);</span>
+<span class="nc" id="L355">			gtl.add(new ChoiceItem&lt;&gt;(msg, t));</span>
+<span class="nc" id="L356">		}</span>
+<span class="nc" id="L357">		Collections.sort(gtl);</span>
+<span class="nc" id="L358">		GoodsType goodsType = gui.getChoice(null, StringTemplate.template(&quot;prompt.selectGoodsType&quot;), &quot;cancel&quot;,</span>
+<span class="nc bnc" id="L359" title="All 4 branches missed.">				sSpec.getGoodsTypeList().stream().filter(gt -&gt; !gt.isFoodType() || gt == sSpec.getPrimaryFoodType())</span>
+<span class="nc" id="L360">						.map(gt -&gt; {</span>
+<span class="nc" id="L361">							String msg = Messages.getName(gt);</span>
+<span class="nc" id="L362">							return new ChoiceItem&lt;GoodsType&gt;(msg, gt);</span>
+<span class="nc" id="L363">						}).sorted().collect(Collectors.toList()));</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">		if (goodsType == null)</span>
+<span class="nc" id="L365">			return;</span>
+
+<span class="nc" id="L367">		String amount = gui.getInput(null, StringTemplate.template(&quot;prompt.selectGoodsAmount&quot;), &quot;20&quot;, &quot;ok&quot;, &quot;cancel&quot;);</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">		if (amount == null)</span>
+<span class="nc" id="L369">			return;</span>
+
+		int a;
+		try {
+<span class="nc" id="L373">			a = Integer.parseInt(amount);</span>
+<span class="nc" id="L374">		} catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L375">			return;</span>
+<span class="nc" id="L376">		}</span>
+<span class="nc" id="L377">		GoodsType sGoodsType = sSpec.getGoodsType(goodsType.getId());</span>
+<span class="nc" id="L378">		GoodsContainer ugc = unit.getGoodsContainer();</span>
+<span class="nc" id="L379">		GoodsContainer sgc = sGame.getFreeColGameObject(ugc.getId(), GoodsContainer.class);</span>
+<span class="nc" id="L380">		ugc.setAmount(goodsType, a);</span>
+<span class="nc" id="L381">		sgc.setAmount(sGoodsType, a);</span>
+<span class="nc" id="L382">	}</span>
+
+	/**
+	 * Debug action to apply a disaster to a colony.
+	 *
+	 * Called from tile popup menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; to apply a disaster to.
+	 */
+	public static void applyDisaster(final FreeColClient freeColClient, final Colony colony) {
+<span class="nc" id="L395">		final GUI gui = freeColClient.getGUI();</span>
+<span class="nc" id="L396">		List&lt;RandomChoice&lt;Disaster&gt;&gt; disasters = colony.getDisasters();</span>
+<span class="nc bnc" id="L397" title="All 2 branches missed.">		if (disasters.isEmpty()) {</span>
+<span class="nc" id="L398">			gui.showErrorMessage(</span>
+<span class="nc" id="L399">					StringTemplate.template(&quot;error.disasterNotAvailable&quot;).addName(&quot;%colony%&quot;, colony.getName()));</span>
+<span class="nc" id="L400">			return;</span>
+		}
+<span class="nc" id="L402">		Disaster disaster = gui.getChoice(null, StringTemplate.template(&quot;prompt.selectDisaster&quot;), &quot;cancel&quot;,</span>
+<span class="nc" id="L403">				disasters.stream().map(rc -&gt; {</span>
+<span class="nc" id="L404">					String label = Messages.getName(rc.getObject()) + &quot; &quot; + Integer.toString(rc.getProbability());</span>
+<span class="nc" id="L405">					return new ChoiceItem&lt;Disaster&gt;(label, rc.getObject());</span>
+<span class="nc" id="L406">				}).sorted().collect(Collectors.toList()));</span>
+<span class="nc bnc" id="L407" title="All 2 branches missed.">		if (disaster == null)</span>
+<span class="nc" id="L408">			return;</span>
+
+<span class="nc" id="L410">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L411">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L412">		final ServerColony sColony = sGame.getFreeColGameObject(colony.getId(), ServerColony.class);</span>
+<span class="nc" id="L413">		final Disaster sDisaster = sGame.getSpecification().getDisaster(disaster.getId());</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">		if (server.getInGameController().debugApplyDisaster(sColony, sDisaster) &lt;= 0) {</span>
+<span class="nc" id="L415">			gui.showErrorMessage(StringTemplate.template(&quot;error.disasterAvoided&quot;).addName(&quot;%colony%&quot;, colony.getName())</span>
+<span class="nc" id="L416">					.addNamed(&quot;%disaster%&quot;, disaster));</span>
+		}
+<span class="nc" id="L418">		freeColClient.getInGameController().nextModelMessage();</span>
+<span class="nc" id="L419">	}</span>
+
+	/**
+	 * Debug action to change ownership of a colony.
+	 *
+	 * Called from tile popup menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; to take ownership of.
+	 */
+	public static void changeOwnership(final FreeColClient freeColClient, final Colony colony) {
+<span class="nc" id="L432">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L433">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L434">		final ServerColony sColony = sGame.getFreeColGameObject(colony.getId(), ServerColony.class);</span>
+<span class="nc" id="L435">		final GUI gui = freeColClient.getGUI();</span>
+<span class="nc" id="L436">		final Game game = freeColClient.getGame();</span>
+
+<span class="nc" id="L438">		Player player = gui.getChoice(null, StringTemplate.template(&quot;prompt.selectOwner&quot;), &quot;cancel&quot;,</span>
+<span class="nc" id="L439">				game.getLiveEuropeanPlayers(colony.getOwner()).stream().map(p -&gt; {</span>
+<span class="nc" id="L440">					String msg = Messages.message(p.getCountryLabel());</span>
+<span class="nc" id="L441">					return new ChoiceItem&lt;Player&gt;(msg, p);</span>
+<span class="nc" id="L442">				}).sorted().collect(Collectors.toList()));</span>
+<span class="nc bnc" id="L443" title="All 2 branches missed.">		if (player == null)</span>
+<span class="nc" id="L444">			return;</span>
+
+<span class="nc" id="L446">		ServerPlayer sPlayer = sGame.getFreeColGameObject(player.getId(), ServerPlayer.class);</span>
+<span class="nc" id="L447">		server.getInGameController().debugChangeOwner(sColony, sPlayer);</span>
+
+<span class="nc" id="L449">		Player myPlayer = freeColClient.getMyPlayer();</span>
+<span class="nc bnc" id="L450" title="All 4 branches missed.">		if (gui.getActiveUnit() != null &amp;&amp; gui.getActiveUnit().getOwner() != myPlayer) {</span>
+<span class="nc" id="L451">			freeColClient.getInGameController().nextActiveUnit();</span>
+		}
+<span class="nc" id="L453">		gui.refresh();</span>
+<span class="nc" id="L454">		gui.resetMenuBar();</span>
+<span class="nc" id="L455">	}</span>
+
+	/**
+	 * Debug action to change ownership of a unit.
+	 *
+	 * Called from tile popup menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to take ownership of.
+	 */
+	public static void changeOwnership(final FreeColClient freeColClient, final Unit unit) {
+<span class="nc" id="L468">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L469">		final GUI gui = freeColClient.getGUI();</span>
+<span class="nc" id="L470">		final Game game = unit.getGame();</span>
+
+<span class="nc" id="L472">		Player player = gui.getChoice(null, StringTemplate.template(&quot;prompt.selectOwner&quot;), &quot;cancel&quot;,</span>
+<span class="nc" id="L473">				game.getLivePlayers(null).stream().filter(p -&gt; unit.getType().isAvailableTo(p)).map(p -&gt; {</span>
+<span class="nc" id="L474">					String msg = Messages.message(p.getCountryLabel());</span>
+<span class="nc" id="L475">					return new ChoiceItem&lt;Player&gt;(msg, p);</span>
+<span class="nc" id="L476">				}).sorted().collect(Collectors.toList()));</span>
+<span class="nc bnc" id="L477" title="All 4 branches missed.">		if (player == null || unit.getOwner() == player)</span>
+<span class="nc" id="L478">			return;</span>
+
+<span class="nc" id="L480">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L481">		ServerUnit sUnit = sGame.getFreeColGameObject(unit.getId(), ServerUnit.class);</span>
+<span class="nc" id="L482">		ServerPlayer sPlayer = sGame.getFreeColGameObject(player.getId(), ServerPlayer.class);</span>
+<span class="nc" id="L483">		server.getInGameController().debugChangeOwner(sUnit, sPlayer);</span>
+
+<span class="nc" id="L485">		Player myPlayer = freeColClient.getMyPlayer();</span>
+<span class="nc bnc" id="L486" title="All 2 branches missed.">		if (unit.getOwner() == myPlayer) {</span>
+<span class="nc" id="L487">			gui.setActiveUnit(unit);</span>
+		} else {
+<span class="nc" id="L489">			freeColClient.getInGameController().nextActiveUnit();</span>
+		}
+<span class="nc" id="L491">		gui.refresh();</span>
+<span class="nc" id="L492">		gui.resetMenuBar();</span>
+<span class="nc" id="L493">	}</span>
+
+	/**
+	 * Debug action to change the roles of a unit.
+	 *
+	 * Called from tile popup menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to change the role of.
+	 */
+	public static void changeRole(final FreeColClient freeColClient, final Unit unit) {
+<span class="nc" id="L506">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L507">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L508">		final Unit sUnit = sGame.getFreeColGameObject(unit.getId(), Unit.class);</span>
+<span class="nc" id="L509">		final GUI gui = freeColClient.getGUI();</span>
+
+<span class="nc" id="L511">		Role roleChoice = gui.getChoice(null, StringTemplate.template(&quot;prompt.selectRole&quot;), &quot;cancel&quot;,</span>
+<span class="nc" id="L512">				sGame.getSpecification().getRoles().stream().map(r -&gt; new ChoiceItem&lt;Role&gt;(r.getId(), r)).sorted()</span>
+<span class="nc" id="L513">						.collect(Collectors.toList()));</span>
+<span class="nc bnc" id="L514" title="All 2 branches missed.">		if (roleChoice == null)</span>
+<span class="nc" id="L515">			return;</span>
+
+<span class="nc" id="L517">		sUnit.changeRole(roleChoice, roleChoice.getMaximumCount());</span>
+<span class="nc" id="L518">		freeColClient.getConnectController().reconnect();</span>
+<span class="nc" id="L519">	}</span>
+
+	/**
+	 * Debug action to check for client-server desynchronization.
+	 *
+	 * Called from the debug menu and client controller. TODO: This is still
+	 * fairly new and messy. Defer i18n for a while.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @return True if desynchronization found.
+	 */
+	public static boolean checkDesyncAction(final FreeColClient freeColClient) {
+<span class="nc" id="L532">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L533">		final Game game = freeColClient.getGame();</span>
+<span class="nc" id="L534">		final Map map = game.getMap();</span>
+<span class="nc" id="L535">		final Player player = freeColClient.getMyPlayer();</span>
+<span class="nc" id="L536">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L537">		final Map sMap = sGame.getMap();</span>
+<span class="nc" id="L538">		final ServerPlayer sPlayer = sGame.getFreeColGameObject(player.getId(), ServerPlayer.class);</span>
+
+<span class="nc" id="L540">		boolean problemDetected = false;</span>
+<span class="nc" id="L541">		LogBuilder lb = new LogBuilder(256);</span>
+<span class="nc" id="L542">		lb.add(&quot;Desynchronization detected\n&quot;);</span>
+<span class="nc bnc" id="L543" title="All 2 branches missed.">		for (Tile t : sMap.getAllTiles()) {</span>
+<span class="nc bnc" id="L544" title="All 2 branches missed.">			if (!sPlayer.canSee(t))</span>
+<span class="nc" id="L545">				continue;</span>
+<span class="nc bnc" id="L546" title="All 2 branches missed.">			for (Unit u : t.getUnitList()) {</span>
+<span class="nc bnc" id="L547" title="All 6 branches missed.">				if (!sPlayer.owns(u) &amp;&amp; (t.hasSettlement() || u.isOnCarrier()))</span>
+<span class="nc" id="L548">					continue;</span>
+<span class="nc bnc" id="L549" title="All 2 branches missed.">				if (game.getFreeColGameObject(u.getId(), Unit.class) == null) {</span>
+<span class="nc" id="L550">					lb.add(&quot;Unit missing on client-side.\n&quot;, &quot;  Server: &quot;,</span>
+<span class="nc" id="L551">							u.getDescription(Unit.UnitLabelType.NATIONAL), &quot;(&quot;, u.getId(), &quot;) from: &quot;,</span>
+<span class="nc" id="L552">							u.getLocation().getId(), &quot;.\n&quot;);</span>
+					try {
+<span class="nc" id="L554">						lb.add(&quot;  Client: &quot;, map.getTile(u.getTile().getX(), u.getTile().getY()).getFirstUnit().getId(),</span>
+								&quot;\n&quot;);
+<span class="nc" id="L556">					} catch (NullPointerException npe) {</span>
+<span class="nc" id="L557">					}</span>
+<span class="nc" id="L558">					problemDetected = true;</span>
+				} else {
+<span class="nc" id="L560">					Unit cUnit = game.getFreeColGameObject(u.getId(), Unit.class);</span>
+<span class="nc bnc" id="L561" title="All 4 branches missed.">					if (cUnit.hasTile() &amp;&amp; !cUnit.getTile().getId().equals(u.getTile().getId())) {</span>
+<span class="nc" id="L562">						lb.add(&quot;Unit located on different tiles.\n&quot;, &quot;  Server: &quot;,</span>
+<span class="nc" id="L563">								u.getDescription(Unit.UnitLabelType.NATIONAL), &quot;(&quot;, u.getId(), &quot;) from: &quot;,</span>
+<span class="nc" id="L564">								u.getLocation().getId(), &quot;\n&quot;, &quot;  Client: &quot;,</span>
+<span class="nc" id="L565">								cUnit.getDescription(Unit.UnitLabelType.NATIONAL), &quot;(&quot;, cUnit.getId(), &quot;) at: &quot;,</span>
+<span class="nc" id="L566">								cUnit.getLocation().getId(), &quot;\n&quot;);</span>
+<span class="nc" id="L567">						problemDetected = true;</span>
+					}
+				}
+<span class="nc" id="L570">			}</span>
+<span class="nc" id="L571">			Tile ct = game.getFreeColGameObject(t.getId(), Tile.class);</span>
+<span class="nc" id="L572">			Settlement sSettlement = t.getSettlement();</span>
+<span class="nc" id="L573">			Settlement cSettlement = ct.getSettlement();</span>
+<span class="nc bnc" id="L574" title="All 2 branches missed.">			if (sSettlement == null) {</span>
+<span class="nc bnc" id="L575" title="All 2 branches missed.">				if (cSettlement == null) {</span>
+					;// OK
+				} else {
+<span class="nc" id="L578">					lb.add(&quot;Settlement still present in client: &quot;, cSettlement);</span>
+<span class="nc" id="L579">					problemDetected = true;</span>
+				}
+			} else {
+<span class="nc bnc" id="L582" title="All 2 branches missed.">				if (cSettlement == null) {</span>
+<span class="nc" id="L583">					lb.add(&quot;Settlement not present in client: &quot;, sSettlement);</span>
+<span class="nc" id="L584">					problemDetected = true;</span>
+<span class="nc bnc" id="L585" title="All 2 branches missed.">				} else if (sSettlement.getId().equals(cSettlement.getId())) {</span>
+					;// OK
+				} else {
+<span class="nc" id="L588">					lb.add(&quot;Settlements differ.\n  Server: &quot;, sSettlement.toString(), &quot;\n  Client: &quot;,</span>
+<span class="nc" id="L589">							cSettlement.toString(), &quot;\n&quot;);</span>
+				}
+			}
+<span class="nc" id="L592">		}</span>
+
+<span class="nc" id="L594">		boolean goodsProblemDetected = false;</span>
+<span class="nc bnc" id="L595" title="All 2 branches missed.">		for (GoodsType sg : sGame.getSpecification().getGoodsTypeList()) {</span>
+<span class="nc" id="L596">			int sPrice = sPlayer.getMarket().getBidPrice(sg, 1);</span>
+<span class="nc" id="L597">			GoodsType cg = game.getSpecification().getGoodsType(sg.getId());</span>
+<span class="nc" id="L598">			int cPrice = player.getMarket().getBidPrice(cg, 1);</span>
+<span class="nc bnc" id="L599" title="All 2 branches missed.">			if (sPrice != cPrice) {</span>
+<span class="nc" id="L600">				lb.add(&quot;Goods prices for &quot;, sg, &quot; differ.\n&quot;);</span>
+<span class="nc" id="L601">				goodsProblemDetected = true;</span>
+			}
+<span class="nc" id="L603">		}</span>
+<span class="nc bnc" id="L604" title="All 2 branches missed.">		if (goodsProblemDetected) {</span>
+<span class="nc" id="L605">			lb.add(&quot;  Server:\n&quot;, sPlayer.getMarket(), &quot;\n&quot;, &quot;  Client:\n&quot;, player.getMarket(), &quot;\n&quot;);</span>
+<span class="nc" id="L606">			problemDetected = true;</span>
+		}
+
+<span class="nc bnc" id="L609" title="All 2 branches missed.">		if (problemDetected) {</span>
+<span class="nc" id="L610">			lb.shrink(&quot;\n&quot;);</span>
+<span class="nc" id="L611">			String err = lb.toString();</span>
+<span class="nc" id="L612">			freeColClient.getGUI().showInformationMessage(err);</span>
+<span class="nc" id="L613">			logger.severe(err);</span>
+		}
+<span class="nc" id="L615">		return problemDetected;</span>
+	}
+
+	/**
+	 * Debug action to display an AI colony plan.
+	 *
+	 * Called from tile popup menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; to summarize.
+	 */
+	public static void displayColonyPlan(final FreeColClient freeColClient, final Colony colony) {
+<span class="nc" id="L629">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L630">		final AIMain aiMain = server.getAIMain();</span>
+<span class="nc" id="L631">		final AIColony aiColony = aiMain.getAIColony(colony);</span>
+<span class="nc bnc" id="L632" title="All 2 branches missed.">		if (aiColony == null) {</span>
+<span class="nc" id="L633">			freeColClient.getGUI().showErrorMessage(</span>
+<span class="nc" id="L634">					StringTemplate.template(&quot;error.notAIColony&quot;).addName(&quot;%colony%&quot;, colony.getName()));</span>
+		} else {
+			// TODO: Missing i18n
+<span class="nc" id="L637">			freeColClient.getGUI().showInformationMessage(aiColony.planToString());</span>
+		}
+<span class="nc" id="L639">	}</span>
+
+	/**
+	 * Debug action to create a string showing the colony value for a given tile
+	 * and player.
+	 *
+	 * Note: passing the freeColClient is redundant for now, but will be needed
+	 * if/when we move getColonyValue into the AI.
+	 *
+	 * @param tile
+	 *            The colony &lt;code&gt;Tile&lt;/code&gt; to evaluate.
+	 * @return A string describing the colony value of a tile.
+	 */
+	public static String getColonyValue(Tile tile) {
+<span class="nc" id="L653">		Player player = FreeColDebugger.debugDisplayColonyValuePlayer();</span>
+<span class="nc bnc" id="L654" title="All 2 branches missed.">		if (player == null)</span>
+<span class="nc" id="L655">			return null;</span>
+<span class="nc" id="L656">		int value = player.getColonyValue(tile);</span>
+<span class="nc bnc" id="L657" title="All 2 branches missed.">		if (value &lt; 0) {</span>
+<span class="nc" id="L658">			return Player.NoValueType.fromValue(value).toString();</span>
+		}
+<span class="nc" id="L660">		return Integer.toString(value);</span>
+	}
+
+	/**
+	 * Debug action to display Europe.
+	 *
+	 * Called from the debug popup menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 */
+	public static void displayEurope(final FreeColClient freeColClient) {
+<span class="nc" id="L672">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L673">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L674">		final AIMain aiMain = server.getAIMain();</span>
+
+<span class="nc" id="L676">		LogBuilder lb = new LogBuilder(256);</span>
+<span class="nc" id="L677">		List&lt;Unit&gt; inEurope = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L678">		List&lt;Unit&gt; toEurope = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L679">		List&lt;Unit&gt; toAmerica = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L680">		HashMap&lt;String, List&lt;Unit&gt;&gt; units = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L681" title="All 2 branches missed.">		for (Player tp : sGame.getLiveEuropeanPlayers(null)) {</span>
+<span class="nc" id="L682">			Player p = sGame.getFreeColGameObject(tp.getId(), Player.class);</span>
+<span class="nc bnc" id="L683" title="All 2 branches missed.">			if (p.getEurope() == null)</span>
+<span class="nc" id="L684">				continue;</span>
+<span class="nc" id="L685">			inEurope.clear();</span>
+<span class="nc" id="L686">			toEurope.clear();</span>
+<span class="nc" id="L687">			toAmerica.clear();</span>
+<span class="nc" id="L688">			units.clear();</span>
+<span class="nc" id="L689">			units.put(Messages.message(&quot;sailingToEurope&quot;), toEurope);</span>
+<span class="nc" id="L690">			units.put(Messages.getName(p.getEurope()), inEurope);</span>
+<span class="nc" id="L691">			units.put(Messages.message(&quot;sailingToAmerica&quot;), toAmerica);</span>
+<span class="nc" id="L692">			lb.add(&quot;\n==&quot;, Messages.message(p.getCountryLabel()), &quot;==\n&quot;);</span>
+
+<span class="nc bnc" id="L694" title="All 2 branches missed.">			for (Unit u : p.getEurope().getUnitList()) {</span>
+<span class="nc bnc" id="L695" title="All 2 branches missed.">				if (u.getDestination() instanceof Map) {</span>
+<span class="nc" id="L696">					toAmerica.add(u);</span>
+<span class="nc" id="L697">					continue;</span>
+				}
+<span class="nc bnc" id="L699" title="All 2 branches missed.">				if (u.getDestination() instanceof Europe) {</span>
+<span class="nc" id="L700">					toEurope.add(u);</span>
+<span class="nc" id="L701">					continue;</span>
+				}
+<span class="nc" id="L703">				inEurope.add(u);</span>
+<span class="nc" id="L704">			}</span>
+
+<span class="nc bnc" id="L706" title="All 2 branches missed.">			for (Entry&lt;String, List&lt;Unit&gt;&gt; entry : units.entrySet()) {</span>
+<span class="nc" id="L707">				final String label = entry.getKey();</span>
+<span class="nc" id="L708">				final List&lt;Unit&gt; list = entry.getValue();</span>
+<span class="nc bnc" id="L709" title="All 2 branches missed.">				if (list.isEmpty())</span>
+<span class="nc" id="L710">					continue;</span>
+<span class="nc" id="L711">				lb.add(&quot;\n-&gt;&quot;, label, &quot;\n&quot;);</span>
+<span class="nc bnc" id="L712" title="All 2 branches missed.">				for (Unit u : list) {</span>
+<span class="nc" id="L713">					lb.add(&quot;\n&quot;, u.getDescription(Unit.UnitLabelType.NATIONAL));</span>
+<span class="nc bnc" id="L714" title="All 2 branches missed.">					if (u.isDamaged()) {</span>
+<span class="nc" id="L715">						lb.add(&quot; (&quot;, Messages.message(u.getRepairLabel()), &quot;)&quot;);</span>
+					} else {
+<span class="nc" id="L717">						lb.add(&quot;    &quot;);</span>
+<span class="nc" id="L718">						AIUnit aiu = aiMain.getAIUnit(u);</span>
+<span class="nc bnc" id="L719" title="All 2 branches missed.">						if (!aiu.hasMission()) {</span>
+<span class="nc" id="L720">							lb.add(&quot; (&quot;, Messages.message(&quot;none&quot;), &quot;)&quot;);</span>
+						} else {
+<span class="nc" id="L722">							lb.add(aiu.getMission().toString().replaceAll(&quot;\n&quot;, &quot;    \n&quot;));</span>
+						}
+					}
+<span class="nc" id="L725">				}</span>
+<span class="nc" id="L726">				lb.add(&quot;\n&quot;);</span>
+<span class="nc" id="L727">			}</span>
+<span class="nc" id="L728">			lb.add(&quot;\n-&gt;&quot;, Messages.message(&quot;immigrants&quot;), &quot;\n\n&quot;);</span>
+<span class="nc bnc" id="L729" title="All 2 branches missed.">			for (UnitType unitType : p.getEurope().getRecruitables()) {</span>
+<span class="nc" id="L730">				lb.add(Messages.getName(unitType), &quot;\n&quot;);</span>
+<span class="nc" id="L731">			}</span>
+<span class="nc" id="L732">			lb.add(&quot;\n&quot;);</span>
+<span class="nc" id="L733">		}</span>
+<span class="nc" id="L734">		freeColClient.getGUI().showInformationMessage(lb.toString());</span>
+<span class="nc" id="L735">	}</span>
+
+	/**
+	 * Debug action to display a mission.
+	 *
+	 * Called from tile popup menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to display.
+	 */
+	public static void displayMission(final FreeColClient freeColClient, final Unit unit) {
+<span class="nc" id="L748">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L749">		final AIMain aiMain = server.getAIMain();</span>
+<span class="nc" id="L750">		final AIUnit aiUnit = aiMain.getAIUnit(unit);</span>
+<span class="nc" id="L751">		Mission m = aiUnit.getMission();</span>
+<span class="nc bnc" id="L752" title="All 4 branches missed.">		String msg = (m == null) ? Messages.message(&quot;none&quot;)</span>
+<span class="nc" id="L753">				: (m instanceof TransportMission) ? ((TransportMission) m).toFullString() : m.toString();</span>
+<span class="nc" id="L754">		freeColClient.getGUI().showInformationMessage(msg);</span>
+<span class="nc" id="L755">	}</span>
+
+	/**
+	 * Debug action to dump a players units/iterators to stderr.
+	 *
+	 * Called from the debug menu. TODO: missing i18n
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 */
+	public static void displayUnits(final FreeColClient freeColClient) {
+<span class="nc" id="L766">		final Player player = freeColClient.getMyPlayer();</span>
+<span class="nc" id="L767">		List&lt;Unit&gt; all = player.getUnits();</span>
+<span class="nc" id="L768">		LogBuilder lb = new LogBuilder(256);</span>
+<span class="nc" id="L769">		lb.add(&quot;\nActive units:\n&quot;);</span>
+
+<span class="nc" id="L771">		Unit u, first = player.getNextActiveUnit();</span>
+<span class="nc bnc" id="L772" title="All 2 branches missed.">		if (first != null) {</span>
+<span class="nc" id="L773">			lb.add(first.toString(), &quot;\nat &quot;, first.getLocation(), &quot;\n&quot;);</span>
+<span class="nc" id="L774">			all.remove(first);</span>
+<span class="nc bnc" id="L775" title="All 4 branches missed.">			while (player.hasNextActiveUnit() &amp;&amp; (u = player.getNextActiveUnit()) != first) {</span>
+<span class="nc" id="L776">				lb.add(u, &quot;\nat &quot;, u.getLocation(), &quot;\n&quot;);</span>
+<span class="nc" id="L777">				all.remove(u);</span>
+			}
+		}
+<span class="nc" id="L780">		lb.add(&quot;Going-to units:\n&quot;);</span>
+<span class="nc" id="L781">		first = player.getNextGoingToUnit();</span>
+<span class="nc bnc" id="L782" title="All 2 branches missed.">		if (first != null) {</span>
+<span class="nc" id="L783">			all.remove(first);</span>
+<span class="nc" id="L784">			lb.add(first, &quot;\nat &quot;, first.getLocation(), &quot;\n&quot;);</span>
+<span class="nc bnc" id="L785" title="All 4 branches missed.">			while (player.hasNextGoingToUnit() &amp;&amp; (u = player.getNextGoingToUnit()) != first) {</span>
+<span class="nc" id="L786">				lb.add(u, &quot;\nat &quot;, u.getLocation(), &quot;\n&quot;);</span>
+<span class="nc" id="L787">				all.remove(u);</span>
+			}
+		}
+<span class="nc" id="L790">		lb.add(&quot;Remaining units:\n&quot;);</span>
+<span class="nc bnc" id="L791" title="All 2 branches missed.">		while (!all.isEmpty()) {</span>
+<span class="nc" id="L792">			u = all.remove(0);</span>
+<span class="nc" id="L793">			lb.add(u, &quot;\nat &quot;, u.getLocation(), &quot;\n&quot;);</span>
+		}
+
+<span class="nc" id="L796">		freeColClient.getGUI().showInformationMessage(lb.toString());</span>
+<span class="nc" id="L797">	}</span>
+
+	/**
+	 * Debug action to dump a tile to stderr.
+	 *
+	 * Called from tile popup menu. Not concerned with i18n for stderr output.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param tile
+	 *            The &lt;code&gt;Tile&lt;/code&gt; to dump.
+	 */
+	public static void dumpTile(final FreeColClient freeColClient, final Tile tile) {
+<span class="nc" id="L810">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L811">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L812">		final Player player = freeColClient.getMyPlayer();</span>
+
+<span class="nc" id="L814">		System.err.println(&quot;\nClient (&quot; + player.getId() + &quot;):&quot;);</span>
+<span class="nc" id="L815">		tile.save(System.err, WriteScope.toClient(player), true);</span>
+<span class="nc" id="L816">		System.err.println(&quot;\n\nServer:&quot;);</span>
+<span class="nc" id="L817">		Tile sTile = sGame.getFreeColGameObject(tile.getId(), Tile.class);</span>
+<span class="nc" id="L818">		sTile.save(System.err, WriteScope.toServer(), true);</span>
+<span class="nc" id="L819">		System.err.println(&quot;\n\nSave:&quot;);</span>
+<span class="nc" id="L820">		sTile.save(System.err, WriteScope.toSave(), true);</span>
+<span class="nc" id="L821">		System.err.println(&quot;\n&quot;);</span>
+<span class="nc" id="L822">	}</span>
+
+	/**
+	 * Debug action to reset the moves left of the units on a tile.
+	 *
+	 * Called from tile popup menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param units
+	 *            The &lt;code&gt;Unit&lt;/code&gt;s to reactivate.
+	 */
+	public static void resetMoves(final FreeColClient freeColClient, List&lt;Unit&gt; units) {
+<span class="nc" id="L835">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L836">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L837">		final GUI gui = freeColClient.getGUI();</span>
+
+<span class="nc" id="L839">		boolean first = true;</span>
+<span class="nc bnc" id="L840" title="All 2 branches missed.">		for (Unit u : units) {</span>
+<span class="nc" id="L841">			Unit su = sGame.getFreeColGameObject(u.getId(), Unit.class);</span>
+<span class="nc" id="L842">			u.setMovesLeft(u.getInitialMovesLeft());</span>
+<span class="nc" id="L843">			su.setMovesLeft(su.getInitialMovesLeft());</span>
+<span class="nc bnc" id="L844" title="All 2 branches missed.">			if (first) {</span>
+<span class="nc" id="L845">				gui.setActiveUnit(u);</span>
+<span class="nc" id="L846">				first = false;</span>
+			}
+<span class="nc bnc" id="L848" title="All 2 branches missed.">			for (Unit u2 : u.getUnitList()) {</span>
+<span class="nc" id="L849">				Unit su2 = sGame.getFreeColGameObject(u2.getId(), Unit.class);</span>
+<span class="nc" id="L850">				u2.setMovesLeft(u2.getInitialMovesLeft());</span>
+<span class="nc" id="L851">				su2.setMovesLeft(su2.getInitialMovesLeft());</span>
+<span class="nc" id="L852">			}</span>
+<span class="nc" id="L853">		}</span>
+<span class="nc" id="L854">		gui.refresh();</span>
+<span class="nc" id="L855">		gui.resetMenuBar();</span>
+<span class="nc" id="L856">	}</span>
+
+	/**
+	 * Debug action to reveal or hide the map.
+	 *
+	 * Called from the debug menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param reveal
+	 *            If true, reveal the map, else hide the map.
+	 */
+	public static void revealMap(final FreeColClient freeColClient, boolean reveal) {
+<span class="nc" id="L869">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L870">		final Game game = freeColClient.getGame();</span>
+
+<span class="nc" id="L872">		server.exploreMapForAllPlayers(reveal);</span>
+
+		// Removes fog of war when revealing the whole map
+		// Restores previous setting when hiding it back again
+<span class="nc" id="L876">		BooleanOption fogOfWarSetting = game.getSpecification().getBooleanOption(GameOptions.FOG_OF_WAR);</span>
+<span class="nc bnc" id="L877" title="All 2 branches missed.">		if (reveal) {</span>
+<span class="nc" id="L878">			FreeColDebugger.setNormalGameFogOfWar(fogOfWarSetting.getValue());</span>
+<span class="nc" id="L879">			fogOfWarSetting.setValue(false);</span>
+		} else {
+<span class="nc" id="L881">			fogOfWarSetting.setValue(FreeColDebugger.getNormalGameFogOfWar());</span>
+		}
+<span class="nc" id="L883">	}</span>
+
+	/**
+	 * Debug action to set the amount of goods in a colony.
+	 *
+	 * Called from the colony panel.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; to set goods amounts in.
+	 */
+	public static void setColonyGoods(final FreeColClient freeColClient, final Colony colony) {
+<span class="nc" id="L896">		final Specification spec = colony.getSpecification();</span>
+<span class="nc" id="L897">		GoodsType goodsType = freeColClient.getGUI().getChoice(null, StringTemplate.template(&quot;prompt.selectGoodsType&quot;),</span>
+<span class="nc" id="L898">				&quot;cancel&quot;, spec.getGoodsTypeList().stream()</span>
+<span class="nc bnc" id="L899" title="All 4 branches missed.">						.filter(gt -&gt; !gt.isFoodType() || gt == spec.getPrimaryFoodType()).map(gt -&gt; {</span>
+<span class="nc" id="L900">							String msg = Messages.getName(gt);</span>
+<span class="nc" id="L901">							return new ChoiceItem&lt;GoodsType&gt;(msg, gt);</span>
+<span class="nc" id="L902">						}).sorted().collect(Collectors.toList()));</span>
+<span class="nc bnc" id="L903" title="All 2 branches missed.">		if (goodsType == null)</span>
+<span class="nc" id="L904">			return;</span>
+
+<span class="nc" id="L906">		String response = freeColClient.getGUI().getInput(null, StringTemplate.template(&quot;prompt.selectGoodsAmount&quot;),</span>
+<span class="nc" id="L907">				Integer.toString(colony.getGoodsCount(goodsType)), &quot;ok&quot;, &quot;cancel&quot;);</span>
+<span class="nc bnc" id="L908" title="All 4 branches missed.">		if (response == null || response.isEmpty())</span>
+<span class="nc" id="L909">			return;</span>
+		int a;
+		try {
+<span class="nc" id="L912">			a = Integer.parseInt(response);</span>
+<span class="nc" id="L913">		} catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L914">			return;</span>
+<span class="nc" id="L915">		}</span>
+
+<span class="nc" id="L917">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L918">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L919">		final Specification sSpec = server.getSpecification();</span>
+<span class="nc" id="L920">		final GoodsType sGoodsType = sSpec.getGoodsType(goodsType.getId());</span>
+<span class="nc" id="L921">		GoodsContainer cgc = colony.getGoodsContainer();</span>
+<span class="nc" id="L922">		GoodsContainer sgc = sGame.getFreeColGameObject(cgc.getId(), GoodsContainer.class);</span>
+<span class="nc" id="L923">		cgc.setAmount(goodsType, a);</span>
+<span class="nc" id="L924">		sgc.setAmount(sGoodsType, a);</span>
+<span class="nc" id="L925">	}</span>
+
+	/**
+	 * Debug action to set the next monarch action.
+	 *
+	 * Called from the debug menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param monarchTitle
+	 *            A label for the choice dialog.
+	 */
+	public static void setMonarchAction(final FreeColClient freeColClient, String monarchTitle) {
+<span class="nc" id="L938">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L939">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L940">		final Player player = freeColClient.getMyPlayer();</span>
+<span class="nc" id="L941">		final ServerPlayer sPlayer = sGame.getFreeColGameObject(player.getId(), ServerPlayer.class);</span>
+<span class="nc" id="L942">		final GUI gui = freeColClient.getGUI();</span>
+
+<span class="nc" id="L944">		MonarchAction action = gui.getChoice(null, monarchTitle, &quot;cancel&quot;, Arrays.stream(MonarchAction.values())</span>
+<span class="nc" id="L945">				.map(a -&gt; new ChoiceItem&lt;MonarchAction&gt;(a)).sorted().collect(Collectors.toList()));</span>
+<span class="nc bnc" id="L946" title="All 2 branches missed.">		if (action == null)</span>
+<span class="nc" id="L947">			return;</span>
+
+<span class="nc" id="L949">		server.getInGameController().setMonarchAction(sPlayer, action);</span>
+<span class="nc" id="L950">	}</span>
+
+	/**
+	 * Debug action to set the lost city rumour type on a tile.
+	 *
+	 * Called from tile popup menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param tile
+	 *            The &lt;code&gt;Tile&lt;/code&gt; to operate on.
+	 */
+	public static void setRumourType(final FreeColClient freeColClient, final Tile tile) {
+<span class="nc" id="L963">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L964">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L965">		final Tile sTile = sGame.getFreeColGameObject(tile.getId(), Tile.class);</span>
+
+<span class="nc" id="L967">		RumourType rumourChoice = freeColClient.getGUI().getChoice(null,</span>
+<span class="nc" id="L968">				StringTemplate.template(&quot;prompt.selectLostCityRumour&quot;), &quot;cancel&quot;,</span>
+<span class="nc bnc" id="L969" title="All 2 branches missed.">				Arrays.stream(RumourType.values()).filter(r -&gt; r != RumourType.NO_SUCH_RUMOUR)</span>
+<span class="nc" id="L970">						.map(r -&gt; new ChoiceItem&lt;RumourType&gt;(r.toString(), r)).sorted().collect(Collectors.toList()));</span>
+<span class="nc bnc" id="L971" title="All 2 branches missed.">		if (rumourChoice == null)</span>
+<span class="nc" id="L972">			return;</span>
+
+<span class="nc" id="L974">		tile.getTileItemContainer().getLostCityRumour().setType(rumourChoice);</span>
+<span class="nc" id="L975">		sTile.getTileItemContainer().getLostCityRumour().setType(rumourChoice);</span>
+<span class="nc" id="L976">	}</span>
+
+	/**
+	 * Debug action to skip turns.
+	 *
+	 * Called from the debug menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 */
+	public static void skipTurns(FreeColClient freeColClient) {
+<span class="nc" id="L987">		freeColClient.skipTurns(0); // Clear existing skipping</span>
+
+<span class="nc" id="L989">		String response = freeColClient.getGUI().getInput(null, StringTemplate.key(&quot;prompt.selectTurnsToSkip&quot;),</span>
+<span class="nc" id="L990">				Integer.toString(10), &quot;ok&quot;, &quot;cancel&quot;);</span>
+<span class="nc bnc" id="L991" title="All 4 branches missed.">		if (response == null || response.isEmpty())</span>
+<span class="nc" id="L992">			return;</span>
+		int skip;
+		try {
+<span class="nc" id="L995">			skip = Integer.parseInt(response);</span>
+<span class="nc" id="L996">		} catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L997">			skip = -1;</span>
+<span class="nc" id="L998">		}</span>
+<span class="nc bnc" id="L999" title="All 2 branches missed.">		if (skip &gt; 0)</span>
+<span class="nc" id="L1000">			freeColClient.skipTurns(skip);</span>
+<span class="nc" id="L1001">	}</span>
+
+	/**
+	 * Debug action to step the random number generator.
+	 *
+	 * Called from the debug menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 */
+	public static void stepRNG(FreeColClient freeColClient) {
+<span class="nc" id="L1012">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L1013">		final GUI gui = freeColClient.getGUI();</span>
+
+<span class="nc" id="L1015">		boolean more = true;</span>
+<span class="nc bnc" id="L1016" title="All 2 branches missed.">		while (more) {</span>
+<span class="nc" id="L1017">			int val = server.getInGameController().stepRandom();</span>
+<span class="nc" id="L1018">			more = gui.confirm(null, StringTemplate.template(&quot;prompt.stepRNG&quot;).addAmount(&quot;%value%&quot;, val), &quot;more&quot;,</span>
+					&quot;cancel&quot;);
+<span class="nc" id="L1020">		}</span>
+<span class="nc" id="L1021">	}</span>
+
+	/**
+	 * Debug action to summarize information about a native settlement that is
+	 * normally hidden.
+	 *
+	 * Called from tile popup menu. TODO: missing i18n
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param is
+	 *            The &lt;code&gt;IndianSettlement&lt;/code&gt; to summarize.
+	 */
+	public static void summarizeSettlement(final FreeColClient freeColClient, final IndianSettlement is) {
+<span class="nc" id="L1035">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L1036">		final Game sGame = server.getGame();</span>
+<span class="nc" id="L1037">		final AIMain aiMain = server.getAIMain();</span>
+<span class="nc" id="L1038">		final Specification sSpec = sGame.getSpecification();</span>
+<span class="nc" id="L1039">		final IndianSettlement sis = sGame.getFreeColGameObject(is.getId(), IndianSettlement.class);</span>
+
+<span class="nc" id="L1041">		LogBuilder lb = new LogBuilder(256);</span>
+<span class="nc" id="L1042">		lb.add(sis.getName(), &quot;\n\nAlarm\n&quot;);</span>
+<span class="nc" id="L1043">		Player mostHated = sis.getMostHated();</span>
+<span class="nc bnc" id="L1044" title="All 2 branches missed.">		for (Player p : sGame.getLiveEuropeanPlayers(null)) {</span>
+<span class="nc" id="L1045">			Tension tension = sis.getAlarm(p);</span>
+<span class="nc bnc" id="L1046" title="All 2 branches missed.">			lb.add(Messages.message(p.getNationLabel()), &quot; &quot;,</span>
+<span class="nc bnc" id="L1047" title="All 2 branches missed.">					((tension == null) ? &quot;(none)&quot; : Integer.toString(tension.getValue())),</span>
+<span class="nc" id="L1048">					((mostHated == p) ? &quot; (most hated)&quot; : &quot;&quot;), &quot; &quot;, Messages.message(sis.getAlarmLevelKey(p)), &quot; &quot;,</span>
+<span class="nc" id="L1049">					sis.getContactLevel(p), &quot;\n&quot;);</span>
+<span class="nc" id="L1050">		}</span>
+
+<span class="nc" id="L1052">		lb.add(&quot;\nGoods Present\n&quot;);</span>
+<span class="nc bnc" id="L1053" title="All 2 branches missed.">		for (Goods goods : sis.getCompactGoods()) {</span>
+<span class="nc" id="L1054">			lb.add(Messages.message(goods.getLabel(true)), &quot;\n&quot;);</span>
+<span class="nc" id="L1055">		}</span>
+
+<span class="nc" id="L1057">		lb.add(&quot;\nGoods Production\n&quot;);</span>
+<span class="nc bnc" id="L1058" title="All 2 branches missed.">		for (GoodsType type : sSpec.getGoodsTypeList()) {</span>
+<span class="nc" id="L1059">			int prod = sis.getTotalProductionOf(type);</span>
+<span class="nc bnc" id="L1060" title="All 2 branches missed.">			if (prod &gt; 0) {</span>
+<span class="nc" id="L1061">				lb.add(Messages.getName(type), &quot; &quot;, prod, &quot;\n&quot;);</span>
+			}
+<span class="nc" id="L1063">		}</span>
+
+<span class="nc" id="L1065">		lb.add(&quot;\nPrices (buy 1/100 / sell 1/100)\n&quot;);</span>
+<span class="nc" id="L1066">		GoodsType[] wanted = sis.getWantedGoods();</span>
+<span class="nc bnc" id="L1067" title="All 2 branches missed.">		for (GoodsType type : sSpec.getStorableGoodsTypeList()) {</span>
+			int i;
+<span class="nc bnc" id="L1069" title="All 2 branches missed.">			for (i = wanted.length - 1; i &gt;= 0; i--) {</span>
+<span class="nc bnc" id="L1070" title="All 2 branches missed.">				if (type == wanted[i])</span>
+<span class="nc" id="L1071">					break;</span>
+			}
+<span class="nc" id="L1073">			lb.add(Messages.getName(type), &quot;: &quot;, sis.getPriceToBuy(type, 1), &quot;/&quot;, sis.getPriceToBuy(type, 100), &quot; / &quot;,</span>
+<span class="nc bnc" id="L1074" title="All 2 branches missed.">					sis.getPriceToSell(type, 1), &quot;/&quot;, sis.getPriceToSell(type, 100),</span>
+<span class="nc" id="L1075">					((i &lt; 0) ? &quot;&quot; : &quot; wanted[&quot; + Integer.toString(i) + &quot;]&quot;), &quot;\n&quot;);</span>
+<span class="nc" id="L1076">		}</span>
+
+<span class="nc" id="L1078">		lb.add(&quot;\nUnits present\n&quot;);</span>
+<span class="nc bnc" id="L1079" title="All 2 branches missed.">		for (Unit u : sis.getUnitList()) {</span>
+<span class="nc" id="L1080">			Mission m = aiMain.getAIUnit(u).getMission();</span>
+<span class="nc" id="L1081">			lb.add(u, &quot; at &quot;, u.getLocation());</span>
+<span class="nc bnc" id="L1082" title="All 2 branches missed.">			if (m != null) {</span>
+<span class="nc" id="L1083">				lb.add(&quot; &quot;, m.getClass(), &quot;.&quot;);</span>
+			}
+<span class="nc" id="L1085">			lb.add(&quot;\n&quot;);</span>
+<span class="nc" id="L1086">		}</span>
+<span class="nc" id="L1087">		lb.add(&quot;\nUnits owned\n&quot;);</span>
+<span class="nc bnc" id="L1088" title="All 2 branches missed.">		for (Unit u : sis.getOwnedUnits()) {</span>
+<span class="nc" id="L1089">			Mission m = aiMain.getAIUnit(u).getMission();</span>
+<span class="nc" id="L1090">			lb.add(u, &quot; at &quot;, u.getLocation());</span>
+<span class="nc bnc" id="L1091" title="All 2 branches missed.">			if (m != null) {</span>
+<span class="nc" id="L1092">				lb.add(&quot; &quot;, m.getClass(), &quot;.&quot;);</span>
+			}
+<span class="nc" id="L1094">			lb.add(&quot;\n&quot;);</span>
+<span class="nc" id="L1095">		}</span>
+
+<span class="nc" id="L1097">		lb.add(&quot;\nTiles\n&quot;);</span>
+<span class="nc bnc" id="L1098" title="All 2 branches missed.">		for (Tile t : sis.getOwnedTiles())</span>
+<span class="nc" id="L1099">			lb.add(t, &quot;\n&quot;);</span>
+
+<span class="nc" id="L1101">		lb.add(&quot;\nConvert Progress = &quot;, sis.getConvertProgress());</span>
+<span class="nc" id="L1102">		lb.add(&quot;\nLast Tribute = &quot;, sis.getLastTribute());</span>
+
+<span class="nc" id="L1104">		freeColClient.getGUI().showInformationMessage(lb.toString());</span>
+<span class="nc" id="L1105">	}</span>
+
+	/**
+	 * Debug action to run the AI.
+	 *
+	 * Called from the debug menu.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 */
+	public static void useAI(final FreeColClient freeColClient) {
+<span class="nc" id="L1116">		final FreeColServer server = freeColClient.getFreeColServer();</span>
+<span class="nc" id="L1117">		final Player player = freeColClient.getMyPlayer();</span>
+<span class="nc" id="L1118">		final AIMain aiMain = server.getAIMain();</span>
+<span class="nc" id="L1119">		final AIPlayer ap = aiMain.getAIPlayer(player);</span>
+
+<span class="nc" id="L1121">		ap.setDebuggingConnection(freeColClient.askServer().getConnection());</span>
+<span class="nc" id="L1122">		ap.startWorking();</span>
+<span class="nc" id="L1123">		freeColClient.getConnectController().reconnect();</span>
+<span class="nc" id="L1124">	}</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -28,122 +28,120 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent when unloading goods.
  */
 public class UnloadGoodsMessage extends DOMMessage {
 
-    /** The identifier of the type of goods to unload.  */
-    private final String goodsTypeId;
+	/** The identifier of the type of goods to unload. */
+	private final String goodsTypeId;
 
-    /** The amount of goods to unload. */
-    private final String amountString;
+	/** The amount of goods to unload. */
+	private final String amountString;
 
-    /** The identifier of the carrier to unload to goods from. */
-    private final String carrierId;
+	/** The identifier of the carrier to unload to goods from. */
+	private final String carrierId;
 
+	/**
+	 * Create a new <code>UnloadGoodsMessage</code>.
+	 *
+	 * @param goodsType
+	 *            The <code>GoodsType</code> to unload.
+	 * @param amount
+	 *            The amount of goods to unload.
+	 * @param carrier
+	 *            The <code>Unit</code> carrying the goods.
+	 */
+	public UnloadGoodsMessage(GoodsType goodsType, int amount, Unit carrier) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>UnloadGoodsMessage</code>.
-     *
-     * @param goodsType The <code>GoodsType</code> to unload.
-     * @param amount The amount of goods to unload.
-     * @param carrier The <code>Unit</code> carrying the goods.
-     */
-    public UnloadGoodsMessage(GoodsType goodsType, int amount, Unit carrier) {
-        super(getXMLElementTagName());
+		this.goodsTypeId = goodsType.getId();
+		this.amountString = Integer.toString(amount);
+		this.carrierId = carrier.getId();
+	}
 
-        this.goodsTypeId = goodsType.getId();
-        this.amountString = Integer.toString(amount);
-        this.carrierId = carrier.getId();
-    }
+	/**
+	 * Create a new <code>UnloadGoodsMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public UnloadGoodsMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>UnloadGoodsMessage</code> from a
-     * supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public UnloadGoodsMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.goodsTypeId = element.getAttribute("type");
+		this.amountString = element.getAttribute("amount");
+		this.carrierId = element.getAttribute("carrier");
+	}
 
-        this.goodsTypeId = element.getAttribute("type");
-        this.amountString = element.getAttribute("amount");
-        this.carrierId = element.getAttribute("carrier");
-    }
+	/**
+	 * Handle a "unloadGoods"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the message.
+	 * @param player
+	 *            The <code>Player</code> the message applies to.
+	 * @param connection
+	 *            The <code>Connection</code> message was received on.
+	 * @return An update containing the carrier, or an error
+	 *         <code>Element</code> on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
 
+		Unit carrier;
+		try {
+			carrier = player.getOurFreeColGameObject(carrierId, Unit.class);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
+		if (!carrier.canCarryGoods()) {
+			return DOMMessage.clientError("Not a goods carrier: " + carrierId);
+		}
+		// Do not check location, carriers can dump goods anywhere
 
-    /**
-     * Handle a "unloadGoods"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the message.
-     * @param player The <code>Player</code> the message applies to.
-     * @param connection The <code>Connection</code> message was received on.
-     * @return An update containing the carrier, or an error
-     *     <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
+		GoodsType type = server.getSpecification().getGoodsType(goodsTypeId);
+		if (type == null) {
+			return DOMMessage.clientError("Not a goods type: " + goodsTypeId);
+		}
 
-        Unit carrier;
-        try {
-            carrier = player.getOurFreeColGameObject(carrierId, Unit.class);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
-        if (!carrier.canCarryGoods()) {
-            return DOMMessage.clientError("Not a goods carrier: " + carrierId);
-        }
-        // Do not check location, carriers can dump goods anywhere
+		int amount;
+		try {
+			amount = Integer.parseInt(amountString);
+		} catch (NumberFormatException e) {
+			return DOMMessage.clientError("Bad amount: " + amountString);
+		}
+		if (amount <= 0) {
+			return DOMMessage.clientError("Amount must be positive: " + amountString);
+		}
+		int present = carrier.getGoodsCount(type);
+		if (present < amount) {
+			return DOMMessage.clientError(
+					"Attempt to unload " + amount + " " + type.getId() + " but only " + present + " present.");
+		}
 
-        GoodsType type = server.getSpecification().getGoodsType(goodsTypeId);
-        if (type == null) {
-            return DOMMessage.clientError("Not a goods type: " + goodsTypeId);
-        }
+		// Try to unload.
+		return server.getInGameController().unloadGoods(serverPlayer, type, amount, carrier);
+	}
 
-        int amount;
-        try {
-            amount = Integer.parseInt(amountString);
-        } catch (NumberFormatException e) {
-            return DOMMessage.clientError("Bad amount: " + amountString);
-        }
-        if (amount <= 0) {
-            return DOMMessage.clientError("Amount must be positive: "
-                                       + amountString);
-        }
-        int present = carrier.getGoodsCount(type);
-        if (present < amount) {
-            return DOMMessage.clientError("Attempt to unload " + amount
-                + " " + type.getId() + " but only " + present + " present.");
-        }
+	/**
+	 * Convert this UnloadGoodsMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		return createMessage(getXMLElementTagName(), "type", goodsTypeId, "amount", amountString, "carrier", carrierId);
+	}
 
-        // Try to unload.
-        return server.getInGameController()
-            .unloadGoods(serverPlayer, type, amount, carrier);
-    }
-
-    /**
-     * Convert this UnloadGoodsMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        return createMessage(getXMLElementTagName(),
-            "type", goodsTypeId,
-            "amount", amountString,
-            "carrier", carrierId);
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "unloadGoods".
-     */
-    public static String getXMLElementTagName() {
-        return "unloadGoods";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "unloadGoods".
+	 */
+	public static String getXMLElementTagName() {
+		return "unloadGoods";
+	}
 }

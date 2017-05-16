@@ -64,665 +64,728 @@ import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
 
-
 /**
  * The table of players.
  */
 public final class PlayersTable extends JTable {
 
-    /**
-     * A table cell editor that can be used to select a nation.
-     */
-    private class AdvantageCellEditor extends DefaultCellEditor {
-
-        private final JComboBox&lt;EuropeanNationType&gt; box;
-
-        /**
-         * Internal constructor.
-         *
-         * @param box The &lt;code&gt;JComboBox&lt;/code&gt; to edit.
-         */
-<span class="nc" id="L85">        private AdvantageCellEditor(JComboBox&lt;EuropeanNationType&gt; box) {</span>
-<span class="nc" id="L86">            super(box);</span>
-
-<span class="nc" id="L88">            this.box = box;</span>
-<span class="nc" id="L89">        }</span>
-
-        /**
-         * A standard constructor.
-         *
-         * @param nationTypes List of &lt;code&gt;EuropeanNationType&gt;&lt;/code&gt;
-         */
-        public AdvantageCellEditor(List&lt;EuropeanNationType&gt; nationTypes) {
-<span class="nc" id="L97">            this(new JComboBox&lt;&gt;(nationTypes</span>
-<span class="nc" id="L98">                    .toArray(new EuropeanNationType[0])));</span>
-
-<span class="nc" id="L100">            this.box.setRenderer(new FreeColComboBoxRenderer&lt;EuropeanNationType&gt;());</span>
-<span class="nc" id="L101">        }</span>
-
-
-        // Implement DefaultCellEditor
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Object getCellEditorValue() {
-<span class="nc" id="L111">            return ((JComboBox)getComponent()).getSelectedItem();</span>
-        }
-    }
-
-    private class AdvantageCellRenderer extends JLabel
-        implements TableCellRenderer {
-
-        /** The national advantages type. */
-        private final Advantages advantages;
-
- 
-        /**
-         * The default constructor.
-         *
-         * @param advantages The type of national &lt;code&gt;Advantages&lt;/code&gt;.
-         */
-<span class="nc" id="L127">        public AdvantageCellRenderer(Advantages advantages) {</span>
-<span class="nc" id="L128">            this.advantages = advantages;</span>
-<span class="nc" id="L129">        }</span>
-
-
-        // Implement TableCellRenderer
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Component getTableCellRendererComponent(JTable table,
-            Object value, boolean isSelected, boolean hasFocus,
-            int row, int column) {
-<span class="nc" id="L141">            final Player player = (Player)table.getValueAt(row,</span>
-                PlayersTable.PLAYER_COLUMN);
-<span class="nc" id="L143">            final NationType nationType = ((Nation)table.getValueAt(row,</span>
-<span class="nc" id="L144">                    PlayersTable.NATION_COLUMN)).getType();</span>
-            JLabel label;
-<span class="nc bnc" id="L146" title="All 3 branches missed.">            switch (advantages) {</span>
-            case SELECTABLE:
-<span class="nc bnc" id="L148" title="All 2 branches missed.">                return Utility.localizedLabel(Messages.nameKey((player == null)</span>
-                        ? nationType
-<span class="nc" id="L150">                        : player.getNationType()));</span>
-            case FIXED:
-<span class="nc" id="L152">                label = Utility.localizedLabel(Messages.nameKey(nationType));</span>
-<span class="nc" id="L153">                break;</span>
-            case NONE:
-            default:
-<span class="nc" id="L156">                label = Utility.localizedLabel(&quot;none&quot;);</span>
-                break;
-            }
-<span class="nc bnc" id="L159" title="All 4 branches missed.">            label.setForeground((player != null &amp;&amp; player.isReady())</span>
-                ? Color.GRAY
-<span class="nc" id="L161">                : table.getForeground());</span>
-<span class="nc" id="L162">            label.setBackground(table.getBackground());</span>
-<span class="nc" id="L163">            Utility.localizeToolTip(this, StringTemplate</span>
-<span class="nc" id="L164">                .key(advantages.getShortDescriptionKey()));</span>
-<span class="nc" id="L165">            return label;</span>
-        }
-    }
-
-    private static class AvailableCellRenderer extends JLabel
-        implements TableCellRenderer {
-
-<span class="nc" id="L172">        private final JComboBox&lt;NationState&gt; box</span>
-<span class="nc" id="L173">            = new JComboBox&lt;&gt;(NationState.values());</span>
-
-
-        /**
-         * The default constructor.
-         */
-<span class="nc" id="L179">        public AvailableCellRenderer() {</span>
-<span class="nc" id="L180">            box.setRenderer(new NationStateRenderer());</span>
-<span class="nc" id="L181">        }</span>
-
-
-        // Implement TableCellRenderer
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Component getTableCellRendererComponent(JTable table,
-            Object value, boolean isSelected, boolean hasFocus,
-            int row, int column) {
-<span class="nc" id="L193">            box.setSelectedItem(value);</span>
-<span class="nc" id="L194">            final NationState nationState = (NationState)value;</span>
-<span class="nc" id="L195">            Utility.localizeToolTip(this, StringTemplate</span>
-<span class="nc" id="L196">                .key(nationState.getShortDescriptionKey()));</span>
-<span class="nc" id="L197">            return box;</span>
-        }
-    }
-
-    private final class AvailableCellEditor extends AbstractCellEditor
-        implements TableCellEditor {
-
-<span class="nc" id="L204">        private final JComboBox&lt;NationState&gt; aiStateBox</span>
-            = new JComboBox&lt;&gt;(new NationState[] {
-                    NationState.AI_ONLY,
-                    NationState.NOT_AVAILABLE
-                });
-<span class="nc" id="L209">        private final JComboBox&lt;NationState&gt; allStateBox</span>
-<span class="nc" id="L210">            = new JComboBox&lt;&gt;(NationState.values());</span>
-        private JComboBox activeBox;
-
-<span class="nc" id="L213">        private final ActionListener listener = (ActionEvent ae) -&gt; {</span>
-<span class="nc" id="L214">            stopCellEditing();</span>
-<span class="nc" id="L215">        };</span>
-
-
-<span class="nc" id="L218">        public AvailableCellEditor() {</span>
-<span class="nc" id="L219">            aiStateBox.setRenderer(new NationStateRenderer());</span>
-<span class="nc" id="L220">            aiStateBox.addActionListener(listener);</span>
-<span class="nc" id="L221">            allStateBox.setRenderer(new NationStateRenderer());</span>
-<span class="nc" id="L222">            allStateBox.addActionListener(listener);</span>
-<span class="nc" id="L223">        }</span>
-
-
-        // Implement AbstractCellEditor
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Component getTableCellEditorComponent(JTable table,
-            Object value, boolean isSelected, int row, int column) {
-<span class="nc" id="L234">            NationType nationType = ((Nation) getValueAt(row, NATION_COLUMN))</span>
-<span class="nc" id="L235">                .getType();</span>
-<span class="nc bnc" id="L236" title="All 2 branches missed.">            activeBox = (nationType instanceof EuropeanNationType)</span>
-                ? allStateBox
-                : aiStateBox;
-<span class="nc" id="L239">            return activeBox;</span>
-        }
-
-        @Override
-        public Object getCellEditorValue() {
-<span class="nc" id="L244">            return activeBox.getSelectedItem();</span>
-        }
-    }
-
-    private static class HeaderListener extends MouseAdapter {
-
-        private final JTableHeader header;
-
-        private final HeaderRenderer renderer;
-
-
-<span class="nc" id="L255">        public HeaderListener(JTableHeader header, HeaderRenderer renderer) {</span>
-<span class="nc" id="L256">            this.header = header;</span>
-<span class="nc" id="L257">            this.renderer = renderer;</span>
-<span class="nc" id="L258">        }</span>
-
-        @Override
-        public void mousePressed(MouseEvent e) {
-<span class="nc" id="L262">            int col = header.columnAtPoint(e.getPoint());</span>
-<span class="nc" id="L263">            renderer.setPressedColumn(col);</span>
-<span class="nc" id="L264">            header.repaint();</span>
-<span class="nc" id="L265">        }</span>
-
-        @Override
-        public void mouseReleased(MouseEvent e) {
-<span class="nc" id="L269">            renderer.setPressedColumn(HeaderRenderer.NO_COLUMN);</span>
-<span class="nc" id="L270">            header.repaint();</span>
-<span class="nc" id="L271">        }</span>
-    }
-
-    private static class HeaderRenderer implements TableCellRenderer {
-
-        private static final int NO_COLUMN = -1;
-<span class="nc" id="L277">        private int pressedColumn = NO_COLUMN;</span>
-        private final Component[] components;
-
-<span class="nc" id="L280">        public HeaderRenderer(Component... components) {</span>
-<span class="nc" id="L281">            this.components = components;</span>
-<span class="nc" id="L282">        }</span>
-
-
-        // Implement TableCellEditor
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Component getTableCellRendererComponent(JTable table,
-            Object value, boolean isSelected, boolean hasFocus,
-            int row, int column) {
-<span class="nc bnc" id="L294" title="All 2 branches missed.">            if (components[column] instanceof JButton) {</span>
-<span class="nc bnc" id="L295" title="All 2 branches missed.">                boolean isPressed = (column == pressedColumn);</span>
-<span class="nc" id="L296">                ((JButton)components[column]).getModel().setPressed(isPressed);</span>
-<span class="nc" id="L297">                ((JButton)components[column]).getModel().setArmed(isPressed);</span>
-            }
-<span class="nc" id="L299">            return components[column];</span>
-        }
-
-        public void setPressedColumn(int column) {
-<span class="nc" id="L303">            pressedColumn = column;</span>
-<span class="nc" id="L304">        }</span>
-    }
-
-<span class="nc" id="L307">    private class NationCellRenderer extends JLabel</span>
-        implements TableCellRenderer {
-
-        // Implement TableCellEditor
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Component getTableCellRendererComponent(JTable table,
-            Object value, boolean isSelected, boolean hasFocus,
-            int row, int column) {
-<span class="nc" id="L319">            Nation nation = (Nation) value;</span>
-<span class="nc" id="L320">            setText(Messages.message(StringTemplate.template(&quot;countryName&quot;)</span>
-<span class="nc" id="L321">                    .add(&quot;%nation%&quot;, Messages.nameKey(nation.getId()))));</span>
-<span class="nc" id="L322">            setIcon(new ImageIcon(gui.getImageLibrary()</span>
-<span class="nc" id="L323">                    .getSmallerMiscIconImage(nation)));</span>
-<span class="nc" id="L324">            return this;</span>
-        }
-    }
-
-<span class="nc" id="L328">    private static class NationStateRenderer extends JLabel</span>
-        implements ListCellRenderer&lt;NationState&gt; {
-
-        // Implement ListCellEditor&lt;NationState&gt;
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Component getListCellRendererComponent(JList&lt;? extends NationState&gt; list,
-                                                      NationState value,
-                                                      int index,
-                                                      boolean isSelected,
-                                                      boolean cellHasFocus) {
-<span class="nc" id="L342">            setText(Messages.getName(value));</span>
-<span class="nc" id="L343">            return this;</span>
-        }
-    }
-
-    private static class PlayerCellRenderer implements TableCellRenderer {
-
-<span class="nc" id="L349">        private final JLabel label = new JLabel();</span>
-<span class="nc" id="L350">        private final JButton button = Utility.localizedButton(&quot;select&quot;);</span>
-
-
-<span class="nc" id="L353">        public PlayerCellRenderer() {</span>
-<span class="nc" id="L354">            label.setHorizontalAlignment(JLabel.CENTER);</span>
-<span class="nc" id="L355">            Utility.padBorder(button, 5, 10, 5, 10);</span>
-<span class="nc" id="L356">        }</span>
-
-
-        // Implement TableCellRenderer
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Component getTableCellRendererComponent(JTable table,
-            Object value, boolean isSelected, boolean hasFocus,
-            int row, int column) {
-<span class="nc" id="L368">            Player player = (Player)value;</span>
-<span class="nc bnc" id="L369" title="All 2 branches missed.">            if (player == null) {</span>
-<span class="nc" id="L370">                NationType nationType</span>
-<span class="nc" id="L371">                    = (NationType)table.getValueAt(row, ADVANTAGE_COLUMN);</span>
-<span class="nc bnc" id="L372" title="All 2 branches missed.">                if (nationType instanceof EuropeanNationType) {</span>
-<span class="nc" id="L373">                    NationState nationState = (NationState)table</span>
-<span class="nc" id="L374">                        .getValueAt(row, AVAILABILITY_COLUMN);</span>
-<span class="nc bnc" id="L375" title="All 2 branches missed.">                    if (nationState == NationState.AVAILABLE) {</span>
-<span class="nc" id="L376">                        return button;</span>
-                    }
-                }
-<span class="nc" id="L379">                Nation nation = (Nation) table.getValueAt(row, NATION_COLUMN);</span>
-<span class="nc" id="L380">                label.setText(nation.getRulerName());</span>
-<span class="nc" id="L381">            } else {</span>
-<span class="nc" id="L382">                label.setText(player.getName());</span>
-            }
-<span class="nc" id="L384">            return label;</span>
-        }
-    }
-
-    private final class PlayerCellEditor extends AbstractCellEditor
-        implements TableCellEditor {
-
-<span class="nc" id="L391">        private final JButton button = Utility.localizedButton(&quot;select&quot;);</span>
-
-
-<span class="nc" id="L394">        public PlayerCellEditor() {</span>
-<span class="nc" id="L395">            button.addActionListener((ActionEvent ae) -&gt; {</span>
-<span class="nc" id="L396">                    fireEditingStopped();</span>
-<span class="nc" id="L397">                });</span>
-<span class="nc" id="L398">        }</span>
-
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Component getTableCellEditorComponent(JTable table,
-            Object value, boolean isSelected, int row, int column) {
-<span class="nc" id="L407">            return button;</span>
-        }
-
-        @Override
-        public Object getCellEditorValue() {
-<span class="nc" id="L412">            return Boolean.TRUE;</span>
-        }
-    }
-
-    /**
-     * The TableModel for the players table.
-     */
-    private static class PlayersTableModel extends AbstractTableModel {
-
-        private final PreGameController preGameController;
-
-        private final NationOptions nationOptions;
-
-        private final Player thisPlayer;
-
-        private final List&lt;Nation&gt; nations;
-
-        private final Map&lt;Nation, Player&gt; players;
-
-
-        /**
-         * A standard constructor.
-         *
-         * @param preGameController The &lt;code&gt;PreGameController&lt;/code&gt;
-         *     to use notify of updates.
-         * @param nationOptions The current &lt;code&gt;NationOptions&lt;/code&gt;.
-         * @param thisPlayer The &lt;code&gt;Player&lt;/code&gt; that owns the client.
-         */
-        public PlayersTableModel(PreGameController preGameController,
-                                 NationOptions nationOptions,
-<span class="nc" id="L442">                                 Player thisPlayer) {</span>
-<span class="nc" id="L443">            this.preGameController = preGameController;</span>
-<span class="nc" id="L444">            this.nationOptions = nationOptions;</span>
-<span class="nc" id="L445">            this.thisPlayer = thisPlayer;</span>
-<span class="nc" id="L446">            nations = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L447">            players = new HashMap&lt;&gt;();</span>
-<span class="nc bnc" id="L448" title="All 2 branches missed.">            for (Nation nation : thisPlayer.getSpecification().getNations()) {</span>
-<span class="nc bnc" id="L449" title="All 2 branches missed.">                if (nation.isUnknownEnemy()) continue;</span>
-<span class="nc" id="L450">                NationState state = nationOptions.getNations().get(nation);</span>
-<span class="nc bnc" id="L451" title="All 2 branches missed.">                if (state != null) {</span>
-<span class="nc" id="L452">                    nations.add(nation);</span>
-<span class="nc" id="L453">                    players.put(nation, null);</span>
-                }
-<span class="nc" id="L455">            }</span>
-<span class="nc" id="L456">            players.put(thisPlayer.getNation(), thisPlayer);</span>
-<span class="nc" id="L457">        }</span>
-
-        public void update() {
-<span class="nc bnc" id="L460" title="All 2 branches missed.">            for (Nation nation : nations) {</span>
-<span class="nc" id="L461">                players.put(nation, null);</span>
-<span class="nc" id="L462">            }</span>
-<span class="nc bnc" id="L463" title="All 2 branches missed.">            for (Player player : thisPlayer.getGame().getLivePlayers(null)) {</span>
-<span class="nc" id="L464">                players.put(player.getNation(), player);</span>
-<span class="nc" id="L465">            }</span>
-<span class="nc" id="L466">            fireTableDataChanged();</span>
-<span class="nc" id="L467">        }</span>
-
-        /**
-         * Gets the class of the objects in the given column.
-         *
-         * @param column The column to return the class of.
-         * @return The &lt;code&gt;Class&lt;/code&gt; of the objects in the given column.
-         */
-        @Override
-        public Class&lt;?&gt; getColumnClass(int column) {
-<span class="nc bnc" id="L477" title="All 6 branches missed.">            switch (column) {</span>
-            case NATION_COLUMN:
-<span class="nc" id="L479">                return Nation.class;</span>
-            case AVAILABILITY_COLUMN:
-<span class="nc" id="L481">                return NationOptions.NationState.class;</span>
-            case ADVANTAGE_COLUMN:
-<span class="nc" id="L483">                return NationType.class;</span>
-            case COLOR_COLUMN:
-<span class="nc" id="L485">                return Color.class;</span>
-            case PLAYER_COLUMN:
-<span class="nc" id="L487">                return Player.class;</span>
-            }
-<span class="nc" id="L489">            return String.class;</span>
-        }
-
-        /**
-         * Get the number of columns in this table.
-         *
-         * @return The number of columns.
-         */
-        @Override
-        public int getColumnCount() {
-<span class="nc" id="L499">            return columnNames.length;</span>
-        }
-
-        /**
-         * Get the name of a column.
-         *
-         * @param column The column number to look up.
-         * @return The name of the specified column.
-         */
-        @Override
-        public String getColumnName(int column) {
-<span class="nc" id="L510">            return columnNames[column];</span>
-        }
-
-        /**
-         * Get the number of rows in this table.
-         *
-         * @return The number of rows.
-         */
-        @Override
-        public int getRowCount() {
-<span class="nc" id="L520">            return nations.size();</span>
-        }
-
-        /**
-         * Get the value at the requested location.
-         *
-         * @param row The requested row.
-         * @param column The requested column.
-         * @return The value at the requested location.
-         */
-        @Override
-        public Object getValueAt(int row, int column) {
-<span class="nc bnc" id="L532" title="All 6 branches missed.">            if (row &gt;= 0 &amp;&amp; row &lt; getRowCount()</span>
-<span class="nc bnc" id="L533" title="All 2 branches missed.">                &amp;&amp; column &gt;= 0 &amp;&amp; column &lt; getColumnCount()) {</span>
-<span class="nc" id="L534">                Nation nation = nations.get(row);</span>
-<span class="nc bnc" id="L535" title="All 6 branches missed.">                switch (column) {</span>
-                case NATION_COLUMN:
-<span class="nc" id="L537">                    return nation;</span>
-                case AVAILABILITY_COLUMN:
-<span class="nc" id="L539">                    return nationOptions.getNationState(nation);</span>
-                case ADVANTAGE_COLUMN:
-<span class="nc bnc" id="L541" title="All 2 branches missed.">                    return (players.get(nation) == null) ? nation.getType()</span>
-<span class="nc" id="L542">                        : players.get(nation).getNationType();</span>
-                case COLOR_COLUMN:
-<span class="nc" id="L544">                    return nation.getColor();</span>
-                case PLAYER_COLUMN:
-<span class="nc" id="L546">                    return players.get(nation);</span>
-                }
-            }
-<span class="nc" id="L549">            return null;</span>
-        }
-
-        /**
-         * Is a cell editable?
-         *
-         * @param row The specified row.
-         * @param column The specified column.
-         * @return True if the specified cell is editable.
-         */
-        @Override
-        public boolean isCellEditable(int row, int column) {
-<span class="nc bnc" id="L561" title="All 4 branches missed.">            if (row &gt;= 0 &amp;&amp; row &lt; getRowCount()) {</span>
-<span class="nc" id="L562">                Nation nation = nations.get(row);</span>
-<span class="nc bnc" id="L563" title="All 2 branches missed.">                boolean ownRow = thisPlayer == players.get(nation)</span>
-<span class="nc bnc" id="L564" title="All 2 branches missed.">                    &amp;&amp; !thisPlayer.isReady();</span>
-<span class="nc bnc" id="L565" title="All 5 branches missed.">                switch (column) {</span>
-                case AVAILABILITY_COLUMN:
-<span class="nc bnc" id="L567" title="All 4 branches missed.">                    return !ownRow &amp;&amp; thisPlayer.isAdmin();</span>
-                case ADVANTAGE_COLUMN:
-<span class="nc bnc" id="L569" title="All 4 branches missed.">                    return nation.getType() instanceof EuropeanNationType</span>
-                        &amp;&amp; ownRow;
-                case COLOR_COLUMN:
-                    // Allow a player to change all the colors. 
-                    // This is an accessibility issue for users with a
-                    // colour vision deficiency.  Better to support them
-                    // and just admit that if someone wants to be a pain
-                    // and set all the colours the same, they can.
-<span class="nc" id="L577">                    return nation.getType() instanceof EuropeanNationType;</span>
-                case PLAYER_COLUMN:
-<span class="nc bnc" id="L579" title="All 2 branches missed.">                    return nation.getType() instanceof EuropeanNationType</span>
-<span class="nc bnc" id="L580" title="All 2 branches missed.">                        &amp;&amp; players.get(nation) == null;</span>
-                }
-            }
-<span class="nc" id="L583">            return false;</span>
-        }
-
-        /**
-         * Sets the value at the specified location.
-         *
-         * @param value The new value.
-         * @param row The specified row.
-         * @param column The specified column.
-         */
-        @Override
-        public void setValueAt(Object value, int row, int column) {
-<span class="nc bnc" id="L595" title="All 6 branches missed.">            if (row &gt;= 0 &amp;&amp; row &lt; getRowCount()</span>
-<span class="nc bnc" id="L596" title="All 2 branches missed.">                &amp;&amp; column &gt; 0 &amp;&amp; column &lt; getColumnCount()) {</span>
-                // Column 0 can't be updated.
-<span class="nc" id="L598">                Nation nation = nations.get(row);</span>
-<span class="nc bnc" id="L599" title="All 5 branches missed.">                switch (column) {</span>
-                case ADVANTAGE_COLUMN:
-<span class="nc" id="L601">                    preGameController.setNationType((NationType)value);</span>
-<span class="nc" id="L602">                    break;</span>
-                case AVAILABILITY_COLUMN:
-<span class="nc" id="L604">                    preGameController.setAvailable(nations.get(row),</span>
-                        (NationState)value);
-<span class="nc" id="L606">                    update();</span>
-<span class="nc" id="L607">                    break;</span>
-                case COLOR_COLUMN:
-<span class="nc" id="L609">                    preGameController.setColor(nation, (Color)value);</span>
-<span class="nc" id="L610">                    break;</span>
-                case PLAYER_COLUMN:
-<span class="nc bnc" id="L612" title="All 2 branches missed.">                    if (nationOptions.getNationState(nation)</span>
-                        == NationState.AVAILABLE) {
-<span class="nc" id="L614">                        preGameController.setNation(nation);</span>
-<span class="nc" id="L615">                        preGameController.setNationType(nation.getType());</span>
-<span class="nc" id="L616">                        update();</span>
-                    }
-                    break;
-                default:
-                    break;
-                }
-<span class="nc" id="L622">                fireTableCellUpdated(row, column);</span>
-            }
-<span class="nc" id="L624">        }</span>
-    }
-
-
-    public static final int NATION_COLUMN = 0,
-        AVAILABILITY_COLUMN = 1,
-        ADVANTAGE_COLUMN = 2,
-        COLOR_COLUMN = 3,
-        PLAYER_COLUMN = 4;
-
-<span class="nc" id="L634">    private static final String[] columnNames = {</span>
-<span class="nc" id="L635">        Messages.message(&quot;nation&quot;),</span>
-<span class="nc" id="L636">        Messages.message(&quot;playersTable.availability&quot;),</span>
-<span class="nc" id="L637">        Messages.message(&quot;playersTable.advantage&quot;),</span>
-<span class="nc" id="L638">        Messages.message(&quot;color&quot;),</span>
-<span class="nc" id="L639">        Messages.message(&quot;player&quot;)</span>
-    };
-
-    /** A link to the gui. */
-    private final GUI gui;
-
-
-    /**
-     * Creates a players table.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param nationOptions The &lt;code&gt;NationOptions&lt;/code&gt; for this game.
-     * @param myPlayer The client &lt;code&gt;Player&lt;/code&gt;.
-     */
-    public PlayersTable(final FreeColClient freeColClient,
-                        NationOptions nationOptions, Player myPlayer) {
-<span class="nc" id="L655">        super();</span>
-
-<span class="nc" id="L657">        gui = freeColClient.getGUI();</span>
-<span class="nc" id="L658">        final Specification spec = freeColClient.getGame().getSpecification();</span>
-
-<span class="nc" id="L660">        setModel(new PlayersTableModel(freeColClient.getPreGameController(),</span>
-                 nationOptions, myPlayer));
-<span class="nc" id="L662">        setRowHeight(47);</span>
-
-<span class="nc" id="L664">        JButton nationButton = Utility.localizedButton(&quot;nation&quot;);</span>
-<span class="nc" id="L665">        nationButton.addActionListener((ActionEvent ae) -&gt; {</span>
-<span class="nc" id="L666">                gui.showColopediaPanel(PanelType.NATIONS.getKey());</span>
-<span class="nc" id="L667">            });</span>
-
-<span class="nc" id="L669">        JLabel availabilityLabel = Utility.localizedLabel(&quot;playersTable.availability&quot;);</span>
-<span class="nc" id="L670">        JButton advantageButton = Utility.localizedButton(&quot;playersTable.advantage&quot;);</span>
-<span class="nc" id="L671">        advantageButton.addActionListener((ActionEvent ae) -&gt; {</span>
-<span class="nc" id="L672">                gui.showColopediaPanel(PanelType.NATION_TYPES.getKey());</span>
-<span class="nc" id="L673">            });</span>
-
-<span class="nc" id="L675">        JLabel colorLabel = Utility.localizedLabel(&quot;color&quot;);</span>
-<span class="nc" id="L676">        JLabel playerLabel = Utility.localizedLabel(&quot;player&quot;);</span>
-
-<span class="nc" id="L678">        DefaultTableCellRenderer dtcr = new DefaultTableCellRenderer();</span>
-<span class="nc" id="L679">        dtcr.setOpaque(false);</span>
-
-<span class="nc" id="L681">        HeaderRenderer renderer = new HeaderRenderer(nationButton,</span>
-            availabilityLabel, advantageButton, colorLabel, playerLabel);
-<span class="nc" id="L683">        JTableHeader header = getTableHeader();</span>
-<span class="nc" id="L684">        header.addMouseListener(new HeaderListener(header, renderer));</span>
-
-<span class="nc" id="L686">        final TableColumnModel tcm = getColumnModel();</span>
-        
-<span class="nc" id="L688">        TableColumn nationColumn = tcm.getColumn(NATION_COLUMN);</span>
-<span class="nc" id="L689">        nationColumn.setCellRenderer(new NationCellRenderer());</span>
-<span class="nc" id="L690">        nationColumn.setHeaderRenderer(renderer);</span>
-<span class="nc" id="L691">        nationColumn.setPreferredWidth(2 * tcm.getTotalColumnWidth()</span>
-<span class="nc" id="L692">            / tcm.getColumnCount());</span>
-
-<span class="nc" id="L694">        TableColumn availableColumn = tcm.getColumn(AVAILABILITY_COLUMN);</span>
-<span class="nc" id="L695">        availableColumn.setCellRenderer(new AvailableCellRenderer());</span>
-<span class="nc" id="L696">        availableColumn.setCellEditor(new AvailableCellEditor());</span>
-
-<span class="nc" id="L698">        TableColumn advantagesColumn = tcm.getColumn(ADVANTAGE_COLUMN);</span>
-<span class="nc bnc" id="L699" title="All 4 branches missed.">        switch (nationOptions.getNationalAdvantages()) {</span>
-        case SELECTABLE:
-<span class="nc" id="L701">            advantagesColumn.setCellEditor(new AdvantageCellEditor(spec</span>
-<span class="nc" id="L702">                    .getEuropeanNationTypes()));</span>
-<span class="nc" id="L703">            break;</span>
-        case FIXED:
-<span class="nc" id="L705">            break; // Do nothing</span>
-        case NONE:
-<span class="nc" id="L707">            spec.clearEuropeanNationalAdvantages();</span>
-<span class="nc" id="L708">            break;</span>
-        default:
-            break;
-        }
-<span class="nc" id="L712">        advantagesColumn.setCellRenderer(new AdvantageCellRenderer(nationOptions.getNationalAdvantages()));</span>
-<span class="nc" id="L713">        advantagesColumn.setHeaderRenderer(renderer);</span>
-
-<span class="nc" id="L715">        TableColumn colorsColumn = tcm.getColumn(COLOR_COLUMN);</span>
-<span class="nc" id="L716">        colorsColumn.setCellRenderer(new ColorCellRenderer(true));</span>
-<span class="nc" id="L717">        colorsColumn.setCellEditor(new ColorCellEditor(freeColClient));</span>
-
-<span class="nc" id="L719">        TableColumn playerColumn = tcm.getColumn(PLAYER_COLUMN);</span>
-<span class="nc" id="L720">        playerColumn.setCellEditor(new PlayerCellEditor());</span>
-<span class="nc" id="L721">        playerColumn.setCellRenderer(new PlayerCellRenderer());</span>
-<span class="nc" id="L722">    }</span>
-
-    public void update() {
-<span class="nc" id="L725">        ((PlayersTableModel)getModel()).update();</span>
-<span class="nc" id="L726">    }</span>
+	/**
+	 * A table cell editor that can be used to select a nation.
+	 */
+	private class AdvantageCellEditor extends DefaultCellEditor {
+
+		/** The box. */
+		private final JComboBox&lt;EuropeanNationType&gt; box;
+
+		/**
+		 * Internal constructor.
+		 *
+		 * @param box
+		 *            The &lt;code&gt;JComboBox&lt;/code&gt; to edit.
+		 */
+<span class="nc" id="L86">		private AdvantageCellEditor(JComboBox&lt;EuropeanNationType&gt; box) {</span>
+<span class="nc" id="L87">			super(box);</span>
+
+<span class="nc" id="L89">			this.box = box;</span>
+<span class="nc" id="L90">		}</span>
+
+		/**
+		 * A standard constructor.
+		 *
+		 * @param nationTypes
+		 *            List of &lt;code&gt;EuropeanNationType&gt;&lt;/code&gt;
+		 */
+		public AdvantageCellEditor(List&lt;EuropeanNationType&gt; nationTypes) {
+<span class="nc" id="L99">			this(new JComboBox&lt;&gt;(nationTypes.toArray(new EuropeanNationType[0])));</span>
+
+<span class="nc" id="L101">			this.box.setRenderer(new FreeColComboBoxRenderer&lt;EuropeanNationType&gt;());</span>
+<span class="nc" id="L102">		}</span>
+
+		// Implement DefaultCellEditor
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public Object getCellEditorValue() {
+<span class="nc" id="L111">			return ((JComboBox) getComponent()).getSelectedItem();</span>
+		}
+	}
+
+	/**
+	 * The Class AdvantageCellRenderer.
+	 */
+	private class AdvantageCellRenderer extends JLabel implements TableCellRenderer {
+
+		/** The national advantages type. */
+		private final Advantages advantages;
+
+		/**
+		 * The default constructor.
+		 *
+		 * @param advantages
+		 *            The type of national &lt;code&gt;Advantages&lt;/code&gt;.
+		 */
+<span class="nc" id="L129">		public AdvantageCellRenderer(Advantages advantages) {</span>
+<span class="nc" id="L130">			this.advantages = advantages;</span>
+<span class="nc" id="L131">		}</span>
+
+		// Implement TableCellRenderer
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+				int row, int column) {
+<span class="nc" id="L141">			final Player player = (Player) table.getValueAt(row, PlayersTable.PLAYER_COLUMN);</span>
+<span class="nc" id="L142">			final NationType nationType = ((Nation) table.getValueAt(row, PlayersTable.NATION_COLUMN)).getType();</span>
+			JLabel label;
+<span class="nc bnc" id="L144" title="All 3 branches missed.">			switch (advantages) {</span>
+			case SELECTABLE:
+<span class="nc bnc" id="L146" title="All 2 branches missed.">				return Utility.localizedLabel(Messages.nameKey((player == null) ? nationType : player.getNationType()));</span>
+			case FIXED:
+<span class="nc" id="L148">				label = Utility.localizedLabel(Messages.nameKey(nationType));</span>
+<span class="nc" id="L149">				break;</span>
+			case NONE:
+			default:
+<span class="nc" id="L152">				label = Utility.localizedLabel(&quot;none&quot;);</span>
+				break;
+			}
+<span class="nc bnc" id="L155" title="All 4 branches missed.">			label.setForeground((player != null &amp;&amp; player.isReady()) ? Color.GRAY : table.getForeground());</span>
+<span class="nc" id="L156">			label.setBackground(table.getBackground());</span>
+<span class="nc" id="L157">			Utility.localizeToolTip(this, StringTemplate.key(advantages.getShortDescriptionKey()));</span>
+<span class="nc" id="L158">			return label;</span>
+		}
+	}
+
+	/**
+	 * The Class AvailableCellRenderer.
+	 */
+	private static class AvailableCellRenderer extends JLabel implements TableCellRenderer {
+
+		/** The box. */
+<span class="nc" id="L168">		private final JComboBox&lt;NationState&gt; box = new JComboBox&lt;&gt;(NationState.values());</span>
+
+		/**
+		 * The default constructor.
+		 */
+<span class="nc" id="L173">		public AvailableCellRenderer() {</span>
+<span class="nc" id="L174">			box.setRenderer(new NationStateRenderer());</span>
+<span class="nc" id="L175">		}</span>
+
+		// Implement TableCellRenderer
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+				int row, int column) {
+<span class="nc" id="L185">			box.setSelectedItem(value);</span>
+<span class="nc" id="L186">			final NationState nationState = (NationState) value;</span>
+<span class="nc" id="L187">			Utility.localizeToolTip(this, StringTemplate.key(nationState.getShortDescriptionKey()));</span>
+<span class="nc" id="L188">			return box;</span>
+		}
+	}
+
+	/**
+	 * The Class AvailableCellEditor.
+	 */
+	private final class AvailableCellEditor extends AbstractCellEditor implements TableCellEditor {
+
+		/** The ai state box. */
+<span class="nc" id="L198">		private final JComboBox&lt;NationState&gt; aiStateBox = new JComboBox&lt;&gt;(</span>
+				new NationState[] { NationState.AI_ONLY, NationState.NOT_AVAILABLE });
+
+		/** The all state box. */
+<span class="nc" id="L202">		private final JComboBox&lt;NationState&gt; allStateBox = new JComboBox&lt;&gt;(NationState.values());</span>
+
+		/** The active box. */
+		private JComboBox activeBox;
+
+		/** The listener. */
+<span class="nc" id="L208">		private final ActionListener listener = (ActionEvent ae) -&gt; {</span>
+<span class="nc" id="L209">			stopCellEditing();</span>
+<span class="nc" id="L210">		};</span>
+
+		/**
+		 * Instantiates a new available cell editor.
+		 */
+<span class="nc" id="L215">		public AvailableCellEditor() {</span>
+<span class="nc" id="L216">			aiStateBox.setRenderer(new NationStateRenderer());</span>
+<span class="nc" id="L217">			aiStateBox.addActionListener(listener);</span>
+<span class="nc" id="L218">			allStateBox.setRenderer(new NationStateRenderer());</span>
+<span class="nc" id="L219">			allStateBox.addActionListener(listener);</span>
+<span class="nc" id="L220">		}</span>
+
+		// Implement AbstractCellEditor
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row,
+				int column) {
+<span class="nc" id="L230">			NationType nationType = ((Nation) getValueAt(row, NATION_COLUMN)).getType();</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">			activeBox = (nationType instanceof EuropeanNationType) ? allStateBox : aiStateBox;</span>
+<span class="nc" id="L232">			return activeBox;</span>
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see javax.swing.CellEditor#getCellEditorValue()
+		 */
+		@Override
+		public Object getCellEditorValue() {
+<span class="nc" id="L242">			return activeBox.getSelectedItem();</span>
+		}
+	}
+
+	/**
+	 * The listener interface for receiving header events. The class that is
+	 * interested in processing a header event implements this interface, and
+	 * the object created with that class is registered with a component using
+	 * the component's &lt;code&gt;addHeaderListener&lt;code&gt; method. When the header
+	 * event occurs, that object's appropriate method is invoked.
+	 *
+	 * @see HeaderEvent
+	 */
+	private static class HeaderListener extends MouseAdapter {
+
+		/** The header. */
+		private final JTableHeader header;
+
+		/** The renderer. */
+		private final HeaderRenderer renderer;
+
+		/**
+		 * Instantiates a new header listener.
+		 *
+		 * @param header
+		 *            the header
+		 * @param renderer
+		 *            the renderer
+		 */
+<span class="nc" id="L271">		public HeaderListener(JTableHeader header, HeaderRenderer renderer) {</span>
+<span class="nc" id="L272">			this.header = header;</span>
+<span class="nc" id="L273">			this.renderer = renderer;</span>
+<span class="nc" id="L274">		}</span>
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * java.awt.event.MouseAdapter#mousePressed(java.awt.event.MouseEvent)
+		 */
+		@Override
+		public void mousePressed(MouseEvent e) {
+<span class="nc" id="L284">			int col = header.columnAtPoint(e.getPoint());</span>
+<span class="nc" id="L285">			renderer.setPressedColumn(col);</span>
+<span class="nc" id="L286">			header.repaint();</span>
+<span class="nc" id="L287">		}</span>
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * java.awt.event.MouseAdapter#mouseReleased(java.awt.event.MouseEvent)
+		 */
+		@Override
+		public void mouseReleased(MouseEvent e) {
+<span class="nc" id="L297">			renderer.setPressedColumn(HeaderRenderer.NO_COLUMN);</span>
+<span class="nc" id="L298">			header.repaint();</span>
+<span class="nc" id="L299">		}</span>
+	}
+
+	/**
+	 * The Class HeaderRenderer.
+	 */
+	private static class HeaderRenderer implements TableCellRenderer {
+
+		/** The Constant NO_COLUMN. */
+		private static final int NO_COLUMN = -1;
+
+		/** The pressed column. */
+<span class="nc" id="L311">		private int pressedColumn = NO_COLUMN;</span>
+
+		/** The components. */
+		private final Component[] components;
+
+		/**
+		 * Instantiates a new header renderer.
+		 *
+		 * @param components
+		 *            the components
+		 */
+<span class="nc" id="L322">		public HeaderRenderer(Component... components) {</span>
+<span class="nc" id="L323">			this.components = components;</span>
+<span class="nc" id="L324">		}</span>
+
+		// Implement TableCellEditor
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+				int row, int column) {
+<span class="nc bnc" id="L334" title="All 2 branches missed.">			if (components[column] instanceof JButton) {</span>
+<span class="nc bnc" id="L335" title="All 2 branches missed.">				boolean isPressed = (column == pressedColumn);</span>
+<span class="nc" id="L336">				((JButton) components[column]).getModel().setPressed(isPressed);</span>
+<span class="nc" id="L337">				((JButton) components[column]).getModel().setArmed(isPressed);</span>
+			}
+<span class="nc" id="L339">			return components[column];</span>
+		}
+
+		/**
+		 * Sets the pressed column.
+		 *
+		 * @param column
+		 *            the new pressed column
+		 */
+		public void setPressedColumn(int column) {
+<span class="nc" id="L349">			pressedColumn = column;</span>
+<span class="nc" id="L350">		}</span>
+	}
+
+	/**
+	 * The Class NationCellRenderer.
+	 */
+<span class="nc" id="L356">	private class NationCellRenderer extends JLabel implements TableCellRenderer {</span>
+
+		// Implement TableCellEditor
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+				int row, int column) {
+<span class="nc" id="L366">			Nation nation = (Nation) value;</span>
+<span class="nc" id="L367">			setText(Messages</span>
+<span class="nc" id="L368">					.message(StringTemplate.template(&quot;countryName&quot;).add(&quot;%nation%&quot;, Messages.nameKey(nation.getId()))));</span>
+<span class="nc" id="L369">			setIcon(new ImageIcon(gui.getImageLibrary().getSmallerMiscIconImage(nation)));</span>
+<span class="nc" id="L370">			return this;</span>
+		}
+	}
+
+	/**
+	 * The Class NationStateRenderer.
+	 */
+<span class="nc" id="L377">	private static class NationStateRenderer extends JLabel implements ListCellRenderer&lt;NationState&gt; {</span>
+
+		// Implement ListCellEditor&lt;NationState&gt;
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public Component getListCellRendererComponent(JList&lt;? extends NationState&gt; list, NationState value, int index,
+				boolean isSelected, boolean cellHasFocus) {
+<span class="nc" id="L387">			setText(Messages.getName(value));</span>
+<span class="nc" id="L388">			return this;</span>
+		}
+	}
+
+	/**
+	 * The Class PlayerCellRenderer.
+	 */
+	private static class PlayerCellRenderer implements TableCellRenderer {
+
+		/** The label. */
+<span class="nc" id="L398">		private final JLabel label = new JLabel();</span>
+
+		/** The button. */
+<span class="nc" id="L401">		private final JButton button = Utility.localizedButton(&quot;select&quot;);</span>
+
+		/**
+		 * Instantiates a new player cell renderer.
+		 */
+<span class="nc" id="L406">		public PlayerCellRenderer() {</span>
+<span class="nc" id="L407">			label.setHorizontalAlignment(JLabel.CENTER);</span>
+<span class="nc" id="L408">			Utility.padBorder(button, 5, 10, 5, 10);</span>
+<span class="nc" id="L409">		}</span>
+
+		// Implement TableCellRenderer
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+				int row, int column) {
+<span class="nc" id="L419">			Player player = (Player) value;</span>
+<span class="nc bnc" id="L420" title="All 2 branches missed.">			if (player == null) {</span>
+<span class="nc" id="L421">				NationType nationType = (NationType) table.getValueAt(row, ADVANTAGE_COLUMN);</span>
+<span class="nc bnc" id="L422" title="All 2 branches missed.">				if (nationType instanceof EuropeanNationType) {</span>
+<span class="nc" id="L423">					NationState nationState = (NationState) table.getValueAt(row, AVAILABILITY_COLUMN);</span>
+<span class="nc bnc" id="L424" title="All 2 branches missed.">					if (nationState == NationState.AVAILABLE) {</span>
+<span class="nc" id="L425">						return button;</span>
+					}
+				}
+<span class="nc" id="L428">				Nation nation = (Nation) table.getValueAt(row, NATION_COLUMN);</span>
+<span class="nc" id="L429">				label.setText(nation.getRulerName());</span>
+<span class="nc" id="L430">			} else {</span>
+<span class="nc" id="L431">				label.setText(player.getName());</span>
+			}
+<span class="nc" id="L433">			return label;</span>
+		}
+	}
+
+	/**
+	 * The Class PlayerCellEditor.
+	 */
+	private final class PlayerCellEditor extends AbstractCellEditor implements TableCellEditor {
+
+		/** The button. */
+<span class="nc" id="L443">		private final JButton button = Utility.localizedButton(&quot;select&quot;);</span>
+
+		/**
+		 * Instantiates a new player cell editor.
+		 */
+<span class="nc" id="L448">		public PlayerCellEditor() {</span>
+<span class="nc" id="L449">			button.addActionListener((ActionEvent ae) -&gt; {</span>
+<span class="nc" id="L450">				fireEditingStopped();</span>
+<span class="nc" id="L451">			});</span>
+<span class="nc" id="L452">		}</span>
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row,
+				int column) {
+<span class="nc" id="L460">			return button;</span>
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see javax.swing.CellEditor#getCellEditorValue()
+		 */
+		@Override
+		public Object getCellEditorValue() {
+<span class="nc" id="L470">			return Boolean.TRUE;</span>
+		}
+	}
+
+	/**
+	 * The TableModel for the players table.
+	 */
+	private static class PlayersTableModel extends AbstractTableModel {
+
+		/** The pre game controller. */
+		private final PreGameController preGameController;
+
+		/** The nation options. */
+		private final NationOptions nationOptions;
+
+		/** The this player. */
+		private final Player thisPlayer;
+
+		/** The nations. */
+		private final List&lt;Nation&gt; nations;
+
+		/** The players. */
+		private final Map&lt;Nation, Player&gt; players;
+
+		/**
+		 * A standard constructor.
+		 *
+		 * @param preGameController
+		 *            The &lt;code&gt;PreGameController&lt;/code&gt; to use notify of
+		 *            updates.
+		 * @param nationOptions
+		 *            The current &lt;code&gt;NationOptions&lt;/code&gt;.
+		 * @param thisPlayer
+		 *            The &lt;code&gt;Player&lt;/code&gt; that owns the client.
+		 */
+<span class="nc" id="L505">		public PlayersTableModel(PreGameController preGameController, NationOptions nationOptions, Player thisPlayer) {</span>
+<span class="nc" id="L506">			this.preGameController = preGameController;</span>
+<span class="nc" id="L507">			this.nationOptions = nationOptions;</span>
+<span class="nc" id="L508">			this.thisPlayer = thisPlayer;</span>
+<span class="nc" id="L509">			nations = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L510">			players = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L511" title="All 2 branches missed.">			for (Nation nation : thisPlayer.getSpecification().getNations()) {</span>
+<span class="nc bnc" id="L512" title="All 2 branches missed.">				if (nation.isUnknownEnemy())</span>
+<span class="nc" id="L513">					continue;</span>
+<span class="nc" id="L514">				NationState state = nationOptions.getNations().get(nation);</span>
+<span class="nc bnc" id="L515" title="All 2 branches missed.">				if (state != null) {</span>
+<span class="nc" id="L516">					nations.add(nation);</span>
+<span class="nc" id="L517">					players.put(nation, null);</span>
+				}
+<span class="nc" id="L519">			}</span>
+<span class="nc" id="L520">			players.put(thisPlayer.getNation(), thisPlayer);</span>
+<span class="nc" id="L521">		}</span>
+
+		/**
+		 * Update.
+		 */
+		public void update() {
+<span class="nc bnc" id="L527" title="All 2 branches missed.">			for (Nation nation : nations) {</span>
+<span class="nc" id="L528">				players.put(nation, null);</span>
+<span class="nc" id="L529">			}</span>
+<span class="nc bnc" id="L530" title="All 2 branches missed.">			for (Player player : thisPlayer.getGame().getLivePlayers(null)) {</span>
+<span class="nc" id="L531">				players.put(player.getNation(), player);</span>
+<span class="nc" id="L532">			}</span>
+<span class="nc" id="L533">			fireTableDataChanged();</span>
+<span class="nc" id="L534">		}</span>
+
+		/**
+		 * Gets the class of the objects in the given column.
+		 *
+		 * @param column
+		 *            The column to return the class of.
+		 * @return The &lt;code&gt;Class&lt;/code&gt; of the objects in the given column.
+		 */
+		@Override
+		public Class&lt;?&gt; getColumnClass(int column) {
+<span class="nc bnc" id="L545" title="All 6 branches missed.">			switch (column) {</span>
+			case NATION_COLUMN:
+<span class="nc" id="L547">				return Nation.class;</span>
+			case AVAILABILITY_COLUMN:
+<span class="nc" id="L549">				return NationOptions.NationState.class;</span>
+			case ADVANTAGE_COLUMN:
+<span class="nc" id="L551">				return NationType.class;</span>
+			case COLOR_COLUMN:
+<span class="nc" id="L553">				return Color.class;</span>
+			case PLAYER_COLUMN:
+<span class="nc" id="L555">				return Player.class;</span>
+			}
+<span class="nc" id="L557">			return String.class;</span>
+		}
+
+		/**
+		 * Get the number of columns in this table.
+		 *
+		 * @return The number of columns.
+		 */
+		@Override
+		public int getColumnCount() {
+<span class="nc" id="L567">			return columnNames.length;</span>
+		}
+
+		/**
+		 * Get the name of a column.
+		 *
+		 * @param column
+		 *            The column number to look up.
+		 * @return The name of the specified column.
+		 */
+		@Override
+		public String getColumnName(int column) {
+<span class="nc" id="L579">			return columnNames[column];</span>
+		}
+
+		/**
+		 * Get the number of rows in this table.
+		 *
+		 * @return The number of rows.
+		 */
+		@Override
+		public int getRowCount() {
+<span class="nc" id="L589">			return nations.size();</span>
+		}
+
+		/**
+		 * Get the value at the requested location.
+		 *
+		 * @param row
+		 *            The requested row.
+		 * @param column
+		 *            The requested column.
+		 * @return The value at the requested location.
+		 */
+		@Override
+		public Object getValueAt(int row, int column) {
+<span class="nc bnc" id="L603" title="All 8 branches missed.">			if (row &gt;= 0 &amp;&amp; row &lt; getRowCount() &amp;&amp; column &gt;= 0 &amp;&amp; column &lt; getColumnCount()) {</span>
+<span class="nc" id="L604">				Nation nation = nations.get(row);</span>
+<span class="nc bnc" id="L605" title="All 6 branches missed.">				switch (column) {</span>
+				case NATION_COLUMN:
+<span class="nc" id="L607">					return nation;</span>
+				case AVAILABILITY_COLUMN:
+<span class="nc" id="L609">					return nationOptions.getNationState(nation);</span>
+				case ADVANTAGE_COLUMN:
+<span class="nc bnc" id="L611" title="All 2 branches missed.">					return (players.get(nation) == null) ? nation.getType() : players.get(nation).getNationType();</span>
+				case COLOR_COLUMN:
+<span class="nc" id="L613">					return nation.getColor();</span>
+				case PLAYER_COLUMN:
+<span class="nc" id="L615">					return players.get(nation);</span>
+				}
+			}
+<span class="nc" id="L618">			return null;</span>
+		}
+
+		/**
+		 * Is a cell editable?.
+		 *
+		 * @param row
+		 *            The specified row.
+		 * @param column
+		 *            The specified column.
+		 * @return True if the specified cell is editable.
+		 */
+		@Override
+		public boolean isCellEditable(int row, int column) {
+<span class="nc bnc" id="L632" title="All 4 branches missed.">			if (row &gt;= 0 &amp;&amp; row &lt; getRowCount()) {</span>
+<span class="nc" id="L633">				Nation nation = nations.get(row);</span>
+<span class="nc bnc" id="L634" title="All 4 branches missed.">				boolean ownRow = thisPlayer == players.get(nation) &amp;&amp; !thisPlayer.isReady();</span>
+<span class="nc bnc" id="L635" title="All 5 branches missed.">				switch (column) {</span>
+				case AVAILABILITY_COLUMN:
+<span class="nc bnc" id="L637" title="All 4 branches missed.">					return !ownRow &amp;&amp; thisPlayer.isAdmin();</span>
+				case ADVANTAGE_COLUMN:
+<span class="nc bnc" id="L639" title="All 4 branches missed.">					return nation.getType() instanceof EuropeanNationType &amp;&amp; ownRow;</span>
+				case COLOR_COLUMN:
+					// Allow a player to change all the colors.
+					// This is an accessibility issue for users with a
+					// colour vision deficiency. Better to support them
+					// and just admit that if someone wants to be a pain
+					// and set all the colours the same, they can.
+<span class="nc" id="L646">					return nation.getType() instanceof EuropeanNationType;</span>
+				case PLAYER_COLUMN:
+<span class="nc bnc" id="L648" title="All 4 branches missed.">					return nation.getType() instanceof EuropeanNationType &amp;&amp; players.get(nation) == null;</span>
+				}
+			}
+<span class="nc" id="L651">			return false;</span>
+		}
+
+		/**
+		 * Sets the value at the specified location.
+		 *
+		 * @param value
+		 *            The new value.
+		 * @param row
+		 *            The specified row.
+		 * @param column
+		 *            The specified column.
+		 */
+		@Override
+		public void setValueAt(Object value, int row, int column) {
+<span class="nc bnc" id="L666" title="All 8 branches missed.">			if (row &gt;= 0 &amp;&amp; row &lt; getRowCount() &amp;&amp; column &gt; 0 &amp;&amp; column &lt; getColumnCount()) {</span>
+				// Column 0 can't be updated.
+<span class="nc" id="L668">				Nation nation = nations.get(row);</span>
+<span class="nc bnc" id="L669" title="All 5 branches missed.">				switch (column) {</span>
+				case ADVANTAGE_COLUMN:
+<span class="nc" id="L671">					preGameController.setNationType((NationType) value);</span>
+<span class="nc" id="L672">					break;</span>
+				case AVAILABILITY_COLUMN:
+<span class="nc" id="L674">					preGameController.setAvailable(nations.get(row), (NationState) value);</span>
+<span class="nc" id="L675">					update();</span>
+<span class="nc" id="L676">					break;</span>
+				case COLOR_COLUMN:
+<span class="nc" id="L678">					preGameController.setColor(nation, (Color) value);</span>
+<span class="nc" id="L679">					break;</span>
+				case PLAYER_COLUMN:
+<span class="nc bnc" id="L681" title="All 2 branches missed.">					if (nationOptions.getNationState(nation) == NationState.AVAILABLE) {</span>
+<span class="nc" id="L682">						preGameController.setNation(nation);</span>
+<span class="nc" id="L683">						preGameController.setNationType(nation.getType());</span>
+<span class="nc" id="L684">						update();</span>
+					}
+					break;
+				default:
+					break;
+				}
+<span class="nc" id="L690">				fireTableCellUpdated(row, column);</span>
+			}
+<span class="nc" id="L692">		}</span>
+	}
+
+	/** The Constant PLAYER_COLUMN. */
+	public static final int NATION_COLUMN = 0, AVAILABILITY_COLUMN = 1, ADVANTAGE_COLUMN = 2, COLOR_COLUMN = 3,
+			PLAYER_COLUMN = 4;
+
+	/** The Constant columnNames. */
+<span class="nc" id="L700">	private static final String[] columnNames = { Messages.message(&quot;nation&quot;),</span>
+<span class="nc" id="L701">			Messages.message(&quot;playersTable.availability&quot;), Messages.message(&quot;playersTable.advantage&quot;),</span>
+<span class="nc" id="L702">			Messages.message(&quot;color&quot;), Messages.message(&quot;player&quot;) };</span>
+
+	/** A link to the gui. */
+	private final GUI gui;
+
+	/**
+	 * Creates a players table.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param nationOptions
+	 *            The &lt;code&gt;NationOptions&lt;/code&gt; for this game.
+	 * @param myPlayer
+	 *            The client &lt;code&gt;Player&lt;/code&gt;.
+	 */
+	public PlayersTable(final FreeColClient freeColClient, NationOptions nationOptions, Player myPlayer) {
+<span class="nc" id="L718">		super();</span>
+
+<span class="nc" id="L720">		gui = freeColClient.getGUI();</span>
+<span class="nc" id="L721">		final Specification spec = freeColClient.getGame().getSpecification();</span>
+
+<span class="nc" id="L723">		setModel(new PlayersTableModel(freeColClient.getPreGameController(), nationOptions, myPlayer));</span>
+<span class="nc" id="L724">		setRowHeight(47);</span>
+
+<span class="nc" id="L726">		JButton nationButton = Utility.localizedButton(&quot;nation&quot;);</span>
+<span class="nc" id="L727">		nationButton.addActionListener((ActionEvent ae) -&gt; {</span>
+<span class="nc" id="L728">			gui.showColopediaPanel(PanelType.NATIONS.getKey());</span>
+<span class="nc" id="L729">		});</span>
+
+<span class="nc" id="L731">		JLabel availabilityLabel = Utility.localizedLabel(&quot;playersTable.availability&quot;);</span>
+<span class="nc" id="L732">		JButton advantageButton = Utility.localizedButton(&quot;playersTable.advantage&quot;);</span>
+<span class="nc" id="L733">		advantageButton.addActionListener((ActionEvent ae) -&gt; {</span>
+<span class="nc" id="L734">			gui.showColopediaPanel(PanelType.NATION_TYPES.getKey());</span>
+<span class="nc" id="L735">		});</span>
+
+<span class="nc" id="L737">		JLabel colorLabel = Utility.localizedLabel(&quot;color&quot;);</span>
+<span class="nc" id="L738">		JLabel playerLabel = Utility.localizedLabel(&quot;player&quot;);</span>
+
+<span class="nc" id="L740">		DefaultTableCellRenderer dtcr = new DefaultTableCellRenderer();</span>
+<span class="nc" id="L741">		dtcr.setOpaque(false);</span>
+
+<span class="nc" id="L743">		HeaderRenderer renderer = new HeaderRenderer(nationButton, availabilityLabel, advantageButton, colorLabel,</span>
+				playerLabel);
+<span class="nc" id="L745">		JTableHeader header = getTableHeader();</span>
+<span class="nc" id="L746">		header.addMouseListener(new HeaderListener(header, renderer));</span>
+
+<span class="nc" id="L748">		final TableColumnModel tcm = getColumnModel();</span>
+
+<span class="nc" id="L750">		TableColumn nationColumn = tcm.getColumn(NATION_COLUMN);</span>
+<span class="nc" id="L751">		nationColumn.setCellRenderer(new NationCellRenderer());</span>
+<span class="nc" id="L752">		nationColumn.setHeaderRenderer(renderer);</span>
+<span class="nc" id="L753">		nationColumn.setPreferredWidth(2 * tcm.getTotalColumnWidth() / tcm.getColumnCount());</span>
+
+<span class="nc" id="L755">		TableColumn availableColumn = tcm.getColumn(AVAILABILITY_COLUMN);</span>
+<span class="nc" id="L756">		availableColumn.setCellRenderer(new AvailableCellRenderer());</span>
+<span class="nc" id="L757">		availableColumn.setCellEditor(new AvailableCellEditor());</span>
+
+<span class="nc" id="L759">		TableColumn advantagesColumn = tcm.getColumn(ADVANTAGE_COLUMN);</span>
+<span class="nc bnc" id="L760" title="All 4 branches missed.">		switch (nationOptions.getNationalAdvantages()) {</span>
+		case SELECTABLE:
+<span class="nc" id="L762">			advantagesColumn.setCellEditor(new AdvantageCellEditor(spec.getEuropeanNationTypes()));</span>
+<span class="nc" id="L763">			break;</span>
+		case FIXED:
+<span class="nc" id="L765">			break; // Do nothing</span>
+		case NONE:
+<span class="nc" id="L767">			spec.clearEuropeanNationalAdvantages();</span>
+<span class="nc" id="L768">			break;</span>
+		default:
+			break;
+		}
+<span class="nc" id="L772">		advantagesColumn.setCellRenderer(new AdvantageCellRenderer(nationOptions.getNationalAdvantages()));</span>
+<span class="nc" id="L773">		advantagesColumn.setHeaderRenderer(renderer);</span>
+
+<span class="nc" id="L775">		TableColumn colorsColumn = tcm.getColumn(COLOR_COLUMN);</span>
+<span class="nc" id="L776">		colorsColumn.setCellRenderer(new ColorCellRenderer(true));</span>
+<span class="nc" id="L777">		colorsColumn.setCellEditor(new ColorCellEditor(freeColClient));</span>
+
+<span class="nc" id="L779">		TableColumn playerColumn = tcm.getColumn(PLAYER_COLUMN);</span>
+<span class="nc" id="L780">		playerColumn.setCellEditor(new PlayerCellEditor());</span>
+<span class="nc" id="L781">		playerColumn.setCellRenderer(new PlayerCellRenderer());</span>
+<span class="nc" id="L782">	}</span>
+
+	/**
+	 * Update.
+	 */
+	public void update() {
+<span class="nc" id="L788">		((PlayersTableModel) getModel()).update();</span>
+<span class="nc" id="L789">	}</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

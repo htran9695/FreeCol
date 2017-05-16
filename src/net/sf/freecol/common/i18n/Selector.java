@@ -24,15 +24,17 @@ package net.sf.freecol.common.i18n;
  */
 public interface Selector {
 
-    /**
-     * Transform the given string selector into a replacement key for
-     * a choice format.
-     *
-     * @param selector a <code>String</code> value
-     * @param template the <code>String</code> template that contains
-     * the selector (only used for error reporting)
-     * @return a <code>String</code> value
-     */
-    public String getKey(String selector, String template);
+	/**
+	 * Transform the given string selector into a replacement key for a choice
+	 * format.
+	 *
+	 * @param selector
+	 *            a <code>String</code> value
+	 * @param template
+	 *            the <code>String</code> template that contains the selector
+	 *            (only used for error reporting)
+	 * @return a <code>String</code> value
+	 */
+	public String getKey(String selector, String template);
 
 }

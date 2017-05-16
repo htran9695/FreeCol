@@ -28,38 +28,35 @@ import javax.swing.table.TableCellRenderer;
 
 import net.sf.freecol.common.model.StringTemplate;
 
-
 /**
- * A table cell renderer that should be used to display the chosen
- * color in a table.  It is being used in the players table
- * (StartGamePanel).
+ * A table cell renderer that should be used to display the chosen color in a
+ * table. It is being used in the players table (StartGamePanel).
  */
 public class ColorCellRenderer extends JLabel implements TableCellRenderer {
 
-    /**
-     * The constructor to use.
-     *
-     * @param useBorder Indicated whether or not a border should be drawn.
-     */
-    public ColorCellRenderer(boolean useBorder) {
-        if (useBorder) setBorder(Utility.COLOR_CELL_BORDER);
-        // This must be done because the background displays the actual color:
-        setOpaque(true);
-    }
+	/**
+	 * The constructor to use.
+	 *
+	 * @param useBorder
+	 *            Indicated whether or not a border should be drawn.
+	 */
+	public ColorCellRenderer(boolean useBorder) {
+		if (useBorder)
+			setBorder(Utility.COLOR_CELL_BORDER);
+		// This must be done because the background displays the actual color:
+		setOpaque(true);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Component getTableCellRendererComponent(JTable table, Object color,
-        boolean isSelected, boolean hasFocus, int row, int column) {
-        final Color myColor = (Color)color;
-        setBackground(myColor);
-        Utility.localizeToolTip(this, StringTemplate
-            .template("info.rgb")
-            .addAmount("%red%", myColor.getRed())
-            .addAmount("%green%", myColor.getGreen())
-            .addAmount("%blue%", myColor.getBlue()));
-        return this;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Component getTableCellRendererComponent(JTable table, Object color, boolean isSelected, boolean hasFocus,
+			int row, int column) {
+		final Color myColor = (Color) color;
+		setBackground(myColor);
+		Utility.localizeToolTip(this, StringTemplate.template("info.rgb").addAmount("%red%", myColor.getRed())
+				.addAmount("%green%", myColor.getGreen()).addAmount("%blue%", myColor.getBlue()));
+		return this;
+	}
 }

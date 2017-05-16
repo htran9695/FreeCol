@@ -17,7 +17,6 @@
  *  along with FreeCol.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 package net.sf.freecol.client.gui.panel;
 
 import java.awt.Color;
@@ -30,57 +29,60 @@ import net.miginfocom.swing.MigLayout;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
- * This class represents a panel that holds a JColorChooser and OK
- * and cancel buttons.
+ * This class represents a panel that holds a JColorChooser and OK and cancel
+ * buttons.
  */
 public final class ColorChooserPanel extends FreeColPanel {
 
-    private final JColorChooser colorChooser;
+	/** The color chooser. */
+	private final JColorChooser colorChooser;
 
+	/**
+	 * The constructor to use.
+	 *
+	 * @param freeColClient
+	 *            The top level component that holds all other components.
+	 * @param l
+	 *            The ActionListener for the OK and cancel buttons.
+	 */
+	public ColorChooserPanel(FreeColClient freeColClient, ActionListener l) {
+		super(freeColClient, new MigLayout("", "", ""));
 
-    /**
-     * The constructor to use.
-     *
-     * @param freeColClient The top level component that holds all
-     *     other components.
-     * @param l The ActionListener for the OK and cancel buttons.
-     */
-    public ColorChooserPanel(FreeColClient freeColClient, ActionListener l) {
-        super(freeColClient, new MigLayout("", "", ""));
+		this.colorChooser = new JColorChooser();
+		add(this.colorChooser);
 
-        this.colorChooser = new JColorChooser();
-        add(this.colorChooser);
+		add(okButton, "newline 20, split 2, tag ok");
+		okButton.addActionListener(l);
 
-        add(okButton, "newline 20, split 2, tag ok");
-        okButton.addActionListener(l);
+		JButton cancelButton = Utility.localizedButton("cancel");
+		add(cancelButton, "tag cancel");
+		cancelButton.setActionCommand(CANCEL);
+		cancelButton.addActionListener(l);
+		setCancelComponent(cancelButton);
 
-        JButton cancelButton = Utility.localizedButton("cancel");
-        add(cancelButton, "tag cancel");
-        cancelButton.setActionCommand(CANCEL);
-        cancelButton.addActionListener(l);
-        setCancelComponent(cancelButton);
+		setOpaque(true);
+		setSize(getPreferredSize());
+	}
 
-        setOpaque(true);
-        setSize(getPreferredSize());
-    }
+	/**
+	 * Gets the color.
+	 *
+	 * @return the color
+	 */
+	public Color getColor() {
+		return this.colorChooser.getColor();
+	}
 
+	// Override Component
 
-    public Color getColor() {
-        return this.colorChooser.getColor();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void removeNotify() {
+		super.removeNotify();
 
-
-    // Override Component
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void removeNotify() {
-        super.removeNotify();
-
-        removeAll();
-    }
+		removeAll();
+	}
 }

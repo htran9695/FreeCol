@@ -26,34 +26,33 @@ import javax.swing.JCheckBoxMenuItem;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action to toggle the display of the map grid.
  */
 public class DisplayGridAction extends SelectableAction {
 
-    public static final String id = "displayGridAction";
+	/** The Constant id. */
+	public static final String id = "displayGridAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public DisplayGridAction(FreeColClient freeColClient) {
+		super(freeColClient, id, ClientOptions.DISPLAY_GRID);
+	}
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public DisplayGridAction(FreeColClient freeColClient) {
-        super(freeColClient, id, ClientOptions.DISPLAY_GRID);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        setSelected(((JCheckBoxMenuItem)ae.getSource()).isSelected());
-        setOption(isSelected());
-        getGUI().refresh();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		setSelected(((JCheckBoxMenuItem) ae.getSource()).isSelected());
+		setOption(isSelected());
+		getGUI().refresh();
+	}
 }

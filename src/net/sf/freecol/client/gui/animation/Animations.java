@@ -23,43 +23,46 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
- * A facade for animations. 
+ * A facade for animations.
  */
 public class Animations {
 
-    /**
-     * Animates a unit move.
-     *
-     * @param freeColClient The enclosing <code>FreeColClient</code>.
-     * @param unit The <code>Unit</code> to be animated.
-     * @param source The source <code>Tile</code> for the unit.
-     * @param destination The destination <code>Tile</code> for the unit.
-     */
-    public static void unitMove(FreeColClient freeColClient, Unit unit,
-                                Tile source, Tile destination) {
-        new UnitMoveAnimation(freeColClient, unit, source, destination)
-            .animate();
-    }
-    
-    /**
-     * Animates a unit attack.
-     * 
-     * @param freeColClient The enclosing <code>FreeColClient</code>.
-     * @param attacker The <code>Unit</code> that is attacking.
-     * @param defender The <code>Unit</code> that is defending.
-     * @param attackerTile The <code>Tile</code> the attack comes from.
-     * @param defenderTile The <code>Tile</code> the attack goes to.
-     * @param success Did the attack succeed?
-     */
-    public static void unitAttack(FreeColClient freeColClient,
-                                  Unit attacker, Unit defender,
-                                  Tile attackerTile, Tile defenderTile,
-                                  boolean success) {
-        new UnitAttackAnimation(freeColClient, attacker, defender,
-                                attackerTile, defenderTile, success)
-            .animate();
-    }
+	/**
+	 * Animates a unit move.
+	 *
+	 * @param freeColClient
+	 *            The enclosing <code>FreeColClient</code>.
+	 * @param unit
+	 *            The <code>Unit</code> to be animated.
+	 * @param source
+	 *            The source <code>Tile</code> for the unit.
+	 * @param destination
+	 *            The destination <code>Tile</code> for the unit.
+	 */
+	public static void unitMove(FreeColClient freeColClient, Unit unit, Tile source, Tile destination) {
+		new UnitMoveAnimation(freeColClient, unit, source, destination).animate();
+	}
+
+	/**
+	 * Animates a unit attack.
+	 * 
+	 * @param freeColClient
+	 *            The enclosing <code>FreeColClient</code>.
+	 * @param attacker
+	 *            The <code>Unit</code> that is attacking.
+	 * @param defender
+	 *            The <code>Unit</code> that is defending.
+	 * @param attackerTile
+	 *            The <code>Tile</code> the attack comes from.
+	 * @param defenderTile
+	 *            The <code>Tile</code> the attack goes to.
+	 * @param success
+	 *            Did the attack succeed?
+	 */
+	public static void unitAttack(FreeColClient freeColClient, Unit attacker, Unit defender, Tile attackerTile,
+			Tile defenderTile, boolean success) {
+		new UnitAttackAnimation(freeColClient, attacker, defender, attackerTile, defenderTile, success).animate();
+	}
 
 }

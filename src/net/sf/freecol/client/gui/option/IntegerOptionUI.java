@@ -25,66 +25,69 @@ import javax.swing.SpinnerNumberModel;
 
 import net.sf.freecol.common.option.IntegerOption;
 
-
 /**
  * This class provides visualization for an
- * {@link net.sf.freecol.common.option.IntegerOption} in order to enable
- * values to be both seen and changed.
+ * {@link net.sf.freecol.common.option.IntegerOption} in order to enable values
+ * to be both seen and changed.
  */
-public final class IntegerOptionUI extends OptionUI<IntegerOption>  {
+public final class IntegerOptionUI extends OptionUI<IntegerOption> {
 
-    private final JSpinner spinner = new JSpinner();
+	/** The spinner. */
+	private final JSpinner spinner = new JSpinner();
 
-    /**
-     * Creates a new <code>IntegerOptionUI</code> for the given <code>IntegerOption</code>.
-     * @param option The <code>IntegerOption</code> to make a user interface for.
-     * @param editable boolean whether user can modify the setting
-     */
-    public IntegerOptionUI(final IntegerOption option, boolean editable) {
-        super(option, editable);
+	/**
+	 * Creates a new <code>IntegerOptionUI</code> for the given
+	 * <code>IntegerOption</code>.
+	 * 
+	 * @param option
+	 *            The <code>IntegerOption</code> to make a user interface for.
+	 * @param editable
+	 *            boolean whether user can modify the setting
+	 */
+	public IntegerOptionUI(final IntegerOption option, boolean editable) {
+		super(option, editable);
 
-        int value = option.getValue();
-        if (editable) {
-            int min = option.getMinimumValue();
-            int max = option.getMaximumValue();
-            if (min > max) {
-                int tmp = min;
-                min = max;
-                max = tmp;
-            }
-            int stepSize = Math.max(1, Math.min((max - min) / 10, 1000));
-            spinner.setModel(new SpinnerNumberModel(value, min, max, stepSize));
-        } else {
-            spinner.setModel(new SpinnerNumberModel(value, value, value, 1));
-        }
+		int value = option.getValue();
+		if (editable) {
+			int min = option.getMinimumValue();
+			int max = option.getMaximumValue();
+			if (min > max) {
+				int tmp = min;
+				min = max;
+				max = tmp;
+			}
+			int stepSize = Math.max(1, Math.min((max - min) / 10, 1000));
+			spinner.setModel(new SpinnerNumberModel(value, min, max, stepSize));
+		} else {
+			spinner.setModel(new SpinnerNumberModel(value, value, value, 1));
+		}
 
-        initialize();
-    }
+		initialize();
+	}
 
+	// Implement OptionUI
 
-    // Implement OptionUI
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public JComponent getComponent() {
+		return spinner;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public JComponent getComponent() {
-        return spinner;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void updateOption() {
+		getOption().setValue((Integer) spinner.getValue());
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateOption() {
-        getOption().setValue((Integer) spinner.getValue());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void reset() {
-        spinner.setValue(getOption().getValue());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void reset() {
+		spinner.setValue(getOption().getValue());
+	}
 }

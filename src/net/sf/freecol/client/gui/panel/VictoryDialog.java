@@ -31,30 +31,27 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.resources.ResourceManager;
 
-
 /**
  * This dialog is displayed to a player who has won the game.
  */
 public final class VictoryDialog extends FreeColConfirmDialog {
 
-    /**
-     * Create a Victory dialog.
-     * 
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param frame The owner frame.
-     */
-    public VictoryDialog(FreeColClient freeColClient, JFrame frame) {
-        super(freeColClient, frame);
+	/**
+	 * Create a Victory dialog.
+	 * 
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param frame
+	 *            The owner frame.
+	 */
+	public VictoryDialog(FreeColClient freeColClient, JFrame frame) {
+		super(freeColClient, frame);
 
-        MigPanel panel = new MigPanel(new MigLayout("wrap 1", "", ""));
-        panel.add(Utility.localizedHeader(Messages.message("victory.text"),
-                                          false),
-                  "align center, wrap 20");
-        Image image = ResourceManager.getImage("image.flavor.Victory");
-        panel.add(new JLabel(new ImageIcon(image)),
-                  "align center");
+		MigPanel panel = new MigPanel(new MigLayout("wrap 1", "", ""));
+		panel.add(Utility.localizedHeader(Messages.message("victory.text"), false), "align center, wrap 20");
+		Image image = ResourceManager.getImage("image.flavor.Victory");
+		panel.add(new JLabel(new ImageIcon(image)), "align center");
 
-        initializeConfirmDialog(frame, false, panel, null,
-                                "victory.yes", "victory.continue");
-    }
+		initializeConfirmDialog(frame, false, panel, null, "victory.yes", "victory.continue");
+	}
 }

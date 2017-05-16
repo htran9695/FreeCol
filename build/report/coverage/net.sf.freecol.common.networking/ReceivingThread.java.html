@@ -35,332 +35,370 @@ import net.sf.freecol.common.io.FreeColXMLReader;
 
 import org.xml.sax.SAXException;
 
-
 /**
  * The thread that checks for incoming messages.
  */
 final class ReceivingThread extends Thread {
 
-<span class="nc" id="L44">    private static final Logger logger = Logger.getLogger(ReceivingThread.class.getName());</span>
+	/** The Constant logger. */
+<span class="nc" id="L44">	private static final Logger logger = Logger.getLogger(ReceivingThread.class.getName());</span>
 
-    /**
-     * Input stream for buffering the data from the network.
-     * 
-     * This is just a buffered input stream that signals end-of-stream
-     * when a given token {@link #END_OF_STREAM} is encountered.  In
-     * order to continue receiving data, the method {@link #enable}
-     * has to be called.  Calls to &lt;code&gt;close()&lt;/code&gt; have no effect,
-     * the underlying input stream has to be closed directly.
-     */
-    private static class FreeColNetworkInputStream extends InputStream {
+	/**
+	 * Input stream for buffering the data from the network.
+	 * 
+	 * This is just a buffered input stream that signals end-of-stream when a
+	 * given token {@link #END_OF_STREAM} is encountered. In order to continue
+	 * receiving data, the method {@link #enable} has to be called. Calls to
+	 * &lt;code&gt;close()&lt;/code&gt; have no effect, the underlying input stream has to
+	 * be closed directly.
+	 */
+	private static class FreeColNetworkInputStream extends InputStream {
 
-        private static final int BUFFER_SIZE = 16384;
+		/** The Constant BUFFER_SIZE. */
+		private static final int BUFFER_SIZE = 16384;
 
-        private static final char END_OF_STREAM = '\n';
+		/** The Constant END_OF_STREAM. */
+		private static final char END_OF_STREAM = '\n';
 
-        private final InputStream in;
+		/** The in. */
+		private final InputStream in;
 
-<span class="nc" id="L63">        private final byte[] buffer = new byte[BUFFER_SIZE];</span>
+		/** The buffer. */
+<span class="nc" id="L67">		private final byte[] buffer = new byte[BUFFER_SIZE];</span>
 
-<span class="nc" id="L65">        private int bStart = 0;</span>
+		/** The b start. */
+<span class="nc" id="L70">		private int bStart = 0;</span>
 
-<span class="nc" id="L67">        private int bEnd = 0;</span>
+		/** The b end. */
+<span class="nc" id="L73">		private int bEnd = 0;</span>
 
-<span class="nc" id="L69">        private boolean empty = true;</span>
+		/** The empty. */
+<span class="nc" id="L76">		private boolean empty = true;</span>
 
-<span class="nc" id="L71">        private boolean wait = false;</span>
+		/** The wait. */
+<span class="nc" id="L79">		private boolean wait = false;</span>
 
+		/**
+		 * Creates a new &lt;code&gt;FreeColNetworkInputStream&lt;/code&gt;.
+		 * 
+		 * @param in
+		 *            The input stream in which this object should get the data
+		 *            from.
+		 */
+<span class="nc" id="L88">		public FreeColNetworkInputStream(InputStream in) {</span>
+<span class="nc" id="L89">			this.in = in;</span>
+<span class="nc" id="L90">		}</span>
 
-        /**
-         * Creates a new &lt;code&gt;FreeColNetworkInputStream&lt;/code&gt;.
-         * 
-         * @param in The input stream in which this object should get the data
-         *            from.
-         */
-<span class="nc" id="L80">        public FreeColNetworkInputStream(InputStream in) {</span>
-<span class="nc" id="L81">            this.in = in;</span>
-<span class="nc" id="L82">        }</span>
+		/**
+		 * Prepares the input stream for a new message. Makes the subsequent
+		 * calls to &lt;code&gt;read&lt;/code&gt; return the data instead of
+		 * &lt;code&gt;-1&lt;/code&gt;.
+		 */
+		public void enable() {
+<span class="nc" id="L98">			this.wait = false;</span>
+<span class="nc" id="L99">		}</span>
 
-        /**
-         * Prepares the input stream for a new message.
-         * Makes the subsequent calls to &lt;code&gt;read&lt;/code&gt; return the data
-         * instead of &lt;code&gt;-1&lt;/code&gt;.
-         */
-        public void enable() {
-<span class="nc" id="L90">            this.wait = false;</span>
-<span class="nc" id="L91">        }</span>
+		/**
+		 * Fills the buffer with data.
+		 * 
+		 * @return True if a non-zero amount of data was read into the buffer.
+		 * @exception IOException
+		 *                is thrown by the underlying read.
+		 * @exception IllegalStateException
+		 *                if the buffer is not empty.
+		 */
+		private boolean fill() throws IOException {
+<span class="nc bnc" id="L111" title="All 2 branches missed.">			if (!this.empty)</span>
+<span class="nc" id="L112">				throw new IllegalStateException(&quot;Not empty.&quot;);</span>
 
-        /**
-         * Fills the buffer with data.
-         * 
-         * @return True if a non-zero amount of data was read into the buffer.
-         * @exception IOException is thrown by the underlying read.
-         * @exception IllegalStateException if the buffer is not empty.
-         */
-        private boolean fill() throws IOException {
-<span class="nc bnc" id="L101" title="All 2 branches missed.">            if (!this.empty) throw new IllegalStateException(&quot;Not empty.&quot;);</span>
+			int r;
+<span class="nc bnc" id="L115" title="All 2 branches missed.">			if (this.bStart &lt; this.bEnd) {</span>
+<span class="nc" id="L116">				r = this.in.read(buffer, this.bEnd, BUFFER_SIZE - this.bEnd);</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">			} else if (this.bStart == this.bEnd) {</span>
+<span class="nc" id="L118">				this.bStart = this.bEnd = 0; // Might as well resync.</span>
+<span class="nc" id="L119">				r = this.in.read(buffer, this.bEnd, BUFFER_SIZE - this.bEnd);</span>
+			} else {
+<span class="nc" id="L121">				r = this.in.read(buffer, this.bEnd, this.bStart - this.bEnd);</span>
+			}
+<span class="nc bnc" id="L123" title="All 2 branches missed.">			if (r &lt;= 0)</span>
+<span class="nc" id="L124">				return false;</span>
 
-            int r;
-<span class="nc bnc" id="L104" title="All 2 branches missed.">            if (this.bStart &lt; this.bEnd) {</span>
-<span class="nc" id="L105">                r = this.in.read(buffer, this.bEnd, BUFFER_SIZE - this.bEnd);</span>
-<span class="nc bnc" id="L106" title="All 2 branches missed.">            } else if (this.bStart == this.bEnd) {</span>
-<span class="nc" id="L107">                this.bStart = this.bEnd = 0; // Might as well resync.</span>
-<span class="nc" id="L108">                r = this.in.read(buffer, this.bEnd, BUFFER_SIZE - this.bEnd);</span>
-            } else {
-<span class="nc" id="L110">                r = this.in.read(buffer, this.bEnd, this.bStart - this.bEnd);</span>
-            }
-<span class="nc bnc" id="L112" title="All 2 branches missed.">            if (r &lt;= 0) return false;</span>
+<span class="nc" id="L126">			this.empty = false;</span>
+<span class="nc" id="L127">			this.bEnd += r;</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">			if (this.bEnd &gt;= BUFFER_SIZE)</span>
+<span class="nc" id="L129">				this.bEnd = 0;</span>
+<span class="nc" id="L130">			return true;</span>
+		}
 
-<span class="nc" id="L114">            this.empty = false;</span>
-<span class="nc" id="L115">            this.bEnd += r;</span>
-<span class="nc bnc" id="L116" title="All 2 branches missed.">            if (this.bEnd &gt;= BUFFER_SIZE) this.bEnd = 0;</span>
-<span class="nc" id="L117">            return true;</span>
-        }
+		/**
+		 * Reads a single byte.
+		 * 
+		 * @return The byte read, or -1 on error or &quot;end&quot; of stream.
+		 * @see #read(byte[], int, int)
+		 * @exception IOException
+		 *                is thrown by the underlying read.
+		 */
+		@Override
+		public int read() throws IOException {
+<span class="nc bnc" id="L143" title="All 2 branches missed.">			if (this.wait)</span>
+<span class="nc" id="L144">				return -1;</span>
 
-        /**
-         * Reads a single byte.
-         * 
-         * @return The byte read, or -1 on error or &quot;end&quot; of stream.
-         * @see #read(byte[], int, int)
-         * @exception IOException is thrown by the underlying read.
-         */
-        @Override
-        public int read() throws IOException {
-<span class="nc bnc" id="L129" title="All 2 branches missed.">            if (this.wait) return -1;</span>
+<span class="nc bnc" id="L146" title="All 4 branches missed.">			if (this.empty &amp;&amp; !fill()) {</span>
+<span class="nc" id="L147">				this.wait = true;</span>
+<span class="nc" id="L148">				return -1;</span>
+			}
 
-<span class="nc bnc" id="L131" title="All 4 branches missed.">            if (this.empty &amp;&amp; !fill()) {</span>
-<span class="nc" id="L132">                this.wait = true;</span>
-<span class="nc" id="L133">                return -1;</span>
-            }
+<span class="nc" id="L151">			int ret = buffer[this.bStart];</span>
+<span class="nc" id="L152">			this.bStart++;</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">			if (this.bStart &gt;= BUFFER_SIZE)</span>
+<span class="nc" id="L154">				this.bStart = 0;</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">			if (this.bStart == this.bEnd)</span>
+<span class="nc" id="L156">				this.empty = true;</span>
 
-<span class="nc" id="L136">            int ret = buffer[this.bStart];</span>
-<span class="nc" id="L137">            this.bStart++;</span>
-<span class="nc bnc" id="L138" title="All 2 branches missed.">            if (this.bStart &gt;= BUFFER_SIZE) this.bStart = 0;</span>
-<span class="nc bnc" id="L139" title="All 2 branches missed.">            if (this.bStart == this.bEnd) this.empty = true;</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">			if (ret == END_OF_STREAM) {</span>
+<span class="nc" id="L159">				this.wait = true;</span>
+<span class="nc" id="L160">				ret = -1;</span>
+			}
+<span class="nc" id="L162">			return ret;</span>
+		}
 
-<span class="nc bnc" id="L141" title="All 2 branches missed.">            if (ret == END_OF_STREAM) {</span>
-<span class="nc" id="L142">                this.wait = true;</span>
-<span class="nc" id="L143">                ret = -1;</span>
-            }
-<span class="nc" id="L145">            return ret;</span>
-        }
+		/**
+		 * Reads from the buffer and returns the data.
+		 *
+		 * @param b
+		 *            The buffer to put the data in.
+		 * @param off
+		 *            The offset to use when writing the data.
+		 * @param len
+		 *            The maximum number of bytes to read.
+		 * @return The actual number of bytes read, or -1 if the message has
+		 *         ended ({@link #END_OF_STREAM} was encountered).
+		 * @throws IOException
+		 *             Signals that an I/O exception has occurred.
+		 */
+		@Override
+		public int read(byte[] b, int off, int len) throws IOException {
+<span class="nc bnc" id="L181" title="All 2 branches missed.">			if (this.wait)</span>
+<span class="nc" id="L182">				return -1;</span>
 
-        /**
-         * Reads from the buffer and returns the data.
-         * 
-         * @param b The buffer to put the data in.
-         * @param off The offset to use when writing the data.
-         * @param len The maximum number of bytes to read.
-         * @return The actual number of bytes read, or -1 if the 
-         *     message has ended ({@link #END_OF_STREAM} was encountered).
-         */
-        @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-<span class="nc bnc" id="L159" title="All 2 branches missed.">            if (this.wait) return -1;</span>
+<span class="nc" id="L184">			int n = 0;</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">			for (; n &lt; len; n++) {</span>
+<span class="nc bnc" id="L186" title="All 4 branches missed.">				if (this.empty &amp;&amp; !fill()) {</span>
+<span class="nc" id="L187">					this.wait = true;</span>
+<span class="nc" id="L188">					break;</span>
+				}
 
-<span class="nc" id="L161">            int n = 0;</span>
-<span class="nc bnc" id="L162" title="All 2 branches missed.">            for (; n &lt; len; n++) {</span>
-<span class="nc bnc" id="L163" title="All 4 branches missed.">                if (this.empty &amp;&amp; !fill()) {</span>
-<span class="nc" id="L164">                    this.wait = true;</span>
-<span class="nc" id="L165">                    break;</span>
-                }
+<span class="nc" id="L191">				byte value = buffer[this.bStart];</span>
+<span class="nc" id="L192">				this.bStart++;</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">				if (this.bStart == BUFFER_SIZE)</span>
+<span class="nc" id="L194">					this.bStart = 0;</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">				if (this.bStart == this.bEnd)</span>
+<span class="nc" id="L196">					this.empty = true;</span>
 
-<span class="nc" id="L168">                byte value = buffer[this.bStart];</span>
-<span class="nc" id="L169">                this.bStart++;</span>
-<span class="nc bnc" id="L170" title="All 2 branches missed.">                if (this.bStart == BUFFER_SIZE) this.bStart = 0;</span>
-<span class="nc bnc" id="L171" title="All 2 branches missed.">                if (this.bStart == this.bEnd) this.empty = true;</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">				if (value == END_OF_STREAM) {</span>
+<span class="nc" id="L199">					this.wait = true;</span>
+<span class="nc" id="L200">					break;</span>
+				}
+<span class="nc" id="L202">				b[n + off] = value;</span>
+			}
 
-<span class="nc bnc" id="L173" title="All 2 branches missed.">                if (value == END_OF_STREAM) {</span>
-<span class="nc" id="L174">                    this.wait = true;</span>
-<span class="nc" id="L175">                    break;</span>
-                }
-<span class="nc" id="L177">                b[n + off] = value;</span>
-            }
+<span class="nc bnc" id="L205" title="All 4 branches missed.">			return (n &lt;= 0 &amp;&amp; this.wait) ? -1 : n;</span>
+		}
+	}
 
-<span class="nc bnc" id="L180" title="All 4 branches missed.">            return (n &lt;= 0 &amp;&amp; this.wait) ? -1 : n;</span>
-        }
-    }
+	/** Maximum number of retries before closing the connection. */
+	private static final int MAXIMUM_RETRIES = 5;
 
-    /** Maximum number of retries before closing the connection. */
-    private static final int MAXIMUM_RETRIES = 5;
+	/** A map of network ids to the corresponding waiting thread. */
+<span class="nc" id="L213">	private final Map&lt;Integer, NetworkReplyObject&gt; waitingThreads = Collections</span>
+<span class="nc" id="L214">			.synchronizedMap(new HashMap&lt;Integer, NetworkReplyObject&gt;());</span>
 
-    /** A map of network ids to the corresponding waiting thread. */
-<span class="nc" id="L188">    private final Map&lt;Integer, NetworkReplyObject&gt; waitingThreads</span>
-<span class="nc" id="L189">        = Collections.synchronizedMap(new HashMap&lt;Integer, NetworkReplyObject&gt;());</span>
+	/** The wrapped version of the input stream. */
+	private final FreeColNetworkInputStream in;
 
-    /** The wrapped version of the input stream. */
-    private final FreeColNetworkInputStream in;
+	/** The connection to receive on. */
+	private final Connection connection;
 
-    /** The connection to receive on. */
-    private final Connection connection;
+	/** Whether the thread should run. */
+	private boolean shouldRun;
 
-    /** Whether the thread should run. */
-    private boolean shouldRun;
+	/** A counter for reply ids. */
+	private int nextNetworkReplyId;
 
-    /** A counter for reply ids. */
-    private int nextNetworkReplyId;
+	/**
+	 * The constructor to use.
+	 *
+	 * @param connection
+	 *            The &lt;code&gt;Connection&lt;/code&gt; this &lt;code&gt;ReceivingThread&lt;/code&gt;
+	 *            belongs to.
+	 * @param in
+	 *            The stream to read from.
+	 * @param threadName
+	 *            the thread name
+	 */
+	ReceivingThread(Connection connection, InputStream in, String threadName) {
+<span class="nc" id="L240">		super(threadName + &quot;-ReceivingThread-&quot; + connection);</span>
 
+<span class="nc" id="L242">		this.in = new FreeColNetworkInputStream(in);</span>
+<span class="nc" id="L243">		this.connection = connection;</span>
+<span class="nc" id="L244">		this.shouldRun = true;</span>
+<span class="nc" id="L245">		this.nextNetworkReplyId = 1;</span>
+<span class="nc" id="L246">	}</span>
 
-    /**
-     * The constructor to use.
-     * 
-     * @param connection The &lt;code&gt;Connection&lt;/code&gt; this
-     *            &lt;code&gt;ReceivingThread&lt;/code&gt; belongs to.
-     * @param in The stream to read from.
-     */
-    ReceivingThread(Connection connection, InputStream in, String threadName) {
-<span class="nc" id="L212">        super(threadName + &quot;-ReceivingThread-&quot; + connection);</span>
+	/**
+	 * Gets the next network reply identifier that will be used when identifing
+	 * a network message.
+	 * 
+	 * @return The next available network reply identifier.
+	 */
+	public synchronized int getNextNetworkReplyId() {
+<span class="nc" id="L255">		return nextNetworkReplyId++;</span>
+	}
 
-<span class="nc" id="L214">        this.in = new FreeColNetworkInputStream(in);</span>
-<span class="nc" id="L215">        this.connection = connection;</span>
-<span class="nc" id="L216">        this.shouldRun = true;</span>
-<span class="nc" id="L217">        this.nextNetworkReplyId = 1;</span>
-<span class="nc" id="L218">    }</span>
+	/**
+	 * Creates and registers a new &lt;code&gt;NetworkReplyObject&lt;/code&gt; with the
+	 * specified object identifier.
+	 * 
+	 * @param networkReplyId
+	 *            The identifier of the message the calling thread should wait
+	 *            for.
+	 * @return The &lt;code&gt;NetworkReplyObject&lt;/code&gt; containing the network
+	 *         message.
+	 */
+	public NetworkReplyObject waitForNetworkReply(int networkReplyId) {
+<span class="nc" id="L269">		NetworkReplyObject nro = new NetworkReplyObject(networkReplyId);</span>
+<span class="nc" id="L270">		waitingThreads.put(networkReplyId, nro);</span>
+<span class="nc" id="L271">		return nro;</span>
+	}
 
-    /**
-     * Gets the next network reply identifier that will be used when
-     * identifing a network message.
-     * 
-     * @return The next available network reply identifier.
-     */
-    public synchronized int getNextNetworkReplyId() {
-<span class="nc" id="L227">        return nextNetworkReplyId++;</span>
-    }
+	/**
+	 * Checks if this thread should run.
+	 *
+	 * @return true, if successful
+	 */
+	private synchronized boolean shouldRun() {
+<span class="nc" id="L280">		return this.shouldRun;</span>
+	}
 
-    /**
-     * Creates and registers a new &lt;code&gt;NetworkReplyObject&lt;/code&gt; with the
-     * specified object identifier.
-     * 
-     * @param networkReplyId The identifier of the message the calling
-     *     thread should wait for.
-     * @return The &lt;code&gt;NetworkReplyObject&lt;/code&gt; containing the network
-     *     message.
-     */
-    public NetworkReplyObject waitForNetworkReply(int networkReplyId) {
-<span class="nc" id="L240">        NetworkReplyObject nro = new NetworkReplyObject(networkReplyId);</span>
-<span class="nc" id="L241">        waitingThreads.put(networkReplyId, nro);</span>
-<span class="nc" id="L242">        return nro;</span>
-    }
+	/**
+	 * Tells this thread that it does not need to do any more work.
+	 */
+	public synchronized void askToStop() {
+<span class="nc bnc" id="L287" title="All 2 branches missed.">		if (this.shouldRun) {</span>
+<span class="nc" id="L288">			this.shouldRun = false;</span>
+<span class="nc bnc" id="L289" title="All 2 branches missed.">			for (NetworkReplyObject o : this.waitingThreads.values()) {</span>
+<span class="nc" id="L290">				o.interrupt();</span>
+<span class="nc" id="L291">			}</span>
+		}
+<span class="nc" id="L293">	}</span>
 
-    /**
-     * Checks if this thread should run.
-     */
-    private synchronized boolean shouldRun() {
-<span class="nc" id="L249">        return this.shouldRun;</span>
-    }
+	/**
+	 * Disconnects this thread.
+	 *
+	 * @param reason
+	 *            the reason
+	 */
+	private void disconnect(String reason) {
+<span class="nc" id="L302">		askToStop();</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">		if (connection.getMessageHandler() != null) {</span>
+			try {
+<span class="nc" id="L305">				connection.getMessageHandler().handle(connection,</span>
+<span class="nc" id="L306">						DOMMessage.createMessage(&quot;disconnect&quot;, &quot;reason&quot;, reason));</span>
+<span class="nc" id="L307">			} catch (FreeColException e) {</span>
+<span class="nc" id="L308">				logger.log(Level.WARNING, &quot;Rx disconnect&quot;, e);</span>
+<span class="nc" id="L309">			}</span>
+		}
+<span class="nc" id="L311">	}</span>
 
-    /**
-     * Tells this thread that it does not need to do any more work.
-     */
-    public synchronized void askToStop() {
-<span class="nc bnc" id="L256" title="All 2 branches missed.">        if (this.shouldRun) {</span>
-<span class="nc" id="L257">            this.shouldRun = false;</span>
-<span class="nc bnc" id="L258" title="All 2 branches missed.">            for (NetworkReplyObject o : this.waitingThreads.values()) {</span>
-<span class="nc" id="L259">                o.interrupt();</span>
-<span class="nc" id="L260">            }</span>
-        }
-<span class="nc" id="L262">    }</span>
+	/**
+	 * Listens to the InputStream and calls the MessageHandler for each message
+	 * received.
+	 * 
+	 * @throws IOException
+	 *             If thrown by the {@link FreeColNetworkInputStream}.
+	 * @throws SAXException
+	 *             if a problem occured during parsing.
+	 * @throws XMLStreamException
+	 *             if a problem occured during parsing.
+	 */
+	private void listen() throws IOException, SAXException, XMLStreamException {
+<span class="nc" id="L325">		in.enable();</span>
 
-    /**
-     * Disconnects this thread.
-     */
-    private void disconnect(String reason) {
-<span class="nc" id="L268">        askToStop();</span>
-<span class="nc bnc" id="L269" title="All 2 branches missed.">        if (connection.getMessageHandler() != null) {</span>
-            try {
-<span class="nc" id="L271">                connection.getMessageHandler().handle(connection,</span>
-<span class="nc" id="L272">                    DOMMessage.createMessage(&quot;disconnect&quot;,</span>
-                        &quot;reason&quot;, reason));
-<span class="nc" id="L274">            } catch (FreeColException e) {</span>
-<span class="nc" id="L275">                logger.log(Level.WARNING, &quot;Rx disconnect&quot;, e);</span>
-<span class="nc" id="L276">            }</span>
-        }
-<span class="nc" id="L278">    }</span>
+<span class="nc" id="L327">		final int LOOK_AHEAD = 8192;</span>
+<span class="nc" id="L328">		BufferedInputStream bis = new BufferedInputStream(in, LOOK_AHEAD);</span>
+<span class="nc" id="L329">		bis.mark(LOOK_AHEAD);</span>
 
-    /**
-     * Listens to the InputStream and calls the MessageHandler for
-     * each message received.
-     * 
-     * @throws IOException If thrown by the {@link FreeColNetworkInputStream}.
-     * @throws SAXException if a problem occured during parsing.
-     * @throws XMLStreamException if a problem occured during parsing.
-     */
-    private void listen() throws IOException, SAXException, XMLStreamException {
-<span class="nc" id="L289">        in.enable();</span>
+<span class="nc" id="L331">		FreeColXMLReader xr = new FreeColXMLReader(bis);</span>
+		String tag;
+		try {
+<span class="nc" id="L334">			xr.nextTag();</span>
+<span class="nc" id="L335">			tag = xr.getLocalName();</span>
+<span class="nc" id="L336">		} catch (XMLStreamException xse) {</span>
+			// EOS can occur when the other end disconnects
+<span class="nc" id="L338">			tag = Connection.DISCONNECT_TAG;</span>
+<span class="nc" id="L339">		}</span>
 
-<span class="nc" id="L291">        final int LOOK_AHEAD = 8192;</span>
-<span class="nc" id="L292">        BufferedInputStream bis = new BufferedInputStream(in, LOOK_AHEAD);</span>
-<span class="nc" id="L293">        bis.mark(LOOK_AHEAD);</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">		if (Connection.DISCONNECT_TAG.equals(tag)) {</span>
+<span class="nc" id="L342">			askToStop();</span>
 
-<span class="nc" id="L295">        FreeColXMLReader xr = new FreeColXMLReader(bis);</span>
-        String tag;
-        try {
-<span class="nc" id="L298">            xr.nextTag();</span>
-<span class="nc" id="L299">            tag = xr.getLocalName();</span>
-<span class="nc" id="L300">        } catch (XMLStreamException xse) {</span>
-            // EOS can occur when the other end disconnects
-<span class="nc" id="L302">            tag = Connection.DISCONNECT_TAG;</span>
-<span class="nc" id="L303">        }</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">		} else if (Connection.REPLY_TAG.equals(tag)) {</span>
+<span class="nc" id="L345">			int id = xr.getAttribute(Connection.NETWORK_REPLY_ID_TAG, -1);</span>
+<span class="nc" id="L346">			NetworkReplyObject nro = waitingThreads.remove(id);</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">			if (nro == null) {</span>
+<span class="nc" id="L348">				logger.warning(&quot;Could not find networkReplyId: &quot; + id);</span>
+			} else {
+<span class="nc" id="L350">				bis.reset();</span>
+<span class="nc" id="L351">				nro.setResponse(new DOMMessage(bis));</span>
+			}
 
-<span class="nc bnc" id="L305" title="All 2 branches missed.">        if (Connection.DISCONNECT_TAG.equals(tag)) {</span>
-<span class="nc" id="L306">            askToStop();</span>
+<span class="nc" id="L354">		} else {</span>
+			try {
+<span class="nc" id="L356">				bis.reset();</span>
+<span class="nc" id="L357">				connection.handleAndSendReply(bis);</span>
+<span class="nc" id="L358">			} catch (IOException ioe) {</span>
+<span class="nc" id="L359">				logger.log(Level.WARNING, &quot;IO error for &quot; + tag, ioe);</span>
+<span class="nc" id="L360">			}</span>
+		}
 
-<span class="nc bnc" id="L308" title="All 2 branches missed.">        } else if (Connection.REPLY_TAG.equals(tag)) {</span>
-<span class="nc" id="L309">            int id = xr.getAttribute(Connection.NETWORK_REPLY_ID_TAG, -1);</span>
-<span class="nc" id="L310">            NetworkReplyObject nro = waitingThreads.remove(id);</span>
-<span class="nc bnc" id="L311" title="All 2 branches missed.">            if (nro == null) {</span>
-<span class="nc" id="L312">                logger.warning(&quot;Could not find networkReplyId: &quot; + id);</span>
-            } else {
-<span class="nc" id="L314">                bis.reset();</span>
-<span class="nc" id="L315">                nro.setResponse(new DOMMessage(bis));</span>
-            }
-        
-<span class="nc" id="L318">        } else {</span>
-            try {
-<span class="nc" id="L320">                bis.reset();</span>
-<span class="nc" id="L321">                connection.handleAndSendReply(bis);</span>
-<span class="nc" id="L322">            } catch (IOException ioe) {</span>
-<span class="nc" id="L323">                logger.log(Level.WARNING, &quot;IO error for &quot; + tag, ioe);</span>
-<span class="nc" id="L324">            }</span>
-        }
+<span class="nc bnc" id="L363" title="All 2 branches missed.">		if (xr != null)</span>
+<span class="nc" id="L364">			xr.close();</span>
+<span class="nc" id="L365">	}</span>
 
-<span class="nc bnc" id="L327" title="All 2 branches missed.">        if (xr != null) xr.close();</span>
-<span class="nc" id="L328">    }</span>
+	/**
+	 * Receives messages from the network in a loop. This method is invoked when
+	 * the thread starts and the thread will stop when this method returns.
+	 */
+	@Override
+	public void run() {
+<span class="nc" id="L373">		int timesFailed = 0;</span>
 
-    /**
-     * Receives messages from the network in a loop. This method is
-     * invoked when the thread starts and the thread will stop when
-     * this method returns.
-     */
-    @Override
-    public void run() {
-<span class="nc" id="L337">        int timesFailed = 0;</span>
-
-        try {
-<span class="nc bnc" id="L340" title="All 2 branches missed.">            while (shouldRun()) {</span>
-                try {
-<span class="nc" id="L342">                    listen();</span>
-<span class="nc" id="L343">                    timesFailed = 0;</span>
-<span class="nc" id="L344">                } catch (SAXException|XMLStreamException e) {</span>
-<span class="nc bnc" id="L345" title="All 2 branches missed.">                    if (!shouldRun()) break;</span>
-<span class="nc" id="L346">                    logger.log(Level.WARNING, &quot;XML fail&quot;, e);</span>
-<span class="nc bnc" id="L347" title="All 2 branches missed.">                    if (++timesFailed &gt; MAXIMUM_RETRIES) {</span>
-<span class="nc" id="L348">                        disconnect(&quot;Too many failures (XML)&quot;);</span>
-                    }
-<span class="nc" id="L350">                } catch (IOException e) {</span>
-<span class="nc bnc" id="L351" title="All 2 branches missed.">                    if (!shouldRun()) break;</span>
-<span class="nc" id="L352">                    logger.log(Level.WARNING, &quot;IO fail&quot;, e);</span>
-<span class="nc" id="L353">                    disconnect(&quot;Unexpected IO failure&quot;);</span>
-<span class="nc" id="L354">                }</span>
-            }
-<span class="nc" id="L356">        } catch (Exception e) {</span>
-<span class="nc" id="L357">            logger.log(Level.WARNING, &quot;Unexpected exception.&quot;, e);</span>
-        } finally {
-<span class="nc" id="L359">            askToStop();</span>
-<span class="nc" id="L360">        }</span>
-        // Do not send disconnect again
-<span class="nc" id="L362">        connection.reallyClose();</span>
-<span class="nc" id="L363">        logger.info(&quot;Finished: &quot; + getName());</span>
-<span class="nc" id="L364">    }</span>
+		try {
+<span class="nc bnc" id="L376" title="All 2 branches missed.">			while (shouldRun()) {</span>
+				try {
+<span class="nc" id="L378">					listen();</span>
+<span class="nc" id="L379">					timesFailed = 0;</span>
+<span class="nc" id="L380">				} catch (SAXException | XMLStreamException e) {</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">					if (!shouldRun())</span>
+<span class="nc" id="L382">						break;</span>
+<span class="nc" id="L383">					logger.log(Level.WARNING, &quot;XML fail&quot;, e);</span>
+<span class="nc bnc" id="L384" title="All 2 branches missed.">					if (++timesFailed &gt; MAXIMUM_RETRIES) {</span>
+<span class="nc" id="L385">						disconnect(&quot;Too many failures (XML)&quot;);</span>
+					}
+<span class="nc" id="L387">				} catch (IOException e) {</span>
+<span class="nc bnc" id="L388" title="All 2 branches missed.">					if (!shouldRun())</span>
+<span class="nc" id="L389">						break;</span>
+<span class="nc" id="L390">					logger.log(Level.WARNING, &quot;IO fail&quot;, e);</span>
+<span class="nc" id="L391">					disconnect(&quot;Unexpected IO failure&quot;);</span>
+<span class="nc" id="L392">				}</span>
+			}
+<span class="nc" id="L394">		} catch (Exception e) {</span>
+<span class="nc" id="L395">			logger.log(Level.WARNING, &quot;Unexpected exception.&quot;, e);</span>
+		} finally {
+<span class="nc" id="L397">			askToStop();</span>
+<span class="nc" id="L398">		}</span>
+		// Do not send disconnect again
+<span class="nc" id="L400">		connection.reallyClose();</span>
+<span class="nc" id="L401">		logger.info(&quot;Finished: &quot; + getName());</span>
+<span class="nc" id="L402">	}</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

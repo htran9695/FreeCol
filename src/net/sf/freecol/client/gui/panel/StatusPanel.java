@@ -26,45 +26,44 @@ import javax.swing.JLabel;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * A <code>Panel</code> for showing status information on screen.
  */
 public final class StatusPanel extends FreeColPanel {
 
-    /** The Constant logger. */
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(StatusPanel.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(StatusPanel.class.getName());
 
-    /** The status label. */
-    private final JLabel statusLabel;
+	/** The status label. */
+	private final JLabel statusLabel;
 
+	/**
+	 * Creates a basic status panel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public StatusPanel(FreeColClient freeColClient) {
+		super(freeColClient, new FlowLayout());
 
-    /**
-     * Creates a basic status panel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public StatusPanel(FreeColClient freeColClient) {
-        super(freeColClient, new FlowLayout());
+		setFocusable(false);
 
-        setFocusable(false);
-        
-        statusLabel = new JLabel();
-        add(statusLabel);
+		statusLabel = new JLabel();
+		add(statusLabel);
 
-        setSize(260, 60);
-    }
+		setSize(260, 60);
+	}
 
-    
-    /**
-     * Sets a new status message to be displayed by this
-     * <code>StatusPanel</code>.
-     *
-     * @param message The message to be displayed.
-     */
-    public void setStatusMessage(String message) {
-        statusLabel.setText(message);
-        setSize(getPreferredSize());
-    }
+	/**
+	 * Sets a new status message to be displayed by this
+	 * <code>StatusPanel</code>.
+	 *
+	 * @param message
+	 *            The message to be displayed.
+	 */
+	public void setStatusMessage(String message) {
+		statusLabel.setText(message);
+		setSize(getPreferredSize());
+	}
 }

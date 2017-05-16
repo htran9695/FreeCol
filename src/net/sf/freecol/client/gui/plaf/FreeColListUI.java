@@ -27,27 +27,43 @@ import javax.swing.plaf.basic.BasicListUI;
 
 import net.sf.freecol.client.gui.ImageLibrary;
 
-
 /**
- * UI-class for lists, such as the drop down list of colonies in the
- * Colony panel.
+ * UI-class for lists, such as the drop down list of colonies in the Colony
+ * panel.
  */
 public class FreeColListUI extends BasicListUI {
 
-    public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
-        return new FreeColListUI();
-    }
+	/**
+	 * Creates the UI.
+	 *
+	 * @param c
+	 *            the c
+	 * @return the component UI
+	 */
+	public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
+		return new FreeColListUI();
+	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.plaf.basic.BasicListUI#installUI(javax.swing.JComponent)
+	 */
+	@Override
+	public void installUI(JComponent c) {
+		super.installUI(c);
+	}
 
-    @Override
-    public void installUI(JComponent c) {
-        super.installUI(c);
-    }
-
-    @Override
-    public void paint(Graphics g, JComponent c) {
-        ImageLibrary.drawTiledImage("image.background.FreeColList", g, c, null);
-        LAFUtilities.setProperties(g, c);
-        super.paint(g, c);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.plaf.basic.BasicListUI#paint(java.awt.Graphics,
+	 * javax.swing.JComponent)
+	 */
+	@Override
+	public void paint(Graphics g, JComponent c) {
+		ImageLibrary.drawTiledImage("image.background.FreeColList", g, c, null);
+		LAFUtilities.setProperties(g, c);
+		super.paint(g, c);
+	}
 }

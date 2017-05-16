@@ -27,58 +27,57 @@ import net.sf.freecol.common.io.FreeColDirectories;
 import net.sf.freecol.common.model.GameOptions;
 import net.sf.freecol.common.option.OptionGroup;
 
-
 /**
  * Dialog for changing the {@link net.sf.freecol.common.model.GameOptions}.
  */
 public final class GameOptionsDialog extends OptionsDialog {
 
+	/**
+	 * Creates a game options dialog.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param frame
+	 *            The owner frame.
+	 * @param editable
+	 *            Whether the game options can be modified.
+	 * @param custom
+	 *            Whether to load custom options.
+	 */
+	public GameOptionsDialog(FreeColClient freeColClient, JFrame frame, boolean editable, boolean custom) {
+		super(freeColClient, frame, editable, freeColClient.getGame().getGameOptions(),
+				GameOptions.getXMLElementTagName(), FreeColDirectories.GAME_OPTIONS_FILE_NAME,
+				GameOptions.getXMLElementTagName());
 
-    /**
-     * Creates a game options dialog.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param frame The owner frame.
-     * @param editable Whether the game options can be modified.
-     * @param custom Whether to load custom options.
-     */
-    public GameOptionsDialog(FreeColClient freeColClient, JFrame frame,
-            boolean editable, boolean custom) {
-        super(freeColClient, frame, editable,
-            freeColClient.getGame().getGameOptions(),
-            GameOptions.getXMLElementTagName(),
-            FreeColDirectories.GAME_OPTIONS_FILE_NAME,
-            GameOptions.getXMLElementTagName());
+		if (isEditable())
+			loadDefaultOptions();
 
-        if (isEditable()) loadDefaultOptions();
+		// Set special cases
+		// Disable victory option "All humans defeated"
+		// when playing single player
+		if (isEditable() && freeColClient.isSinglePlayer()) {
+			BooleanOptionUI comp = (BooleanOptionUI) getOptionUI().getOptionUI(GameOptions.VICTORY_DEFEAT_HUMANS);
+			if (comp != null) {
+				comp.setValue(false);
+				comp.getComponent().setEnabled(false);
+			}
+		}
 
-        // Set special cases
-        // Disable victory option "All humans defeated"
-        // when playing single player
-        if (isEditable() && freeColClient.isSinglePlayer()) {
-            BooleanOptionUI comp = (BooleanOptionUI) getOptionUI()
-                .getOptionUI(GameOptions.VICTORY_DEFEAT_HUMANS);
-            if (comp != null) {
-                comp.setValue(false);
-                comp.getComponent().setEnabled(false);
-            }
-        }
+		initialize(frame);
+	}
 
-        initialize(frame);
-    }
+	// Override OptionsDialog
 
-
-    // Override OptionsDialog
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public OptionGroup getResponse() {
-        OptionGroup value = super.getResponse();
-        if (value != null) {
-            if (isEditable()) saveDefaultOptions();
-        }
-        return value;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public OptionGroup getResponse() {
+		OptionGroup value = super.getResponse();
+		if (value != null) {
+			if (isEditable())
+				saveDefaultOptions();
+		}
+		return value;
+	}
 }

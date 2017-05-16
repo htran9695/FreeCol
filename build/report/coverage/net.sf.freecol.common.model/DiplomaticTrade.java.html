@@ -34,516 +34,550 @@ import static net.sf.freecol.common.util.StringUtils.*;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The class &lt;code&gt;DiplomaticTrade&lt;/code&gt; represents an offer one player can
  * make another.
  */
 public class DiplomaticTrade extends FreeColObject {
 
-    /** A context for the trade. */
-<span class="nc" id="L45">    public static enum TradeContext {</span>
-<span class="nc" id="L46">        CONTACT,    /** First contact between Europeans */</span>
-<span class="nc" id="L47">        DIPLOMATIC, /** Scout negotiating */</span>
-<span class="nc" id="L48">        TRADE,      /** Carrier trading */</span>
-<span class="nc" id="L49">        TRIBUTE;    /** Offensive unit demanding */</span>
-
-        /**
-         * Get a message key for this trade context.
-         *
-         * @return A message key.
-         */
-        public String getKey() {
-<span class="nc" id="L57">            return getEnumKey(this);</span>
-        }
-    }
-
-    /** A type for the trade status. */
-<span class="pc" id="L62">    public static enum TradeStatus {</span>
-<span class="fc" id="L63">        PROPOSE_TRADE,</span>
-<span class="fc" id="L64">        ACCEPT_TRADE,</span>
-<span class="fc" id="L65">        REJECT_TRADE</span>
-    }
-
-
-    /** The game in play. */
-    private final Game game;
-
-    /** The player who proposed agreement. */
-    private Player sender;
-
-    /** The player who is to accept this agreement. */
-    private Player recipient;
-
-    /** The context of this agreement. */
-    private TradeContext context;
-
-    /** The status of this agreement. */
-    private TradeStatus status;
-
-    /** The individual items the trade consists of. */
-<span class="nc" id="L85">    private final List&lt;TradeItem&gt; items = new ArrayList&lt;&gt;();</span>
-
-    /** Counter for the number of iterations on this attempt to agree. */
-    private int version;
-
-
-    /**
-     * Creates a new &lt;code&gt;DiplomaticTrade&lt;/code&gt; instance.
-     *
-     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
-     * @param context The &lt;code&gt;TradeContext&lt;/code&gt; for this agreement.
-     * @param sender The sending &lt;code&gt;Player&lt;/code&gt;.
-     * @param recipient The recipient &lt;code&gt;Player&lt;/code&gt;.
-     * @param items A list of items to trade.
-     */
-    public DiplomaticTrade(Game game, TradeContext context,
-                           Player sender, Player recipient,
-<span class="nc" id="L102">                           List&lt;TradeItem&gt; items, int version) {</span>
-<span class="nc" id="L103">        setId(&quot;&quot;);</span>
-<span class="nc" id="L104">        this.game = game;</span>
-<span class="nc" id="L105">        this.context = context;</span>
-<span class="nc" id="L106">        this.sender = sender;</span>
-<span class="nc" id="L107">        this.recipient = recipient;</span>
-<span class="nc" id="L108">        this.status = TradeStatus.PROPOSE_TRADE;</span>
-<span class="nc" id="L109">        this.items.clear();</span>
-<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (items != null) this.items.addAll(items);</span>
-<span class="nc" id="L111">        this.version = version;</span>
-<span class="nc" id="L112">    }</span>
-
-    /**
-     * Creates a new &lt;code&gt;DiplomaticTrade&lt;/code&gt; instance.
-     *
-     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
-     * @param element an &lt;code&gt;Element&lt;/code&gt; value
-     */
-<span class="nc" id="L120">    public DiplomaticTrade(Game game, Element element) {</span>
-<span class="nc" id="L121">        this.game = game;</span>
-
-<span class="nc" id="L123">        readFromXMLElement(element);</span>
-<span class="nc" id="L124">    }</span>
-
-
-    /**
-     * Get the trade context.
-     *
-     * @return The context of this agreement.
-     */
-    public TradeContext getContext() {
-<span class="nc" id="L133">        return context;</span>
-    }
-
-    /**
-     * Get the trade status.
-     *
-     * @return The status of this agreement.
-     */
-    public TradeStatus getStatus() {
-<span class="nc" id="L142">        return status;</span>
-    }
-
-    /**
-     * Set the trade status.
-     *
-     * @param status The new &lt;code&gt;TradeStatus&lt;/code&gt; for this agreement.
-     */
-    public void setStatus(TradeStatus status) {
-<span class="nc" id="L151">        this.status = status;</span>
-<span class="nc" id="L152">    }</span>
-
-    /**
-     * Get the sending player.
-     *
-     * @return The sending &lt;code&gt;Player&lt;/code&gt;.
-     */
-    public final Player getSender() {
-<span class="nc" id="L160">        return sender;</span>
-    }
-
-    /**
-     * Set the sending player.
-     *
-     * @param newSender The new sending &lt;code&gt;Player&lt;/code&gt;.
-     */
-    public final void setSender(final Player newSender) {
-<span class="nc" id="L169">        this.sender = newSender;</span>
-<span class="nc" id="L170">    }</span>
-
-    /**
-     * Get the recipient player.
-     *
-     * @return The recipient &lt;code&gt;Player&lt;/code&gt;.
-     */
-    public final Player getRecipient() {
-<span class="nc" id="L178">        return recipient;</span>
-    }
-
-    /**
-     * Set the recieving player.
-     *
-     * @param newRecipient The new recipient &lt;code&gt;Player&lt;/code&gt;.
-     */
-    public final void setRecipient(final Player newRecipient) {
-<span class="nc" id="L187">        this.recipient = newRecipient;</span>
-<span class="nc" id="L188">    }</span>
-
-    /**
-     * Get the other player in a trade.
-     *
-     * @param player The known &lt;code&gt;Player&lt;/code&gt;.
-     * @return The other player, not the supplied known one.
-     */
-    public Player getOtherPlayer(Player player) {
-<span class="nc bnc" id="L197" title="All 2 branches missed.">        return (sender == player) ? recipient : sender;</span>
-    }
-
-    /**
-     * Handy utility to get the message associated with sending this
-     * agreement from a player to a settlement owner.
-     *
-     * @param player The sending &lt;code&gt;Player&lt;/code&gt;.
-     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; to send to.
-     * @return A &lt;code&gt;StringTemplate&lt;/code&gt; for the message.
-     */
-    public StringTemplate getSendMessage(Player player, Settlement settlement) {
-<span class="nc" id="L209">        return StringTemplate.template(&quot;model.diplomaticTrade.send.&quot;</span>
-<span class="nc" id="L210">            + getContext().getKey())</span>
-<span class="nc" id="L211">            .addStringTemplate(&quot;%nation%&quot;,</span>
-<span class="nc" id="L212">                settlement.getOwner().getNationLabel())</span>
-<span class="nc" id="L213">            .addStringTemplate(&quot;%settlement%&quot;,</span>
-<span class="nc" id="L214">                settlement.getLocationLabelFor(player));</span>
-    }
-
-    /**
-     * Handy utility to get the message associated with sending this
-     * agreement from a player to a settlement owner.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; the offer came from.
-     * @return A &lt;code&gt;StringTemplate&lt;/code&gt; for the message.
-     */
-    public StringTemplate getReceiveMessage(Player player) {
-<span class="nc" id="L225">        return StringTemplate.template(&quot;model.diplomaticTrade.receive.&quot;</span>
-<span class="nc" id="L226">            + getContext().getKey())</span>
-<span class="nc" id="L227">            .addStringTemplate(&quot;%nation%&quot;, player.getNationLabel());</span>
-    }
-
-    /**
-     * Add to the DiplomaticTrade.
-     *
-     * @param newItem The &lt;code&gt;TradeItem&lt;/code&gt; to add.
-     */
-    public void add(TradeItem newItem) {
-<span class="nc bnc" id="L236" title="All 2 branches missed.">        if (newItem.isUnique()) {</span>
-<span class="nc" id="L237">            removeType(newItem.getClass());</span>
-        }
-<span class="nc" id="L239">        items.add(newItem);</span>
-<span class="nc" id="L240">    }</span>
-
-    /**
-     * Remove a from the DiplomaticTrade.
-     *
-     * @param newItem The &lt;code&gt;TradeItem&lt;/code&gt; to remove.
-     */
-    public void remove(TradeItem newItem) {
-<span class="nc" id="L248">        items.remove(newItem);</span>
-<span class="nc" id="L249">    }</span>
-
-    /**
-     * Remove from the DiplomaticTrade.
-     *
-     * @param index The index of the &lt;code&gt;TradeItem&lt;/code&gt; to remove
-     */
-    public void remove(int index) {
-<span class="nc" id="L257">        items.remove(index);</span>
-<span class="nc" id="L258">    }</span>
-
-    /**
-     * Removes all trade items of the same class as the given argument.
-     *
-     * @param itemClass The &lt;code&gt;Class&lt;/code&gt; of
-     *     &lt;code&gt;TradeItem&lt;/code&gt; to remove.
-     */
-    public void removeType(Class&lt;? extends TradeItem&gt; itemClass) {
-<span class="nc" id="L267">        Iterator&lt;TradeItem&gt; itemIterator = items.iterator();</span>
-<span class="nc bnc" id="L268" title="All 2 branches missed.">        while (itemIterator.hasNext()) {</span>
-<span class="nc bnc" id="L269" title="All 2 branches missed.">            if (itemIterator.next().getClass() == itemClass) {</span>
-<span class="nc" id="L270">                itemIterator.remove();</span>
-            }
-        }
-<span class="nc" id="L273">    }</span>
-
-    /**
-     * Remove all trade items from this agreement.
-     */
-    public void clear() {
-<span class="nc" id="L279">        items.clear();</span>
-<span class="nc" id="L280">    }</span>
-
-    /**
-     * Get a list of all items to trade.
-     *
-     * @return A list of all the TradeItems.
-     */
-    public final List&lt;TradeItem&gt; getTradeItems() {
-<span class="nc" id="L288">        return items;</span>
-    }
-
-    /**
-     * Are there no trade items present?
-     *
-     * @return True if there are no trade items present.
-     */
-    public final boolean isEmpty() {
-<span class="nc" id="L297">        return items.isEmpty();</span>
-    }
-
-    /**
-     * Get an iterator for all the TradeItems.
-     *
-     * @return An iterator for all TradeItems.
-     */
-    public Iterator&lt;TradeItem&gt; iterator() {
-<span class="nc" id="L306">        return items.iterator();</span>
-    }
-
-    /**
-     * Get the items offered by a particular player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to check.
-     * @return A list of &lt;code&gt;TradeItem&lt;/code&gt;s offered by the player.
-     */
-    public List&lt;TradeItem&gt; getItemsGivenBy(Player player) {
-<span class="nc" id="L316">        return items.stream()</span>
-<span class="nc bnc" id="L317" title="All 2 branches missed.">            .filter(ti -&gt; ti.getSource() == player)</span>
-<span class="nc" id="L318">            .collect(Collectors.toList());</span>
-    }
-
-    /**
-     * Get the stance being offered.
-     *
-     * @return The &lt;code&gt;Stance&lt;/code&gt; offered in this trade, or null if none.
-     */
-    public Stance getStance() {
-<span class="nc" id="L327">        TradeItem ti = find(items, i -&gt; i instanceof StanceTradeItem);</span>
-<span class="nc bnc" id="L328" title="All 2 branches missed.">        return (ti == null) ? null : ti.getStance();</span>
-    }
-
-    /**
-     * Get a list of colonies offered in this trade.
-     *
-     * @return A list of &lt;code&gt;Colony&lt;/code&gt;s offered in this trade.
-     */
-    public List&lt;Colony&gt; getColoniesGivenBy(Player player) {
-<span class="nc" id="L337">        List&lt;Colony&gt; colonyList = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L338" title="All 2 branches missed.">        for (TradeItem ti : items) {</span>
-<span class="nc bnc" id="L339" title="All 4 branches missed.">            if (ti instanceof ColonyTradeItem &amp;&amp; player == ti.getSource()) {</span>
-<span class="nc" id="L340">                colonyList.add(ti.getColony(player.getGame()));</span>
-            }
-<span class="nc" id="L342">        }</span>
-<span class="nc" id="L343">        return colonyList;</span>
-    }
-
-    /**
-     * Get the gold offered in this trade by a given player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to check.
-     * @return The gold offered in this trade.
-     */
-    public int getGoldGivenBy(Player player) {
-<span class="nc bnc" id="L353" title="All 2 branches missed.">        TradeItem ti = find(items, i -&gt; i instanceof GoldTradeItem</span>
-<span class="nc bnc" id="L354" title="All 2 branches missed.">            &amp;&amp; player == i.getSource());</span>
-<span class="nc bnc" id="L355" title="All 2 branches missed.">        return (ti == null) ? -1 : ti.getGold();</span>
-    }
-
-    /**
-     * Get the goods being offered.
-     *
-     * @return A list of &lt;code&gt;Goods&lt;/code&gt; offered in this trade.
-     */
-    public List&lt;Goods&gt; getGoodsGivenBy(Player player) {
-<span class="nc" id="L364">        List&lt;Goods&gt; goodsList = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L365" title="All 2 branches missed.">        for (TradeItem ti : items) {</span>
-<span class="nc bnc" id="L366" title="All 4 branches missed.">            if (ti instanceof GoodsTradeItem &amp;&amp; player == ti.getSource()) {</span>
-<span class="nc" id="L367">                goodsList.add(ti.getGoods());</span>
-            }
-<span class="nc" id="L369">        }</span>
-<span class="nc" id="L370">        return goodsList;</span>
-    }
-
-    /**
-     * Get the player being incited against.
-     *
-     * @return The &lt;code&gt;Player&lt;/code&gt; to be incited against.
-     */
-    public Player getVictim() {
-<span class="nc" id="L379">        TradeItem ti = find(items, i -&gt; i instanceof InciteTradeItem);</span>
-<span class="nc bnc" id="L380" title="All 2 branches missed.">        return (ti == null) ? null : ti.getVictim();</span>
-    }
-
-    /**
-     * Get a list of units offered in this trade.
-     *
-     * @return A list of &lt;code&gt;Unit&lt;/code&gt;s offered in this trade.
-     */
-    public List&lt;Unit&gt; getUnitsGivenBy(Player player) {
-<span class="nc" id="L389">        List&lt;Unit&gt; unitList = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L390" title="All 2 branches missed.">        for (TradeItem ti : items) {</span>
-<span class="nc bnc" id="L391" title="All 4 branches missed.">            if (ti instanceof UnitTradeItem &amp;&amp; player == ti.getSource()) {</span>
-<span class="nc" id="L392">                unitList.add(ti.getUnit());</span>
-            }
-<span class="nc" id="L394">        }</span>
-<span class="nc" id="L395">        return unitList;</span>
-    }
-
-    /**
-     * Gets the version of this agreement.
-     *
-     * @return The version number.
-     */
-    public int getVersion() {
-<span class="nc" id="L404">        return version;</span>
-    }
-
-    /**
-     * Increment the version of this agreement.
-     */
-    public void incrementVersion() {
-<span class="nc" id="L411">        this.version++;</span>
-<span class="nc" id="L412">    }</span>
-
-
-    // Serialization
-
-    private static final String CONTEXT_TAG = &quot;context&quot;;
-    private static final String RECIPIENT_TAG = &quot;recipient&quot;;
-    private static final String SENDER_TAG = &quot;sender&quot;;
-    private static final String STATUS_TAG = &quot;status&quot;;
-    private static final String VERSION_TAG = &quot;version&quot;;
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="nc" id="L429">        super.writeAttributes(xw);</span>
-
-<span class="nc" id="L431">        xw.writeAttribute(CONTEXT_TAG, context);</span>
-
-<span class="nc" id="L433">        xw.writeAttribute(SENDER_TAG, sender);</span>
-
-<span class="nc" id="L435">        xw.writeAttribute(RECIPIENT_TAG, recipient);</span>
-
-<span class="nc" id="L437">        xw.writeAttribute(STATUS_TAG, status);</span>
-
-<span class="nc" id="L439">        xw.writeAttribute(VERSION_TAG, version);</span>
-<span class="nc" id="L440">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="nc" id="L447">        super.writeChildren(xw);</span>
-
-<span class="nc bnc" id="L449" title="All 2 branches missed.">        for (TradeItem item : items) item.toXML(xw);</span>
-<span class="nc" id="L450">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-<span class="nc" id="L457">        super.readAttributes(xr);</span>
-
-<span class="nc" id="L459">        context = xr.getAttribute(CONTEXT_TAG, TradeContext.class,</span>
-                                  (TradeContext)null);
-
-<span class="nc" id="L462">        sender = xr.getAttribute(game, SENDER_TAG,</span>
-                                 Player.class, (Player)null);
-
-<span class="nc" id="L465">        recipient = xr.getAttribute(game, RECIPIENT_TAG,</span>
-                                    Player.class, (Player)null);
-
-<span class="nc" id="L468">        status = xr.getAttribute(STATUS_TAG, TradeStatus.class,</span>
-                                 TradeStatus.REJECT_TRADE);
-
-<span class="nc" id="L471">        version = xr.getAttribute(VERSION_TAG, 0);</span>
-<span class="nc" id="L472">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
-        // Clear containers.
-<span class="nc" id="L480">        items.clear();</span>
-
-<span class="nc" id="L482">        super.readChildren(xr);</span>
-<span class="nc" id="L483">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
-<span class="nc" id="L490">        final String tag = xr.getLocalName();</span>
-
-<span class="nc bnc" id="L492" title="All 2 branches missed.">        if (ColonyTradeItem.getXMLElementTagName().equals(tag)) {</span>
-<span class="nc" id="L493">            add(new ColonyTradeItem(game, xr));</span>
-
-<span class="nc bnc" id="L495" title="All 2 branches missed.">        } else if (GoldTradeItem.getXMLElementTagName().equals(tag)) {</span>
-<span class="nc" id="L496">            add(new GoldTradeItem(game, xr));</span>
-
-<span class="nc bnc" id="L498" title="All 2 branches missed.">        } else if (GoodsTradeItem.getXMLElementTagName().equals(tag)) {</span>
-<span class="nc" id="L499">            add(new GoodsTradeItem(game, xr));</span>
-
-<span class="nc bnc" id="L501" title="All 2 branches missed.">        } else if (InciteTradeItem.getXMLElementTagName().equals(tag)) {</span>
-<span class="nc" id="L502">            add(new InciteTradeItem(game, xr));</span>
-
-<span class="nc bnc" id="L504" title="All 2 branches missed.">        } else if (StanceTradeItem.getXMLElementTagName().equals(tag)) {</span>
-<span class="nc" id="L505">            add(new StanceTradeItem(game, xr));</span>
-
-<span class="nc bnc" id="L507" title="All 2 branches missed.">        } else if (UnitTradeItem.getXMLElementTagName().equals(tag)) {</span>
-<span class="nc" id="L508">            add(new UnitTradeItem(game, xr));</span>
-
-        } else {
-<span class="nc" id="L511">            super.readChild(xr);</span>
-        }
-<span class="nc" id="L513">    }</span>
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-<span class="nc" id="L521">        StringBuilder sb = new StringBuilder(128);</span>
-<span class="nc" id="L522">        sb.append(&quot;[&quot;).append(getId())</span>
-<span class="nc" id="L523">            .append(&quot; &quot;).append(context)</span>
-<span class="nc" id="L524">            .append(&quot; &quot;).append(status)</span>
-<span class="nc" id="L525">            .append(&quot; from=&quot;).append(sender.getId())</span>
-<span class="nc" id="L526">            .append(&quot; to=&quot;).append(recipient.getId())</span>
-<span class="nc" id="L527">            .append(&quot; version=&quot;).append(getVersion())</span>
-<span class="nc" id="L528">            .append(&quot; [&quot;);</span>
-<span class="nc bnc" id="L529" title="All 2 branches missed.">        for (TradeItem item : getTradeItems()) sb.append(&quot; &quot;).append(item);</span>
-<span class="nc" id="L530">        sb.append(&quot; ]]&quot;);</span>
-<span class="nc" id="L531">        return sb.toString();</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-<span class="nc" id="L538">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return &quot;diplomaticTrade&quot;.
-     */
-    public static String getXMLElementTagName() {
-<span class="nc" id="L546">        return &quot;diplomaticTrade&quot;;</span>
-    }
+	/** A context for the trade. */
+<span class="nc" id="L44">	public static enum TradeContext {</span>
+
+		/** The contact. */
+<span class="nc" id="L47">		CONTACT,</span>
+		/** First contact between Europeans. */
+<span class="nc" id="L49">		DIPLOMATIC,</span>
+		/** Scout negotiating. */
+<span class="nc" id="L51">		TRADE,</span>
+		/** Carrier trading. */
+<span class="nc" id="L53">		TRIBUTE;</span>
+		/**
+		 * Offensive unit demanding.
+		 *
+		 * @return the key
+		 */
+
+		/**
+		 * Get a message key for this trade context.
+		 *
+		 * @return A message key.
+		 */
+		public String getKey() {
+<span class="nc" id="L66">			return getEnumKey(this);</span>
+		}
+	}
+
+	/** A type for the trade status. */
+<span class="pc" id="L71">	public static enum TradeStatus {</span>
+
+		/** The propose trade. */
+<span class="fc" id="L74">		PROPOSE_TRADE,</span>
+
+		/** The accept trade. */
+<span class="fc" id="L77">		ACCEPT_TRADE,</span>
+
+		/** The reject trade. */
+<span class="fc" id="L80">		REJECT_TRADE</span>
+	}
+
+	/** The game in play. */
+	private final Game game;
+
+	/** The player who proposed agreement. */
+	private Player sender;
+
+	/** The player who is to accept this agreement. */
+	private Player recipient;
+
+	/** The context of this agreement. */
+	private TradeContext context;
+
+	/** The status of this agreement. */
+	private TradeStatus status;
+
+	/** The individual items the trade consists of. */
+<span class="nc" id="L99">	private final List&lt;TradeItem&gt; items = new ArrayList&lt;&gt;();</span>
+
+	/** Counter for the number of iterations on this attempt to agree. */
+	private int version;
+
+	/**
+	 * Creates a new &lt;code&gt;DiplomaticTrade&lt;/code&gt; instance.
+	 *
+	 * @param game
+	 *            The enclosing &lt;code&gt;Game&lt;/code&gt;.
+	 * @param context
+	 *            The &lt;code&gt;TradeContext&lt;/code&gt; for this agreement.
+	 * @param sender
+	 *            The sending &lt;code&gt;Player&lt;/code&gt;.
+	 * @param recipient
+	 *            The recipient &lt;code&gt;Player&lt;/code&gt;.
+	 * @param items
+	 *            A list of items to trade.
+	 * @param version
+	 *            the version
+	 */
+	public DiplomaticTrade(Game game, TradeContext context, Player sender, Player recipient, List&lt;TradeItem&gt; items,
+<span class="nc" id="L121">			int version) {</span>
+<span class="nc" id="L122">		setId(&quot;&quot;);</span>
+<span class="nc" id="L123">		this.game = game;</span>
+<span class="nc" id="L124">		this.context = context;</span>
+<span class="nc" id="L125">		this.sender = sender;</span>
+<span class="nc" id="L126">		this.recipient = recipient;</span>
+<span class="nc" id="L127">		this.status = TradeStatus.PROPOSE_TRADE;</span>
+<span class="nc" id="L128">		this.items.clear();</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">		if (items != null)</span>
+<span class="nc" id="L130">			this.items.addAll(items);</span>
+<span class="nc" id="L131">		this.version = version;</span>
+<span class="nc" id="L132">	}</span>
+
+	/**
+	 * Creates a new &lt;code&gt;DiplomaticTrade&lt;/code&gt; instance.
+	 *
+	 * @param game
+	 *            The enclosing &lt;code&gt;Game&lt;/code&gt;.
+	 * @param element
+	 *            an &lt;code&gt;Element&lt;/code&gt; value
+	 */
+<span class="nc" id="L142">	public DiplomaticTrade(Game game, Element element) {</span>
+<span class="nc" id="L143">		this.game = game;</span>
+
+<span class="nc" id="L145">		readFromXMLElement(element);</span>
+<span class="nc" id="L146">	}</span>
+
+	/**
+	 * Get the trade context.
+	 *
+	 * @return The context of this agreement.
+	 */
+	public TradeContext getContext() {
+<span class="nc" id="L154">		return context;</span>
+	}
+
+	/**
+	 * Get the trade status.
+	 *
+	 * @return The status of this agreement.
+	 */
+	public TradeStatus getStatus() {
+<span class="nc" id="L163">		return status;</span>
+	}
+
+	/**
+	 * Set the trade status.
+	 *
+	 * @param status
+	 *            The new &lt;code&gt;TradeStatus&lt;/code&gt; for this agreement.
+	 */
+	public void setStatus(TradeStatus status) {
+<span class="nc" id="L173">		this.status = status;</span>
+<span class="nc" id="L174">	}</span>
+
+	/**
+	 * Get the sending player.
+	 *
+	 * @return The sending &lt;code&gt;Player&lt;/code&gt;.
+	 */
+	public final Player getSender() {
+<span class="nc" id="L182">		return sender;</span>
+	}
+
+	/**
+	 * Set the sending player.
+	 *
+	 * @param newSender
+	 *            The new sending &lt;code&gt;Player&lt;/code&gt;.
+	 */
+	public final void setSender(final Player newSender) {
+<span class="nc" id="L192">		this.sender = newSender;</span>
+<span class="nc" id="L193">	}</span>
+
+	/**
+	 * Get the recipient player.
+	 *
+	 * @return The recipient &lt;code&gt;Player&lt;/code&gt;.
+	 */
+	public final Player getRecipient() {
+<span class="nc" id="L201">		return recipient;</span>
+	}
+
+	/**
+	 * Set the recieving player.
+	 *
+	 * @param newRecipient
+	 *            The new recipient &lt;code&gt;Player&lt;/code&gt;.
+	 */
+	public final void setRecipient(final Player newRecipient) {
+<span class="nc" id="L211">		this.recipient = newRecipient;</span>
+<span class="nc" id="L212">	}</span>
+
+	/**
+	 * Get the other player in a trade.
+	 *
+	 * @param player
+	 *            The known &lt;code&gt;Player&lt;/code&gt;.
+	 * @return The other player, not the supplied known one.
+	 */
+	public Player getOtherPlayer(Player player) {
+<span class="nc bnc" id="L222" title="All 2 branches missed.">		return (sender == player) ? recipient : sender;</span>
+	}
+
+	/**
+	 * Handy utility to get the message associated with sending this agreement
+	 * from a player to a settlement owner.
+	 *
+	 * @param player
+	 *            The sending &lt;code&gt;Player&lt;/code&gt;.
+	 * @param settlement
+	 *            The &lt;code&gt;Settlement&lt;/code&gt; to send to.
+	 * @return A &lt;code&gt;StringTemplate&lt;/code&gt; for the message.
+	 */
+	public StringTemplate getSendMessage(Player player, Settlement settlement) {
+<span class="nc" id="L236">		return StringTemplate.template(&quot;model.diplomaticTrade.send.&quot; + getContext().getKey())</span>
+<span class="nc" id="L237">				.addStringTemplate(&quot;%nation%&quot;, settlement.getOwner().getNationLabel())</span>
+<span class="nc" id="L238">				.addStringTemplate(&quot;%settlement%&quot;, settlement.getLocationLabelFor(player));</span>
+	}
+
+	/**
+	 * Handy utility to get the message associated with sending this agreement
+	 * from a player to a settlement owner.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; the offer came from.
+	 * @return A &lt;code&gt;StringTemplate&lt;/code&gt; for the message.
+	 */
+	public StringTemplate getReceiveMessage(Player player) {
+<span class="nc" id="L250">		return StringTemplate.template(&quot;model.diplomaticTrade.receive.&quot; + getContext().getKey())</span>
+<span class="nc" id="L251">				.addStringTemplate(&quot;%nation%&quot;, player.getNationLabel());</span>
+	}
+
+	/**
+	 * Add to the DiplomaticTrade.
+	 *
+	 * @param newItem
+	 *            The &lt;code&gt;TradeItem&lt;/code&gt; to add.
+	 */
+	public void add(TradeItem newItem) {
+<span class="nc bnc" id="L261" title="All 2 branches missed.">		if (newItem.isUnique()) {</span>
+<span class="nc" id="L262">			removeType(newItem.getClass());</span>
+		}
+<span class="nc" id="L264">		items.add(newItem);</span>
+<span class="nc" id="L265">	}</span>
+
+	/**
+	 * Remove a from the DiplomaticTrade.
+	 *
+	 * @param newItem
+	 *            The &lt;code&gt;TradeItem&lt;/code&gt; to remove.
+	 */
+	public void remove(TradeItem newItem) {
+<span class="nc" id="L274">		items.remove(newItem);</span>
+<span class="nc" id="L275">	}</span>
+
+	/**
+	 * Remove from the DiplomaticTrade.
+	 *
+	 * @param index
+	 *            The index of the &lt;code&gt;TradeItem&lt;/code&gt; to remove
+	 */
+	public void remove(int index) {
+<span class="nc" id="L284">		items.remove(index);</span>
+<span class="nc" id="L285">	}</span>
+
+	/**
+	 * Removes all trade items of the same class as the given argument.
+	 *
+	 * @param itemClass
+	 *            The &lt;code&gt;Class&lt;/code&gt; of &lt;code&gt;TradeItem&lt;/code&gt; to remove.
+	 */
+	public void removeType(Class&lt;? extends TradeItem&gt; itemClass) {
+<span class="nc" id="L294">		Iterator&lt;TradeItem&gt; itemIterator = items.iterator();</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">		while (itemIterator.hasNext()) {</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">			if (itemIterator.next().getClass() == itemClass) {</span>
+<span class="nc" id="L297">				itemIterator.remove();</span>
+			}
+		}
+<span class="nc" id="L300">	}</span>
+
+	/**
+	 * Remove all trade items from this agreement.
+	 */
+	public void clear() {
+<span class="nc" id="L306">		items.clear();</span>
+<span class="nc" id="L307">	}</span>
+
+	/**
+	 * Get a list of all items to trade.
+	 *
+	 * @return A list of all the TradeItems.
+	 */
+	public final List&lt;TradeItem&gt; getTradeItems() {
+<span class="nc" id="L315">		return items;</span>
+	}
+
+	/**
+	 * Are there no trade items present?.
+	 *
+	 * @return True if there are no trade items present.
+	 */
+	public final boolean isEmpty() {
+<span class="nc" id="L324">		return items.isEmpty();</span>
+	}
+
+	/**
+	 * Get an iterator for all the TradeItems.
+	 *
+	 * @return An iterator for all TradeItems.
+	 */
+	public Iterator&lt;TradeItem&gt; iterator() {
+<span class="nc" id="L333">		return items.iterator();</span>
+	}
+
+	/**
+	 * Get the items offered by a particular player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to check.
+	 * @return A list of &lt;code&gt;TradeItem&lt;/code&gt;s offered by the player.
+	 */
+	public List&lt;TradeItem&gt; getItemsGivenBy(Player player) {
+<span class="nc bnc" id="L344" title="All 2 branches missed.">		return items.stream().filter(ti -&gt; ti.getSource() == player).collect(Collectors.toList());</span>
+	}
+
+	/**
+	 * Get the stance being offered.
+	 *
+	 * @return The &lt;code&gt;Stance&lt;/code&gt; offered in this trade, or null if none.
+	 */
+	public Stance getStance() {
+<span class="nc" id="L353">		TradeItem ti = find(items, i -&gt; i instanceof StanceTradeItem);</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">		return (ti == null) ? null : ti.getStance();</span>
+	}
+
+	/**
+	 * Get a list of colonies offered in this trade.
+	 *
+	 * @param player
+	 *            the player
+	 * @return A list of &lt;code&gt;Colony&lt;/code&gt;s offered in this trade.
+	 */
+	public List&lt;Colony&gt; getColoniesGivenBy(Player player) {
+<span class="nc" id="L365">		List&lt;Colony&gt; colonyList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L366" title="All 2 branches missed.">		for (TradeItem ti : items) {</span>
+<span class="nc bnc" id="L367" title="All 4 branches missed.">			if (ti instanceof ColonyTradeItem &amp;&amp; player == ti.getSource()) {</span>
+<span class="nc" id="L368">				colonyList.add(ti.getColony(player.getGame()));</span>
+			}
+<span class="nc" id="L370">		}</span>
+<span class="nc" id="L371">		return colonyList;</span>
+	}
+
+	/**
+	 * Get the gold offered in this trade by a given player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to check.
+	 * @return The gold offered in this trade.
+	 */
+	public int getGoldGivenBy(Player player) {
+<span class="nc bnc" id="L382" title="All 4 branches missed.">		TradeItem ti = find(items, i -&gt; i instanceof GoldTradeItem &amp;&amp; player == i.getSource());</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">		return (ti == null) ? -1 : ti.getGold();</span>
+	}
+
+	/**
+	 * Get the goods being offered.
+	 *
+	 * @param player
+	 *            the player
+	 * @return A list of &lt;code&gt;Goods&lt;/code&gt; offered in this trade.
+	 */
+	public List&lt;Goods&gt; getGoodsGivenBy(Player player) {
+<span class="nc" id="L394">		List&lt;Goods&gt; goodsList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L395" title="All 2 branches missed.">		for (TradeItem ti : items) {</span>
+<span class="nc bnc" id="L396" title="All 4 branches missed.">			if (ti instanceof GoodsTradeItem &amp;&amp; player == ti.getSource()) {</span>
+<span class="nc" id="L397">				goodsList.add(ti.getGoods());</span>
+			}
+<span class="nc" id="L399">		}</span>
+<span class="nc" id="L400">		return goodsList;</span>
+	}
+
+	/**
+	 * Get the player being incited against.
+	 *
+	 * @return The &lt;code&gt;Player&lt;/code&gt; to be incited against.
+	 */
+	public Player getVictim() {
+<span class="nc" id="L409">		TradeItem ti = find(items, i -&gt; i instanceof InciteTradeItem);</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">		return (ti == null) ? null : ti.getVictim();</span>
+	}
+
+	/**
+	 * Get a list of units offered in this trade.
+	 *
+	 * @param player
+	 *            the player
+	 * @return A list of &lt;code&gt;Unit&lt;/code&gt;s offered in this trade.
+	 */
+	public List&lt;Unit&gt; getUnitsGivenBy(Player player) {
+<span class="nc" id="L421">		List&lt;Unit&gt; unitList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L422" title="All 2 branches missed.">		for (TradeItem ti : items) {</span>
+<span class="nc bnc" id="L423" title="All 4 branches missed.">			if (ti instanceof UnitTradeItem &amp;&amp; player == ti.getSource()) {</span>
+<span class="nc" id="L424">				unitList.add(ti.getUnit());</span>
+			}
+<span class="nc" id="L426">		}</span>
+<span class="nc" id="L427">		return unitList;</span>
+	}
+
+	/**
+	 * Gets the version of this agreement.
+	 *
+	 * @return The version number.
+	 */
+	public int getVersion() {
+<span class="nc" id="L436">		return version;</span>
+	}
+
+	/**
+	 * Increment the version of this agreement.
+	 */
+	public void incrementVersion() {
+<span class="nc" id="L443">		this.version++;</span>
+<span class="nc" id="L444">	}</span>
+
+	// Serialization
+
+	/** The Constant CONTEXT_TAG. */
+	private static final String CONTEXT_TAG = &quot;context&quot;;
+
+	/** The Constant RECIPIENT_TAG. */
+	private static final String RECIPIENT_TAG = &quot;recipient&quot;;
+
+	/** The Constant SENDER_TAG. */
+	private static final String SENDER_TAG = &quot;sender&quot;;
+
+	/** The Constant STATUS_TAG. */
+	private static final String STATUS_TAG = &quot;status&quot;;
+
+	/** The Constant VERSION_TAG. */
+	private static final String VERSION_TAG = &quot;version&quot;;
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="nc" id="L468">		super.writeAttributes(xw);</span>
+
+<span class="nc" id="L470">		xw.writeAttribute(CONTEXT_TAG, context);</span>
+
+<span class="nc" id="L472">		xw.writeAttribute(SENDER_TAG, sender);</span>
+
+<span class="nc" id="L474">		xw.writeAttribute(RECIPIENT_TAG, recipient);</span>
+
+<span class="nc" id="L476">		xw.writeAttribute(STATUS_TAG, status);</span>
+
+<span class="nc" id="L478">		xw.writeAttribute(VERSION_TAG, version);</span>
+<span class="nc" id="L479">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="nc" id="L486">		super.writeChildren(xw);</span>
+
+<span class="nc bnc" id="L488" title="All 2 branches missed.">		for (TradeItem item : items)</span>
+<span class="nc" id="L489">			item.toXML(xw);</span>
+<span class="nc" id="L490">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L497">		super.readAttributes(xr);</span>
+
+<span class="nc" id="L499">		context = xr.getAttribute(CONTEXT_TAG, TradeContext.class, (TradeContext) null);</span>
+
+<span class="nc" id="L501">		sender = xr.getAttribute(game, SENDER_TAG, Player.class, (Player) null);</span>
+
+<span class="nc" id="L503">		recipient = xr.getAttribute(game, RECIPIENT_TAG, Player.class, (Player) null);</span>
+
+<span class="nc" id="L505">		status = xr.getAttribute(STATUS_TAG, TradeStatus.class, TradeStatus.REJECT_TRADE);</span>
+
+<span class="nc" id="L507">		version = xr.getAttribute(VERSION_TAG, 0);</span>
+<span class="nc" id="L508">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+		// Clear containers.
+<span class="nc" id="L516">		items.clear();</span>
+
+<span class="nc" id="L518">		super.readChildren(xr);</span>
+<span class="nc" id="L519">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L526">		final String tag = xr.getLocalName();</span>
+
+<span class="nc bnc" id="L528" title="All 2 branches missed.">		if (ColonyTradeItem.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L529">			add(new ColonyTradeItem(game, xr));</span>
+
+<span class="nc bnc" id="L531" title="All 2 branches missed.">		} else if (GoldTradeItem.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L532">			add(new GoldTradeItem(game, xr));</span>
+
+<span class="nc bnc" id="L534" title="All 2 branches missed.">		} else if (GoodsTradeItem.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L535">			add(new GoodsTradeItem(game, xr));</span>
+
+<span class="nc bnc" id="L537" title="All 2 branches missed.">		} else if (InciteTradeItem.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L538">			add(new InciteTradeItem(game, xr));</span>
+
+<span class="nc bnc" id="L540" title="All 2 branches missed.">		} else if (StanceTradeItem.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L541">			add(new StanceTradeItem(game, xr));</span>
+
+<span class="nc bnc" id="L543" title="All 2 branches missed.">		} else if (UnitTradeItem.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L544">			add(new UnitTradeItem(game, xr));</span>
+
+		} else {
+<span class="nc" id="L547">			super.readChild(xr);</span>
+		}
+<span class="nc" id="L549">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+<span class="nc" id="L556">		StringBuilder sb = new StringBuilder(128);</span>
+<span class="nc" id="L557">		sb.append(&quot;[&quot;).append(getId()).append(&quot; &quot;).append(context).append(&quot; &quot;).append(status).append(&quot; from=&quot;)</span>
+<span class="nc" id="L558">				.append(sender.getId()).append(&quot; to=&quot;).append(recipient.getId()).append(&quot; version=&quot;)</span>
+<span class="nc" id="L559">				.append(getVersion()).append(&quot; [&quot;);</span>
+<span class="nc bnc" id="L560" title="All 2 branches missed.">		for (TradeItem item : getTradeItems())</span>
+<span class="nc" id="L561">			sb.append(&quot; &quot;).append(item);</span>
+<span class="nc" id="L562">		sb.append(&quot; ]]&quot;);</span>
+<span class="nc" id="L563">		return sb.toString();</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+<span class="nc" id="L571">		return getXMLElementTagName();</span>
+	}
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return &quot;diplomaticTrade&quot;.
+	 */
+	public static String getXMLElementTagName() {
+<span class="nc" id="L580">		return &quot;diplomaticTrade&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

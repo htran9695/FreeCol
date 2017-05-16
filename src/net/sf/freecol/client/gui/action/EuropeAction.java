@@ -23,46 +23,43 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for displaying the
  * {@link net.sf.freecol.client.gui.panel.EuropePanel}.
  */
 public class EuropeAction extends MapboardAction {
 
-    public static final String id = "europeAction";
+	/** The Constant id. */
+	public static final String id = "europeAction";
 
+	/**
+	 * Creates a new <code>EuropeAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public EuropeAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>EuropeAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public EuropeAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		return super.shouldBeEnabled() && getFreeColClient().getMyPlayer() != null
+				&& getFreeColClient().getMyPlayer().getEurope() != null;
+	}
 
-    // Override FreeColAction
+	// Interface ActionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        return super.shouldBeEnabled()
-            && getFreeColClient().getMyPlayer() != null
-            && getFreeColClient().getMyPlayer().getEurope() != null;
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        getGUI().showEuropePanel();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		getGUI().showEuropePanel();
+	}
 }

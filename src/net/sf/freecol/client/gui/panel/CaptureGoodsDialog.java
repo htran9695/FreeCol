@@ -42,193 +42,210 @@ import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
  * Panel for choosing the goods to capture.
  */
 public final class CaptureGoodsDialog extends FreeColDialog<List<Goods>> {
 
-    private static final Logger logger = Logger.getLogger(CaptureGoodsDialog.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(CaptureGoodsDialog.class.getName());
 
+	/**
+	 * The Class GoodsItem.
+	 */
+	private static class GoodsItem extends JCheckBox {
 
-    private static class GoodsItem extends JCheckBox {
+		/** The goods. */
+		private final Goods goods;
 
-        private final Goods goods;
+		/**
+		 * Instantiates a new goods item.
+		 *
+		 * @param goods
+		 *            the goods
+		 */
+		public GoodsItem(Goods goods) {
+			this.goods = goods;
+		}
 
+		/**
+		 * Gets the goods.
+		 *
+		 * @return the goods
+		 */
+		public Goods getGoods() {
+			return this.goods;
+		}
 
-        public GoodsItem(Goods goods) {
-            this.goods = goods;
-        }
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public String toString() {
+			return Messages.message(this.goods.getLabel());
+		}
+	}
 
+	/**
+	 * The Class CheckBoxRenderer.
+	 */
+	private static class CheckBoxRenderer extends JCheckBox implements ListCellRenderer<GoodsItem> {
 
-        public Goods getGoods() {
-            return this.goods;
-        }
+		/**
+		 * Instantiates a new check box renderer.
+		 */
+		public CheckBoxRenderer() {
+			// setBackground(UIManager.getColor("List.textBackground"));
+			// setForeground(UIManager.getColor("List.textForeground"));
+		}
 
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public String toString() {
-            return Messages.message(this.goods.getLabel());
-        }
-    }
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public Component getListCellRendererComponent(JList<? extends GoodsItem> list, GoodsItem value, int index,
+				boolean isSelected, boolean hasFocus) {
+			setSelected(value.isSelected());
+			setText(value.toString());
+			setEnabled(value.isEnabled());
+			return this;
+		}
+	}
 
-    private static class CheckBoxRenderer extends JCheckBox
-        implements ListCellRenderer<GoodsItem> {
+	/** The maximum number of items to loot. */
+	private final int maxCargo;
 
-        public CheckBoxRenderer() {
-            //setBackground(UIManager.getColor("List.textBackground"));
-            //setForeground(UIManager.getColor("List.textForeground"));
-        }
+	/** The button to select all items. */
+	private final JButton allButton;
 
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Component getListCellRendererComponent(JList<? extends GoodsItem> list,
-                                                      GoodsItem value,
-                                                      int index,
-                                                      boolean isSelected,
-                                                      boolean hasFocus) {
-            setSelected(value.isSelected());
-            setText(value.toString());
-            setEnabled(value.isEnabled());
-            return this;
-        }
-    }
+	/** The button to select no items. */
+	private final JButton noneButton;
 
-    /** The maximum number of items to loot. */
-    private final int maxCargo;
+	/** The list of goods to display. */
+	private JList<GoodsItem> goodsList;
 
-    /** The button to select all items. */
-    private final JButton allButton;
+	/**
+	 * Creates a new CaptureGoodsDialog.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param frame
+	 *            The owner frame.
+	 * @param winner
+	 *            The <code>Unit</code> that is looting.
+	 * @param loot
+	 *            The <code>Goods</code> to loot.
+	 */
+	public CaptureGoodsDialog(FreeColClient freeColClient, JFrame frame, Unit winner, List<Goods> loot) {
+		super(freeColClient, frame);
 
-    /** The button to select no items. */
-    private final JButton noneButton;
+		this.maxCargo = winner.getSpaceLeft();
 
-    /** The list of goods to display. */
-    private JList<GoodsItem> goodsList;
+		this.allButton = Utility.localizedButton("all");
+		this.allButton.addActionListener((ActionEvent ae) -> {
+			JList<GoodsItem> gl = CaptureGoodsDialog.this.goodsList;
+			for (int i = 0; i < gl.getModel().getSize() && i < CaptureGoodsDialog.this.maxCargo; i++) {
+				GoodsItem gi = gl.getModel().getElementAt(i);
+				gi.setSelected(true);
+				updateComponents();
+			}
+		});
+		this.allButton.setMnemonic('a');
+		this.allButton.setActionCommand(this.allButton.getText());
 
+		this.noneButton = Utility.localizedButton("none");
+		this.noneButton.addActionListener((ActionEvent ae) -> {
+			JList<GoodsItem> gl = CaptureGoodsDialog.this.goodsList;
+			for (int i = 0; i < gl.getModel().getSize(); i++) {
+				GoodsItem gi = gl.getModel().getElementAt(i);
+				gi.setSelected(false);
+				updateComponents();
+			}
+		});
+		this.noneButton.setMnemonic('n');
+		this.noneButton.setActionCommand(this.noneButton.getText());
 
-    /**
-     * Creates a new CaptureGoodsDialog.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param frame The owner frame.
-     * @param winner The <code>Unit</code> that is looting.
-     * @param loot The <code>Goods</code> to loot.
-     */
-    public CaptureGoodsDialog(FreeColClient freeColClient, JFrame frame,
-            Unit winner, List<Goods> loot) {
-        super(freeColClient, frame);
+		GoodsItem[] goods = new GoodsItem[loot.size()];
+		for (int i = 0; i < loot.size(); i++) {
+			goods[i] = new GoodsItem(loot.get(i));
+		}
+		this.goodsList = new JList<>();
+		this.goodsList.setListData(goods);
+		this.goodsList.setCellRenderer(new CheckBoxRenderer());
+		this.goodsList.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent me) {
+				JList<GoodsItem> gl = CaptureGoodsDialog.this.goodsList;
+				int index = gl.locationToIndex(me.getPoint());
+				if (index < 0)
+					return;
+				GoodsItem item = gl.getModel().getElementAt(index);
+				if (item.isEnabled())
+					item.setSelected(!item.isSelected());
+				updateComponents();
+			}
+		});
 
-        this.maxCargo = winner.getSpaceLeft();
+		MigPanel panel = new MigPanel(new MigLayout("wrap 1", "[center]", "[]20[]20[]"));
+		panel.add(Utility.localizedHeader("captureGoodsDialog.title", true));
+		panel.add(this.allButton, "split 2");
+		panel.add(this.noneButton);
+		panel.add(this.goodsList);
+		panel.setSize(panel.getPreferredSize());
 
-        this.allButton = Utility.localizedButton("all");
-        this.allButton.addActionListener((ActionEvent ae) -> {
-                JList<GoodsItem> gl = CaptureGoodsDialog.this.goodsList;
-                for (int i = 0; i < gl.getModel().getSize()
-                         && i < CaptureGoodsDialog.this.maxCargo; i++) {
-                    GoodsItem gi = gl.getModel().getElementAt(i);
-                    gi.setSelected(true);
-                    updateComponents();
-                }
-            });
-        this.allButton.setMnemonic('a');
-        this.allButton.setActionCommand(this.allButton.getText());
- 
-        this.noneButton = Utility.localizedButton("none");
-        this.noneButton.addActionListener((ActionEvent ae) -> {
-                JList<GoodsItem> gl = CaptureGoodsDialog.this.goodsList;
-                for (int i = 0; i < gl.getModel().getSize(); i++) {
-                    GoodsItem gi = gl.getModel().getElementAt(i);
-                    gi.setSelected(false);
-                    updateComponents();
-                }
-            });
-        this.noneButton.setMnemonic('n');
-        this.noneButton.setActionCommand(this.noneButton.getText());
+		List<Goods> fake = null;
+		List<ChoiceItem<List<Goods>>> c = choices();
+		c.add(new ChoiceItem<>(Messages.message("ok"), fake).okOption().defaultOption());
+		initializeDialog(frame, DialogType.QUESTION, false, panel,
+				new ImageIcon(getImageLibrary().getUnitImage(winner)), c);
+	}
 
-        GoodsItem[] goods = new GoodsItem[loot.size()];
-        for (int i = 0; i < loot.size(); i++) {
-            goods[i] = new GoodsItem(loot.get(i));
-        }
-        this.goodsList = new JList<>();
-        this.goodsList.setListData(goods);
-        this.goodsList.setCellRenderer(new CheckBoxRenderer());
-        this.goodsList.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent me) {
-                    JList<GoodsItem> gl = CaptureGoodsDialog.this.goodsList;
-                    int index = gl.locationToIndex(me.getPoint());
-                    if (index < 0) return;
-                    GoodsItem item = gl.getModel().getElementAt(index);
-                    if (item.isEnabled()) item.setSelected(!item.isSelected());
-                    updateComponents();
-                }
-            });
+	/**
+	 * Update the components of the goods list.
+	 */
+	private void updateComponents() {
+		int selectedCount = 0;
+		for (int i = 0; i < this.goodsList.getModel().getSize(); i++) {
+			GoodsItem gi = this.goodsList.getModel().getElementAt(i);
+			if (gi.isSelected())
+				selectedCount++;
+		}
 
-        MigPanel panel = new MigPanel(new MigLayout("wrap 1", "[center]",
-                                                    "[]20[]20[]"));
-        panel.add(Utility.localizedHeader("captureGoodsDialog.title", true));
-        panel.add(this.allButton, "split 2");
-        panel.add(this.noneButton);
-        panel.add(this.goodsList);
-        panel.setSize(panel.getPreferredSize());
+		if (selectedCount >= this.maxCargo) {
+			this.allButton.setEnabled(false);
+			for (int i = 0; i < this.goodsList.getModel().getSize(); i++) {
+				GoodsItem gi = this.goodsList.getModel().getElementAt(i);
+				if (!gi.isSelected())
+					gi.setEnabled(false);
+			}
+		} else {
+			this.allButton.setEnabled(true);
+			for (int i = 0; i < this.goodsList.getModel().getSize(); i++) {
+				GoodsItem gi = this.goodsList.getModel().getElementAt(i);
+				if (!gi.isSelected())
+					gi.setEnabled(true);
+			}
+		}
 
-        List<Goods> fake = null;
-        List<ChoiceItem<List<Goods>>> c = choices();
-        c.add(new ChoiceItem<>(Messages.message("ok"), fake)
-            .okOption().defaultOption());
-        initializeDialog(frame, DialogType.QUESTION, false, panel,
-            new ImageIcon(getImageLibrary().getUnitImage(winner)), c);
-    }
+		goodsList.repaint();
+	}
 
+	// Implement FreeColDialog
 
-    /**
-     * Update the components of the goods list.
-     */
-    private void updateComponents() {
-        int selectedCount = 0;
-        for (int i = 0; i < this.goodsList.getModel().getSize(); i++) {
-            GoodsItem gi = this.goodsList.getModel().getElementAt(i);
-            if (gi.isSelected()) selectedCount++;
-        }
-
-        if (selectedCount >= this.maxCargo) {
-            this.allButton.setEnabled(false);
-            for (int i = 0; i < this.goodsList.getModel().getSize(); i++) {
-                GoodsItem gi = this.goodsList.getModel().getElementAt(i);
-                if (!gi.isSelected()) gi.setEnabled(false);
-            }
-        } else {
-            this.allButton.setEnabled(true);
-            for (int i = 0; i < this.goodsList.getModel().getSize(); i++) {
-                GoodsItem gi = this.goodsList.getModel().getElementAt(i);
-                if (!gi.isSelected()) gi.setEnabled(true);
-            }
-        }
-
-        goodsList.repaint();
-    }
-
-
-    // Implement FreeColDialog
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<Goods> getResponse() {
-        Object value = getValue();
-        List<Goods> gl = new ArrayList<>();
-        if (options.get(0).equals(value)) {
-            for (int i = 0; i < this.goodsList.getModel().getSize(); i++) {
-                GoodsItem gi = this.goodsList.getModel().getElementAt(i);
-                if (gi.isSelected()) gl.add(gi.getGoods());
-            }
-        }
-        return gl;
-    }            
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public List<Goods> getResponse() {
+		Object value = getValue();
+		List<Goods> gl = new ArrayList<>();
+		if (options.get(0).equals(value)) {
+			for (int i = 0; i < this.goodsList.getModel().getSize(); i++) {
+				GoodsItem gi = this.goodsList.getModel().getElementAt(i);
+				if (gi.isSelected())
+					gl.add(gi.getGoods());
+			}
+		}
+		return gl;
+	}
 }

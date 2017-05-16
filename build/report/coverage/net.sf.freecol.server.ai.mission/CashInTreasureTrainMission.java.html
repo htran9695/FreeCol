@@ -41,460 +41,467 @@ import net.sf.freecol.server.ai.AIMain;
 import net.sf.freecol.server.ai.AIMessage;
 import net.sf.freecol.server.ai.AIUnit;
 
-
 /**
- * Mission for cashing in a treasure train.
- * FIXME: acquire protection
- * FIXME: Better avoidance of enemy units
+ * Mission for cashing in a treasure train. FIXME: acquire protection FIXME:
+ * Better avoidance of enemy units
  */
 public class CashInTreasureTrainMission extends Mission {
 
-<span class="nc" id="L52">    private static final Logger logger = Logger.getLogger(CashInTreasureTrainMission.class.getName());</span>
+	/** The Constant logger. */
+<span class="nc" id="L51">	private static final Logger logger = Logger.getLogger(CashInTreasureTrainMission.class.getName());</span>
 
-    /** The tag for this mission. */
-    private static final String tag = &quot;AI treasureTrain&quot;;
+	/** The tag for this mission. */
+	private static final String tag = &quot;AI treasureTrain&quot;;
 
-    /**
-     * The location to cash this treasure train in at, either a Colony
-     * or Europe.
-     */
-    private Location target;
+	/**
+	 * The location to cash this treasure train in at, either a Colony or
+	 * Europe.
+	 */
+	private Location target;
 
+	/**
+	 * Creates a mission for the given &lt;code&gt;AIUnit&lt;/code&gt;.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
+	 * @param target
+	 *            The target &lt;code&gt;Location&lt;/code&gt; for this mission.
+	 */
+	public CashInTreasureTrainMission(AIMain aiMain, AIUnit aiUnit, Location target) {
+<span class="nc" id="L73">		super(aiMain, aiUnit, target);</span>
+<span class="nc" id="L74">	}</span>
 
-    /**
-     * Creates a mission for the given &lt;code&gt;AIUnit&lt;/code&gt;.
-     *
-     * @param aiMain The main AI-object.
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
-     * @param target The target &lt;code&gt;Location&lt;/code&gt; for this mission.
-     */
-    public CashInTreasureTrainMission(AIMain aiMain, AIUnit aiUnit,
-                                      Location target) {
-<span class="nc" id="L73">        super(aiMain, aiUnit, target);</span>
-<span class="nc" id="L74">    }</span>
+	/**
+	 * Creates a new &lt;code&gt;CashInTreasureTrainMission&lt;/code&gt; and reads the given
+	 * element.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
+	 * @param xr
+	 *            The input stream containing the XML.
+	 * @throws XMLStreamException
+	 *             if a problem was encountered during parsing.
+	 * @see net.sf.freecol.server.ai.AIObject#readFromXML
+	 */
+	public CashInTreasureTrainMission(AIMain aiMain, AIUnit aiUnit, FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L91">		super(aiMain, aiUnit);</span>
 
-    /**
-     * Creates a new &lt;code&gt;CashInTreasureTrainMission&lt;/code&gt; and reads
-     * the given element.
-     *
-     * @param aiMain The main AI-object.
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
-     * @param xr The input stream containing the XML.
-     * @throws XMLStreamException if a problem was encountered
-     *      during parsing.
-     * @see net.sf.freecol.server.ai.AIObject#readFromXML
-     */
-    public CashInTreasureTrainMission(AIMain aiMain, AIUnit aiUnit,
-                                      FreeColXMLReader xr) throws XMLStreamException {
-<span class="nc" id="L89">        super(aiMain, aiUnit);</span>
+<span class="nc" id="L93">		readFromXML(xr);</span>
+<span class="nc" id="L94">	}</span>
 
-<span class="nc" id="L91">        readFromXML(xr);</span>
-<span class="nc" id="L92">    }</span>
+	/**
+	 * Assign a carrier for this treasure.
+	 *
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 * @return A suitable carrier &lt;code&gt;AIUnit&lt;/code&gt;, to which this unit has
+	 *         been queued for transport.
+	 */
+	private AIUnit assignCarrier(LogBuilder lb) {
+<span class="nc" id="L105">		final AIUnit aiUnit = getAIUnit();</span>
+<span class="nc" id="L106">		final Unit unit = getUnit();</span>
+<span class="nc" id="L107">		final Player player = unit.getOwner();</span>
+<span class="nc" id="L108">		final Europe europe = player.getEurope();</span>
 
-    /**
-     * Assign a carrier for this treasure.
-     *
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     * @return A suitable carrier &lt;code&gt;AIUnit&lt;/code&gt;, to which this unit
-     *     has been queued for transport.
-     */
-    private AIUnit assignCarrier(LogBuilder lb) {
-<span class="nc" id="L102">        final AIUnit aiUnit = getAIUnit();</span>
-<span class="nc" id="L103">        final Unit unit = getUnit();</span>
-<span class="nc" id="L104">        final Player player = unit.getOwner();</span>
-<span class="nc" id="L105">        final Europe europe = player.getEurope();</span>
+<span class="nc" id="L110">		List&lt;Unit&gt; carriers = player.getCarriersForUnit(unit);</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">		if (carriers.isEmpty())</span>
+<span class="nc" id="L112">			return null;</span>
 
-<span class="nc" id="L107">        List&lt;Unit&gt; carriers = player.getCarriersForUnit(unit);</span>
-<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (carriers.isEmpty()) return null;</span>
+		// Pick the closest carrier and queue this unit.
+<span class="nc" id="L115">		final Location here = unit.getLocation();</span>
+<span class="nc" id="L116">		int turns = Unit.MANY_TURNS;</span>
+<span class="nc" id="L117">		Unit closest = null;</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">		for (Unit c : carriers) {</span>
+<span class="nc" id="L119">			int t = c.getTurnsToReach(here);</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">			if (turns &gt; t) {</span>
+<span class="nc" id="L121">				turns = t;</span>
+<span class="nc" id="L122">				closest = c;</span>
+			}
+<span class="nc" id="L124">		}</span>
+<span class="nc" id="L125">		final AIMain aiMain = getAIMain();</span>
+		TransportMission tm;
+		AIUnit aiCarrier;
+<span class="nc bnc" id="L128" title="All 4 branches missed.">		if (closest != null &amp;&amp; (aiCarrier = aiMain.getAIUnit(closest)) != null</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">				&amp;&amp; (tm = aiCarrier.getMission(TransportMission.class)) != null) {</span>
+<span class="nc" id="L130">			setTarget(europe);</span>
+<span class="nc" id="L131">			aiUnit.changeTransport(aiCarrier);</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">			if (tm.forceCollection(aiUnit, lb)) {</span>
+<span class="nc" id="L133">				lb.add(&quot; forced collection on &quot;, aiCarrier.getUnit());</span>
+<span class="nc" id="L134">				return aiCarrier;</span>
+			}
+		}
+<span class="nc" id="L137">		return null;</span>
+	}
 
-        // Pick the closest carrier and queue this unit.
-<span class="nc" id="L111">        final Location here = unit.getLocation();</span>
-<span class="nc" id="L112">        int turns = Unit.MANY_TURNS;</span>
-<span class="nc" id="L113">        Unit closest = null;</span>
-<span class="nc bnc" id="L114" title="All 2 branches missed.">        for (Unit c : carriers) {</span>
-<span class="nc" id="L115">            int t = c.getTurnsToReach(here);</span>
-<span class="nc bnc" id="L116" title="All 2 branches missed.">            if (turns &gt; t) {</span>
-<span class="nc" id="L117">                turns = t;</span>
-<span class="nc" id="L118">                closest = c;</span>
-            }
-<span class="nc" id="L120">        }</span>
-<span class="nc" id="L121">        final AIMain aiMain = getAIMain();</span>
-        TransportMission tm;
-        AIUnit aiCarrier;
-<span class="nc bnc" id="L124" title="All 2 branches missed.">        if (closest != null</span>
-<span class="nc bnc" id="L125" title="All 2 branches missed.">            &amp;&amp; (aiCarrier = aiMain.getAIUnit(closest)) != null</span>
-<span class="nc bnc" id="L126" title="All 2 branches missed.">            &amp;&amp; (tm = aiCarrier.getMission(TransportMission.class)) != null) {</span>
-<span class="nc" id="L127">            setTarget(europe);</span>
-<span class="nc" id="L128">            aiUnit.changeTransport(aiCarrier);</span>
-<span class="nc bnc" id="L129" title="All 2 branches missed.">            if (tm.forceCollection(aiUnit, lb)) {</span>
-<span class="nc" id="L130">                lb.add(&quot; forced collection on &quot;, aiCarrier.getUnit());</span>
-<span class="nc" id="L131">                return aiCarrier;</span>
-            }
-        }
-<span class="nc" id="L134">        return null;</span>
-    }
+	/**
+	 * Extract a valid target for this mission from a path.
+	 *
+	 * @param aiUnit
+	 *            A &lt;code&gt;AIUnit&lt;/code&gt; to perform the mission.
+	 * @param path
+	 *            A &lt;code&gt;PathNode&lt;/code&gt; to extract a target from, (uses the
+	 *            unit location if null).
+	 * @return A target for this mission, or null if none found.
+	 */
+	public static Location extractTarget(AIUnit aiUnit, PathNode path) {
+<span class="nc bnc" id="L151" title="All 2 branches missed.">		if (path == null)</span>
+<span class="nc" id="L152">			return null;</span>
+<span class="nc" id="L153">		final Location loc = path.getLastNode().getLocation();</span>
+<span class="nc" id="L154">		Colony colony = loc.getColony();</span>
+<span class="nc bnc" id="L155" title="All 6 branches missed.">		return (loc instanceof Europe &amp;&amp; invalidReason(aiUnit, loc) == null) ? loc</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">				: (colony != null &amp;&amp; invalidReason(aiUnit, colony) == null) ? colony : null;</span>
+	}
 
-    /**
-     * Extract a valid target for this mission from a path.
-     *
-     * @param aiUnit A &lt;code&gt;AIUnit&lt;/code&gt; to perform the mission.
-     * @param path A &lt;code&gt;PathNode&lt;/code&gt; to extract a target from,
-     *     (uses the unit location if null).
-     * @return A target for this mission, or null if none found.
-     */
-    public static Location extractTarget(AIUnit aiUnit, PathNode path) {
-<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (path == null) return null;</span>
-<span class="nc" id="L147">        final Location loc = path.getLastNode().getLocation();</span>
-<span class="nc" id="L148">        Colony colony = loc.getColony();</span>
-<span class="nc bnc" id="L149" title="All 2 branches missed.">        return (loc instanceof Europe</span>
-<span class="nc bnc" id="L150" title="All 4 branches missed.">            &amp;&amp; invalidReason(aiUnit, loc) == null) ? loc</span>
-            : (colony != null
-<span class="nc bnc" id="L152" title="All 2 branches missed.">                &amp;&amp; invalidReason(aiUnit, colony) == null) ? colony</span>
-            : null;
-    }
+	/**
+	 * Evaluate a potential cashin mission for a given unit and path.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to do the mission.
+	 * @param path
+	 *            A &lt;code&gt;PathNode&lt;/code&gt; to take to the target.
+	 * @return A score for the proposed mission.
+	 */
+	public static int scorePath(AIUnit aiUnit, PathNode path) {
+		Location loc;
+<span class="nc bnc" id="L170" title="All 6 branches missed.">		if (path == null || (loc = extractTarget(aiUnit, path)) == null</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">				|| (loc instanceof Colony &amp;&amp; invalidFullColonyReason(aiUnit, loc.getColony()) != null))</span>
+<span class="nc" id="L172">			return Integer.MIN_VALUE;</span>
+<span class="nc" id="L173">		return aiUnit.getUnit().getTreasureAmount() / (path.getTotalTurns() + 1);</span>
+	}
 
-    /**
-     * Evaluate a potential cashin mission for a given unit and
-     * path.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to do the mission.
-     * @param path A &lt;code&gt;PathNode&lt;/code&gt; to take to the target.
-     * @return A score for the proposed mission.
-     */
-    public static int scorePath(AIUnit aiUnit, PathNode path) {
-        Location loc;
-<span class="nc bnc" id="L166" title="All 2 branches missed.">        if (path == null</span>
-<span class="nc bnc" id="L167" title="All 4 branches missed.">            || (loc = extractTarget(aiUnit, path)) == null</span>
-            || (loc instanceof Colony
-<span class="nc bnc" id="L169" title="All 2 branches missed.">                &amp;&amp; invalidFullColonyReason(aiUnit, loc.getColony()) != null))</span>
-<span class="nc" id="L170">            return Integer.MIN_VALUE;</span>
-<span class="nc" id="L171">        return aiUnit.getUnit().getTreasureAmount() / (path.getTotalTurns()+1);</span>
-    }
+	/**
+	 * Makes a goal decider that checks cash in sites.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to search with.
+	 * @param deferOK
+	 *            Keep track of the nearest colonies to use as a fallback
+	 *            destination.
+	 * @return A suitable &lt;code&gt;GoalDecider&lt;/code&gt;.
+	 */
+	private static GoalDecider getGoalDecider(final AIUnit aiUnit, final boolean deferOK) {
+<span class="nc" id="L187">		GoalDecider gd = new GoalDecider() {</span>
+<span class="nc" id="L188">			private PathNode bestPath = null;</span>
+<span class="nc" id="L189">			private int bestValue = Integer.MIN_VALUE;</span>
 
-    /**
-     * Makes a goal decider that checks cash in sites.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to search with.
-     * @param deferOK Keep track of the nearest colonies to use as a
-     *     fallback destination.
-     * @return A suitable &lt;code&gt;GoalDecider&lt;/code&gt;.
-     */
-    private static GoalDecider getGoalDecider(final AIUnit aiUnit,
-                                              final boolean deferOK) {
-<span class="nc" id="L184">        GoalDecider gd = new GoalDecider() {</span>
-<span class="nc" id="L185">                private PathNode bestPath = null;</span>
-<span class="nc" id="L186">                private int bestValue = Integer.MIN_VALUE;</span>
-                
-                @Override
-<span class="nc" id="L189">                public PathNode getGoal() { return bestPath; }</span>
-                @Override
-<span class="nc" id="L191">                public boolean hasSubGoals() { return true; }</span>
-                @Override
-                public boolean check(Unit u, PathNode path) {
-<span class="nc" id="L194">                    Location loc = extractTarget(aiUnit, path);</span>
-<span class="nc bnc" id="L195" title="All 2 branches missed.">                    if ((loc instanceof Colony</span>
-<span class="nc bnc" id="L196" title="All 4 branches missed.">                            &amp;&amp; invalidFullColonyReason(aiUnit, (Colony)loc)</span>
-                            == null)
-                        || loc instanceof Europe) {
-<span class="nc" id="L199">                        int value = scorePath(aiUnit, path);</span>
-<span class="nc bnc" id="L200" title="All 2 branches missed.">                        if (bestValue &lt; value) {</span>
-<span class="nc" id="L201">                            bestValue = value;</span>
-<span class="nc" id="L202">                            bestPath = path;</span>
-<span class="nc" id="L203">                            return true;</span>
-                        }
-                    }
-<span class="nc" id="L206">                    return false;</span>
-                }
-            };
-<span class="nc bnc" id="L209" title="All 2 branches missed.">        return (deferOK) ? GoalDeciders.getComposedGoalDecider(false, gd,</span>
-<span class="nc" id="L210">            GoalDeciders.getOurClosestSettlementGoalDecider())</span>
-            : gd;
-    }
+			@Override
+			public PathNode getGoal() {
+<span class="nc" id="L193">				return bestPath;</span>
+			}
 
-    /**
-     * Find a suitable cash in location for this unit.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to execute this mission.
-     * @param range The maximum number of moves to search.
-     * @param deferOK Enables deferring to a fallback colony.
-     * @return A &lt;code&gt;PathNode&lt;/code&gt; to the target, or null if not found
-     *     which includes the case when Europe should be preferred (because
-     *     the unit can not get there by itself).
-     */
-    private static PathNode findTargetPath(AIUnit aiUnit, int range,
-                                           boolean deferOK) {
-<span class="nc bnc" id="L226" title="All 2 branches missed.">        if (invalidAIUnitReason(aiUnit) != null) return null;</span>
-<span class="nc" id="L227">        final Unit unit = aiUnit.getUnit();</span>
-<span class="nc" id="L228">        final Location start = unit.getPathStartLocation();</span>
-<span class="nc" id="L229">        final Player player = unit.getOwner();</span>
-<span class="nc" id="L230">        final Europe europe = player.getEurope();</span>
-<span class="nc" id="L231">        final Unit carrier = unit.getCarrier();</span>
-        final CostDecider standardCd
-<span class="nc" id="L233">            = CostDeciders.avoidSettlementsAndBlockingUnits();</span>
-        PathNode path;
+			@Override
+			public boolean hasSubGoals() {
+<span class="nc" id="L198">				return true;</span>
+			}
 
-<span class="nc bnc" id="L236" title="All 4 branches missed.">        if (player.getNumberOfSettlements() &lt;= 0 || start == null) {</span>
-            // No settlements or not on the map, so go straight to
-            // Europe.  If Europe does not exist then this mission is
-            // doomed.
-<span class="nc bnc" id="L240" title="All 2 branches missed.">            return (europe == null) ? null</span>
-<span class="nc" id="L241">                : unit.findPath(unit.getLocation(), europe, carrier,</span>
-                                standardCd);
-        }
+			@Override
+			public boolean check(Unit u, PathNode path) {
+<span class="nc" id="L203">				Location loc = extractTarget(aiUnit, path);</span>
+<span class="nc bnc" id="L204" title="All 6 branches missed.">				if ((loc instanceof Colony &amp;&amp; invalidFullColonyReason(aiUnit, (Colony) loc) == null)</span>
+						|| loc instanceof Europe) {
+<span class="nc" id="L206">					int value = scorePath(aiUnit, path);</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">					if (bestValue &lt; value) {</span>
+<span class="nc" id="L208">						bestValue = value;</span>
+<span class="nc" id="L209">						bestPath = path;</span>
+<span class="nc" id="L210">						return true;</span>
+					}
+				}
+<span class="nc" id="L213">				return false;</span>
+			}
+		};
+<span class="nc bnc" id="L216" title="All 2 branches missed.">		return (deferOK)</span>
+<span class="nc" id="L217">				? GoalDeciders.getComposedGoalDecider(false, gd, GoalDeciders.getOurClosestSettlementGoalDecider())</span>
+				: gd;
+	}
 
-        // Can the unit get to a cash in site?
-<span class="nc" id="L246">        return unit.search(start, getGoalDecider(aiUnit, deferOK),</span>
-                           standardCd, range, carrier);
-    }
+	/**
+	 * Find a suitable cash in location for this unit.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to execute this mission.
+	 * @param range
+	 *            The maximum number of moves to search.
+	 * @param deferOK
+	 *            Enables deferring to a fallback colony.
+	 * @return A &lt;code&gt;PathNode&lt;/code&gt; to the target, or null if not found which
+	 *         includes the case when Europe should be preferred (because the
+	 *         unit can not get there by itself).
+	 */
+	private static PathNode findTargetPath(AIUnit aiUnit, int range, boolean deferOK) {
+<span class="nc bnc" id="L235" title="All 2 branches missed.">		if (invalidAIUnitReason(aiUnit) != null)</span>
+<span class="nc" id="L236">			return null;</span>
+<span class="nc" id="L237">		final Unit unit = aiUnit.getUnit();</span>
+<span class="nc" id="L238">		final Location start = unit.getPathStartLocation();</span>
+<span class="nc" id="L239">		final Player player = unit.getOwner();</span>
+<span class="nc" id="L240">		final Europe europe = player.getEurope();</span>
+<span class="nc" id="L241">		final Unit carrier = unit.getCarrier();</span>
+<span class="nc" id="L242">		final CostDecider standardCd = CostDeciders.avoidSettlementsAndBlockingUnits();</span>
+		PathNode path;
 
-    /**
-     * Finds a suitable cashin target for the supplied unit.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to test.
-     * @param range The maximum number of moves to search.
-     * @param deferOK Enables deferring to a fallback colony.
-     * @return A &lt;code&gt;PathNode&lt;/code&gt; to the target, or null if none found.
-     */
-    public static Location findTarget(AIUnit aiUnit, int range, 
-                                      boolean deferOK) {
-<span class="nc" id="L260">        PathNode path = findTargetPath(aiUnit, range, deferOK);</span>
-<span class="nc bnc" id="L261" title="All 2 branches missed.">        return (path != null) ? extractTarget(aiUnit, path)</span>
-<span class="nc" id="L262">            : Location.upLoc(findCircleTarget(aiUnit,</span>
-<span class="nc" id="L263">                    getGoalDecider(aiUnit, deferOK), range*3, deferOK));</span>
-    }
+<span class="nc bnc" id="L245" title="All 4 branches missed.">		if (player.getNumberOfSettlements() &lt;= 0 || start == null) {</span>
+			// No settlements or not on the map, so go straight to
+			// Europe. If Europe does not exist then this mission is
+			// doomed.
+<span class="nc bnc" id="L249" title="All 2 branches missed.">			return (europe == null) ? null : unit.findPath(unit.getLocation(), europe, carrier, standardCd);</span>
+		}
 
-    /**
-     * Why would this mission be invalid with the given unit?
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to test.
-     * @return A reason why the mission would be invalid with the unit,
-     *     or null if none found.
-     */
-    private static String invalidMissionReason(AIUnit aiUnit) {
-<span class="nc" id="L274">        String reason = invalidAIUnitReason(aiUnit);</span>
-<span class="nc bnc" id="L275" title="All 2 branches missed.">        if (reason != null) return reason;</span>
-<span class="nc" id="L276">        final Unit unit = aiUnit.getUnit();</span>
-<span class="nc bnc" id="L277" title="All 2 branches missed.">        return (!unit.canCarryTreasure()) ? &quot;unit-cannot-carry-treasure&quot;</span>
-<span class="nc bnc" id="L278" title="All 2 branches missed.">            : (unit.getTreasureAmount() &lt;= 0) ? &quot;unit-treasure-nonpositive&quot;</span>
-            : null;
-    }
+		// Can the unit get to a cash in site?
+<span class="nc" id="L253">		return unit.search(start, getGoalDecider(aiUnit, deferOK), standardCd, range, carrier);</span>
+	}
 
-    /**
-     * Why is this mission invalid with a given colony target, given that
-     * intermediate colonies are excluded.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @param colony The potential target &lt;code&gt;Colony&lt;/code&gt;.
-     * @return A reason for mission invalidity, or null if none found.
-     */
-    private static String invalidFullColonyReason(AIUnit aiUnit,
-                                                  Colony colony) {
-<span class="nc" id="L292">        String reason = invalidTargetReason(colony, </span>
-<span class="nc" id="L293">            aiUnit.getUnit().getOwner());</span>
-<span class="nc bnc" id="L294" title="All 2 branches missed.">        return (reason != null)</span>
-            ? reason
-<span class="nc bnc" id="L296" title="All 2 branches missed.">            : (!aiUnit.getUnit().canCashInTreasureTrain(colony.getTile()))</span>
-            ? &quot;cashin-impossible-at-location&quot;
-            : null;
-    }
+	/**
+	 * Finds a suitable cashin target for the supplied unit.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to test.
+	 * @param range
+	 *            The maximum number of moves to search.
+	 * @param deferOK
+	 *            Enables deferring to a fallback colony.
+	 * @return A &lt;code&gt;PathNode&lt;/code&gt; to the target, or null if none found.
+	 */
+	public static Location findTarget(AIUnit aiUnit, int range, boolean deferOK) {
+<span class="nc" id="L268">		PathNode path = findTargetPath(aiUnit, range, deferOK);</span>
+<span class="nc bnc" id="L269" title="All 2 branches missed.">		return (path != null) ? extractTarget(aiUnit, path)</span>
+<span class="nc" id="L270">				: Location.upLoc(findCircleTarget(aiUnit, getGoalDecider(aiUnit, deferOK), range * 3, deferOK));</span>
+	}
 
-    /**
-     * Why is this mission invalid with a given colony target, given that
-     * intermediate colonies are included.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @param colony The potential target &lt;code&gt;Colony&lt;/code&gt;.
-     * @return A reason for mission invalidity, or null if none found.
-     */
-    private static String invalidColonyReason(AIUnit aiUnit, Colony colony) {
-<span class="nc" id="L310">        return invalidTargetReason(colony, aiUnit.getUnit().getOwner());</span>
-    }
+	/**
+	 * Why would this mission be invalid with the given unit?.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to test.
+	 * @return A reason why the mission would be invalid with the unit, or null
+	 *         if none found.
+	 */
+	private static String invalidMissionReason(AIUnit aiUnit) {
+<span class="nc" id="L282">		String reason = invalidAIUnitReason(aiUnit);</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">		if (reason != null)</span>
+<span class="nc" id="L284">			return reason;</span>
+<span class="nc" id="L285">		final Unit unit = aiUnit.getUnit();</span>
+<span class="nc bnc" id="L286" title="All 2 branches missed.">		return (!unit.canCarryTreasure()) ? &quot;unit-cannot-carry-treasure&quot;</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">				: (unit.getTreasureAmount() &lt;= 0) ? &quot;unit-treasure-nonpositive&quot; : null;</span>
+	}
 
-    /**
-     * Why is this mission invalid with a given Europe target?
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @param europe The potential target &lt;code&gt;Europe&lt;/code&gt;.
-     * @return A reason for mission invalidity, or null if none found.
-     */
-    private static String invalidEuropeReason(AIUnit aiUnit, Europe europe) {
-<span class="nc" id="L321">        return invalidTargetReason(europe, aiUnit.getUnit().getOwner());</span>
-    }
+	/**
+	 * Why is this mission invalid with a given colony target, given that
+	 * intermediate colonies are excluded.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @param colony
+	 *            The potential target &lt;code&gt;Colony&lt;/code&gt;.
+	 * @return A reason for mission invalidity, or null if none found.
+	 */
+	private static String invalidFullColonyReason(AIUnit aiUnit, Colony colony) {
+<span class="nc" id="L301">		String reason = invalidTargetReason(colony, aiUnit.getUnit().getOwner());</span>
+<span class="nc bnc" id="L302" title="All 2 branches missed.">		return (reason != null) ? reason</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">				: (!aiUnit.getUnit().canCashInTreasureTrain(colony.getTile())) ? &quot;cashin-impossible-at-location&quot; : null;</span>
+	}
 
-    /**
-     * Why would this mission be invalid with the given AI unit and location?
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @param loc The &lt;code&gt;Location&lt;/code&gt; to check.
-     * @return A reason for invalidity, or null if none found.
-     */
-    public static String invalidReason(AIUnit aiUnit, Location loc) {
-<span class="nc" id="L332">        String reason = invalidMissionReason(aiUnit);</span>
-<span class="nc bnc" id="L333" title="All 4 branches missed.">        return (reason != null)</span>
-            ? reason
-            : (loc instanceof Colony)
-<span class="nc bnc" id="L336" title="All 2 branches missed.">            ? invalidColonyReason(aiUnit, (Colony)loc)</span>
-            : (loc instanceof Europe)
-<span class="nc" id="L338">            ? invalidEuropeReason(aiUnit, (Europe)loc)</span>
-            : Mission.TARGETINVALID;
-    }
+	/**
+	 * Why is this mission invalid with a given colony target, given that
+	 * intermediate colonies are included.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @param colony
+	 *            The potential target &lt;code&gt;Colony&lt;/code&gt;.
+	 * @return A reason for mission invalidity, or null if none found.
+	 */
+	private static String invalidColonyReason(AIUnit aiUnit, Colony colony) {
+<span class="nc" id="L317">		return invalidTargetReason(colony, aiUnit.getUnit().getOwner());</span>
+	}
 
-    /**
-     * Why would this mission be invalid with the given AI unit?
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to test.
-     * @return A reason for invalidity, or null if none found.
-     */
-    public static String invalidReason(AIUnit aiUnit) {
-<span class="nc" id="L349">        return invalidMissionReason(aiUnit);</span>
-    }
+	/**
+	 * Why is this mission invalid with a given Europe target?.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @param europe
+	 *            The potential target &lt;code&gt;Europe&lt;/code&gt;.
+	 * @return A reason for mission invalidity, or null if none found.
+	 */
+	private static String invalidEuropeReason(AIUnit aiUnit, Europe europe) {
+<span class="nc" id="L330">		return invalidTargetReason(europe, aiUnit.getUnit().getOwner());</span>
+	}
 
+	/**
+	 * Why would this mission be invalid with the given AI unit and location?.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @param loc
+	 *            The &lt;code&gt;Location&lt;/code&gt; to check.
+	 * @return A reason for invalidity, or null if none found.
+	 */
+	public static String invalidReason(AIUnit aiUnit, Location loc) {
+<span class="nc" id="L343">		String reason = invalidMissionReason(aiUnit);</span>
+<span class="nc bnc" id="L344" title="All 4 branches missed.">		return (reason != null) ? reason</span>
+<span class="nc bnc" id="L345" title="All 2 branches missed.">				: (loc instanceof Colony) ? invalidColonyReason(aiUnit, (Colony) loc)</span>
+<span class="nc" id="L346">						: (loc instanceof Europe) ? invalidEuropeReason(aiUnit, (Europe) loc) : Mission.TARGETINVALID;</span>
+	}
 
-    // Implement Mission
-    //   Inherit dispose, getTransportDestination, isOneTime
+	/**
+	 * Why would this mission be invalid with the given AI unit?.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to test.
+	 * @return A reason for invalidity, or null if none found.
+	 */
+	public static String invalidReason(AIUnit aiUnit) {
+<span class="nc" id="L357">		return invalidMissionReason(aiUnit);</span>
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getBaseTransportPriority() {
-<span class="nc" id="L361">        return getUnit().getTreasureAmount();</span>
-    }
+	// Implement Mission
+	// Inherit dispose, getTransportDestination, isOneTime
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location getTarget() {
-<span class="nc" id="L369">        return target;</span>
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getBaseTransportPriority() {
+<span class="nc" id="L368">		return getUnit().getTreasureAmount();</span>
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setTarget(Location target) {
-<span class="nc bnc" id="L377" title="All 6 branches missed.">        if (target == null</span>
-            || target instanceof Europe || target instanceof Colony) {
-<span class="nc" id="L379">            this.target = target;</span>
-        }
-<span class="nc" id="L381">    }</span>
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location getTarget() {
+<span class="nc" id="L376">		return target;</span>
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location findTarget() {
-<span class="nc" id="L388">        return findTarget(getAIUnit(), 20, true);</span>
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void setTarget(Location target) {
+<span class="nc bnc" id="L384" title="All 6 branches missed.">		if (target == null || target instanceof Europe || target instanceof Colony) {</span>
+<span class="nc" id="L385">			this.target = target;</span>
+		}
+<span class="nc" id="L387">	}</span>
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String invalidReason() {
-<span class="nc" id="L396">        return invalidReason(getAIUnit(), target);</span>
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location findTarget() {
+<span class="nc" id="L394">		return findTarget(getAIUnit(), 20, true);</span>
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Mission doMission(LogBuilder lb) {
-<span class="nc" id="L404">        lb.add(tag);</span>
-<span class="nc" id="L405">        String reason = invalidReason();</span>
-<span class="nc bnc" id="L406" title="All 2 branches missed.">        if (isTargetReason(reason)) {</span>
-<span class="nc" id="L407">            return retargetMission(reason, lb);</span>
-<span class="nc bnc" id="L408" title="All 2 branches missed.">        } else if (reason != null) {</span>
-<span class="nc" id="L409">            return lbFail(lb, false, reason);</span>
-        }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String invalidReason() {
+<span class="nc" id="L402">		return invalidReason(getAIUnit(), target);</span>
+	}
 
-        for (;;) {
-            // Go to the target.
-<span class="nc" id="L414">            final Unit unit = getUnit();</span>
-<span class="nc" id="L415">            Unit.MoveType mt = travelToTarget(getTarget(),</span>
-<span class="nc" id="L416">                CostDeciders.avoidSettlementsAndBlockingUnits(), lb);</span>
-<span class="nc bnc" id="L417" title="All 4 branches missed.">            switch (mt) {</span>
-            case MOVE: // Arrived
-<span class="nc" id="L419">                break;</span>
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Mission doMission(LogBuilder lb) {
+<span class="nc" id="L410">		lb.add(tag);</span>
+<span class="nc" id="L411">		String reason = invalidReason();</span>
+<span class="nc bnc" id="L412" title="All 2 branches missed.">		if (isTargetReason(reason)) {</span>
+<span class="nc" id="L413">			return retargetMission(reason, lb);</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">		} else if (reason != null) {</span>
+<span class="nc" id="L415">			return lbFail(lb, false, reason);</span>
+		}
 
-            case MOVE_HIGH_SEAS: case MOVE_NO_MOVES:
-            case MOVE_NO_REPAIR: case MOVE_ILLEGAL:
-<span class="nc" id="L423">                return lbWait(lb);</span>
+		for (;;) {
+			// Go to the target.
+<span class="nc" id="L420">			final Unit unit = getUnit();</span>
+<span class="nc" id="L421">			Unit.MoveType mt = travelToTarget(getTarget(), CostDeciders.avoidSettlementsAndBlockingUnits(), lb);</span>
+<span class="nc bnc" id="L422" title="All 4 branches missed.">			switch (mt) {</span>
+			case MOVE: // Arrived
+<span class="nc" id="L424">				break;</span>
 
-            case MOVE_NO_ACCESS_EMBARK: case MOVE_NO_TILE:
-<span class="nc" id="L426">                return this;</span>
+			case MOVE_HIGH_SEAS:
+			case MOVE_NO_MOVES:
+			case MOVE_NO_REPAIR:
+			case MOVE_ILLEGAL:
+<span class="nc" id="L430">				return lbWait(lb);</span>
 
-            default:
-<span class="nc" id="L429">                return lbMove(lb, mt);</span>
-            }
+			case MOVE_NO_ACCESS_EMBARK:
+			case MOVE_NO_TILE:
+<span class="nc" id="L434">				return this;</span>
 
-            // Cash in now if:
-            // - already in Europe
-            // - or can never get there
-            // - it is free to transport the treasure
-            // - or there is no potential carrier to get the treasure to there
-            // Otherwise, it is better to send to Europe.
-<span class="nc" id="L438">            lbAt(lb);</span>
-<span class="nc" id="L439">            final AIUnit aiUnit = getAIUnit();</span>
-<span class="nc" id="L440">            final Europe europe = getUnit().getOwner().getEurope();</span>
-<span class="nc bnc" id="L441" title="All 2 branches missed.">            if (unit.canCashInTreasureTrain()) {</span>
-<span class="nc" id="L442">                AIUnit aiCarrier = null;</span>
-<span class="nc bnc" id="L443" title="All 4 branches missed.">                boolean cashin = unit.isInEurope()</span>
-                    || europe == null
-<span class="nc bnc" id="L445" title="All 2 branches missed.">                    || unit.getTransportFee() == 0;</span>
-<span class="nc bnc" id="L446" title="All 4 branches missed.">                if (!cashin &amp;&amp; aiUnit.getTransport() == null) {</span>
-<span class="nc bnc" id="L447" title="All 2 branches missed.">                    cashin = assignCarrier(lb) == null;</span>
-                }
-<span class="nc bnc" id="L449" title="All 4 branches missed.">                if (cashin) return (AIMessage.askCashInTreasureTrain(aiUnit))</span>
-<span class="nc" id="L450">                                ? lbDone(lb, false, &quot;cashed in&quot;)</span>
-<span class="nc" id="L451">                                : lbFail(lb, false, &quot;cashin&quot;);</span>
-            }
-<span class="nc" id="L453">            return retargetMission(&quot;transport expected&quot;, lb);</span>
-        }
-    }
+			default:
+<span class="nc" id="L437">				return lbMove(lb, mt);</span>
+			}
 
+			// Cash in now if:
+			// - already in Europe
+			// - or can never get there
+			// - it is free to transport the treasure
+			// - or there is no potential carrier to get the treasure to there
+			// Otherwise, it is better to send to Europe.
+<span class="nc" id="L446">			lbAt(lb);</span>
+<span class="nc" id="L447">			final AIUnit aiUnit = getAIUnit();</span>
+<span class="nc" id="L448">			final Europe europe = getUnit().getOwner().getEurope();</span>
+<span class="nc bnc" id="L449" title="All 2 branches missed.">			if (unit.canCashInTreasureTrain()) {</span>
+<span class="nc" id="L450">				AIUnit aiCarrier = null;</span>
+<span class="nc bnc" id="L451" title="All 6 branches missed.">				boolean cashin = unit.isInEurope() || europe == null || unit.getTransportFee() == 0;</span>
+<span class="nc bnc" id="L452" title="All 4 branches missed.">				if (!cashin &amp;&amp; aiUnit.getTransport() == null) {</span>
+<span class="nc bnc" id="L453" title="All 2 branches missed.">					cashin = assignCarrier(lb) == null;</span>
+				}
+<span class="nc bnc" id="L455" title="All 2 branches missed.">				if (cashin)</span>
+<span class="nc bnc" id="L456" title="All 2 branches missed.">					return (AIMessage.askCashInTreasureTrain(aiUnit)) ? lbDone(lb, false, &quot;cashed in&quot;)</span>
+<span class="nc" id="L457">							: lbFail(lb, false, &quot;cashin&quot;);</span>
+			}
+<span class="nc" id="L459">			return retargetMission(&quot;transport expected&quot;, lb);</span>
+		}
+	}
 
-    // Serialization
+	// Serialization
 
-    private static final String TARGET_TAG = &quot;target&quot;;
+	/** The Constant TARGET_TAG. */
+	private static final String TARGET_TAG = &quot;target&quot;;
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="nc" id="L473">		super.writeAttributes(xw);</span>
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="nc" id="L468">        super.writeAttributes(xw);</span>
+<span class="nc bnc" id="L475" title="All 2 branches missed.">		if (target != null) {</span>
+<span class="nc" id="L476">			xw.writeAttribute(TARGET_TAG, target.getId());</span>
+		}
+<span class="nc" id="L478">	}</span>
 
-<span class="nc bnc" id="L470" title="All 2 branches missed.">        if (target != null) {</span>
-<span class="nc" id="L471">            xw.writeAttribute(TARGET_TAG, target.getId());</span>
-        }
-<span class="nc" id="L473">    }</span>
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L485">		super.readAttributes(xr);</span>
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-<span class="nc" id="L480">        super.readAttributes(xr);</span>
-        
-<span class="nc" id="L482">        target = xr.getLocationAttribute(getGame(), TARGET_TAG, false);</span>
-<span class="nc" id="L483">    }</span>
+<span class="nc" id="L487">		target = xr.getLocationAttribute(getGame(), TARGET_TAG, false);</span>
+<span class="nc" id="L488">	}</span>
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-<span class="nc" id="L489">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+<span class="nc" id="L495">		return getXMLElementTagName();</span>
+	}
 
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return &quot;cashInTreasureTrainMission&quot;.
-     */
-    public static String getXMLElementTagName() {
-<span class="nc" id="L497">        return &quot;cashInTreasureTrainMission&quot;;</span>
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return &quot;cashInTreasureTrainMission&quot;.
+	 */
+	public static String getXMLElementTagName() {
+<span class="nc" id="L504">		return &quot;cashInTreasureTrainMission&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

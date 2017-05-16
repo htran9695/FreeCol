@@ -27,122 +27,119 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent to equip a unit for a particular role.
  */
 public class EquipForRoleMessage extends DOMMessage {
 
-    /** The identifier of the unit to equip. */
-    private final String unitId;
+	/** The identifier of the unit to equip. */
+	private final String unitId;
 
-    /** The Role identifier. */
-    private final String roleId;
+	/** The Role identifier. */
+	private final String roleId;
 
-    /** The role count. */
-    private final String roleCount;
+	/** The role count. */
+	private final String roleCount;
 
+	/**
+	 * Create a new <code>EquipForRoleMessage</code> for the supplied Unit and
+	 * Role.
+	 *
+	 * @param unit
+	 *            The <code>Unit</code> to equip.
+	 * @param role
+	 *            The <code>Role</code> to equip for.
+	 * @param roleCount
+	 *            The role count.
+	 */
+	public EquipForRoleMessage(Unit unit, Role role, int roleCount) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>EquipForRoleMessage</code> for the supplied
-     * Unit and Role.
-     *
-     * @param unit The <code>Unit</code> to equip.
-     * @param role The <code>Role</code> to equip for.
-     * @param roleCount The role count.
-     */
-    public EquipForRoleMessage(Unit unit, Role role, int roleCount) {
-        super(getXMLElementTagName());
+		this.unitId = unit.getId();
+		this.roleId = role.getId();
+		this.roleCount = String.valueOf(roleCount);
+	}
 
-        this.unitId = unit.getId();
-        this.roleId = role.getId();
-        this.roleCount = String.valueOf(roleCount);
-    }
+	/**
+	 * Create a new <code>EquipForRoleMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public EquipForRoleMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>EquipForRoleMessage</code> from a supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public EquipForRoleMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.unitId = element.getAttribute("unit");
+		this.roleId = element.getAttribute("role");
+		this.roleCount = element.getAttribute("count");
+	}
 
-        this.unitId = element.getAttribute("unit");
-        this.roleId = element.getAttribute("role");
-        this.roleCount = element.getAttribute("count");
-    }
+	/**
+	 * Handle a "equipForRole"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the message.
+	 * @param player
+	 *            The <code>Player</code> the message applies to.
+	 * @param connection
+	 *            The <code>Connection</code> message received on.
+	 * @return An update encapsulating the equipForRole location change or an
+	 *         error <code>Element</code> on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
+		final Game game = server.getGame();
 
+		Unit unit;
+		try {
+			unit = player.getOurFreeColGameObject(unitId, Unit.class);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
+		if (unit.isInEurope()) {
+			; // Always OK
+		} else if (!unit.hasTile()) {
+			return DOMMessage.clientError("Unit is not on the map: " + unitId);
+		} else if (unit.getSettlement() == null) {
+			return DOMMessage.clientError("Unit is not in a settlement: " + unitId);
+		}
 
-    /**
-     * Handle a "equipForRole"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the message.
-     * @param player The <code>Player</code> the message applies to.
-     * @param connection The <code>Connection</code> message received on.
-     * @return An update encapsulating the equipForRole location change
-     *     or an error <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
-        final Game game = server.getGame();
+		Role role = game.getSpecification().getRole(roleId);
+		if (role == null) {
+			return DOMMessage.clientError("Not a role: " + roleId);
+		}
+		int count;
+		try {
+			count = Integer.parseInt(roleCount);
+		} catch (NumberFormatException nfe) {
+			return DOMMessage.clientError("Role count is not an integer: " + roleCount);
+		}
+		if (count < 0 || count > role.getMaximumCount()) {
+			return DOMMessage.clientError("Invalid role count: " + roleCount);
+		}
 
-        Unit unit;
-        try {
-            unit = player.getOurFreeColGameObject(unitId, Unit.class);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
-        if (unit.isInEurope()) {
-            ; // Always OK
-        } else if (!unit.hasTile()) {
-            return DOMMessage.clientError("Unit is not on the map: "
-                + unitId);
-        } else if (unit.getSettlement() == null) {
-            return DOMMessage.clientError("Unit is not in a settlement: "
-                + unitId);
-        }
+		// Proceed to equip.
+		return server.getInGameController().equipForRole(serverPlayer, unit, role, count);
+	}
 
-        Role role = game.getSpecification().getRole(roleId);
-        if (role == null) {
-            return DOMMessage.clientError("Not a role: " + roleId);
-        }
-        int count;
-        try {
-            count = Integer.parseInt(roleCount);
-        } catch (NumberFormatException nfe) {
-            return DOMMessage.clientError("Role count is not an integer: " +
-                roleCount);
-        }
-        if (count < 0 || count > role.getMaximumCount()) {
-            return DOMMessage.clientError("Invalid role count: " + roleCount);
-        }
+	/**
+	 * Convert this EquipForRoleMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		return createMessage(getXMLElementTagName(), "unit", unitId, "role", roleId, "count", roleCount);
+	}
 
-        // Proceed to equip.
-        return server.getInGameController()
-            .equipForRole(serverPlayer, unit, role, count); 
-    }
-
-    /**
-     * Convert this EquipForRoleMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        return createMessage(getXMLElementTagName(),
-            "unit", unitId,
-            "role", roleId,
-            "count", roleCount);
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "equipForRole".
-     */
-    public static String getXMLElementTagName() {
-        return "equipForRole";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "equipForRole".
+	 */
+	public static String getXMLElementTagName() {
+		return "equipForRole";
+	}
 }

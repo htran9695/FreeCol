@@ -28,88 +28,88 @@ import javax.swing.JTextField;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
- * This is the panel that pops up when the user wants to send a
- * message to the other players. There is no close button because it
- * closes as soon as the user presses enter in the textfield.
+ * This is the panel that pops up when the user wants to send a message to the
+ * other players. There is no close button because it closes as soon as the user
+ * presses enter in the textfield.
  */
 public final class ChatPanel extends FreeColPanel {
 
-    private static final Logger logger = Logger.getLogger(ChatPanel.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(ChatPanel.class.getName());
 
-    public static final int CHAT = 1;
+	/** The Constant CHAT. */
+	public static final int CHAT = 1;
 
-    private final JTextField field;
+	/** The field. */
+	private final JTextField field;
 
+	/**
+	 * The constructor that will add the items to this panel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ChatPanel(FreeColClient freeColClient) {
+		super(freeColClient, new BorderLayout(10, 10));
 
-    /**
-     * The constructor that will add the items to this panel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ChatPanel(FreeColClient freeColClient) {
-        super(freeColClient, new BorderLayout(10, 10));
+		JLabel label = Utility.localizedLabel("chatPanel.message");
 
-        JLabel label = Utility.localizedLabel("chatPanel.message");
+		field = new JTextField("", 40);
+		field.setActionCommand(String.valueOf(CHAT));
+		field.addActionListener(this);
 
-        field = new JTextField("", 40);
-        field.setActionCommand(String.valueOf(CHAT));
-        field.addActionListener(this);
+		add(label);
+		add(field);
 
-        add(label);
-        add(field);
+		// setFocusable(false);
+		label.setFocusable(false);
+		field.setFocusable(true);
 
-        //setFocusable(false);
-        label.setFocusable(false);
-        field.setFocusable(true);
+		setSize(getPreferredSize());
+	}
 
-        setSize(getPreferredSize());
-    }
+	/**
+	 * Requests that the chat textfield in this chat panel gets the focus.
+	 */
+	@Override
+	public void requestFocus() {
+		field.requestFocus();
+	}
 
+	/**
+	 * Gets the chat message that the user has entered and clears the chat
+	 * textfield to make room for a new message.
+	 *
+	 * @return The chat message.
+	 */
+	public String getChatText() {
+		String message = field.getText();
+		field.setText("");
+		return message;
+	}
 
-    /**
-     * Requests that the chat textfield in this chat panel gets the focus.
-     */
-    @Override
-    public void requestFocus() {
-        field.requestFocus();
-    }
+	// Interface ActionListener
 
-    /**
-     * Gets the chat message that the user has entered and clears the
-     * chat textfield to make room for a new message.
-     *
-     * @return The chat message.
-     */
-    public String getChatText() {
-        String message = field.getText();
-        field.setText("");
-        return message;
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        final String command = ae.getActionCommand();
-        try {
-            switch (Integer.parseInt(command)) {
-            case CHAT:
-                String message = getChatText();
-                igc().sendChat(message);
-                getGUI().displayChatMessage(getMyPlayer(), message, false);
-                getGUI().removeFromCanvas(this);
-                break;
-            default:
-                super.actionPerformed(ae);
-            }
-        } catch (NumberFormatException e) {
-            logger.warning("Invalid ActionEvent, not a number: " + command);
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		final String command = ae.getActionCommand();
+		try {
+			switch (Integer.parseInt(command)) {
+			case CHAT:
+				String message = getChatText();
+				igc().sendChat(message);
+				getGUI().displayChatMessage(getMyPlayer(), message, false);
+				getGUI().removeFromCanvas(this);
+				break;
+			default:
+				super.actionPerformed(ae);
+			}
+		} catch (NumberFormatException e) {
+			logger.warning("Invalid ActionEvent, not a number: " + command);
+		}
+	}
 }

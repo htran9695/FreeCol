@@ -24,47 +24,43 @@ import java.awt.event.ActionEvent;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
  * An action for fortifying the active unit.
  */
 public class FortifyAction extends UnitAction {
 
-    public static final String id = "fortifyAction";
+	/** The Constant id. */
+	public static final String id = "fortifyAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public FortifyAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public FortifyAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
+		addImageIcons("fortify");
+	}
 
-        addImageIcons("fortify");
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		return super.shouldBeEnabled() && getGUI().getActiveUnit().checkSetState(Unit.UnitState.FORTIFYING);
+	}
 
-    // Override FreeColAction
+	// Interface ActionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        return super.shouldBeEnabled() && getGUI().getActiveUnit()
-            .checkSetState(Unit.UnitState.FORTIFYING);
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        igc().changeState(getGUI().getActiveUnit(),
-            Unit.UnitState.FORTIFYING);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		igc().changeState(getGUI().getActiveUnit(), Unit.UnitState.FORTIFYING);
+	}
 }

@@ -24,48 +24,46 @@ import java.awt.event.ActionEvent;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
- * An action for making a unit move to a specific location.  This
- * action first displays a panel from which the player can choose a
- * location the unit should move towards.
+ * An action for making a unit move to a specific location. This action first
+ * displays a panel from which the player can choose a location the unit should
+ * move towards.
  */
 public class GotoAction extends UnitAction {
 
-    public static final String id = "gotoAction";
+	/** The Constant id. */
+	public static final String id = "gotoAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public GotoAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public GotoAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		return super.shouldBeEnabled() && !getGUI().isShowingSubPanel();
+	}
 
-    // Override FreeColAction
+	// Interface ActionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        return super.shouldBeEnabled() && !getGUI().isShowingSubPanel();
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        Unit unit = getGUI().getActiveUnit();
-        if (unit != null) {
-            igc().selectDestination(unit);
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		Unit unit = getGUI().getActiveUnit();
+		if (unit != null) {
+			igc().selectDestination(unit);
+		}
+	}
 }

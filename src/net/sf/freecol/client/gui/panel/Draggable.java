@@ -19,13 +19,15 @@
 
 package net.sf.freecol.client.gui.panel;
 
-
+/**
+ * The Interface Draggable.
+ */
 public interface Draggable {
 
-    /**
-     * Is this object on a carrier?
-     *
-     * @return True if the object is on a carrier.
-     */
-    public boolean isOnCarrier();
+	/**
+	 * Is this object on a carrier?.
+	 *
+	 * @return True if the object is on a carrier.
+	 */
+	public boolean isOnCarrier();
 }

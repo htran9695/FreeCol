@@ -28,251 +28,264 @@ import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 
-
 /**
  * Contains the information necessary to create a new unit.
  */
 public class AbstractUnit extends FreeColObject {
 
-    /** The role identifier of this AbstractUnit. */
-    private String roleId = Specification.DEFAULT_ROLE_ID;
+	/** The role identifier of this AbstractUnit. */
+	private String roleId = Specification.DEFAULT_ROLE_ID;
 
-    /** The number of units. */
-    private int number = 1;
+	/** The number of units. */
+	private int number = 1;
 
+	/**
+	 * Deliberately empty constructor.
+	 */
+	public AbstractUnit() {
+	}
 
-    /**
-     * Deliberately empty constructor.
-     */
-    public AbstractUnit() {}
+	/**
+	 * Create a new AbstractUnit.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param roleId
+	 *            The unit role identifier.
+	 * @param number
+	 *            A number of units.
+	 */
+	public AbstractUnit(String id, String roleId, int number) {
+		setId(id);
+		this.roleId = roleId;
+		this.number = number;
+	}
 
-    /**
-     * Create a new AbstractUnit.
-     *
-     * @param id The object identifier.
-     * @param roleId The unit role identifier.
-     * @param number A number of units.
-     */
-    public AbstractUnit(String id, String roleId, int number) {
-        setId(id);
-        this.roleId = roleId;
-        this.number = number;
-    }
+	/**
+	 * Create a new AbstractUnit.
+	 *
+	 * @param unitType
+	 *            The type of unit to create.
+	 * @param roleId
+	 *            The unit role identifier.
+	 * @param number
+	 *            The number of units.
+	 */
+	public AbstractUnit(UnitType unitType, String roleId, int number) {
+		this(unitType.getId(), roleId, number);
+	}
 
-    /**
-     * Create a new AbstractUnit.
-     *
-     * @param unitType The type of unit to create.
-     * @param roleId The unit role identifier.
-     * @param number The number of units.
-     */
-    public AbstractUnit(UnitType unitType, String roleId, int number) {
-        this(unitType.getId(), roleId, number);
-    }
+	/**
+	 * Creates a new <code>AbstractUnit</code> instance.
+	 *
+	 * @param xr
+	 *            The <code>FreeColXMLReader</code> to read from.
+	 * @exception XMLStreamException
+	 *                if an error occurs
+	 */
+	public AbstractUnit(FreeColXMLReader xr) throws XMLStreamException {
+		readFromXML(xr);
+	}
 
-    /**
-     * Creates a new <code>AbstractUnit</code> instance.
-     *
-     * @param xr The <code>FreeColXMLReader</code> to read from.
-     * @exception XMLStreamException if an error occurs
-     */
-    public AbstractUnit(FreeColXMLReader xr) throws XMLStreamException {
-        readFromXML(xr);
-    }
+	/**
+	 * Get the role identifier.
+	 *
+	 * @return The role identifier.
+	 */
+	public final String getRoleId() {
+		return roleId;
+	}
 
+	/**
+	 * Set the role identifier.
+	 *
+	 * @param roleId
+	 *            The new role identifier.
+	 */
+	public final void setRoleId(final String roleId) {
+		this.roleId = roleId;
+	}
 
-    /**
-     * Get the role identifier.
-     *
-     * @return The role identifier.
-     */
-    public final String getRoleId() {
-        return roleId;
-    }
+	/**
+	 * Get the number of units.
+	 *
+	 * @return The number of units.
+	 */
+	public final int getNumber() {
+		return number;
+	}
 
-    /**
-     * Set the role identifier.
-     *
-     * @param roleId The new role identifier.
-     */
-    public final void setRoleId(final String roleId) {
-        this.roleId = roleId;
-    }
+	/**
+	 * Set the number of units.
+	 *
+	 * @param newNumber
+	 *            The new number of units.
+	 */
+	public final void setNumber(final int newNumber) {
+		this.number = newNumber;
+	}
 
-    /**
-     * Get the number of units.
-     *
-     * @return The number of units.
-     */
-    public final int getNumber() {
-        return number;
-    }
+	/**
+	 * Gets a template describing this abstract unit.
+	 *
+	 * @return A <code>StringTemplate</code> describing the abstract unit.
+	 */
+	public StringTemplate getLabel() {
+		StringTemplate tmpl = Messages.getUnitLabel(null, getId(), getNumber(), null, getRoleId(), null);
+		return StringTemplate.template("model.abstractUnit.label").addAmount("%number%", getNumber())
+				.addStringTemplate("%unit%", tmpl);
+	}
 
-    /**
-     * Set the number of units.
-     *
-     * @param newNumber The new number of units.
-     */
-    public final void setNumber(final int newNumber) {
-        this.number = newNumber;
-    }
+	/**
+	 * Get a description of this abstract unit.
+	 *
+	 * @return A <code>String</code> describing this abstract unit.
+	 */
+	public String getDescription() {
+		return Messages.message(getLabel());
+	}
 
-    /**
-     * Gets a template describing this abstract unit.
-     *
-     * @return A <code>StringTemplate</code> describing the abstract unit.
-     */
-    public StringTemplate getLabel() {
-        StringTemplate tmpl = Messages.getUnitLabel(null, getId(), getNumber(),
-                                                    null, getRoleId(), null);
-        return StringTemplate.template("model.abstractUnit.label")
-                             .addAmount("%number%", getNumber())
-                             .addStringTemplate("%unit%", tmpl);
-    }
+	/**
+	 * Convenience accessor for the role.
+	 *
+	 * @param spec
+	 *            A <code>Specification</code> to look up the role in.
+	 * @return The <code>Role</code> of this abstract unit.
+	 */
+	public Role getRole(Specification spec) {
+		return spec.getRole(getRoleId());
+	}
 
-    /**
-     * Get a description of this abstract unit.
-     *
-     * @return A <code>String</code> describing this abstract unit.
-     */
-    public String getDescription() {
-        return Messages.message(getLabel());
-    }
+	/**
+	 * Convenience accessor for the unit type.
+	 *
+	 * @param spec
+	 *            A <code>Specification</code> to look up the type in.
+	 * @return The <code>UnitType</code> of this abstract unit.
+	 */
+	public UnitType getType(Specification spec) {
+		return spec.getUnitType(getId());
+	}
 
-    /**
-     * Convenience accessor for the role.
-     *
-     * @param spec A <code>Specification</code> to look up the role in.
-     * @return The <code>Role</code> of this abstract unit.
-     */
-    public Role getRole(Specification spec) {
-        return spec.getRole(getRoleId());
-    }
+	/**
+	 * Get the approximate offence power that an instantiated unit corresponding
+	 * to this abstract form would have.
+	 *
+	 * @param spec
+	 *            A <code>Specification</code> to look up.
+	 * @return The approximate offence power.
+	 */
+	public double getOffence(Specification spec) {
+		int n = getNumber();
+		Role role = getRole(spec);
+		UnitType type = spec.getUnitType(getId());
+		return n * (type.getOffence() + role.getOffence());
+	}
 
-    /**
-     * Convenience accessor for the unit type.
-     *
-     * @param spec A <code>Specification</code> to look up the type in.
-     * @return The <code>UnitType</code> of this abstract unit.
-     */
-    public UnitType getType(Specification spec) {
-        return spec.getUnitType(getId());
-    }
+	/**
+	 * Calculate the approximate offence power of a list of units.
+	 *
+	 * @param spec
+	 *            A <code>Specification</code> to look up the type in.
+	 * @param units
+	 *            A list of <code>AbstractUnit</code>s.
+	 * @return The approximate offence power.
+	 */
+	public static double calculateStrength(Specification spec, List<AbstractUnit> units) {
+		return units.stream().mapToDouble(au -> au.getOffence(spec)).sum();
+	}
 
-    /**
-     * Get the approximate offence power that an instantiated unit
-     * corresponding to this abstract form would have.
-     *
-     * @param spec A <code>Specification</code> to look up.
-     * @return The approximate offence power.
-     */
-    public double getOffence(Specification spec) {
-        int n = getNumber();
-        Role role = getRole(spec);
-        UnitType type = spec.getUnitType(getId());
-        return n * (type.getOffence() + role.getOffence());
-    }
+	/**
+	 * Get a deep copy of a list of abstract units.
+	 *
+	 * @param units
+	 *            The list of <code>AbstractUnit</code>s to copy.
+	 * @return A list of <code>AbstractUnit</code>s.
+	 */
+	public static List<AbstractUnit> deepCopy(List<AbstractUnit> units) {
+		List<AbstractUnit> result = new ArrayList<>();
+		for (AbstractUnit au : units) {
+			result.add(new AbstractUnit(au.getId(), au.getRoleId(), au.getNumber()));
+		}
+		return result;
+	}
 
-    /**
-     * Calculate the approximate offence power of a list of units.
-     *
-     * @param spec A <code>Specification</code> to look up the type in.
-     * @param units A list of <code>AbstractUnit</code>s.
-     * @return The approximate offence power.
-     */
-    public static double calculateStrength(Specification spec,
-                                           List<AbstractUnit> units) { 
-        return units.stream().mapToDouble(au -> au.getOffence(spec)).sum();
-    }
+	/**
+	 * Get a template for a list of abstract units.
+	 *
+	 * @param base
+	 *            The label template base.
+	 * @param units
+	 *            The list of <code>AbstractUnit</code>s to use.
+	 * @return A suitable <code>StringTemplate</code>.
+	 */
+	public static StringTemplate getListLabel(String base, List<AbstractUnit> units) {
+		StringTemplate template = StringTemplate.label(base);
+		for (AbstractUnit au : units) {
+			template.addStringTemplate(au.getLabel());
+		}
+		return template;
+	}
 
-    /**
-     * Get a deep copy of a list of abstract units.
-     *
-     * @param units The list of <code>AbstractUnit</code>s to copy.
-     * @return A list of <code>AbstractUnit</code>s.
-     */
-    public static List<AbstractUnit> deepCopy(List<AbstractUnit> units) {
-        List<AbstractUnit> result = new ArrayList<>();
-        for (AbstractUnit au : units) {
-            result.add(new AbstractUnit(au.getId(), au.getRoleId(),
-                                        au.getNumber()));
-        }
-        return result;
-    }
+	// Serialization
 
-    /**
-     * Get a template for a list of abstract units.
-     *
-     * @param base The label template base.
-     * @param units The list of <code>AbstractUnit</code>s to use.
-     * @return A suitable <code>StringTemplate</code>.
-     */
-    public static StringTemplate getListLabel(String base,
-                                              List<AbstractUnit> units) {
-        StringTemplate template = StringTemplate.label(base);
-        for (AbstractUnit au : units) {
-            template.addStringTemplate(au.getLabel());
-        }
-        return template;
-    }
+	/** The Constant ROLE_TAG. */
+	private static final String ROLE_TAG = "role";
 
+	/** The Constant NUMBER_TAG. */
+	private static final String NUMBER_TAG = "number";
 
-    // Serialization
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-    private static final String ROLE_TAG = "role";
-    private static final String NUMBER_TAG = "number";
+		xw.writeAttribute(ROLE_TAG, roleId);
 
+		xw.writeAttribute(NUMBER_TAG, number);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected final void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		super.readAttributes(xr);
 
-        xw.writeAttribute(ROLE_TAG, roleId);
+		roleId = xr.getAttribute(ROLE_TAG, Specification.DEFAULT_ROLE_ID);
+		// @compat 0.10.7
+		roleId = Role.fixRoleId(roleId);
+		// end @compat
 
-        xw.writeAttribute(NUMBER_TAG, number);
-    }
+		number = xr.getAttribute(NUMBER_TAG, 1);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected final void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        super.readAttributes(xr);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder(16);
+		sb.append(number).append(" ").append(getId()).append(" (").append(roleId).append(")");
+		return sb.toString();
+	}
 
-        roleId = xr.getAttribute(ROLE_TAG, Specification.DEFAULT_ROLE_ID);
-        // @compat 0.10.7
-        roleId = Role.fixRoleId(roleId);
-        // end @compat
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-        number = xr.getAttribute(NUMBER_TAG, 1);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(16);
-        sb.append(number).append(" ").append(getId())
-            .append(" (").append(roleId).append(")");
-        return sb.toString();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "abstractUnit".
-     */
-    public static String getXMLElementTagName() {
-        return "abstractUnit";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "abstractUnit".
+	 */
+	public static String getXMLElementTagName() {
+		return "abstractUnit";
+	}
 }

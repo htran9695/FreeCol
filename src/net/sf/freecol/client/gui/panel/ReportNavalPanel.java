@@ -33,98 +33,94 @@ import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitType;
 
-
 /**
  * This panel displays the Naval Report.
  */
 public final class ReportNavalPanel extends ReportUnitPanel {
 
+	/**
+	 * The constructor that will add the items to this panel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ReportNavalPanel(FreeColClient freeColClient) {
+		super(freeColClient, "reportNavalAction", false);
+	}
 
-    /**
-     * The constructor that will add the items to this panel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ReportNavalPanel(FreeColClient freeColClient) {
-        super(freeColClient, "reportNavalAction", false);
-    }
+	/**
+	 * Reportable.
+	 *
+	 * @param unitType
+	 *            the unit type
+	 * @return true, if successful
+	 */
+	private boolean reportable(UnitType unitType) {
+		return unitType.isNaval() && unitType.isAvailableTo(getMyPlayer());
+	}
 
+	/**
+	 * Reportable.
+	 *
+	 * @param unit
+	 *            the unit
+	 * @return true, if successful
+	 */
+	private boolean reportable(Unit unit) {
+		return unit.isNaval();
+	}
 
-    /**
-     * Reportable.
-     *
-     * @param unitType the unit type
-     * @return true, if successful
-     */
-    private boolean reportable(UnitType unitType) {
-        return unitType.isNaval()
-            && unitType.isAvailableTo(getMyPlayer());
-    }
+	// Implement ReportUnitPanel
 
-    /**
-     * Reportable.
-     *
-     * @param unit the unit
-     * @return true, if successful
-     */
-    private boolean reportable(Unit unit) {
-        return unit.isNaval();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void gatherData() {
+		for (Unit unit : getMyPlayer().getUnits()) {
+			if (reportable(unit)) {
+				addUnit(unit, "naval");
+			}
+		}
+	}
 
-    // Implement ReportUnitPanel
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void addREFUnits() {
+		final Specification spec = getSpecification();
+		final Nation refNation = getMyPlayer().getNation().getREFNation();
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void gatherData() {
-        for (Unit unit : getMyPlayer().getUnits()) {
-            if (reportable(unit)) {
-                addUnit(unit, "naval");
-            }
-        }
-    }
+		reportPanel.add(new JLabel(Messages.getName(refNation)), "span, split 2");
+		reportPanel.add(new JSeparator(JSeparator.HORIZONTAL), "growx");
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void addREFUnits() {
-        final Specification spec = getSpecification();
-        final Nation refNation = getMyPlayer().getNation().getREFNation();
+		List<AbstractUnit> refUnits = igc().getREFUnits();
+		if (refUnits != null) {
+			for (AbstractUnit au : refUnits) {
+				if (au.getType(spec).isNaval()) {
+					reportPanel.add(createUnitTypeLabel(au), "sg");
+				}
+			}
+		}
+	}
 
-        reportPanel.add(new JLabel(Messages.getName(refNation)),
-                        "span, split 2");
-        reportPanel.add(new JSeparator(JSeparator.HORIZONTAL), "growx");
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void addOwnUnits() {
+		final Specification spec = getSpecification();
+		final Player player = getMyPlayer();
 
-        List<AbstractUnit> refUnits = igc().getREFUnits();
-        if (refUnits != null) {
-            for (AbstractUnit au : refUnits) {
-                if (au.getType(spec).isNaval()) {
-                    reportPanel.add(createUnitTypeLabel(au), "sg");
-                }
-            }
-        }
-    }
+		reportPanel.add(Utility.localizedLabel(player.getForcesLabel()), "newline, span, split 2");
+		reportPanel.add(new JSeparator(JSeparator.HORIZONTAL), "growx");
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void addOwnUnits() {
-        final Specification spec = getSpecification();
-        final Player player = getMyPlayer();
-
-        reportPanel.add(Utility.localizedLabel(player.getForcesLabel()),
-            "newline, span, split 2");
-        reportPanel.add(new JSeparator(JSeparator.HORIZONTAL), "growx");
-
-        for (UnitType unitType : getSpecification().getUnitTypeList()) {
-            if (!reportable(unitType)) continue;
-            AbstractUnit au = new AbstractUnit(unitType,
-                                               Specification.DEFAULT_ROLE_ID,
-                                               getCount("naval", unitType));
-            reportPanel.add(createUnitTypeLabel(au), "sg");
-        }
-    }
+		for (UnitType unitType : getSpecification().getUnitTypeList()) {
+			if (!reportable(unitType))
+				continue;
+			AbstractUnit au = new AbstractUnit(unitType, Specification.DEFAULT_ROLE_ID, getCount("naval", unitType));
+			reportPanel.add(createUnitTypeLabel(au), "sg");
+		}
+	}
 }

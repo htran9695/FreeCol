@@ -43,277 +43,257 @@ import net.sf.freecol.client.gui.panel.Flag.Decoration;
 import net.sf.freecol.client.gui.panel.Flag.UnionPosition;
 import net.sf.freecol.client.gui.panel.Flag.UnionShape;
 
-
 /**
  * The Class FlagTest.
  */
 public class FlagTest extends JFrame implements ActionListener, ItemListener {
 
+	/** The flags. */
+	private final Flag[] FLAGS = { ConfirmDeclarationDialog.ENGLISH_FLAG, ConfirmDeclarationDialog.SPANISH_FLAG,
+			ConfirmDeclarationDialog.FRENCH_FLAG, ConfirmDeclarationDialog.DUTCH_FLAG,
+			ConfirmDeclarationDialog.PORTUGUESE_FLAG, ConfirmDeclarationDialog.SWEDISH_FLAG,
+			ConfirmDeclarationDialog.DANISH_FLAG, ConfirmDeclarationDialog.RUSSIAN_FLAG, null // custom
+	};
 
-    /** The flags. */
-    private final Flag[] FLAGS = {
-        ConfirmDeclarationDialog.ENGLISH_FLAG,
-        ConfirmDeclarationDialog.SPANISH_FLAG,
-        ConfirmDeclarationDialog.FRENCH_FLAG,
-        ConfirmDeclarationDialog.DUTCH_FLAG,
-        ConfirmDeclarationDialog.PORTUGUESE_FLAG,
-        ConfirmDeclarationDialog.SWEDISH_FLAG,
-        ConfirmDeclarationDialog.DANISH_FLAG,
-        ConfirmDeclarationDialog.RUSSIAN_FLAG,
-        null // custom
-    };
+	/** The Constant FLAG_NAMES. */
+	private static final String[] FLAG_NAMES = { "England", "Spain", "France", "Netherlands", "Portugal", "Sweden",
+			"Denmark", "Russia", "Custom" };
 
-    /** The Constant FLAG_NAMES. */
-    private static final String[] FLAG_NAMES = {
-        "England", "Spain", "France", "Netherlands",
-        "Portugal", "Sweden", "Denmark", "Russia", "Custom"
-    };
+	/** The flag. */
+	private Flag flag;
 
-    /** The flag. */
-    private Flag flag;
+	/** The flags. */
+	private final JComboBox<String> flags = new JComboBox<>(FLAG_NAMES);
 
-    /** The flags. */
-    private final JComboBox<String> flags
-        = new JComboBox<>(FLAG_NAMES);
-    
-    /** The decoration. */
-    private final JComboBox<Decoration> decoration
-        = new JComboBox<>(Decoration.values());
-    
-    /** The background. */
-    private final JComboBox<Background> background
-        = new JComboBox<>(Background.values());
-    
-    /** The union. */
-    private final JComboBox<UnionPosition> union
-        = new JComboBox<>(UnionPosition.values());
-    
-    /** The union shape. */
-    private final JComboBox<UnionShape> unionShape
-        = new JComboBox<>(UnionShape.values());
-    
-    /** The stars. */
-    private final JComboBox<String> stars
-        = new JComboBox<>(getNumbers(50));
-    
-    /** The stripes. */
-    private final JComboBox<String> stripes
-        = new JComboBox<>(getNumbers(13));
+	/** The decoration. */
+	private final JComboBox<Decoration> decoration = new JComboBox<>(Decoration.values());
 
-    /** The union color. */
-    private final ColorButton unionColor = new ColorButton(Color.BLUE);
-    
-    /** The star color. */
-    private final ColorButton starColor = new ColorButton(Color.WHITE);
-    
-    /** The decoration color. */
-    private final ColorButton decorationColor = new ColorButton(Color.WHITE);
-    
-    /** The background colors. */
-    private final ColorButton[] backgroundColors = {
-        new ColorButton(null), new ColorButton(null), new ColorButton(null),
-        new ColorButton(null), new ColorButton(null), new ColorButton(null)
-    };
+	/** The background. */
+	private final JComboBox<Background> background = new JComboBox<>(Background.values());
 
-    /** The custom components. */
-    private final Component[] customComponents = {
-        background, decoration, union, unionShape,
-        stripes, unionColor, starColor, decorationColor,
-        backgroundColors[0], backgroundColors[1],
-        backgroundColors[2], backgroundColors[3],
-        backgroundColors[4], backgroundColors[5]
-    };
+	/** The union. */
+	private final JComboBox<UnionPosition> union = new JComboBox<>(UnionPosition.values());
 
-    /** The label. */
-    final JLabel label = new JLabel();
+	/** The union shape. */
+	private final JComboBox<UnionShape> unionShape = new JComboBox<>(UnionShape.values());
 
+	/** The stars. */
+	private final JComboBox<String> stars = new JComboBox<>(getNumbers(50));
 
-    /**
-     * Instantiates a new flag test.
-     */
-    public FlagTest() {
-        super("FlagTest");
+	/** The stripes. */
+	private final JComboBox<String> stripes = new JComboBox<>(getNumbers(13));
 
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLayout(new MigLayout("wrap 2", "[][fill]"));
-        flags.addItemListener(this);
-        add(new JLabel("predefined flags"));
-        add(flags);
+	/** The union color. */
+	private final ColorButton unionColor = new ColorButton(Color.BLUE);
 
-        background.addItemListener(this);
-        add(new JLabel("background"));
-        add(background);
+	/** The star color. */
+	private final ColorButton starColor = new ColorButton(Color.WHITE);
 
-        decoration.addItemListener(this);
-        add(new JLabel("decoration"));
-        add(decoration);
+	/** The decoration color. */
+	private final ColorButton decorationColor = new ColorButton(Color.WHITE);
 
-        union.addItemListener(this);
-        add(new JLabel("union position"));
-        add(union);
+	/** The background colors. */
+	private final ColorButton[] backgroundColors = { new ColorButton(null), new ColorButton(null),
+			new ColorButton(null), new ColorButton(null), new ColorButton(null), new ColorButton(null) };
 
-        unionShape.addItemListener(this);
-        add(new JLabel("union shape"));
-        add(unionShape);
+	/** The custom components. */
+	private final Component[] customComponents = { background, decoration, union, unionShape, stripes, unionColor,
+			starColor, decorationColor, backgroundColors[0], backgroundColors[1], backgroundColors[2],
+			backgroundColors[3], backgroundColors[4], backgroundColors[5] };
 
-        stars.setSelectedIndex(12);
-        stars.addItemListener(this);
-        add(new JLabel("number of stars"));
-        add(stars);
+	/** The label. */
+	final JLabel label = new JLabel();
 
-        stripes.setSelectedIndex(12);
-        stripes.addItemListener(this);
-        add(new JLabel("number of stripes"));
-        add(stripes);
+	/**
+	 * Instantiates a new flag test.
+	 */
+	public FlagTest() {
+		super("FlagTest");
 
-        unionColor.addActionListener(this);
-        add(new JLabel("union color"));
-        add(unionColor);
+		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		setLayout(new MigLayout("wrap 2", "[][fill]"));
+		flags.addItemListener(this);
+		add(new JLabel("predefined flags"));
+		add(flags);
 
-        decorationColor.addActionListener(this);
-        add(new JLabel("decoration color"));
-        add(decorationColor);
+		background.addItemListener(this);
+		add(new JLabel("background"));
+		add(background);
 
-        starColor.addActionListener(this);
-        add(new JLabel("star color"));
-        add(starColor);
+		decoration.addItemListener(this);
+		add(new JLabel("decoration"));
+		add(decoration);
 
-        add(new JLabel("background colors"));
-        for (int index = 0; index < backgroundColors.length; index++) {
-            ColorButton button = backgroundColors[index];
-            button.addActionListener(this);
-            if (index == 0) {
-                add(button, "split 3");
-            } else if (index % 3 == 0) {
-                add(button, "skip, split 3");
-            } else {
-                add(button);
-            }
-        }
+		union.addItemListener(this);
+		add(new JLabel("union position"));
+		add(union);
 
-        add(label, "width 200, height 100");
+		unionShape.addItemListener(this);
+		add(new JLabel("union shape"));
+		add(unionShape);
 
-        itemStateChanged(null);
-    }
+		stars.setSelectedIndex(12);
+		stars.addItemListener(this);
+		add(new JLabel("number of stars"));
+		add(stars);
 
-    /* (non-Javadoc)
-     * @see java.awt.event.ItemListener#itemStateChanged(java.awt.event.ItemEvent)
-     */
-    @Override
-    public void itemStateChanged(ItemEvent e) {
-        Background newBackground = (Background) background.getSelectedItem();
-        Decoration newDecoration = (Decoration) decoration.getSelectedItem();
-        UnionPosition newPosition = (UnionPosition) union.getSelectedItem();
-        UnionShape newShape = (UnionShape) unionShape.getSelectedItem();
-        Flag newFlag = FLAGS[flags.getSelectedIndex()];
-        if (e == null || e.getSource() == flags) {
-            if (newFlag == null) {
-                // custom
-                enable(customComponents, true);
-            } else {
-                enable(customComponents, false);
-                flag = newFlag;
-                unionColor.setColor(flag.getUnionColor());
-                starColor.setColor(flag.getStarColor());
-                decorationColor.setColor(flag.getDecorationColor());
-                List<Color> colors = flag.getBackgroundColors();
-                for (int index = 0; index < backgroundColors.length; index++) {
-                    Color color = (index < colors.size())
-                        ? colors.get(index) : null;
-                    backgroundColors[index].setColor(color);
-                }
-            }
-        } else {
-            if (newFlag == null) {
-                if (e.getSource() == decoration) {
-                    UnionPosition oldPosition = (UnionPosition) union.getSelectedItem();
-                    union.removeAllItems();
-                    for (UnionPosition position : newDecoration.unionPositions) {
-                        union.addItem(position);
-                    }
-                    union.setSelectedItem(oldPosition);
-                }
-                flag = new Flag(newBackground, newDecoration, newPosition, newShape);
-                flag.setStripes(stripes.getSelectedIndex() + 1);
-                setColors();
-            }
-            flag.setStars(stars.getSelectedIndex() + 1);
-        }
-        stripes.setEnabled(newBackground == Background.PALES
-                           || newBackground == Background.FESSES);
+		stripes.setSelectedIndex(12);
+		stripes.addItemListener(this);
+		add(new JLabel("number of stripes"));
+		add(stripes);
 
-        label.setIcon(new ImageIcon(flag.getImage()));
-    }
+		unionColor.addActionListener(this);
+		add(new JLabel("union color"));
+		add(unionColor);
 
-    /* (non-Javadoc)
-     * @see java.awt.event.ActionListener#actionPerformed(java.awt.event.ActionEvent)
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        ColorButton button = (ColorButton)ae.getSource();
-        Color color = JColorChooser
-            .showDialog(FlagTest.this,
-                        label.getText(),
-                        button.getBackground());
-        button.setColor(color);
-        setColors();
-        label.setIcon(new ImageIcon(flag.getImage()));
-    }
+		decorationColor.addActionListener(this);
+		add(new JLabel("decoration color"));
+		add(decorationColor);
 
-    /**
-     * Sets the colors.
-     */
-    private void setColors() {
-        flag.setUnionColor(unionColor.getColor());
-        flag.setStarColor(starColor.getColor());
-        flag.setDecorationColor(decorationColor.getColor());
-        List<Color> colors = new ArrayList<>();
-        for (ColorButton button : backgroundColors) {
-            Color color = button.getColor();
-            if (color != null) {
-                colors.add(color);
-            }
-            flag.setBackgroundColors(colors);
-        }
-    }
+		starColor.addActionListener(this);
+		add(new JLabel("star color"));
+		add(starColor);
 
-    /**
-     * Gets the numbers.
-     *
-     * @param count the count
-     * @return the numbers
-     */
-    public final String[] getNumbers(int count) {
-        String[] result = new String[count];
-        for (int index = 0; index < count; index++) {
-            result[index] = Integer.toString(index + 1);
-        }
-        return result;
-    }
+		add(new JLabel("background colors"));
+		for (int index = 0; index < backgroundColors.length; index++) {
+			ColorButton button = backgroundColors[index];
+			button.addActionListener(this);
+			if (index == 0) {
+				add(button, "split 3");
+			} else if (index % 3 == 0) {
+				add(button, "skip, split 3");
+			} else {
+				add(button);
+			}
+		}
 
-    /**
-     * Enable.
-     *
-     * @param components the components
-     * @param value the value
-     */
-    private void enable(Component[] components, boolean value) {
-        for (Component component : components) {
-            component.setEnabled(value);
-        }
-    }
+		add(label, "width 200, height 100");
 
+		itemStateChanged(null);
+	}
 
-    /**
-     * The main method.
-     *
-     * @param args the arguments
-     */
-    public static void main(String[] args) {
-        FlagTest frame = new FlagTest();
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * java.awt.event.ItemListener#itemStateChanged(java.awt.event.ItemEvent)
+	 */
+	@Override
+	public void itemStateChanged(ItemEvent e) {
+		Background newBackground = (Background) background.getSelectedItem();
+		Decoration newDecoration = (Decoration) decoration.getSelectedItem();
+		UnionPosition newPosition = (UnionPosition) union.getSelectedItem();
+		UnionShape newShape = (UnionShape) unionShape.getSelectedItem();
+		Flag newFlag = FLAGS[flags.getSelectedIndex()];
+		if (e == null || e.getSource() == flags) {
+			if (newFlag == null) {
+				// custom
+				enable(customComponents, true);
+			} else {
+				enable(customComponents, false);
+				flag = newFlag;
+				unionColor.setColor(flag.getUnionColor());
+				starColor.setColor(flag.getStarColor());
+				decorationColor.setColor(flag.getDecorationColor());
+				List<Color> colors = flag.getBackgroundColors();
+				for (int index = 0; index < backgroundColors.length; index++) {
+					Color color = (index < colors.size()) ? colors.get(index) : null;
+					backgroundColors[index].setColor(color);
+				}
+			}
+		} else {
+			if (newFlag == null) {
+				if (e.getSource() == decoration) {
+					UnionPosition oldPosition = (UnionPosition) union.getSelectedItem();
+					union.removeAllItems();
+					for (UnionPosition position : newDecoration.unionPositions) {
+						union.addItem(position);
+					}
+					union.setSelectedItem(oldPosition);
+				}
+				flag = new Flag(newBackground, newDecoration, newPosition, newShape);
+				flag.setStripes(stripes.getSelectedIndex() + 1);
+				setColors();
+			}
+			flag.setStars(stars.getSelectedIndex() + 1);
+		}
+		stripes.setEnabled(newBackground == Background.PALES || newBackground == Background.FESSES);
 
-        // display the window
-        frame.pack();
-        frame.setVisible(true);
-    }
+		label.setIcon(new ImageIcon(flag.getImage()));
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * java.awt.event.ActionListener#actionPerformed(java.awt.event.ActionEvent)
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		ColorButton button = (ColorButton) ae.getSource();
+		Color color = JColorChooser.showDialog(FlagTest.this, label.getText(), button.getBackground());
+		button.setColor(color);
+		setColors();
+		label.setIcon(new ImageIcon(flag.getImage()));
+	}
+
+	/**
+	 * Sets the colors.
+	 */
+	private void setColors() {
+		flag.setUnionColor(unionColor.getColor());
+		flag.setStarColor(starColor.getColor());
+		flag.setDecorationColor(decorationColor.getColor());
+		List<Color> colors = new ArrayList<>();
+		for (ColorButton button : backgroundColors) {
+			Color color = button.getColor();
+			if (color != null) {
+				colors.add(color);
+			}
+			flag.setBackgroundColors(colors);
+		}
+	}
+
+	/**
+	 * Gets the numbers.
+	 *
+	 * @param count
+	 *            the count
+	 * @return the numbers
+	 */
+	public final String[] getNumbers(int count) {
+		String[] result = new String[count];
+		for (int index = 0; index < count; index++) {
+			result[index] = Integer.toString(index + 1);
+		}
+		return result;
+	}
+
+	/**
+	 * Enable.
+	 *
+	 * @param components
+	 *            the components
+	 * @param value
+	 *            the value
+	 */
+	private void enable(Component[] components, boolean value) {
+		for (Component component : components) {
+			component.setEnabled(value);
+		}
+	}
+
+	/**
+	 * The main method.
+	 *
+	 * @param args
+	 *            the arguments
+	 */
+	public static void main(String[] args) {
+		FlagTest frame = new FlagTest();
+
+		// display the window
+		frame.pack();
+		frame.setVisible(true);
+	}
 }

@@ -37,423 +37,561 @@ import com.jcraft.jorbis.Comment;
 import com.jcraft.jorbis.DspState;
 import com.jcraft.jorbis.Info;
 
-
 /**
- * Rewritten from the JCraft JOrbisPlayer example (GPLv2+), fixing a
- * bunch of bugs that prevent it from playing short files and recasting
- * into a read()-driven AudioInputStream form.
+ * Rewritten from the JCraft JOrbisPlayer example (GPLv2+), fixing a bunch of
+ * bugs that prevent it from playing short files and recasting into a
+ * read()-driven AudioInputStream form.
  *
- * FreeCol has a few short files.  We can notice when this fails.
+ * FreeCol has a few short files. We can notice when this fails.
  */
 public class OggVorbisDecoderFactory {
 
-    /**
-     * Core JOgg/JOrbis magic handled here.
-     */
-    private static class OggStream extends InputStream {
+	/**
+	 * Core JOgg/JOrbis magic handled here.
+	 */
+	private static class OggStream extends InputStream {
 
-        // End of stream marker.
-        private static final String EOS = "End-of-stream";
+		/** The Constant EOS. */
+		// End of stream marker.
+		private static final String EOS = "End-of-stream";
 
-        // Internal buffer size.
-        private static final int BUFSIZ = 4096;
+		/** The Constant BUFSIZ. */
+		// Internal buffer size.
+		private static final int BUFSIZ = 4096;
 
-        private final Packet oggPacket = new Packet();
-        private final Page oggPage = new Page();
-        private final StreamState oggStreamState = new StreamState();
-        private final SyncState oggSyncState = new SyncState();
-        private final DspState orbisDspState = new DspState();
-        private final Block orbisBlock = new Block(orbisDspState);
-        private final Comment orbisComment = new Comment();
-        private final Info orbisInfo = new Info();
+		/** The ogg packet. */
+		private final Packet oggPacket = new Packet();
 
-        private final AudioFormat audioFormat;
+		/** The ogg page. */
+		private final Page oggPage = new Page();
 
-        // The buffer to convert into.
-        private final byte[] convBuf = new byte[BUFSIZ];
-        // The amount of data waiting in the buffer.
-        private int bufCount = 0;
-        // The position in the buffer of the data.
-        private int offset = 0;
-        
-        // PCM index and data.
-        private int[] pcmi;
-        private float[][][] pcmData;
+		/** The ogg stream state. */
+		private final StreamState oggStreamState = new StreamState();
 
-        // The stream containing the data.
-        private InputStream inputStream = null;
+		/** The ogg sync state. */
+		private final SyncState oggSyncState = new SyncState();
 
+		/** The orbis dsp state. */
+		private final DspState orbisDspState = new DspState();
 
-        public OggStream(InputStream inputStream) throws IOException {
-            super();
-            this.inputStream = inputStream;
-            String err = getHeader();
-            if (err != null) throw new IOException(err);
-            this.audioFormat = new AudioFormat(orbisInfo.rate,
-                16, // bits per sample
-                orbisInfo.channels,
-                true, // signed
-                false); // little endian
-            this.bufCount = 0;
-            this.offset = 0;
-        }
+		/** The orbis block. */
+		private final Block orbisBlock = new Block(orbisDspState);
 
-        @Override
-        public void close() {
-            oggSyncState.clear();
-            oggStreamState.clear();
-            orbisBlock.clear();
-            orbisDspState.clear();
-        }
+		/** The orbis comment. */
+		private final Comment orbisComment = new Comment();
 
-        public AudioFormat getFormat() {
-            return audioFormat;
-        }
+		/** The orbis info. */
+		private final Info orbisInfo = new Info();
 
-        /**
-         * Gets the amount of data available to be read right now.
-         *
-         * @return A number of bytes to read.
-         */
-        @Override
-        public int available() {
-            return bufCount;
-        }
+		/** The audio format. */
+		private final AudioFormat audioFormat;
 
-        @Override
-        public int read() throws IOException {
-            byte[] b = new byte[1];
-            return (read(b) > 0) ? b[0] : -1;
-        }
+		/** The conv buf. */
+		// The buffer to convert into.
+		private final byte[] convBuf = new byte[BUFSIZ];
 
-        @Override
-        public int read(byte[] buf) throws IOException {
-            return read(buf, buf.length);
-        }
+		/** The buf count. */
+		// The amount of data waiting in the buffer.
+		private int bufCount = 0;
 
-        /**
-         * Reads into the supplied buffer.
-         *
-         * @param buf The buffer to read to.
-         * @param n The number of bytes to read.
-         * @return Negative on error, zero on end of stream, otherwise the
-         *     number of bytes added to the buffer.
-         * @throws IOException if JOrbis loses.
-         */
-        public int read(byte[] buf, int n) throws IOException {
-            int wr = 0, wrOffset = 0;
-            while (n > 0) {
-                if (bufCount <= 0) {
-                    int ret = getBody(inputStream);
-                    if (ret < 0) throw new IOException("Ogg decoding error");
-                    if (ret == 0) break;
-                    bufCount = ret;
-                    offset = 0;
-                }
-                int rd = (bufCount < n) ? bufCount : n;
-                System.arraycopy(convBuf, offset, buf, wrOffset, rd);
-                bufCount -= rd;
-                offset += rd;
-                wr += rd;
-                wrOffset += rd;
-                n -= rd;
-            }
-            return (wr <= 0) ? -1 : wr;
-        }
+		/** The offset. */
+		// The position in the buffer of the data.
+		private int offset = 0;
 
-        /**
-         * Skips a number of bytes.
-         *
-         * @param n The number of bytes to skip.
-         * @return The actual number of bytes skipped.
-         */
-        @Override
-        public long skip(long n) throws IOException {
-            long wr = 0;
-            while (n > 0) {
-                if (bufCount <= 0) {
-                    int ret = getBody(inputStream);
-                    if (ret < 0) throw new IOException("Ogg decoding error");
-                    if (ret == 0) break;
-                    bufCount = ret;
-                    offset = 0;
-                }
-                long rd = (bufCount < n) ? bufCount : n;
-                bufCount -= rd;
-                offset += rd;
-                wr += rd;
-                n -= rd;
-            }
-            return wr;
-        }
+		/** The pcmi. */
+		// PCM index and data.
+		private int[] pcmi;
 
-        // No need to override InputStream behaviour.
-        //public void mark(int readLimit) {}
-        //public boolean markSupported() { return false; }
+		/** The pcm data. */
+		private float[][][] pcmData;
 
-        @Override
-        public void reset() {}
+		/** The input stream. */
+		// The stream containing the data.
+		private InputStream inputStream = null;
 
-        /**
-         * Gets the OGG header (first three packets) which must contain vorbis
-         * audio content.
-         * This routine is public so it can be used as a check if the a file
-         * really does contain vorbis.
-         *
-         * @return An error message if a page not is available, null on success.
-         */
-        private String getHeader() {
-            String input;
-            int packet = 0;
+		/**
+		 * Instantiates a new ogg stream.
+		 *
+		 * @param inputStream
+		 *            the input stream
+		 * @throws IOException
+		 *             Signals that an I/O exception has occurred.
+		 */
+		public OggStream(InputStream inputStream) throws IOException {
+			super();
+			this.inputStream = inputStream;
+			String err = getHeader();
+			if (err != null)
+				throw new IOException(err);
+			this.audioFormat = new AudioFormat(orbisInfo.rate, 16, // bits per
+																	// sample
+					orbisInfo.channels, true, // signed
+					false); // little endian
+			this.bufCount = 0;
+			this.offset = 0;
+		}
 
-            oggSyncState.init();
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.io.InputStream#close()
+		 */
+		@Override
+		public void close() {
+			oggSyncState.clear();
+			oggStreamState.clear();
+			orbisBlock.clear();
+			orbisDspState.clear();
+		}
 
-            // Special handling for first packet--- we need the oggPage
-            // to be read before the oggStreamState can be initialized.
-            while (packet < 1) {
-                switch (oggSyncState.pageout(oggPage)) {
-                case 1:
-                    oggStreamState.init(oggPage.serialno());
-                    oggStreamState.reset();
-                    
-                    // Initializes the Info and Comment objects.
-                    orbisInfo.init();
-                    orbisComment.init();
-                    
-                    // Check the page (serial number and stuff).
-                    if (oggStreamState.pagein(oggPage) == -1) {
-                        return "Error on header page";
-                    }
-                    
-                    // Extract first packets.
-                    if (oggStreamState.packetout(oggPacket) != 1) {
-                        return "Error on first packet";
-                    }
-                    if (orbisInfo.synthesis_headerin(orbisComment, oggPacket)
-                        < 0) {
-                        return "Non-vorbis data found";
-                    }
-                    packet = 1;
-                    break;
-                case 0:
-                    if ((input = getInput()) != null) return input;
-                    break;
-                default:
-                    return "Error reading first page";
-                }
-            }
+		/**
+		 * Gets the format.
+		 *
+		 * @return the format
+		 */
+		public AudioFormat getFormat() {
+			return audioFormat;
+		}
 
-            // Read another two packets to complete the header.
-            while (packet < 3) {
-                switch (oggStreamState.packetout(oggPacket)) {
-                case 1:
-                    orbisInfo.synthesis_headerin(orbisComment, oggPacket);
-                    packet++;
-                    break;
-                case 0:
-                    if ((input = getPage()) != null) return input;
-                    break;
-                default:
-                    return "Error in header packet " + packet;
-                }
-            }
-            orbisDspState.synthesis_init(orbisInfo);
-            orbisBlock.init(orbisDspState);
-            return null;
-        }
+		/**
+		 * Gets the amount of data available to be read right now.
+		 *
+		 * @return A number of bytes to read.
+		 */
+		@Override
+		public int available() {
+			return bufCount;
+		}
 
-        /**
-         * Gets another chunk of input into the oggSyncState.
-         *
-         * @return An error message if input is not available, null on success.
-         */
-        private String getInput() {
-            int count = -1;
-            try {
-                int idx = oggSyncState.buffer(BUFSIZ);
-                count = inputStream.read(oggSyncState.data, idx, BUFSIZ);
-            } catch (IOException e) {
-                return e.getMessage();
-            }
-            if (count > 0) oggSyncState.wrote(count);
-            return (count > 0) ? null : EOS;
-        }
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.io.InputStream#read()
+		 */
+		@Override
+		public int read() throws IOException {
+			byte[] b = new byte[1];
+			return (read(b) > 0) ? b[0] : -1;
+		}
 
-        /**
-         * Gets the next page from the oggSyncState into the oggStreamState.
-         *
-         * @return An error message if a page not is available, null on success.
-         */
-        private String getPage() {
-            String input;
-            for (;;) {
-                switch (oggSyncState.pageout(oggPage)) { 
-                case 0:
-                    if ((input = getInput()) != null) return input;
-                    break;
-                case 1:
-                    oggStreamState.pagein(oggPage);
-                    return null;
-                default:
-                    return "Bogus page";
-                }
-            }
-        }
-        
-        /**
-         * Refills the conversion buffer.
-         *
-         * @return The number of bytes waiting in the convBuf.
-         */
-        public int getBody(InputStream is) {
-            String err;
-            int packet = 3;
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.io.InputStream#read(byte[])
+		 */
+		@Override
+		public int read(byte[] buf) throws IOException {
+			return read(buf, buf.length);
+		}
 
-            pcmi = new int[orbisInfo.channels];
-            pcmData = new float[1][][];
-            for (;;) {
-                switch (oggStreamState.packetout(oggPacket)) {
-                case 1:
-                    if (orbisBlock.synthesis(oggPacket) == 0) {
-                        orbisDspState.synthesis_blockin(orbisBlock);
-                    }
-                    for (;;) {
-                        int n = orbisDspState.synthesis_pcmout(pcmData, pcmi);
-                        if (n <= 0) break;
-                        orbisDspState.synthesis_read(n);
-                        return 2 * orbisInfo.channels * decodePacket(n);
-                    }
-                    packet++;
-                    break;
-                case 0:
-                    if ((err = getPage()) != null) {
-                        return (EOS.equals(err)) ? 0 : -1;
-                    }
-                    break;
-                default:
-                    return -1;
-                }
-            }
-        }
+		/**
+		 * Reads into the supplied buffer.
+		 *
+		 * @param buf
+		 *            The buffer to read to.
+		 * @param n
+		 *            The number of bytes to read.
+		 * @return Negative on error, zero on end of stream, otherwise the
+		 *         number of bytes added to the buffer.
+		 * @throws IOException
+		 *             if JOrbis loses.
+		 */
+		public int read(byte[] buf, int n) throws IOException {
+			int wr = 0, wrOffset = 0;
+			while (n > 0) {
+				if (bufCount <= 0) {
+					int ret = getBody(inputStream);
+					if (ret < 0)
+						throw new IOException("Ogg decoding error");
+					if (ret == 0)
+						break;
+					bufCount = ret;
+					offset = 0;
+				}
+				int rd = (bufCount < n) ? bufCount : n;
+				System.arraycopy(convBuf, offset, buf, wrOffset, rd);
+				bufCount -= rd;
+				offset += rd;
+				wr += rd;
+				wrOffset += rd;
+				n -= rd;
+			}
+			return (wr <= 0) ? -1 : wr;
+		}
 
-        /**
-         * Decode the PCM data.
-         *
-         * @return The number of bytes waiting in the conversion buffer to
-         *     be written.
-         */
-        private int decodePacket(int samples) {
-            int range = (samples < convBuf.length) ? samples : convBuf.length;
-            for (int i = 0; i < orbisInfo.channels; i++) {
-                int sampleIndex = i * 2;
-                for (int j = 0; j < range; j++) {
-                    // Retrieve the PCM
-                    int value = (int)(pcmData[0][i][pcmi[i] + j] * 32767.0f);
-                    // Clip to signed 16 bit
-                    if (value > 32767) value = 32767;
-                    else if (value < -32768) value = -32768;
-                    // Stuff into the conversion buffer, little endian
-                    convBuf[sampleIndex] = (byte)(value);
-                    convBuf[sampleIndex + 1] = (byte)(value >>> 8);
-                    // Jump forward (interleaving channels)
-                    sampleIndex += 2 * (orbisInfo.channels);
-                }
-            }
-            return range;
-        }
-    };
+		/**
+		 * Skips a number of bytes.
+		 *
+		 * @param n
+		 *            The number of bytes to skip.
+		 * @return The actual number of bytes skipped.
+		 * @throws IOException
+		 *             Signals that an I/O exception has occurred.
+		 */
+		@Override
+		public long skip(long n) throws IOException {
+			long wr = 0;
+			while (n > 0) {
+				if (bufCount <= 0) {
+					int ret = getBody(inputStream);
+					if (ret < 0)
+						throw new IOException("Ogg decoding error");
+					if (ret == 0)
+						break;
+					bufCount = ret;
+					offset = 0;
+				}
+				long rd = (bufCount < n) ? bufCount : n;
+				bufCount -= rd;
+				offset += rd;
+				wr += rd;
+				n -= rd;
+			}
+			return wr;
+		}
 
-    /**
-     * The AudioInputStream extension to handle decoding Ogg/Vorbis Audio
-     * input.
-     */
-    private static class OggVorbisAudioInputStream extends AudioInputStream {
+		// No need to override InputStream behaviour.
+		// public void mark(int readLimit) {}
+		// public boolean markSupported() { return false; }
 
-        // Core JOgg and JOrbis magic.
-        private OggStream os = null;
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.io.InputStream#reset()
+		 */
+		@Override
+		public void reset() {
+		}
 
+		/**
+		 * Gets the OGG header (first three packets) which must contain vorbis
+		 * audio content. This routine is public so it can be used as a check if
+		 * the a file really does contain vorbis.
+		 *
+		 * @return An error message if a page not is available, null on success.
+		 */
+		private String getHeader() {
+			String input;
+			int packet = 0;
 
-        /**
-         * Create a new player.
-         *
-         * @param os The <code>OggStream</code> to read from.
-         */
-        public OggVorbisAudioInputStream(OggStream os) throws IOException {
-            super(os, os.getFormat(), AudioSystem.NOT_SPECIFIED);
-            this.os = os;
-        }
+			oggSyncState.init();
 
-        @Override
-        public AudioFormat getFormat() {
-            return os.getFormat();
-        }
+			// Special handling for first packet--- we need the oggPage
+			// to be read before the oggStreamState can be initialized.
+			while (packet < 1) {
+				switch (oggSyncState.pageout(oggPage)) {
+				case 1:
+					oggStreamState.init(oggPage.serialno());
+					oggStreamState.reset();
 
-        // No need to override AudioInputStream
-        //public long getFrameLength() {
-        //    return frameLength;
-        //}
+					// Initializes the Info and Comment objects.
+					orbisInfo.init();
+					orbisComment.init();
 
-        @Override
-        public int available() {
-            return os.available();
-        }
+					// Check the page (serial number and stuff).
+					if (oggStreamState.pagein(oggPage) == -1) {
+						return "Error on header page";
+					}
 
-        @Override
-        public int read() throws IOException {
-            return os.read();
-        }
+					// Extract first packets.
+					if (oggStreamState.packetout(oggPacket) != 1) {
+						return "Error on first packet";
+					}
+					if (orbisInfo.synthesis_headerin(orbisComment, oggPacket) < 0) {
+						return "Non-vorbis data found";
+					}
+					packet = 1;
+					break;
+				case 0:
+					if ((input = getInput()) != null)
+						return input;
+					break;
+				default:
+					return "Error reading first page";
+				}
+			}
 
-        @Override
-        public int read(byte[] buf) throws IOException {
-            return os.read(buf);
-        }
+			// Read another two packets to complete the header.
+			while (packet < 3) {
+				switch (oggStreamState.packetout(oggPacket)) {
+				case 1:
+					orbisInfo.synthesis_headerin(orbisComment, oggPacket);
+					packet++;
+					break;
+				case 0:
+					if ((input = getPage()) != null)
+						return input;
+					break;
+				default:
+					return "Error in header packet " + packet;
+				}
+			}
+			orbisDspState.synthesis_init(orbisInfo);
+			orbisBlock.init(orbisDspState);
+			return null;
+		}
 
-        public int read(byte[] buf, int n) throws IOException {
-            return os.read(buf, n);
-        }
+		/**
+		 * Gets another chunk of input into the oggSyncState.
+		 *
+		 * @return An error message if input is not available, null on success.
+		 */
+		private String getInput() {
+			int count = -1;
+			try {
+				int idx = oggSyncState.buffer(BUFSIZ);
+				count = inputStream.read(oggSyncState.data, idx, BUFSIZ);
+			} catch (IOException e) {
+				return e.getMessage();
+			}
+			if (count > 0)
+				oggSyncState.wrote(count);
+			return (count > 0) ? null : EOS;
+		}
 
-        @Override
-        public void close() {
-            os.close();
-        }
+		/**
+		 * Gets the next page from the oggSyncState into the oggStreamState.
+		 *
+		 * @return An error message if a page not is available, null on success.
+		 */
+		private String getPage() {
+			String input;
+			for (;;) {
+				switch (oggSyncState.pageout(oggPage)) {
+				case 0:
+					if ((input = getInput()) != null)
+						return input;
+					break;
+				case 1:
+					oggStreamState.pagein(oggPage);
+					return null;
+				default:
+					return "Bogus page";
+				}
+			}
+		}
 
-        @Override
-        public long skip(long n) throws IOException {
-            return os.skip(n);
-        }
+		/**
+		 * Refills the conversion buffer.
+		 *
+		 * @param is
+		 *            the is
+		 * @return The number of bytes waiting in the convBuf.
+		 */
+		public int getBody(InputStream is) {
+			String err;
+			int packet = 3;
 
-        @Override
-        public void mark(int readLimit) {
-            os.mark(readLimit);
-        }
+			pcmi = new int[orbisInfo.channels];
+			pcmData = new float[1][][];
+			for (;;) {
+				switch (oggStreamState.packetout(oggPacket)) {
+				case 1:
+					if (orbisBlock.synthesis(oggPacket) == 0) {
+						orbisDspState.synthesis_blockin(orbisBlock);
+					}
+					for (;;) {
+						int n = orbisDspState.synthesis_pcmout(pcmData, pcmi);
+						if (n <= 0)
+							break;
+						orbisDspState.synthesis_read(n);
+						return 2 * orbisInfo.channels * decodePacket(n);
+					}
+					packet++;
+					break;
+				case 0:
+					if ((err = getPage()) != null) {
+						return (EOS.equals(err)) ? 0 : -1;
+					}
+					break;
+				default:
+					return -1;
+				}
+			}
+		}
 
-        @Override
-        public boolean markSupported() {
-            return os.markSupported();
-        }
+		/**
+		 * Decode the PCM data.
+		 *
+		 * @param samples
+		 *            the samples
+		 * @return The number of bytes waiting in the conversion buffer to be
+		 *         written.
+		 */
+		private int decodePacket(int samples) {
+			int range = (samples < convBuf.length) ? samples : convBuf.length;
+			for (int i = 0; i < orbisInfo.channels; i++) {
+				int sampleIndex = i * 2;
+				for (int j = 0; j < range; j++) {
+					// Retrieve the PCM
+					int value = (int) (pcmData[0][i][pcmi[i] + j] * 32767.0f);
+					// Clip to signed 16 bit
+					if (value > 32767)
+						value = 32767;
+					else if (value < -32768)
+						value = -32768;
+					// Stuff into the conversion buffer, little endian
+					convBuf[sampleIndex] = (byte) (value);
+					convBuf[sampleIndex + 1] = (byte) (value >>> 8);
+					// Jump forward (interleaving channels)
+					sampleIndex += 2 * (orbisInfo.channels);
+				}
+			}
+			return range;
+		}
+	};
 
-        @Override
-        public void reset() {
-            os.reset();
-        }
-    };
+	/**
+	 * The AudioInputStream extension to handle decoding Ogg/Vorbis Audio input.
+	 */
+	private static class OggVorbisAudioInputStream extends AudioInputStream {
 
+		/** The os. */
+		// Core JOgg and JOrbis magic.
+		private OggStream os = null;
 
-    /**
-     * Trivial constructor.
-     */
-    public OggVorbisDecoderFactory() {}
+		/**
+		 * Create a new player.
+		 *
+		 * @param os
+		 *            The <code>OggStream</code> to read from.
+		 * @throws IOException
+		 *             Signals that an I/O exception has occurred.
+		 */
+		public OggVorbisAudioInputStream(OggStream os) throws IOException {
+			super(os, os.getFormat(), AudioSystem.NOT_SPECIFIED);
+			this.os = os;
+		}
 
-    /**
-     * Gets a new audio input stream to decode Ogg/Vorbis Audio from
-     * an input stream.
-     *
-     * @param file The <code>File</code> containing the content.
-     * @return A new <code>AudioInputStream</code> to decode the input.
-     * @throws java.io.IOException
-     */
-    public AudioInputStream getOggStream(File file) throws IOException {
-        FileInputStream fis = new FileInputStream(file);
-        return new OggVorbisAudioInputStream(new OggStream(fis));
-    }
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see javax.sound.sampled.AudioInputStream#getFormat()
+		 */
+		@Override
+		public AudioFormat getFormat() {
+			return os.getFormat();
+		}
+
+		// No need to override AudioInputStream
+		// public long getFrameLength() {
+		// return frameLength;
+		// }
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see javax.sound.sampled.AudioInputStream#available()
+		 */
+		@Override
+		public int available() {
+			return os.available();
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see javax.sound.sampled.AudioInputStream#read()
+		 */
+		@Override
+		public int read() throws IOException {
+			return os.read();
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see javax.sound.sampled.AudioInputStream#read(byte[])
+		 */
+		@Override
+		public int read(byte[] buf) throws IOException {
+			return os.read(buf);
+		}
+
+		/**
+		 * Read.
+		 *
+		 * @param buf
+		 *            the buf
+		 * @param n
+		 *            the n
+		 * @return the int
+		 * @throws IOException
+		 *             Signals that an I/O exception has occurred.
+		 */
+		public int read(byte[] buf, int n) throws IOException {
+			return os.read(buf, n);
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see javax.sound.sampled.AudioInputStream#close()
+		 */
+		@Override
+		public void close() {
+			os.close();
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see javax.sound.sampled.AudioInputStream#skip(long)
+		 */
+		@Override
+		public long skip(long n) throws IOException {
+			return os.skip(n);
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see javax.sound.sampled.AudioInputStream#mark(int)
+		 */
+		@Override
+		public void mark(int readLimit) {
+			os.mark(readLimit);
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see javax.sound.sampled.AudioInputStream#markSupported()
+		 */
+		@Override
+		public boolean markSupported() {
+			return os.markSupported();
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see javax.sound.sampled.AudioInputStream#reset()
+		 */
+		@Override
+		public void reset() {
+			os.reset();
+		}
+	};
+
+	/**
+	 * Trivial constructor.
+	 */
+	public OggVorbisDecoderFactory() {
+	}
+
+	/**
+	 * Gets a new audio input stream to decode Ogg/Vorbis Audio from an input
+	 * stream.
+	 *
+	 * @param file
+	 *            The <code>File</code> containing the content.
+	 * @return A new <code>AudioInputStream</code> to decode the input.
+	 * @throws IOException
+	 *             Signals that an I/O exception has occurred.
+	 */
+	public AudioInputStream getOggStream(File file) throws IOException {
+		FileInputStream fis = new FileInputStream(file);
+		return new OggVorbisAudioInputStream(new OggStream(fis));
+	}
 }

@@ -36,50 +36,49 @@ import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.LostCityRumour;
 import net.sf.freecol.common.model.UnitType;
 
-
 /**
  * The panel that allows a user to choose which unit will emigrate from Europe.
  */
 public final class EmigrationDialog extends FreeColChoiceDialog<Integer> {
 
-    /**
-     * The constructor to use.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param frame The owner frame.
-     * @param europe The <code>Europe</code> where we can find the
-     *     units that are prepared to emigrate.
-     * @param foy Is this emigration due to a fountain of youth?
-     */
-    public EmigrationDialog(FreeColClient freeColClient, JFrame frame,
-            Europe europe, boolean foy) {
-        super(freeColClient, frame);
+	/**
+	 * The constructor to use.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param frame
+	 *            The owner frame.
+	 * @param europe
+	 *            The <code>Europe</code> where we can find the units that are
+	 *            prepared to emigrate.
+	 * @param foy
+	 *            Is this emigration due to a fountain of youth?
+	 */
+	public EmigrationDialog(FreeColClient freeColClient, JFrame frame, Europe europe, boolean foy) {
+		super(freeColClient, frame);
 
-        final ImageLibrary lib = freeColClient.getGUI().getImageLibrary();
-        final List<UnitType> recruitables
-            = new ArrayList<>(europe.getRecruitables());
+		final ImageLibrary lib = freeColClient.getGUI().getImageLibrary();
+		final List<UnitType> recruitables = new ArrayList<>(europe.getRecruitables());
 
-        JTextArea header
-            = Utility.localizedTextArea("emigrationDialog.chooseImmigrant");
-        if (foy) {
-            header.insert(Messages.message(LostCityRumour.RumourType.FOUNTAIN_OF_YOUTH.getDescriptionKey())
-                          + "\n\n", 0);
-        }
+		JTextArea header = Utility.localizedTextArea("emigrationDialog.chooseImmigrant");
+		if (foy) {
+			header.insert(Messages.message(LostCityRumour.RumourType.FOUNTAIN_OF_YOUTH.getDescriptionKey()) + "\n\n",
+					0);
+		}
 
-        MigPanel panel = new MigPanel(new MigLayout("wrap 1", "[fill]", ""));
-        panel.add(header, "wrap 20");
-        panel.setSize(panel.getPreferredSize());
+		MigPanel panel = new MigPanel(new MigLayout("wrap 1", "[fill]", ""));
+		panel.add(header, "wrap 20");
+		panel.setSize(panel.getPreferredSize());
 
-        List<ChoiceItem<Integer>> c = choices();
-        int i = Europe.MigrationType.getDefaultSlot();
-        UnitType u0 = recruitables.remove(0);
-        c.add(new ChoiceItem<>(Messages.getName(u0), i++)
-            .defaultOption().setIcon(new ImageIcon(lib.getSmallUnitImage(u0))));
-        for (UnitType ut : recruitables) {
-            c.add(new ChoiceItem<>(Messages.getName(ut), i++)
-                .setIcon(new ImageIcon(lib.getSmallUnitImage(ut))));
-        }
+		List<ChoiceItem<Integer>> c = choices();
+		int i = Europe.MigrationType.getDefaultSlot();
+		UnitType u0 = recruitables.remove(0);
+		c.add(new ChoiceItem<>(Messages.getName(u0), i++).defaultOption()
+				.setIcon(new ImageIcon(lib.getSmallUnitImage(u0))));
+		for (UnitType ut : recruitables) {
+			c.add(new ChoiceItem<>(Messages.getName(ut), i++).setIcon(new ImageIcon(lib.getSmallUnitImage(ut))));
+		}
 
-        initializeChoiceDialog(frame, false, panel, null, null, c);
-    }
+		initializeChoiceDialog(frame, false, panel, null, null, c);
+	}
 }

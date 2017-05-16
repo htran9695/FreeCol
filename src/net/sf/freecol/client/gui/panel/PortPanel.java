@@ -30,133 +30,140 @@ import java.util.List;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
- * This class provides common functionality for panels that display
- * ports, such as the ColonyPanel and the EuropePanel.  This includes
- * an InPortPanel for displaying the carriers in port, and a
- * CargoPanel for displaying the cargo aboard that carrier.
+ * This class provides common functionality for panels that display ports, such
+ * as the ColonyPanel and the EuropePanel. This includes an InPortPanel for
+ * displaying the carriers in port, and a CargoPanel for displaying the cargo
+ * aboard that carrier.
  */
 public abstract class PortPanel extends FreeColPanel {
 
-    protected CargoPanel cargoPanel;
-    protected InPortPanel inPortPanel;
-    protected UnitLabel selectedUnitLabel;
-    protected DefaultTransferHandler defaultTransferHandler;
-    protected MouseListener pressListener;
+	/** The cargo panel. */
+	protected CargoPanel cargoPanel;
 
+	/** The in port panel. */
+	protected InPortPanel inPortPanel;
 
-    /**
-     * Create a new port panel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param layout The <code>LayoutManager</code> to be used.
-     */
-    public PortPanel(FreeColClient freeColClient, LayoutManager layout) {
-        super(freeColClient, layout);
+	/** The selected unit label. */
+	protected UnitLabel selectedUnitLabel;
 
-        this.selectedUnitLabel = null;
-    }
+	/** The default transfer handler. */
+	protected DefaultTransferHandler defaultTransferHandler;
 
+	/** The press listener. */
+	protected MouseListener pressListener;
 
-    /**
-     * Get the cargo panel.
-     *
-     * @return The cargo panel.
-     */
-    public final CargoPanel getCargoPanel() {
-        return cargoPanel;
-    }
+	/**
+	 * Create a new port panel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param layout
+	 *            The <code>LayoutManager</code> to be used.
+	 */
+	public PortPanel(FreeColClient freeColClient, LayoutManager layout) {
+		super(freeColClient, layout);
 
-    /**
-     * Get the currently select unit.
-     *
-     * @return The currently select unit.
-     */
-    public Unit getSelectedUnit() {
-        return (selectedUnitLabel == null) ? null
-            : selectedUnitLabel.getUnit();
-    }
+		this.selectedUnitLabel = null;
+	}
 
-    /**
-     * Select a given unit.
-     *
-     * @param unit The <code>Unit</code> to select.
-     * @return True if the selection succeeds.
-     */
-    public boolean setSelectedUnit(Unit unit) {
-        for (Component component : getComponents()) {
-            if (component instanceof UnitLabel) {
-                UnitLabel label = (UnitLabel)component;
-                if (label.getUnit() == unit) {
-                    setSelectedUnitLabel(label);
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
+	/**
+	 * Get the cargo panel.
+	 *
+	 * @return The cargo panel.
+	 */
+	public final CargoPanel getCargoPanel() {
+		return cargoPanel;
+	}
 
-    /**
-     * Get the currently select unit label.
-     *
-     * @return The currently select unit label.
-     */
-    public UnitLabel getSelectedUnitLabel() {
-        return selectedUnitLabel;
-    }
+	/**
+	 * Get the currently select unit.
+	 *
+	 * @return The currently select unit.
+	 */
+	public Unit getSelectedUnit() {
+		return (selectedUnitLabel == null) ? null : selectedUnitLabel.getUnit();
+	}
 
-    /**
-     * Set the selected unit label.
-     *
-     * @param label The unit label to select.
-     */
-    public void setSelectedUnitLabel(UnitLabel label) {
-        selectedUnitLabel = label;
-    }
+	/**
+	 * Select a given unit.
+	 *
+	 * @param unit
+	 *            The <code>Unit</code> to select.
+	 * @return True if the selection succeeds.
+	 */
+	public boolean setSelectedUnit(Unit unit) {
+		for (Component component : getComponents()) {
+			if (component instanceof UnitLabel) {
+				UnitLabel label = (UnitLabel) component;
+				if (label.getUnit() == unit) {
+					setSelectedUnitLabel(label);
+					return true;
+				}
+			}
+		}
+		return false;
+	}
 
-    /**
-     * Get the press listener.  Associated UnitPanels often add this
-     * mouse listener to their contained UnitLabels.
-     *
-     * @return The press listener.
-     */
-    public MouseListener getPressListener() {
-        return pressListener;
-    }
+	/**
+	 * Get the currently select unit label.
+	 *
+	 * @return The currently select unit label.
+	 */
+	public UnitLabel getSelectedUnitLabel() {
+		return selectedUnitLabel;
+	}
 
-    /**
-     * Get the units present in this port.
-     *
-     * @return A list of <code>Unit</code>s.
-     */
-    public abstract List<Unit> getUnitList();
+	/**
+	 * Set the selected unit label.
+	 *
+	 * @param label
+	 *            The unit label to select.
+	 */
+	public void setSelectedUnitLabel(UnitLabel label) {
+		selectedUnitLabel = label;
+	}
 
+	/**
+	 * Get the press listener. Associated UnitPanels often add this mouse
+	 * listener to their contained UnitLabels.
+	 *
+	 * @return The press listener.
+	 */
+	public MouseListener getPressListener() {
+		return pressListener;
+	}
 
-    // Override JComponent
+	/**
+	 * Get the units present in this port.
+	 *
+	 * @return A list of <code>Unit</code>s.
+	 */
+	public abstract List<Unit> getUnitList();
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public TransferHandler getTransferHandler() {
-        return defaultTransferHandler;
-    }
+	// Override JComponent
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public TransferHandler getTransferHandler() {
+		return defaultTransferHandler;
+	}
 
-    // Override Component
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void removeNotify() {
-        super.removeNotify();
+	// Override Component
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void removeNotify() {
+		super.removeNotify();
 
-        removeAll();
-        cargoPanel = null;
-        inPortPanel = null;
-        defaultTransferHandler = null;
-        pressListener = null;
-        selectedUnitLabel = null;
-    }
+		removeAll();
+		cargoPanel = null;
+		inPortPanel = null;
+		defaultTransferHandler = null;
+		pressListener = null;
+		selectedUnitLabel = null;
+	}
 }

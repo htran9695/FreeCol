@@ -28,63 +28,58 @@ import net.sf.freecol.common.model.GoodsContainer;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
  * An action for filling the holds of the currently selected unit.
  */
 public class LoadAction extends MapboardAction {
 
-    public static final String id = "loadAction";
+	/** The Constant id. */
+	public static final String id = "loadAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public LoadAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public LoadAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		final Unit carrier = getGUI().getActiveUnit();
+		return super.shouldBeEnabled() && carrier != null && carrier.isCarrier() && carrier.hasSpaceLeft();
+	}
 
-    // Override FreeColAction
+	// Interface ActionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        final Unit carrier = getGUI().getActiveUnit();
-        return super.shouldBeEnabled()
-            && carrier != null
-            && carrier.isCarrier()
-            && carrier.hasSpaceLeft();
-    }    
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		final Unit unit = getGUI().getActiveUnit();
+		if (unit == null)
+			return;
 
+		final Colony colony = unit.getColony();
+		if (colony == null)
+			return;
 
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        final Unit unit = getGUI().getActiveUnit();
-        if (unit == null) return;
-
-        final Colony colony = unit.getColony();
-        if (colony == null) return;
-
-        for (Goods goods : unit.getCompactGoodsList()) {
-            final GoodsType type = goods.getType();
-            int loadable = unit.getLoadableAmount(type);
-            int present = colony.getGoodsCount(type);
-            if (loadable > 0 && present > 0) {
-                int n = Math.min(Math.min(loadable, present),
-                                          GoodsContainer.CARGO_SIZE);
-                igc().loadCargo(new Goods(goods.getGame(), colony, type, n),
-                                unit);
-            }
-        }
-    }
+		for (Goods goods : unit.getCompactGoodsList()) {
+			final GoodsType type = goods.getType();
+			int loadable = unit.getLoadableAmount(type);
+			int present = colony.getGoodsCount(type);
+			if (loadable > 0 && present > 0) {
+				int n = Math.min(Math.min(loadable, present), GoodsContainer.CARGO_SIZE);
+				igc().loadCargo(new Goods(goods.getGame(), colony, type, n), unit);
+			}
+		}
+	}
 }

@@ -36,639 +36,715 @@ import net.sf.freecol.server.ai.AIObject;
 import net.sf.freecol.server.ai.AIPlayer;
 import net.sf.freecol.server.ai.AIUnit;
 
-
 /**
- * A Goal is used to encapsulate a specific part of the
- * decision-making process of an AI.
- * &lt;/p&gt;&lt;p&gt;
+ * A Goal is used to encapsulate a specific part of the decision-making process
+ * of an AI.
+ * &lt;/p&gt;
+ * &lt;p&gt;
  * Using a top-down approach, every {@link AIPlayer} has a set of Goals which,
- * in turn, may have further subgoals. In combination, this tree of goals
- * and subgoals reflects the current strategy of the AIPlayer.
- * &lt;/p&gt;&lt;p&gt;
+ * in turn, may have further subgoals. In combination, this tree of goals and
+ * subgoals reflects the current strategy of the AIPlayer.
+ * &lt;/p&gt;
+ * &lt;p&gt;
  * Units (each one wrapped in an {@link AIUnit} object) will be moved between
- * existing Goal objects.
- * FIXME: Turn {@link AIUnit} into a simple wrapper for individual units.
- * &lt;/p&gt;&lt;p&gt;
- * Specific AI goals are created by extending this class; some of
- * these could also be used to assist the human player (i.e. GoTo,
- * Scouting, Trade, Piracy).
+ * existing Goal objects. FIXME: Turn {@link AIUnit} into a simple wrapper for
+ * individual units.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * Specific AI goals are created by extending this class; some of these could
+ * also be used to assist the human player (i.e. GoTo, Scouting, Trade, Piracy).
  */
 public abstract class Goal extends AIObject implements GoalConstants {
 
-<span class="nc" id="L58">    private static final Logger logger = Logger.getLogger(Goal.class.getName());</span>
+	/** The Constant logger. */
+<span class="nc" id="L60">	private static final Logger logger = Logger.getLogger(Goal.class.getName());</span>
 
-    private float relativeWeight;
-    protected boolean needsPlanning;
-    protected boolean isFinished;
-    protected final List&lt;AIUnit&gt; availableUnitsList;
+	/** The relative weight. */
+	private float relativeWeight;
 
-    protected final AIPlayer player;
-    private final Goal parentGoal;
+	/** The needs planning. */
+	protected boolean needsPlanning;
 
-    /**
-     * Standard constructor
-     *
-     * @param p The {@link AIPlayer} this goal belongs to
-     * @param g The parent goal; may be null if we're a direct goal of the AIPlayer
-     * @param w The relativeWeight of this goal
-     */
-    public Goal(AIPlayer p, Goal g, float w) {
-<span class="nc" id="L76">        super(p.getAIMain());</span>
-<span class="nc" id="L77">        player = p;</span>
-<span class="nc" id="L78">        parentGoal = g;</span>
-<span class="nc" id="L79">        relativeWeight = w;</span>
-<span class="nc" id="L80">        getGame().getTurn().getNumber();</span>
-<span class="nc" id="L81">        needsPlanning = true; //a newly created Goal always needs planning</span>
-<span class="nc" id="L82">        isFinished = false; //only plan() should set this to true!</span>
-<span class="nc" id="L83">        availableUnitsList = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L84">    }</span>
+	/** The is finished. */
+	protected boolean isFinished;
 
-    /**
-     * Alternate constructor - directly add a unit to this Goal.
-     * The calling object ensures that this unit is not currently part of another Goal.
-     *
-     * @param p The {@link AIPlayer} this goal belongs to
-     * @param g The parent goal; may be null if we're a direct goal of the AIPlayer
-     * @param w The relativeWeight of this goal
-     * @param u An initial {@link AIUnit} given to this goal
-     */
-    public Goal (AIPlayer p, Goal g, float w, AIUnit u) {
-<span class="nc" id="L96">        this(p,g,w);</span>
-<span class="nc" id="L97">        addUnit(u);</span>
-<span class="nc" id="L98">    }</span>
+	/** The available units list. */
+	protected final List&lt;AIUnit&gt; availableUnitsList;
 
-    /**
-     * Determines whether this goal is finished.
-     * If it is, this means it can be cancelled by its parent.
-     *
-     * @return true, if the goal is finished, false otherwise
-     */
-    public boolean isFinished() {
-<span class="nc" id="L107">        return isFinished;</span>
-    }
+	/** The player. */
+	protected final AIPlayer player;
 
-    /**
-     * Cancels a goal and all of its subgoals.
-     * If a goal is cancelled, it will recursively cancelGoal() its subgoals first,
-     * and return all units to the object calling this.
-     * After this method has been called, it should be safe for the parent
-     * to remove this goal from its list of subgoals.
-     * &lt;/p&gt;&lt;p&gt;
-     * NOTE: Preferably, only the direct parent should call this.
-     *
-     * @return A list of all {@link AIUnit} being freed up by this action
-     */
-    public List&lt;AIUnit&gt; cancelGoal() {
-<span class="nc" id="L122">        logger.finest(&quot;Entering method cancelGoal() for &quot;+getDebugDescription());</span>
-<span class="nc" id="L123">        List&lt;AIUnit&gt; cancelledUnitsList = new ArrayList&lt;&gt;();</span>
+	/** The parent goal. */
+	private final Goal parentGoal;
 
-        //get units from subgoals
-<span class="nc" id="L126">        Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
-<span class="nc bnc" id="L127" title="All 4 branches missed.">        while (git!=null &amp;&amp; git.hasNext()) {</span>
-<span class="nc" id="L128">            Goal g = git.next();</span>
-<span class="nc" id="L129">            List&lt;AIUnit&gt; ulist = g.cancelGoal();</span>
-<span class="nc" id="L130">            cancelledUnitsList.addAll(ulist);</span>
-<span class="nc" id="L131">        }</span>
+	/**
+	 * Standard constructor.
+	 *
+	 * @param p
+	 *            The {@link AIPlayer} this goal belongs to
+	 * @param g
+	 *            The parent goal; may be null if we're a direct goal of the
+	 *            AIPlayer
+	 * @param w
+	 *            The relativeWeight of this goal
+	 */
+	public Goal(AIPlayer p, Goal g, float w) {
+<span class="nc" id="L92">		super(p.getAIMain());</span>
+<span class="nc" id="L93">		player = p;</span>
+<span class="nc" id="L94">		parentGoal = g;</span>
+<span class="nc" id="L95">		relativeWeight = w;</span>
+<span class="nc" id="L96">		getGame().getTurn().getNumber();</span>
+<span class="nc" id="L97">		needsPlanning = true; // a newly created Goal always needs planning</span>
+<span class="nc" id="L98">		isFinished = false; // only plan() should set this to true!</span>
+<span class="nc" id="L99">		availableUnitsList = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L100">	}</span>
 
-        //get own units
-<span class="nc" id="L134">        Iterator&lt;AIUnit&gt; uit = getOwnedAIUnitsIterator();</span>
-<span class="nc bnc" id="L135" title="All 2 branches missed.">        while (uit.hasNext()) {</span>
-<span class="nc" id="L136">            AIUnit u = uit.next();</span>
-<span class="nc" id="L137">            cancelledUnitsList.add(u);</span>
-<span class="nc" id="L138">        }</span>
-<span class="nc" id="L139">        logger.info(&quot;Got &quot;+cancelledUnitsList.size()+&quot; units from cancelled subgoals&quot;);</span>
-<span class="nc" id="L140">        return cancelledUnitsList;</span>
-    }
+	/**
+	 * Alternate constructor - directly add a unit to this Goal. The calling
+	 * object ensures that this unit is not currently part of another Goal.
+	 *
+	 * @param p
+	 *            The {@link AIPlayer} this goal belongs to
+	 * @param g
+	 *            The parent goal; may be null if we're a direct goal of the
+	 *            AIPlayer
+	 * @param w
+	 *            The relativeWeight of this goal
+	 * @param u
+	 *            An initial {@link AIUnit} given to this goal
+	 */
+	public Goal(AIPlayer p, Goal g, float w, AIUnit u) {
+<span class="nc" id="L117">		this(p, g, w);</span>
+<span class="nc" id="L118">		addUnit(u);</span>
+<span class="nc" id="L119">	}</span>
 
-    /**
-     * Recursively calls {@link #doPlanning} in subgoals that {@link #needsPlanning()},
-     * then calls its own planning method.
-     */
-    public void doPlanning() {
-<span class="nc" id="L148">        logger.finest(&quot;Entering method doPlanning() for &quot;+getDebugDescription());</span>
-<span class="nc" id="L149">        boolean subgoalsPlanned = false;</span>
+	/**
+	 * Determines whether this goal is finished. If it is, this means it can be
+	 * cancelled by its parent.
+	 *
+	 * @return true, if the goal is finished, false otherwise
+	 */
+	public boolean isFinished() {
+<span class="nc" id="L128">		return isFinished;</span>
+	}
 
-<span class="nc" id="L151">        normalizeSubGoalWeights();</span>
+	/**
+	 * Cancels a goal and all of its subgoals. If a goal is cancelled, it will
+	 * recursively cancelGoal() its subgoals first, and return all units to the
+	 * object calling this. After this method has been called, it should be safe
+	 * for the parent to remove this goal from its list of subgoals.
+	 * &lt;/p&gt;
+	 * &lt;p&gt;
+	 * NOTE: Preferably, only the direct parent should call this.
+	 *
+	 * @return A list of all {@link AIUnit} being freed up by this action
+	 */
+	public List&lt;AIUnit&gt; cancelGoal() {
+<span class="nc" id="L143">		logger.finest(&quot;Entering method cancelGoal() for &quot; + getDebugDescription());</span>
+<span class="nc" id="L144">		List&lt;AIUnit&gt; cancelledUnitsList = new ArrayList&lt;&gt;();</span>
 
-<span class="nc" id="L153">        Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
-<span class="nc bnc" id="L154" title="All 4 branches missed.">        while (git!=null &amp;&amp; git.hasNext()) {</span>
-<span class="nc" id="L155">            Goal g = git.next();</span>
-<span class="nc bnc" id="L156" title="All 2 branches missed.">            if (g.needsPlanning()) {</span>
-<span class="nc" id="L157">                g.doPlanning();</span>
-<span class="nc" id="L158">                subgoalsPlanned = true;</span>
-            }
-<span class="nc" id="L160">        }</span>
+		// get units from subgoals
+<span class="nc" id="L147">		Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
+<span class="nc bnc" id="L148" title="All 4 branches missed.">		while (git != null &amp;&amp; git.hasNext()) {</span>
+<span class="nc" id="L149">			Goal g = git.next();</span>
+<span class="nc" id="L150">			List&lt;AIUnit&gt; ulist = g.cancelGoal();</span>
+<span class="nc" id="L151">			cancelledUnitsList.addAll(ulist);</span>
+<span class="nc" id="L152">		}</span>
 
-        //after all subgoals have been planned, let's plan ourselves
-<span class="nc bnc" id="L163" title="All 4 branches missed.">        if (needsPlanning || subgoalsPlanned) {</span>
-<span class="nc" id="L164">            plan();</span>
-<span class="nc" id="L165">            needsPlanning = false;</span>
-        }
-<span class="nc" id="L167">    }</span>
+		// get own units
+<span class="nc" id="L155">		Iterator&lt;AIUnit&gt; uit = getOwnedAIUnitsIterator();</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">		while (uit.hasNext()) {</span>
+<span class="nc" id="L157">			AIUnit u = uit.next();</span>
+<span class="nc" id="L158">			cancelledUnitsList.add(u);</span>
+<span class="nc" id="L159">		}</span>
+<span class="nc" id="L160">		logger.info(&quot;Got &quot; + cancelledUnitsList.size() + &quot; units from cancelled subgoals&quot;);</span>
+<span class="nc" id="L161">		return cancelledUnitsList;</span>
+	}
 
-    /**
-     * Determines whether this or a subgoal {@link #needsPlanning}.
-     *
-     * @return true if this Goal or at least one subgoal needs planning, false otherwise
-     */
-    public boolean needsPlanning() {
-<span class="nc" id="L175">        logger.finest(&quot;Entering method needsPlanning() for &quot;+getDebugDescription());</span>
-<span class="nc bnc" id="L176" title="All 2 branches missed.">        if (needsPlanning) {</span>
-<span class="nc" id="L177">            return true;</span>
-        } else {
-<span class="nc" id="L179">            Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
-<span class="nc bnc" id="L180" title="All 4 branches missed.">            while (git!=null &amp;&amp; git.hasNext()) {</span>
-<span class="nc" id="L181">                Goal g = git.next();</span>
-<span class="nc bnc" id="L182" title="All 2 branches missed.">                if (g.needsPlanning()) {</span>
-<span class="nc" id="L183">                    return true;</span>
-                }
-<span class="nc" id="L185">            }</span>
-        }
-<span class="nc" id="L187">        return false;</span>
-    }
+	/**
+	 * Recursively calls {@link #doPlanning} in subgoals that
+	 * {@link #needsPlanning()}, then calls its own planning method.
+	 */
+	public void doPlanning() {
+<span class="nc" id="L169">		logger.finest(&quot;Entering method doPlanning() for &quot; + getDebugDescription());</span>
+<span class="nc" id="L170">		boolean subgoalsPlanned = false;</span>
 
-    /**
-     * Sets the {@link #needsPlanning} status of this Goal and all its subgoals.
-     * Should be called by the {@link AIPlayer} once for each of its subgoals
-     * at the start of a turn. The Goal will handle all other instances of this
-     * flag needing to be reset internally.
-     *
-     * @param p Boolean determining whether to set needsPlanning =true or =false
-     */
-    public void setNeedsPlanningRecursive(boolean p) {
-<span class="nc" id="L199">        logger.finest(&quot;Entering method setNeedsPlanningRecursive() for &quot;+getDebugDescription());</span>
-<span class="nc" id="L200">        needsPlanning = p;</span>
+<span class="nc" id="L172">		normalizeSubGoalWeights();</span>
 
-<span class="nc" id="L202">        Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
-<span class="nc bnc" id="L203" title="All 4 branches missed.">        while (git!=null &amp;&amp; git.hasNext()) {</span>
-<span class="nc" id="L204">            Goal g = git.next();</span>
-<span class="nc" id="L205">            g.setNeedsPlanningRecursive(p);</span>
-<span class="nc" id="L206">        }</span>
-<span class="nc" id="L207">    }</span>
+<span class="nc" id="L174">		Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
+<span class="nc bnc" id="L175" title="All 4 branches missed.">		while (git != null &amp;&amp; git.hasNext()) {</span>
+<span class="nc" id="L176">			Goal g = git.next();</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">			if (g.needsPlanning()) {</span>
+<span class="nc" id="L178">				g.doPlanning();</span>
+<span class="nc" id="L179">				subgoalsPlanned = true;</span>
+			}
+<span class="nc" id="L181">		}</span>
 
-    /**
-     * Returns the relativeWeight this goal has been weighted with by its parent.
-     * &lt;/p&gt;&lt;p&gt;
-     * NOTE: In many cases, you will want to use {@link #getAbsoluteWeight()} instead.
-     *
-     * @return The relative weight {@link #relativeWeight} of this goal
-     */
-    public float getWeight() {
-<span class="nc" id="L217">        return relativeWeight;</span>
-    }
+		// after all subgoals have been planned, let's plan ourselves
+<span class="nc bnc" id="L184" title="All 4 branches missed.">		if (needsPlanning || subgoalsPlanned) {</span>
+<span class="nc" id="L185">			plan();</span>
+<span class="nc" id="L186">			needsPlanning = false;</span>
+		}
+<span class="nc" id="L188">	}</span>
 
-    /**
-     * Gets the weight of the parent goal, or 1 if there is no parent goal.
-     *
-     * @return The absolute weight [0;1] of the parent goal, or 1 if a parent goal does not exist
-     */
-    public float getParentWeight() {
-<span class="nc bnc" id="L226" title="All 2 branches missed.">        if (parentGoal == null) {</span>
-            //we must be a direct goal of our AIPlayer
-<span class="nc" id="L228">            return 1.0f;</span>
-        } else {
-<span class="nc" id="L230">            return parentGoal.getAbsoluteWeight();</span>
-        }
-    }
+	/**
+	 * Determines whether this or a subgoal {@link #needsPlanning}.
+	 *
+	 * @return true if this Goal or at least one subgoal needs planning, false
+	 *         otherwise
+	 */
+	public boolean needsPlanning() {
+<span class="nc" id="L197">		logger.finest(&quot;Entering method needsPlanning() for &quot; + getDebugDescription());</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">		if (needsPlanning) {</span>
+<span class="nc" id="L199">			return true;</span>
+		} else {
+<span class="nc" id="L201">			Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
+<span class="nc bnc" id="L202" title="All 4 branches missed.">			while (git != null &amp;&amp; git.hasNext()) {</span>
+<span class="nc" id="L203">				Goal g = git.next();</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">				if (g.needsPlanning()) {</span>
+<span class="nc" id="L205">					return true;</span>
+				}
+<span class="nc" id="L207">			}</span>
+		}
+<span class="nc" id="L209">		return false;</span>
+	}
 
-    /**
-     * Returns the absolute weight of this goal.
-     * &lt;/p&gt;&lt;p&gt;
-     * The absolute weight is the weight of this goal in relation to the {@link AIPlayer}.
-     * This is used when making requests, to allow the AIPlayer to find the
-     * &quot;most important&quot; request.
-     *
-     * @return The absolute weight [0;1] of this goal
-     */
-    public float getAbsoluteWeight() {
-<span class="nc" id="L244">        return getParentWeight() * relativeWeight;</span>
-    }
+	/**
+	 * Sets the {@link #needsPlanning} status of this Goal and all its subgoals.
+	 * Should be called by the {@link AIPlayer} once for each of its subgoals at
+	 * the start of a turn. The Goal will handle all other instances of this
+	 * flag needing to be reset internally.
+	 *
+	 * @param p
+	 *            Boolean determining whether to set needsPlanning =true or
+	 *            =false
+	 */
+	public void setNeedsPlanningRecursive(boolean p) {
+<span class="nc" id="L223">		logger.finest(&quot;Entering method setNeedsPlanningRecursive() for &quot; + getDebugDescription());</span>
+<span class="nc" id="L224">		needsPlanning = p;</span>
 
-    /**
-     * Sets a relative weight for this goal.
-     * Each Goal is weighted by its parent goal.
-     * The parent should assure that the sum of weights given to its subgoals is =1
-     *
-     * @param w A relative weight, should be in range [0;1]
-     */
-    public void setWeight(float w) {
-<span class="nc" id="L255">        relativeWeight = w;</span>
-<span class="nc" id="L256">    }</span>
+<span class="nc" id="L226">		Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
+<span class="nc bnc" id="L227" title="All 4 branches missed.">		while (git != null &amp;&amp; git.hasNext()) {</span>
+<span class="nc" id="L228">			Goal g = git.next();</span>
+<span class="nc" id="L229">			g.setNeedsPlanningRecursive(p);</span>
+<span class="nc" id="L230">		}</span>
+<span class="nc" id="L231">	}</span>
 
-    /**
-     * Calling this ensures that the relative weights given to
-     * subgoals add up to 1.
-     * &lt;/p&gt;&lt;p&gt;
-     * NOTE: This allows for a small margin of error (+/- 0.05),
-     * to avoid recalculating too often.
-     */
-    public void normalizeSubGoalWeights() {
-<span class="nc" id="L266">        float sumWeights = 0f;</span>
+	/**
+	 * Returns the relativeWeight this goal has been weighted with by its
+	 * parent.
+	 * &lt;/p&gt;
+	 * &lt;p&gt;
+	 * NOTE: In many cases, you will want to use {@link #getAbsoluteWeight()}
+	 * instead.
+	 *
+	 * @return The relative weight {@link #relativeWeight} of this goal
+	 */
+	public float getWeight() {
+<span class="nc" id="L244">		return relativeWeight;</span>
+	}
 
-<span class="nc" id="L268">        Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
-<span class="nc bnc" id="L269" title="All 4 branches missed.">        while (git!=null &amp;&amp; git.hasNext()) {</span>
-<span class="nc" id="L270">            Goal g = git.next();</span>
-<span class="nc" id="L271">            sumWeights += g.getWeight();</span>
-<span class="nc" id="L272">        }</span>
+	/**
+	 * Gets the weight of the parent goal, or 1 if there is no parent goal.
+	 *
+	 * @return The absolute weight [0;1] of the parent goal, or 1 if a parent
+	 *         goal does not exist
+	 */
+	public float getParentWeight() {
+<span class="nc bnc" id="L254" title="All 2 branches missed.">		if (parentGoal == null) {</span>
+			// we must be a direct goal of our AIPlayer
+<span class="nc" id="L256">			return 1.0f;</span>
+		} else {
+<span class="nc" id="L258">			return parentGoal.getAbsoluteWeight();</span>
+		}
+	}
 
-        //allow for a small rounding or other error margin before normalizing
-<span class="nc bnc" id="L275" title="All 6 branches missed.">        if (sumWeights&gt;0f &amp;&amp; (sumWeights&lt;0.95f || sumWeights&gt;1.05f)) {</span>
-<span class="nc" id="L276">            git = getSubGoalIterator();</span>
-<span class="nc bnc" id="L277" title="All 4 branches missed.">            while (git!=null &amp;&amp; git.hasNext()) {</span>
-<span class="nc" id="L278">                Goal g = git.next();</span>
-<span class="nc" id="L279">                g.setWeight(g.getWeight()/sumWeights);</span>
-<span class="nc" id="L280">            }</span>
-        }
-<span class="nc" id="L282">    }</span>
+	/**
+	 * Returns the absolute weight of this goal.
+	 * &lt;/p&gt;
+	 * &lt;p&gt;
+	 * The absolute weight is the weight of this goal in relation to the
+	 * {@link AIPlayer}. This is used when making requests, to allow the
+	 * AIPlayer to find the &quot;most important&quot; request.
+	 *
+	 * @return The absolute weight [0;1] of this goal
+	 */
+	public float getAbsoluteWeight() {
+<span class="nc" id="L273">		return getParentWeight() * relativeWeight;</span>
+	}
 
-//     /**
-//      * Wrapper method for a unit request sent to the {@link AIPlayer}.
-//      * &lt;/p&gt;&lt;p&gt;
-//      * Each Goal can request necessary units from the AIPlayer.
-//      * Here, such a request is wrapped in a private method for convenience.
-//      * Each request contains a weight, which is {@link #getAbsoluteWeight()}
-//      * of this goal, and the number of turns since a unit request has last been granted.
-//      * The latter should be taken into account as a &quot;bonus weight&quot; by the AIPlayer.
-//      * &lt;/p&gt;&lt;p&gt;
-//      * FIXME:Should that be role, instead or alternatively?
-//      * &lt;/p&gt;&lt;p&gt;
-//      * FIXME: {@link AIPlayer#addUnitWish(Goal,UnitType,float,int)}; should add
-//      * requests to a set-like structure, so that there's only one active request
-//      * per Goal at any time. Since fulfilling a request using {@link #addUnit(AIUnit)}
-//      * means that {@link #plan()} will be called again during the turn,
-//      * the Goal will be able to request again.
-//      *
-//      * @param ut The {@link UnitType} we'd like to request
-//      */
-//     protected void requestUnit(UnitType ut) {
-//         int turnsWithoutUnit = getGame().getTurn().getNumber() - turnLastUnitAdded;
-//
-//         //FIXME: Uncomment after AIPlayer.addUnitWish() has been written.
-//         //player.addUnitWish(this, ut, getAbsoluteWeight(), turnsWithoutUnit);
-//     }
+	/**
+	 * Sets a relative weight for this goal. Each Goal is weighted by its parent
+	 * goal. The parent should assure that the sum of weights given to its
+	 * subgoals is =1
+	 *
+	 * @param w
+	 *            A relative weight, should be in range [0;1]
+	 */
+	public void setWeight(float w) {
+<span class="nc" id="L285">		relativeWeight = w;</span>
+<span class="nc" id="L286">	}</span>
 
-    /**
-     * Wrapper method for a worker request sent to the {@link AIPlayer}.
-     * &lt;/p&gt;&lt;p&gt;
-     * Each Goal can request necessary units from the AIPlayer.
-     * Here, such a request is wrapped in a private method for convenience.
-     * Each request contains a weight, which is {@link #getAbsoluteWeight()}
-     * of this goal, and the number of turns since a unit request has last been granted.
-     * The latter should be taken into account as a &quot;bonus weight&quot; by the AIPlayer.
-     * &lt;/p&gt;&lt;p&gt;
-     * FIXME: AIPlayer#addUnitWish(Goal,GoodsType,int,float,int); should add
-     * requests to a set-like structure, so that there's only one active request
-     * per Goal at any time. Since fulfilling a request using {@link #addUnit(AIUnit)}
-     * means that {@link #plan()} will be called again during the turn,
-     * the Goal will be able to request again.
-     *
-     * @param gt The {@link GoodsType} we're requesting a worker for.
-     * @param minProduction The minimum a unit needs to produce to be considered.
-     */
-    protected void requestWorker(GoodsType gt, int minProduction) {
+	/**
+	 * Calling this ensures that the relative weights given to subgoals add up
+	 * to 1.
+	 * &lt;/p&gt;
+	 * &lt;p&gt;
+	 * NOTE: This allows for a small margin of error (+/- 0.05), to avoid
+	 * recalculating too often.
+	 */
+	public void normalizeSubGoalWeights() {
+<span class="nc" id="L297">		float sumWeights = 0f;</span>
 
-        //FIXME: Uncomment after AIPlayer.addWorkerWish() has been written.
-        //int turnsWithoutUnit = getGame().getTurn().getNumber() - turnLastUnitAdded;
-        //player.addWorkerWish(this, gt, minProduction, getAbsoluteWeight(), turnsWithoutUnit);
-<span class="nc" id="L333">    }</span>
+<span class="nc" id="L299">		Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
+<span class="nc bnc" id="L300" title="All 4 branches missed.">		while (git != null &amp;&amp; git.hasNext()) {</span>
+<span class="nc" id="L301">			Goal g = git.next();</span>
+<span class="nc" id="L302">			sumWeights += g.getWeight();</span>
+<span class="nc" id="L303">		}</span>
 
-    /**
-     * Adds a unit to this goal.
-     * This may be from {@link AIPlayer} fulfilling a unit request,
-     * by the parent goal, or by a subgoal that no longer needs the unit.
-     * &lt;/p&gt;&lt;p&gt;
-     * Possible FIXME: If the unit we're requesting is a high-interest one,
-     * such as a Galleon, AIUnit#setLoaningGoal() may be used to
-     * signal that this unit may _only_ be moved to subgoals, or back to
-     * {@link AIPlayer}, but not further up the hierarchy or to any other requesting Goal.
-     *
-     * @param u The {@link AIUnit} being added to this goal
-     */
-    public final void addUnit(AIUnit u) {
-<span class="nc" id="L348">        logger.finest(&quot;Entering method addUnit() for &quot;+getDebugDescription()+&quot; with unit: &quot;+u.getId());</span>
-<span class="nc" id="L349">        getGame().getTurn().getNumber();</span>
-<span class="nc" id="L350">        availableUnitsList.add(u);</span>
-<span class="nc" id="L351">        u.setGoal(this);</span>
-<span class="nc" id="L352">        needsPlanning = true; //adding a unit to the Goal means it might need planning</span>
-<span class="nc" id="L353">        isFinished = false; //in case the goal was finished but not yet cancelled</span>
-<span class="nc" id="L354">    }</span>
+		// allow for a small rounding or other error margin before normalizing
+<span class="nc bnc" id="L306" title="All 6 branches missed.">		if (sumWeights &gt; 0f &amp;&amp; (sumWeights &lt; 0.95f || sumWeights &gt; 1.05f)) {</span>
+<span class="nc" id="L307">			git = getSubGoalIterator();</span>
+<span class="nc bnc" id="L308" title="All 4 branches missed.">			while (git != null &amp;&amp; git.hasNext()) {</span>
+<span class="nc" id="L309">				Goal g = git.next();</span>
+<span class="nc" id="L310">				g.setWeight(g.getWeight() / sumWeights);</span>
+<span class="nc" id="L311">			}</span>
+		}
+<span class="nc" id="L313">	}</span>
 
-    /**
-     * Adds a unit to the parent goal.
-     * If this goal doesn't have a parent goal,
-     * the unit will be added to {@link AIPlayer} instead.
-     *
-     * @param u The {@link AIUnit} to be added to the parent
-     */
-    protected void addUnitToParent(AIUnit u) {
-<span class="nc" id="L364">        logger.finest(&quot;Entering method addUnitToParent() for &quot;+getDebugDescription()+&quot; with unit: &quot;+u.getId());</span>
-<span class="nc bnc" id="L365" title="All 2 branches missed.">        if (parentGoal != null) {</span>
-<span class="nc" id="L366">            parentGoal.addUnit(u);</span>
-        } else {
-            //Setting goal=null will make the unit appear in the unit iterator next turn.
-            //FIXME: What about this turn?
-<span class="nc" id="L370">            u.setGoal(null);</span>
-        }
-<span class="nc" id="L372">    }</span>
+	// /**
+	// * Wrapper method for a unit request sent to the {@link AIPlayer}.
+	// * &lt;/p&gt;&lt;p&gt;
+	// * Each Goal can request necessary units from the AIPlayer.
+	// * Here, such a request is wrapped in a private method for convenience.
+	// * Each request contains a weight, which is {@link #getAbsoluteWeight()}
+	// * of this goal, and the number of turns since a unit request has last
+	// been granted.
+	// * The latter should be taken into account as a &quot;bonus weight&quot; by the
+	// AIPlayer.
+	// * &lt;/p&gt;&lt;p&gt;
+	// * FIXME:Should that be role, instead or alternatively?
+	// * &lt;/p&gt;&lt;p&gt;
+	// * FIXME: {@link AIPlayer#addUnitWish(Goal,UnitType,float,int)}; should
+	// add
+	// * requests to a set-like structure, so that there's only one active
+	// request
+	// * per Goal at any time. Since fulfilling a request using {@link
+	// #addUnit(AIUnit)}
+	// * means that {@link #plan()} will be called again during the turn,
+	// * the Goal will be able to request again.
+	// *
+	// * @param ut The {@link UnitType} we'd like to request
+	// */
+	// protected void requestUnit(UnitType ut) {
+	// int turnsWithoutUnit = getGame().getTurn().getNumber() -
+	// turnLastUnitAdded;
+	//
+	// //FIXME: Uncomment after AIPlayer.addUnitWish() has been written.
+	// //player.addUnitWish(this, ut, getAbsoluteWeight(), turnsWithoutUnit);
+	// }
 
-    /**
-     * Used by a parent goal to check whether this goal, including subgoals,
-     * can yield a specific unit.
-     * &lt;/p&gt;&lt;p&gt;
-     * This recursively checks its subgoals, if there's no match among the own units.
-     * &lt;/p&gt;&lt;p&gt;
-     * Possible FIXME: Check whether AIUnit#isOnLoan() - in which case, we mustn't
-     * yield a unit unless it's the {@link AIPlayer} that requests.
-     *
-     * @param ut The {@link UnitType} wanted by the parent
-     * @param o The {@link AIObject} (should be AIPlayer or another Goal) calling this
-     * @return true if this goal or one of its subgoals can yield the specified {@link UnitType}, false otherwise
-     */
-    public boolean canYieldUnit(UnitType ut, AIObject o) {
-<span class="nc" id="L388">        Iterator&lt;AIUnit&gt; uit = getOwnedAIUnitsIterator();</span>
-<span class="nc bnc" id="L389" title="All 2 branches missed.">        while (uit.hasNext()) {</span>
-<span class="nc" id="L390">            AIUnit u = uit.next();</span>
-            //first found unit is enough
-<span class="nc bnc" id="L392" title="All 2 branches missed.">            if (u.getUnit().getType().equals(ut)) {</span>
-<span class="nc" id="L393">                return true;</span>
-            }
-<span class="nc" id="L395">        }</span>
-        //None found among our own units, check subgoals
-<span class="nc" id="L397">        Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
-<span class="nc bnc" id="L398" title="All 4 branches missed.">        while (git!=null &amp;&amp; git.hasNext()) {</span>
-<span class="nc" id="L399">            Goal g = git.next();</span>
-<span class="nc bnc" id="L400" title="All 2 branches missed.">            if (g.canYieldUnit(ut, o)) {</span>
-<span class="nc" id="L401">                return true;</span>
-            }
-<span class="nc" id="L403">        }</span>
-        //None found among subgoals
-<span class="nc" id="L405">        return false;</span>
-    }
+	/**
+	 * Wrapper method for a worker request sent to the {@link AIPlayer}.
+	 * &lt;/p&gt;
+	 * &lt;p&gt;
+	 * Each Goal can request necessary units from the AIPlayer. Here, such a
+	 * request is wrapped in a private method for convenience. Each request
+	 * contains a weight, which is {@link #getAbsoluteWeight()} of this goal,
+	 * and the number of turns since a unit request has last been granted. The
+	 * latter should be taken into account as a &quot;bonus weight&quot; by the AIPlayer.
+	 * &lt;/p&gt;
+	 * &lt;p&gt;
+	 * FIXME: AIPlayer#addUnitWish(Goal,GoodsType,int,float,int); should add
+	 * requests to a set-like structure, so that there's only one active request
+	 * per Goal at any time. Since fulfilling a request using
+	 * {@link #addUnit(AIUnit)} means that {@link #plan()} will be called again
+	 * during the turn, the Goal will be able to request again.
+	 *
+	 * @param gt
+	 *            The {@link GoodsType} we're requesting a worker for.
+	 * @param minProduction
+	 *            The minimum a unit needs to produce to be considered.
+	 */
+	protected void requestWorker(GoodsType gt, int minProduction) {
 
-    /**
-     * Returns the absolute weight of the unit which would be yielded by {@link #yieldUnit(UnitType,AIObject)}.
-     * This is the same as {@link #getAbsoluteWeight()} of the yielding goal.
-     *
-     * @param ut The {@link UnitType} wanted by the parent
-     * @param o The {@link AIObject} (should be AIPlayer or another Goal) calling this
-     * @return The absolute weight ([0;1]) of the goal currently owning
-     * the unit that would be yielded.
-     * Note that the returned value might be 99f if there is no unit to yield.
-     * The calling function should use {@link #canYieldUnit(UnitType,AIObject)} first,
-     * or is responsible to sanitize this result itself before trying
-     * to {@link #yieldUnit(UnitType,AIObject)} based on it.
-     */
-    public float getYieldedUnitWeight(UnitType ut, AIObject o) {
-        //weights should normally be in range [0;1]
-        //if there is a matching unit, this will be overwritten
-<span class="nc" id="L424">        float unitWeight = 99f;</span>
+		// FIXME: Uncomment after AIPlayer.addWorkerWish() has been written.
+		// int turnsWithoutUnit = getGame().getTurn().getNumber() -
+		// turnLastUnitAdded;
+		// player.addWorkerWish(this, gt, minProduction, getAbsoluteWeight(),
+		// turnsWithoutUnit);
+<span class="nc" id="L376">	}</span>
 
-<span class="nc" id="L426">        Iterator&lt;AIUnit&gt; uit = getOwnedAIUnitsIterator();</span>
-<span class="nc bnc" id="L427" title="All 2 branches missed.">        while (uit.hasNext()) {</span>
-<span class="nc" id="L428">            AIUnit u = uit.next();</span>
-            //all units in one goal have the same weight, so no need to compare
-<span class="nc bnc" id="L430" title="All 2 branches missed.">            if (u.getUnit().getType().equals(ut)) {</span>
-<span class="nc" id="L431">                unitWeight = getAbsoluteWeight();</span>
-            }
-<span class="nc" id="L433">        }</span>
-        //check subgoals
-<span class="nc" id="L435">        Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
-<span class="nc bnc" id="L436" title="All 4 branches missed.">        while (git!=null &amp;&amp; git.hasNext()) {</span>
-<span class="nc" id="L437">            Goal g = git.next();</span>
-<span class="nc" id="L438">            float newWeight = g.getYieldedUnitWeight(ut, o);</span>
-<span class="nc bnc" id="L439" title="All 2 branches missed.">            if (newWeight &lt; unitWeight) {</span>
-<span class="nc" id="L440">                unitWeight = newWeight;</span>
-            }
-<span class="nc" id="L442">        }</span>
-<span class="nc" id="L443">        return unitWeight;</span>
-    }
+	/**
+	 * Adds a unit to this goal. This may be from {@link AIPlayer} fulfilling a
+	 * unit request, by the parent goal, or by a subgoal that no longer needs
+	 * the unit.
+	 * &lt;/p&gt;
+	 * &lt;p&gt;
+	 * Possible FIXME: If the unit we're requesting is a high-interest one, such
+	 * as a Galleon, AIUnit#setLoaningGoal() may be used to signal that this
+	 * unit may _only_ be moved to subgoals, or back to {@link AIPlayer}, but
+	 * not further up the hierarchy or to any other requesting Goal.
+	 *
+	 * @param u
+	 *            The {@link AIUnit} being added to this goal
+	 */
+	public final void addUnit(AIUnit u) {
+<span class="nc" id="L393">		logger.finest(&quot;Entering method addUnit() for &quot; + getDebugDescription() + &quot; with unit: &quot; + u.getId());</span>
+<span class="nc" id="L394">		getGame().getTurn().getNumber();</span>
+<span class="nc" id="L395">		availableUnitsList.add(u);</span>
+<span class="nc" id="L396">		u.setGoal(this);</span>
+<span class="nc" id="L397">		needsPlanning = true; // adding a unit to the Goal means it might need</span>
+								// planning
+<span class="nc" id="L399">		isFinished = false; // in case the goal was finished but not yet</span>
+							// cancelled
+<span class="nc" id="L401">	}</span>
 
-    /**
-     * Removes a unit from the goal, potentially from a subgoal,
-     * and yields it to the caller.
-     * &lt;/p&gt;&lt;p&gt;
-     * Returned unit should be the one with minimum absolute weight,
-     * see {@link #getYieldedUnitWeight(UnitType,AIObject)}.
-     *
-     * @param ut The {@link UnitType} wanted by the parent
-     * @param o The {@link AIObject} (should be AIPlayer or another Goal) calling this
-     * @return The {@link AIUnit} with minimal absolute weight.
-     * Note that this may be null if no matching unit is found!
-     */
-    public AIUnit yieldUnit(UnitType ut, AIObject o) {
-<span class="nc" id="L459">        float unitWeight = 99f;</span>
-<span class="nc" id="L460">        AIUnit yieldedUnit = null;</span>
-<span class="nc" id="L461">        boolean isOwnUnit = false;</span>
+	/**
+	 * Adds a unit to the parent goal. If this goal doesn't have a parent goal,
+	 * the unit will be added to {@link AIPlayer} instead.
+	 *
+	 * @param u
+	 *            The {@link AIUnit} to be added to the parent
+	 */
+	protected void addUnitToParent(AIUnit u) {
+<span class="nc" id="L411">		logger.finest(&quot;Entering method addUnitToParent() for &quot; + getDebugDescription() + &quot; with unit: &quot; + u.getId());</span>
+<span class="nc bnc" id="L412" title="All 2 branches missed.">		if (parentGoal != null) {</span>
+<span class="nc" id="L413">			parentGoal.addUnit(u);</span>
+		} else {
+			// Setting goal=null will make the unit appear in the unit iterator
+			// next turn.
+			// FIXME: What about this turn?
+<span class="nc" id="L418">			u.setGoal(null);</span>
+		}
+<span class="nc" id="L420">	}</span>
 
+	/**
+	 * Used by a parent goal to check whether this goal, including subgoals, can
+	 * yield a specific unit.
+	 * &lt;/p&gt;
+	 * &lt;p&gt;
+	 * This recursively checks its subgoals, if there's no match among the own
+	 * units.
+	 * &lt;/p&gt;
+	 * &lt;p&gt;
+	 * Possible FIXME: Check whether AIUnit#isOnLoan() - in which case, we
+	 * mustn't yield a unit unless it's the {@link AIPlayer} that requests.
+	 *
+	 * @param ut
+	 *            The {@link UnitType} wanted by the parent
+	 * @param o
+	 *            The {@link AIObject} (should be AIPlayer or another Goal)
+	 *            calling this
+	 * @return true if this goal or one of its subgoals can yield the specified
+	 *         {@link UnitType}, false otherwise
+	 */
+	public boolean canYieldUnit(UnitType ut, AIObject o) {
+<span class="nc" id="L443">		Iterator&lt;AIUnit&gt; uit = getOwnedAIUnitsIterator();</span>
+<span class="nc bnc" id="L444" title="All 2 branches missed.">		while (uit.hasNext()) {</span>
+<span class="nc" id="L445">			AIUnit u = uit.next();</span>
+			// first found unit is enough
+<span class="nc bnc" id="L447" title="All 2 branches missed.">			if (u.getUnit().getType().equals(ut)) {</span>
+<span class="nc" id="L448">				return true;</span>
+			}
+<span class="nc" id="L450">		}</span>
+		// None found among our own units, check subgoals
+<span class="nc" id="L452">		Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
+<span class="nc bnc" id="L453" title="All 4 branches missed.">		while (git != null &amp;&amp; git.hasNext()) {</span>
+<span class="nc" id="L454">			Goal g = git.next();</span>
+<span class="nc bnc" id="L455" title="All 2 branches missed.">			if (g.canYieldUnit(ut, o)) {</span>
+<span class="nc" id="L456">				return true;</span>
+			}
+<span class="nc" id="L458">		}</span>
+		// None found among subgoals
+<span class="nc" id="L460">		return false;</span>
+	}
 
-<span class="nc" id="L464">        Iterator&lt;AIUnit&gt; uit = getOwnedAIUnitsIterator();</span>
-<span class="nc bnc" id="L465" title="All 2 branches missed.">        while (uit.hasNext()) {</span>
-<span class="nc" id="L466">            AIUnit u = uit.next();</span>
-            //all units in one goal have the same weight, so no need to compare
-<span class="nc bnc" id="L468" title="All 2 branches missed.">            if (u.getUnit().getType().equals(ut)) {</span>
-<span class="nc" id="L469">                unitWeight = getAbsoluteWeight();</span>
-<span class="nc" id="L470">                yieldedUnit = u;</span>
-<span class="nc" id="L471">                isOwnUnit = true;</span>
-            }
-<span class="nc" id="L473">        }</span>
-        //check subgoals
-<span class="nc" id="L475">        Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
-<span class="nc bnc" id="L476" title="All 4 branches missed.">        while (git!=null &amp;&amp; git.hasNext()) {</span>
-<span class="nc" id="L477">            Goal g = git.next();</span>
-<span class="nc" id="L478">            float newWeight = g.getYieldedUnitWeight(ut, o);</span>
-<span class="nc bnc" id="L479" title="All 2 branches missed.">            if (newWeight &lt; unitWeight) {</span>
-<span class="nc" id="L480">                unitWeight = newWeight;</span>
-<span class="nc" id="L481">                yieldedUnit = g.yieldUnit(ut, o);</span>
-<span class="nc" id="L482">                isOwnUnit = false;</span>
-            }
-<span class="nc" id="L484">        }</span>
-<span class="nc bnc" id="L485" title="All 2 branches missed.">        if (isOwnUnit) {</span>
-<span class="nc" id="L486">            removeUnit(yieldedUnit);</span>
-<span class="nc" id="L487">            needsPlanning = true;</span>
-        }
-<span class="nc" id="L489">        return yieldedUnit;</span>
-    }
+	/**
+	 * Returns the absolute weight of the unit which would be yielded by
+	 * {@link #yieldUnit(UnitType,AIObject)}. This is the same as
+	 * {@link #getAbsoluteWeight()} of the yielding goal.
+	 *
+	 * @param ut
+	 *            The {@link UnitType} wanted by the parent
+	 * @param o
+	 *            The {@link AIObject} (should be AIPlayer or another Goal)
+	 *            calling this
+	 * @return The absolute weight ([0;1]) of the goal currently owning the unit
+	 *         that would be yielded. Note that the returned value might be 99f
+	 *         if there is no unit to yield. The calling function should use
+	 *         {@link #canYieldUnit(UnitType,AIObject)} first, or is responsible
+	 *         to sanitize this result itself before trying to
+	 *         {@link #yieldUnit(UnitType,AIObject)} based on it.
+	 */
+	public float getYieldedUnitWeight(UnitType ut, AIObject o) {
+		// weights should normally be in range [0;1]
+		// if there is a matching unit, this will be overwritten
+<span class="nc" id="L483">		float unitWeight = 99f;</span>
 
-    /**
-     * Checks all owned AIUnits for validity, and removes invalid ones.
-     * An AIUnit is supposed to be invalid if it no longer contains a valid Unit.
-     * This may be the case if the Unit has been removed from the game between turns.
-     * &lt;/p&gt;&lt;p&gt;
-     * NOTE: The assumption here is that AIUnit#isValid() will return true
-     * as long as the {@link net.sf.freecol.common.model.Unit} wrapped in it exists.
-     */
-    protected void validateOwnedUnits() {
-<span class="nc" id="L501">        Iterator&lt;AIUnit&gt; uit = getOwnedAIUnitsIterator();</span>
-<span class="nc bnc" id="L502" title="All 2 branches missed.">        while (uit.hasNext()) {</span>
-<span class="nc" id="L503">            AIUnit u = uit.next();</span>
-<span class="nc bnc" id="L504" title="All 2 branches missed.">            if (!(u.getGoal()==this)) {</span>
-<span class="nc" id="L505">                logger.warning(&quot;Goal &quot;+ getGoalDescription() + &quot; owns unit with another goal: &quot;</span>
-<span class="nc" id="L506">                               + u.getGoal().getGoalDescription());</span>
-<span class="nc" id="L507">                removeUnit(u);</span>
-            }
-            //FIXME: Uncomment after AIUnit.isValid() has been written.
-            //if (!u.isValid()) {
-            //    removeUnit(u);
-            //}
-<span class="nc" id="L513">        }</span>
-<span class="nc" id="L514">    }</span>
+<span class="nc" id="L485">		Iterator&lt;AIUnit&gt; uit = getOwnedAIUnitsIterator();</span>
+<span class="nc bnc" id="L486" title="All 2 branches missed.">		while (uit.hasNext()) {</span>
+<span class="nc" id="L487">			AIUnit u = uit.next();</span>
+			// all units in one goal have the same weight, so no need to compare
+<span class="nc bnc" id="L489" title="All 2 branches missed.">			if (u.getUnit().getType().equals(ut)) {</span>
+<span class="nc" id="L490">				unitWeight = getAbsoluteWeight();</span>
+			}
+<span class="nc" id="L492">		}</span>
+		// check subgoals
+<span class="nc" id="L494">		Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
+<span class="nc bnc" id="L495" title="All 4 branches missed.">		while (git != null &amp;&amp; git.hasNext()) {</span>
+<span class="nc" id="L496">			Goal g = git.next();</span>
+<span class="nc" id="L497">			float newWeight = g.getYieldedUnitWeight(ut, o);</span>
+<span class="nc bnc" id="L498" title="All 2 branches missed.">			if (newWeight &lt; unitWeight) {</span>
+<span class="nc" id="L499">				unitWeight = newWeight;</span>
+			}
+<span class="nc" id="L501">		}</span>
+<span class="nc" id="L502">		return unitWeight;</span>
+	}
 
-    /**
-     * Returns a string describing just this goal.  An implementing
-     * class may override this method to add specialized information.
-     * Used by {@link #getDebugDescription()}.
-     *
-     * @return a string describing this goal
-     */
-    public String getGoalDescription() {
-<span class="nc" id="L524">        String goalName = lastPart(getClass().getName(), &quot;.&quot;);</span>
-<span class="nc" id="L525">        return goalName.substring(0, goalName.length() - &quot;goal&quot;.length());</span>
-    }
+	/**
+	 * Removes a unit from the goal, potentially from a subgoal, and yields it
+	 * to the caller.
+	 * &lt;/p&gt;
+	 * &lt;p&gt;
+	 * Returned unit should be the one with minimum absolute weight, see
+	 * {@link #getYieldedUnitWeight(UnitType,AIObject)}.
+	 *
+	 * @param ut
+	 *            The {@link UnitType} wanted by the parent
+	 * @param o
+	 *            The {@link AIObject} (should be AIPlayer or another Goal)
+	 *            calling this
+	 * @return The {@link AIUnit} with minimal absolute weight. Note that this
+	 *         may be null if no matching unit is found!
+	 */
+	public AIUnit yieldUnit(UnitType ut, AIObject o) {
+<span class="nc" id="L522">		float unitWeight = 99f;</span>
+<span class="nc" id="L523">		AIUnit yieldedUnit = null;</span>
+<span class="nc" id="L524">		boolean isOwnUnit = false;</span>
 
-    /**
-     * Build and return a string describing this goal including its parent goal.
-     * Used by &quot;Display AI-missions&quot; in debug mode.
-     *
-     * @return a string describing this goal
-     */
-    public String getDebugDescription() {
-<span class="nc" id="L535">        String descr = &quot;&quot;;</span>
+<span class="nc" id="L526">		Iterator&lt;AIUnit&gt; uit = getOwnedAIUnitsIterator();</span>
+<span class="nc bnc" id="L527" title="All 2 branches missed.">		while (uit.hasNext()) {</span>
+<span class="nc" id="L528">			AIUnit u = uit.next();</span>
+			// all units in one goal have the same weight, so no need to compare
+<span class="nc bnc" id="L530" title="All 2 branches missed.">			if (u.getUnit().getType().equals(ut)) {</span>
+<span class="nc" id="L531">				unitWeight = getAbsoluteWeight();</span>
+<span class="nc" id="L532">				yieldedUnit = u;</span>
+<span class="nc" id="L533">				isOwnUnit = true;</span>
+			}
+<span class="nc" id="L535">		}</span>
+		// check subgoals
+<span class="nc" id="L537">		Iterator&lt;Goal&gt; git = getSubGoalIterator();</span>
+<span class="nc bnc" id="L538" title="All 4 branches missed.">		while (git != null &amp;&amp; git.hasNext()) {</span>
+<span class="nc" id="L539">			Goal g = git.next();</span>
+<span class="nc" id="L540">			float newWeight = g.getYieldedUnitWeight(ut, o);</span>
+<span class="nc bnc" id="L541" title="All 2 branches missed.">			if (newWeight &lt; unitWeight) {</span>
+<span class="nc" id="L542">				unitWeight = newWeight;</span>
+<span class="nc" id="L543">				yieldedUnit = g.yieldUnit(ut, o);</span>
+<span class="nc" id="L544">				isOwnUnit = false;</span>
+			}
+<span class="nc" id="L546">		}</span>
+<span class="nc bnc" id="L547" title="All 2 branches missed.">		if (isOwnUnit) {</span>
+<span class="nc" id="L548">			removeUnit(yieldedUnit);</span>
+<span class="nc" id="L549">			needsPlanning = true;</span>
+		}
+<span class="nc" id="L551">		return yieldedUnit;</span>
+	}
 
-        //if goal has parent goal, add that as well
-        //no recursive call, to avoid lengthy descriptions
-<span class="nc bnc" id="L539" title="All 2 branches missed.">        if (parentGoal!=null) {</span>
-<span class="nc" id="L540">            descr = parentGoal.getGoalDescription() + &quot;&gt;&gt;&quot;;</span>
-        }
-<span class="nc" id="L542">        return descr + getGoalDescription();</span>
-    }
+	/**
+	 * Checks all owned AIUnits for validity, and removes invalid ones. An
+	 * AIUnit is supposed to be invalid if it no longer contains a valid Unit.
+	 * This may be the case if the Unit has been removed from the game between
+	 * turns.
+	 * &lt;/p&gt;
+	 * &lt;p&gt;
+	 * NOTE: The assumption here is that AIUnit#isValid() will return true as
+	 * long as the {@link net.sf.freecol.common.model.Unit} wrapped in it
+	 * exists.
+	 */
+	protected void validateOwnedUnits() {
+<span class="nc" id="L566">		Iterator&lt;AIUnit&gt; uit = getOwnedAIUnitsIterator();</span>
+<span class="nc bnc" id="L567" title="All 2 branches missed.">		while (uit.hasNext()) {</span>
+<span class="nc" id="L568">			AIUnit u = uit.next();</span>
+<span class="nc bnc" id="L569" title="All 2 branches missed.">			if (!(u.getGoal() == this)) {</span>
+<span class="nc" id="L570">				logger.warning(&quot;Goal &quot; + getGoalDescription() + &quot; owns unit with another goal: &quot;</span>
+<span class="nc" id="L571">						+ u.getGoal().getGoalDescription());</span>
+<span class="nc" id="L572">				removeUnit(u);</span>
+			}
+			// FIXME: Uncomment after AIUnit.isValid() has been written.
+			// if (!u.isValid()) {
+			// removeUnit(u);
+			// }
+<span class="nc" id="L578">		}</span>
+<span class="nc" id="L579">	}</span>
 
-    /**
-     * Returns the tag name of the root element representing this object.
-     *
-     * @return &quot;aiGoal&quot;
-     */
-    public static String getXMLElementTagName() {
-<span class="nc" id="L551">        return &quot;aiGoal&quot;;</span>
-    }
+	/**
+	 * Returns a string describing just this goal. An implementing class may
+	 * override this method to add specialized information. Used by
+	 * {@link #getDebugDescription()}.
+	 *
+	 * @return a string describing this goal
+	 */
+	public String getGoalDescription() {
+<span class="nc" id="L589">		String goalName = lastPart(getClass().getName(), &quot;.&quot;);</span>
+<span class="nc" id="L590">		return goalName.substring(0, goalName.length() - &quot;goal&quot;.length());</span>
+	}
 
-/* INTERFACE ******************************************************************/
+	/**
+	 * Build and return a string describing this goal including its parent goal.
+	 * Used by &quot;Display AI-missions&quot; in debug mode.
+	 *
+	 * @return a string describing this goal
+	 */
+	public String getDebugDescription() {
+<span class="nc" id="L600">		String descr = &quot;&quot;;</span>
 
+		// if goal has parent goal, add that as well
+		// no recursive call, to avoid lengthy descriptions
+<span class="nc bnc" id="L604" title="All 2 branches missed.">		if (parentGoal != null) {</span>
+<span class="nc" id="L605">			descr = parentGoal.getGoalDescription() + &quot;&gt;&gt;&quot;;</span>
+		}
+<span class="nc" id="L607">		return descr + getGoalDescription();</span>
+	}
 
-    /**
-     * Since internal implementation details may vary,
-     * each Goal will define an iterator over all of its units.
-     *
-     * @return An Iterator over all {@link AIUnit} currently managed by this goal.
-     */
-    protected abstract Iterator&lt;AIUnit&gt; getOwnedAIUnitsIterator();
+	/**
+	 * Returns the tag name of the root element representing this object.
+	 *
+	 * @return &quot;aiGoal&quot;
+	 */
+	public static String getXMLElementTagName() {
+<span class="nc" id="L616">		return &quot;aiGoal&quot;;</span>
+	}
 
-    /**
-     * Since internal implementation details may vary,
-     * each Goal will define an iterator over all of its subgoals.
-     *
-     * @return An Iterator over all currently existing subgoals.
-     */
-    protected abstract Iterator&lt;Goal&gt; getSubGoalIterator();
+	/* INTERFACE ******************************************************************/
 
-    /**
-     * Ensures that a unit moved to another Goal is properly removed from this.
-     * If a unit is removed from this goal via {@link #yieldUnit(UnitType,AIObject)},
-     * or if the Unit contained in the {@link AIUnit} no longer is valid,
-     * this method is called to clean up any remaining references to the unit.
-     * &lt;/p&gt;&lt;p&gt;
-     * Any implementation of this will need to iterate over all AIUnit object
-     * references used by this goal, and remove those that equal the given parameter.
-     *
-     * @param u The AIUnit supposed to be removed from this goal.
-     */
-    protected abstract void removeUnit(AIUnit u);
+	/**
+	 * Since internal implementation details may vary, each Goal will define an
+	 * iterator over all of its units.
+	 *
+	 * @return An Iterator over all {@link AIUnit} currently managed by this
+	 *         goal.
+	 */
+	protected abstract Iterator&lt;AIUnit&gt; getOwnedAIUnitsIterator();
 
-    /**
-     * This is the method that actually does the planning for this goal.
-     *
-     * It should contain:
-     * &lt;ul&gt;
-     * &lt;li&gt;calling {@link #validateOwnedUnits()} to remove AIUnits no longer
-     * containing a valid unit&lt;/li&gt;
-     * &lt;li&gt;putting units on the {@link #availableUnitsList} to work
-     *   &lt;ul&gt;&lt;li&gt;eventually by adding it to one of the subgoals, or&lt;/li&gt;
-     *   &lt;li&gt;by adding it back to the {@link AIPlayer}, or&lt;/li&gt;
-     *   &lt;li&gt;last but not least, by spending their movement points for some internal mission&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;
-     * &lt;li&gt;requesting new units (via a method like {@link #requestWorker(GoodsType,int)})&lt;/li&gt;
-     * &lt;li&gt;managing direct subgoals, including:
-     *   &lt;ul&gt;&lt;li&gt;creating new ones, if necessary&lt;/li&gt;
-     *   &lt;li&gt;cancelling those with isFinished()==true&lt;/li&gt;
-     *   &lt;li&gt;setting new weights using {@link #setWeight(float)}&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;
-     * &lt;li&gt;setting our own isFinished status&lt;/li&gt;
-     * &lt;/ul&gt;
-     */
-    protected abstract void plan();
+	/**
+	 * Since internal implementation details may vary, each Goal will define an
+	 * iterator over all of its subgoals.
+	 *
+	 * @return An Iterator over all currently existing subgoals.
+	 */
+	protected abstract Iterator&lt;Goal&gt; getSubGoalIterator();
 
-    /**
-     * Writes this object to an XML stream.
-     *
-     * @param xw The &lt;code&gt;FreeColXMLWriter&lt;/code&gt; to write to.
-     * @throws XMLStreamException if there are any problems writing to the
-     *             stream.
-     */
-    //protected abstract void toXML(FreeColXMLWriter xw) throws XMLStreamException;
+	/**
+	 * Ensures that a unit moved to another Goal is properly removed from this.
+	 * If a unit is removed from this goal via
+	 * {@link #yieldUnit(UnitType,AIObject)}, or if the Unit contained in the
+	 * {@link AIUnit} no longer is valid, this method is called to clean up any
+	 * remaining references to the unit.
+	 * &lt;/p&gt;
+	 * &lt;p&gt;
+	 * Any implementation of this will need to iterate over all AIUnit object
+	 * references used by this goal, and remove those that equal the given
+	 * parameter.
+	 *
+	 * @param u
+	 *            The AIUnit supposed to be removed from this goal.
+	 */
+	protected abstract void removeUnit(AIUnit u);
 
-    /**
-     * Reads information for this object from an XML stream.
-     *
-     * @param xr The input stream with the XML.
-     * @throws XMLStreamException if there are any problems reading from the
-     *             stream.
-     */
-    //protected abstract void readFromXML(FreeColXMLReader xr) throws XMLStreamException;
+	/**
+	 * This is the method that actually does the planning for this goal.
+	 *
+	 * It should contain:
+	 * &lt;ul&gt;
+	 * &lt;li&gt;calling {@link #validateOwnedUnits()} to remove AIUnits no longer
+	 * containing a valid unit&lt;/li&gt;
+	 * &lt;li&gt;putting units on the {@link #availableUnitsList} to work
+	 * &lt;ul&gt;
+	 * &lt;li&gt;eventually by adding it to one of the subgoals, or&lt;/li&gt;
+	 * &lt;li&gt;by adding it back to the {@link AIPlayer}, or&lt;/li&gt;
+	 * &lt;li&gt;last but not least, by spending their movement points for some
+	 * internal mission&lt;/li&gt;
+	 * &lt;/ul&gt;
+	 * &lt;/li&gt;
+	 * &lt;li&gt;requesting new units (via a method like
+	 * {@link #requestWorker(GoodsType,int)})&lt;/li&gt;
+	 * &lt;li&gt;managing direct subgoals, including:
+	 * &lt;ul&gt;
+	 * &lt;li&gt;creating new ones, if necessary&lt;/li&gt;
+	 * &lt;li&gt;cancelling those with isFinished()==true&lt;/li&gt;
+	 * &lt;li&gt;setting new weights using {@link #setWeight(float)}&lt;/li&gt;
+	 * &lt;/ul&gt;
+	 * &lt;/li&gt;
+	 * &lt;li&gt;setting our own isFinished status&lt;/li&gt;
+	 * &lt;/ul&gt;
+	 */
+	protected abstract void plan();
 
+	/**
+	 * Writes this object to an XML stream.
+	 *
+	 * @param xw
+	 *            The &lt;code&gt;FreeColXMLWriter&lt;/code&gt; to write to.
+	 * @throws XMLStreamException
+	 *             if there are any problems writing to the stream.
+	 */
+	// protected abstract void toXML(FreeColXMLWriter xw) throws
+	// XMLStreamException;
 
+	/**
+	 * Reads information for this object from an XML stream.
+	 *
+	 * @param xr
+	 *            The input stream with the XML.
+	 * @throws XMLStreamException
+	 *             if there are any problems reading from the stream.
+	 */
+	// protected abstract void readFromXML(FreeColXMLReader xr) throws
+	// XMLStreamException;
 
-/* How this is supposed to work:
- *
- * Assuming the AIPlayer has a set of goals...
- * At the start of a turn, it will call
- *
- *    setNeedsPlanningRecursive(true);
- *
- * for all its goals. This will set all goals in a state of needing a check.
- * After that, it will iterate through its goals in a WHILE-loop:
- *
- *    boolean furtherPlanning = true;
- *    while (furtherPlanning) {
- *        FOR ALL GOALS g DO {
- *            g.doPlanning();
- *        }
- *
- *        SATISFY_UNIT_REQUESTS();
- *        HANDLE_REMAINING_REQUESTS();
- *
- *        furtherPlanning = false;
- *        FOR ALL GOALS g DO {
- *            furtherPlanning = (furtherPlanning || g.needsPlanning());
- *        }
- *    }
- *
- * The first FOR-loop will recursively reach all existing goals and plan()
- * each of them once, bottom-up.
- *
- * After that, unit requests from the goals will have piled up.
- * SATISFY_UNIT_REQUESTS() will try to satisfy as many as possible,
- * in order of importance, by using the units that were created between turns
- * or that have been given back by other goals.
- *
- * HANDLE_REMAINING_REQUESTS() will try to do something about remaining requests,
- * for example by buying/building new units, setting up new goals etc.
- *
- * This, as well as goals called later during this process moving a unit to a former goal,
- * may have set one or more of the goals to needsPlanning=true. In the second FOR-loop,
- * we check whether this is the case, to eventually repeat the process.
- *
- * Eventually, the WHILE-loop will exit. Any units in the goals will have
- * been used for this turn. There may still be some excess units that haven't been
- * requested by any Goal. The AIPlayer may now choose to create a new Goal for these,
- * add them to an existing Goal (which will make use of them next turn),
- * or just keep them unused to have something to deal out next turn.
- */
+	/*
+	 * How this is supposed to work:
+	 *
+	 * Assuming the AIPlayer has a set of goals... At the start of a turn, it
+	 * will call
+	 *
+	 * setNeedsPlanningRecursive(true);
+	 *
+	 * for all its goals. This will set all goals in a state of needing a check.
+	 * After that, it will iterate through its goals in a WHILE-loop:
+	 *
+	 * boolean furtherPlanning = true; while (furtherPlanning) { FOR ALL GOALS g
+	 * DO { g.doPlanning(); }
+	 *
+	 * SATISFY_UNIT_REQUESTS(); HANDLE_REMAINING_REQUESTS();
+	 *
+	 * furtherPlanning = false; FOR ALL GOALS g DO { furtherPlanning =
+	 * (furtherPlanning || g.needsPlanning()); } }
+	 *
+	 * The first FOR-loop will recursively reach all existing goals and plan()
+	 * each of them once, bottom-up.
+	 *
+	 * After that, unit requests from the goals will have piled up.
+	 * SATISFY_UNIT_REQUESTS() will try to satisfy as many as possible, in order
+	 * of importance, by using the units that were created between turns or that
+	 * have been given back by other goals.
+	 *
+	 * HANDLE_REMAINING_REQUESTS() will try to do something about remaining
+	 * requests, for example by buying/building new units, setting up new goals
+	 * etc.
+	 *
+	 * This, as well as goals called later during this process moving a unit to
+	 * a former goal, may have set one or more of the goals to
+	 * needsPlanning=true. In the second FOR-loop, we check whether this is the
+	 * case, to eventually repeat the process.
+	 *
+	 * Eventually, the WHILE-loop will exit. Any units in the goals will have
+	 * been used for this turn. There may still be some excess units that
+	 * haven't been requested by any Goal. The AIPlayer may now choose to create
+	 * a new Goal for these, add them to an existing Goal (which will make use
+	 * of them next turn), or just keep them unused to have something to deal
+	 * out next turn.
+	 */
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

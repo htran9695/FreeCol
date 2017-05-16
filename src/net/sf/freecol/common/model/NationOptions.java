@@ -32,321 +32,347 @@ import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 import static net.sf.freecol.common.util.StringUtils.*;
 
-
 /**
  * The options specific to a nation.
  */
 public class NationOptions extends FreeColObject {
 
-    private static final Logger logger = Logger.getLogger(NationOptions.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(NationOptions.class.getName());
 
-    /** Type of national advantages for European players. */
-    public static enum Advantages implements Named {
-        NONE,
-        FIXED,
-        SELECTABLE;
+	/** Type of national advantages for European players. */
+	public static enum Advantages implements Named {
 
-        /**
-         * Get a message key for this Advantages.
-         *
-         * @return A message key.
-         */
-        private String getKey() {
-            return "advantages." + getEnumKey(this);
-        }
+		/** The none. */
+		NONE,
 
-        public final String getShortDescriptionKey() {
-            return Messages.shortDescriptionKey("model." + getKey());
-        }
+		/** The fixed. */
+		FIXED,
 
-        // Implement Named
+		/** The selectable. */
+		SELECTABLE;
 
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public final String getNameKey() {
-            return Messages.nameKey("model." + getKey());
-        }
-    };
+		/**
+		 * Get a message key for this Advantages.
+		 *
+		 * @return A message key.
+		 */
+		private String getKey() {
+			return "advantages." + getEnumKey(this);
+		}
 
-    /**
-     * Nations may be available to all players, to AI players only, or
-     * to no players.
-     */
-    public static enum NationState implements Named {
-        AVAILABLE,
-        AI_ONLY,
-        NOT_AVAILABLE;
+		/**
+		 * Gets the short description key.
+		 *
+		 * @return the short description key
+		 */
+		public final String getShortDescriptionKey() {
+			return Messages.shortDescriptionKey("model." + getKey());
+		}
 
-        /**
-         * Get a message key for a nation state.
-         *
-         * @return A message key.
-         */
-        private String getKey() {
-            return "nationState." + getEnumKey(this);
-        }
+		// Implement Named
 
-        public final String getShortDescriptionKey() {
-            return Messages.shortDescriptionKey("model." + getKey());
-        }
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public final String getNameKey() {
+			return Messages.nameKey("model." + getKey());
+		}
+	};
 
-        // Implement Named
+	/**
+	 * Nations may be available to all players, to AI players only, or to no
+	 * players.
+	 */
+	public static enum NationState implements Named {
 
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public final String getNameKey() {
-            return Messages.nameKey("model." + getKey());
-        }
-    }
+		/** The available. */
+		AVAILABLE,
 
-    /** The specification to refer to. */
-    private final Specification specification;
+		/** The ai only. */
+		AI_ONLY,
 
-    /** The type of European national advantages. */
-    private Advantages nationalAdvantages;
+		/** The not available. */
+		NOT_AVAILABLE;
 
-    /** All nations in the game. */
-    private final Map<Nation, NationState> nations = new HashMap<>();
+		/**
+		 * Get a message key for a nation state.
+		 *
+		 * @return A message key.
+		 */
+		private String getKey() {
+			return "nationState." + getEnumKey(this);
+		}
 
+		/**
+		 * Gets the short description key.
+		 *
+		 * @return the short description key
+		 */
+		public final String getShortDescriptionKey() {
+			return Messages.shortDescriptionKey("model." + getKey());
+		}
 
-    /**
-     * Creates a new <code>NationOptions</code> instance.
-     *
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public NationOptions(Specification specification) {
-        this.specification = specification;
-        this.nationalAdvantages = FreeCol.getAdvantages();
-        if (specification != null) {
-            int counter = 0, maxEuropeans = FreeCol.getEuropeanCount();
-            for (Nation nation : specification.getNations()) {
-                if (nation.isUnknownEnemy() || nation.getType().isREF()) {
-                    continue;
-                } else if (nation.getType().isEuropean()
-                    && nation.isSelectable()) {
-                    if (counter < maxEuropeans) {
-                        nations.put(nation, NationState.AVAILABLE);
-                        counter++;
-                    } else {
-                        nations.put(nation, NationState.NOT_AVAILABLE);
-                    }
-                } else {
-                    nations.put(nation, NationState.AI_ONLY);
-                }
-            }
-        }
-    }
+		// Implement Named
 
-    /**
-     * Creates a new <code>NationOptions</code> instance by reading a stream.
-     *
-     * @param xr The <code>FreeColXMLReader</code> to read from.
-     * @param specification The <code>Specification</code> to refer to.
-     * @exception XMLStreamException if there is a problem reading the stream.
-     */
-    public NationOptions(FreeColXMLReader xr,
-                         Specification specification) throws XMLStreamException {
-        this(specification);
-        
-        readFromXML(xr);
-    }
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public final String getNameKey() {
+			return Messages.nameKey("model." + getKey());
+		}
+	}
 
+	/** The specification to refer to. */
+	private final Specification specification;
 
-    /**
-     * Get the nations in the game.
-     *
-     * @return A map of the nations.
-     */
-    public final Map<Nation, NationState> getNations() {
-        return nations;
-    }
+	/** The type of European national advantages. */
+	private Advantages nationalAdvantages;
 
-    /**
-     * Get the national advantages.
-     *
-     * @return The national advantages.
-     */
-    public final Advantages getNationalAdvantages() {
-        return nationalAdvantages;
-    }
+	/** All nations in the game. */
+	private final Map<Nation, NationState> nations = new HashMap<>();
 
-    /**
-     * Get the <code>NationState</code> value of a particular Nation.
-     *
-     * @param nation The <code>Nation</code> to query.
-     * @return The corresponding <code>NationState</code>.
-     */
-    public final NationState getNationState(Nation nation) {
-        return nations.get(nation);
-    }
+	/**
+	 * Creates a new <code>NationOptions</code> instance.
+	 *
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public NationOptions(Specification specification) {
+		this.specification = specification;
+		this.nationalAdvantages = FreeCol.getAdvantages();
+		if (specification != null) {
+			int counter = 0, maxEuropeans = FreeCol.getEuropeanCount();
+			for (Nation nation : specification.getNations()) {
+				if (nation.isUnknownEnemy() || nation.getType().isREF()) {
+					continue;
+				} else if (nation.getType().isEuropean() && nation.isSelectable()) {
+					if (counter < maxEuropeans) {
+						nations.put(nation, NationState.AVAILABLE);
+						counter++;
+					} else {
+						nations.put(nation, NationState.NOT_AVAILABLE);
+					}
+				} else {
+					nations.put(nation, NationState.AI_ONLY);
+				}
+			}
+		}
+	}
 
-    /**
-     * Set the <code>NationState</code> value of a particular Nation.
-     *
-     * @param nation The <code>Nation</code> to set the state for.
-     * @param state The <code>NationState</code> to set.
-     */
-    public final void setNationState(final Nation nation,
-                                     final NationState state) {
-        this.nations.put(nation, state);
-    }
+	/**
+	 * Creates a new <code>NationOptions</code> instance by reading a stream.
+	 *
+	 * @param xr
+	 *            The <code>FreeColXMLReader</code> to read from.
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 * @exception XMLStreamException
+	 *                if there is a problem reading the stream.
+	 */
+	public NationOptions(FreeColXMLReader xr, Specification specification) throws XMLStreamException {
+		this(specification);
 
+		readFromXML(xr);
+	}
 
-    // Serialization
-    // Note: NATION/S_TAG is capitalized to avoid collision with Nation.java.
+	/**
+	 * Get the nations in the game.
+	 *
+	 * @return A map of the nations.
+	 */
+	public final Map<Nation, NationState> getNations() {
+		return nations;
+	}
 
-    private static final String NATIONAL_ADVANTAGES_TAG = "nationalAdvantages";
-    private static final String NATION_OPTION_TAG = "nationOption";
-    private static final String STATE_TAG = "state";
-    // @compat 0.11.3
-    private static final String OLD_NATION_TAG = "Nation";
-    private static final String OLD_NATIONS_TAG = "Nations";
-    // end @compat 0.11.3
+	/**
+	 * Get the national advantages.
+	 *
+	 * @return The national advantages.
+	 */
+	public final Advantages getNationalAdvantages() {
+		return nationalAdvantages;
+	}
 
+	/**
+	 * Get the <code>NationState</code> value of a particular Nation.
+	 *
+	 * @param nation
+	 *            The <code>Nation</code> to query.
+	 * @return The corresponding <code>NationState</code>.
+	 */
+	public final NationState getNationState(Nation nation) {
+		return nations.get(nation);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        // The nation options do not use the FreeColObject attributes, so
-        // no: super.writeAttributes(out);
+	/**
+	 * Set the <code>NationState</code> value of a particular Nation.
+	 *
+	 * @param nation
+	 *            The <code>Nation</code> to set the state for.
+	 * @param state
+	 *            The <code>NationState</code> to set.
+	 */
+	public final void setNationState(final Nation nation, final NationState state) {
+		this.nations.put(nation, state);
+	}
 
-        xw.writeAttribute(NATIONAL_ADVANTAGES_TAG, nationalAdvantages);
-    }
+	// Serialization
+	// Note: NATION/S_TAG is capitalized to avoid collision with Nation.java.
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeChildren(xw);
+	/** The Constant NATIONAL_ADVANTAGES_TAG. */
+	private static final String NATIONAL_ADVANTAGES_TAG = "nationalAdvantages";
 
-        for (Nation nation : getSortedCopy(nations.keySet())) {
-            xw.writeStartElement(NATION_OPTION_TAG);
+	/** The Constant NATION_OPTION_TAG. */
+	private static final String NATION_OPTION_TAG = "nationOption";
 
-            xw.writeAttribute(ID_ATTRIBUTE_TAG, nation);
+	/** The Constant STATE_TAG. */
+	private static final String STATE_TAG = "state";
 
-            xw.writeAttribute(STATE_TAG, nations.get(nation));
-            
-            xw.writeEndElement();
-        }
-    }
+	/** The Constant OLD_NATION_TAG. */
+	// @compat 0.11.3
+	private static final String OLD_NATION_TAG = "Nation";
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        // The nation options do not use the FreeColObject attributes, so
-        // no: super.readAttributes(in);
+	/** The Constant OLD_NATIONS_TAG. */
+	private static final String OLD_NATIONS_TAG = "Nations";
+	// end @compat 0.11.3
 
-        nationalAdvantages = xr.getAttribute(NATIONAL_ADVANTAGES_TAG,
-            Advantages.class, Advantages.SELECTABLE);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		// The nation options do not use the FreeColObject attributes, so
+		// no: super.writeAttributes(out);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
-        // Clear containers.
-        nations.clear();
+		xw.writeAttribute(NATIONAL_ADVANTAGES_TAG, nationalAdvantages);
+	}
 
-        super.readChildren(xr);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeChildren(xw);
 
-    /**
-     * Defend against an invalid nation tag.  This can happen when
-     * using classic mode (no extra Europeans) but loading a map that
-     * contains the extra Europeans.
-     *
-     * @param xr The <code>FreeColXMLReader</code> to read from.
-     * @return A suitable <code>Nation</code> or null on error.
-     */
-    private Nation readNation(FreeColXMLReader xr) {
-        try {
-            return xr.getType(specification, ID_ATTRIBUTE_TAG,
-                              Nation.class, (Nation)null);
-        } catch (IllegalArgumentException iae) {
-            logger.warning("Bad nation tag: " + xr.readId());
-        }
-        return null;
-    }
+		for (Nation nation : getSortedCopy(nations.keySet())) {
+			xw.writeStartElement(NATION_OPTION_TAG);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
-        String tag = xr.getLocalName();
+			xw.writeAttribute(ID_ATTRIBUTE_TAG, nation);
 
-        if (NATION_OPTION_TAG.equals(tag)) {
-            Nation nation = readNation(xr);
-            NationState state = xr.getAttribute(STATE_TAG,
-                NationState.class, (NationState)null);
-            if (nation != null && state != null) {
-                nations.put(nation, state);
-            }
-            xr.closeTag(NATION_OPTION_TAG);
+			xw.writeAttribute(STATE_TAG, nations.get(nation));
 
-        // @compat 0.11.3
-        } else if (OLD_NATIONS_TAG.equals(tag)) {
-            while (xr.nextTag() != XMLStreamConstants.END_ELEMENT) {
-                tag = xr.getLocalName();
-                if (OLD_NATION_TAG.equals(tag)) {
-                    Nation nation = readNation(xr);
-                    NationState state = xr.getAttribute(STATE_TAG,
-                        NationState.class, (NationState)null);
-                    if (nation != null && state != null) {
-                        nations.put(nation, state);
-                    }
-                    xr.closeTag(OLD_NATION_TAG);
+			xw.writeEndElement();
+		}
+	}
 
-                } else {
-                    throw new XMLStreamException("Bogus " + OLD_NATION_TAG
-                        + " tag: " + tag);
-                }
-            }
-        // end @compat 0.11.3
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		// The nation options do not use the FreeColObject attributes, so
+		// no: super.readAttributes(in);
 
-        } else {
-            super.readChild(xr);
-        }
-    }
+		nationalAdvantages = xr.getAttribute(NATIONAL_ADVANTAGES_TAG, Advantages.class, Advantages.SELECTABLE);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(128);
-        sb.append(NATIONAL_ADVANTAGES_TAG).append(": ")
-            .append(nationalAdvantages).append("\n");
-        for (Map.Entry<Nation, NationState> entry : nations.entrySet()) {
-            sb.append(" ").append(entry.getKey().getId())
-                .append(" ").append(entry.getValue())
-                .append("\n");
-        }
-        return sb.toString();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+		// Clear containers.
+		nations.clear();
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
+		super.readChildren(xr);
+	}
 
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "nationOptions".
-     */
-    public static String getXMLElementTagName() {
-        return "nationOptions";
-    }
+	/**
+	 * Defend against an invalid nation tag. This can happen when using classic
+	 * mode (no extra Europeans) but loading a map that contains the extra
+	 * Europeans.
+	 *
+	 * @param xr
+	 *            The <code>FreeColXMLReader</code> to read from.
+	 * @return A suitable <code>Nation</code> or null on error.
+	 */
+	private Nation readNation(FreeColXMLReader xr) {
+		try {
+			return xr.getType(specification, ID_ATTRIBUTE_TAG, Nation.class, (Nation) null);
+		} catch (IllegalArgumentException iae) {
+			logger.warning("Bad nation tag: " + xr.readId());
+		}
+		return null;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+		String tag = xr.getLocalName();
+
+		if (NATION_OPTION_TAG.equals(tag)) {
+			Nation nation = readNation(xr);
+			NationState state = xr.getAttribute(STATE_TAG, NationState.class, (NationState) null);
+			if (nation != null && state != null) {
+				nations.put(nation, state);
+			}
+			xr.closeTag(NATION_OPTION_TAG);
+
+			// @compat 0.11.3
+		} else if (OLD_NATIONS_TAG.equals(tag)) {
+			while (xr.nextTag() != XMLStreamConstants.END_ELEMENT) {
+				tag = xr.getLocalName();
+				if (OLD_NATION_TAG.equals(tag)) {
+					Nation nation = readNation(xr);
+					NationState state = xr.getAttribute(STATE_TAG, NationState.class, (NationState) null);
+					if (nation != null && state != null) {
+						nations.put(nation, state);
+					}
+					xr.closeTag(OLD_NATION_TAG);
+
+				} else {
+					throw new XMLStreamException("Bogus " + OLD_NATION_TAG + " tag: " + tag);
+				}
+			}
+			// end @compat 0.11.3
+
+		} else {
+			super.readChild(xr);
+		}
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder(128);
+		sb.append(NATIONAL_ADVANTAGES_TAG).append(": ").append(nationalAdvantages).append("\n");
+		for (Map.Entry<Nation, NationState> entry : nations.entrySet()) {
+			sb.append(" ").append(entry.getKey().getId()).append(" ").append(entry.getValue()).append("\n");
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "nationOptions".
+	 */
+	public static String getXMLElementTagName() {
+		return "nationOptions";
+	}
 }

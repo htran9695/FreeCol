@@ -27,90 +27,88 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent when the client requests abandoning of a colony.
  */
 public class AbandonColonyMessage extends DOMMessage {
 
-    /** The identifier of the colony to abandon. */
-    private final String colonyId;
+	/** The identifier of the colony to abandon. */
+	private final String colonyId;
 
+	/**
+	 * Create a new <code>AbandonColonyMessage</code> with the specified colony.
+	 *
+	 * @param colony
+	 *            The <code>Colony</code> to abandon.
+	 */
+	public AbandonColonyMessage(Colony colony) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>AbandonColonyMessage</code> with the specified
-     * colony.
-     *
-     * @param colony The <code>Colony</code> to abandon.
-     */
-    public AbandonColonyMessage(Colony colony) {
-        super(getXMLElementTagName());
+		this.colonyId = colony.getId();
+	}
 
-        this.colonyId = colony.getId();
-    }
+	/**
+	 * Create a new <code>AbandonColonyMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public AbandonColonyMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>AbandonColonyMessage</code> from a supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public AbandonColonyMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.colonyId = element.getAttribute("colony");
+	}
 
-        this.colonyId = element.getAttribute("colony");
-    }
+	/**
+	 * Handle a "abandonColony"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the request.
+	 * @param player
+	 *            The <code>Player</code> abandoning the colony.
+	 * @param connection
+	 *            The <code>Connection</code> the message is from.
+	 * @return An update <code>Element</code> defining the new colony and
+	 *         updating its surrounding tiles, or an error <code>Element</code>
+	 *         on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
 
+		Colony colony;
+		try {
+			colony = player.getOurFreeColGameObject(colonyId, Colony.class);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
+		if (colony.getUnitCount() != 0) {
+			return DOMMessage.clientError("Attempt to abandon colony " + colonyId + " with non-zero unit count "
+					+ Integer.toString(colony.getUnitCount()));
+		}
 
-    /**
-     * Handle a "abandonColony"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the request.
-     * @param player The <code>Player</code> abandoning the colony.
-     * @param connection The <code>Connection</code> the message is from.
-     * @return An update <code>Element</code> defining the new colony
-     *     and updating its surrounding tiles, or an error
-     *     <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
+		// Proceed to abandon
+		// FIXME: Player.settlements is still being fixed on the client side.
+		return server.getInGameController().abandonSettlement(serverPlayer, colony);
+	}
 
-        Colony colony;
-        try {
-            colony = player.getOurFreeColGameObject(colonyId, Colony.class);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
-        if (colony.getUnitCount() != 0) {
-            return DOMMessage.clientError("Attempt to abandon colony "
-                + colonyId + " with non-zero unit count "
-                + Integer.toString(colony.getUnitCount()));
-        }
+	/**
+	 * Convert this AbandonColonyMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		return createMessage(getXMLElementTagName(), "colony", colonyId);
+	}
 
-        // Proceed to abandon
-        // FIXME: Player.settlements is still being fixed on the client side.
-        return server.getInGameController()
-            .abandonSettlement(serverPlayer, colony);
-    }
-
-    /**
-     * Convert this AbandonColonyMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        return createMessage(getXMLElementTagName(),
-            "colony", colonyId);
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "abandonColony".
-     */
-    public static String getXMLElementTagName() {
-        return "abandonColony";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "abandonColony".
+	 */
+	public static String getXMLElementTagName() {
+		return "abandonColony";
+	}
 }

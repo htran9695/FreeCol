@@ -42,64 +42,59 @@ import net.sf.freecol.client.gui.action.QuitAction;
 import net.sf.freecol.common.io.FreeColDirectories;
 import net.sf.freecol.common.resources.ResourceManager;
 
-
 /**
  * The initial panel where the user chooses from the main modes of operation.
  */
 public final class MainPanel extends FreeColPanel {
 
-    private static final Logger logger = Logger.getLogger(MainPanel.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(MainPanel.class.getName());
 
+	/**
+	 * The constructor that will add the items to this panel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public MainPanel(FreeColClient freeColClient) {
+		super(freeColClient, new MigLayout("wrap 1, insets n n 20 n", "[center]"));
 
-    /**
-     * The constructor that will add the items to this panel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public MainPanel(FreeColClient freeColClient) {
-        super(freeColClient, new MigLayout("wrap 1, insets n n 20 n",
-                                           "[center]"));
+		boolean canContinue = FreeColDirectories.getLastSaveGameFile() != null;
 
-        boolean canContinue = FreeColDirectories
-            .getLastSaveGameFile() != null;
+		ActionManager am = getFreeColClient().getActionManager();
+		JButton newButton = new JButton(am.getFreeColAction(NewAction.id));
+		JButton openButton = new JButton(am.getFreeColAction(OpenAction.id));
+		JButton mapEditorButton = new JButton(am.getFreeColAction(MapEditorAction.id));
+		JButton optionsButton = new JButton(am.getFreeColAction(PreferencesAction.id));
+		JButton quitButton = new JButton(am.getFreeColAction(QuitAction.id));
 
-        ActionManager am = getFreeColClient().getActionManager();
-        JButton newButton = new JButton(am.getFreeColAction(NewAction.id));
-        JButton openButton = new JButton(am.getFreeColAction(OpenAction.id));
-        JButton mapEditorButton = new JButton(am.getFreeColAction(MapEditorAction.id));
-        JButton optionsButton = new JButton(am.getFreeColAction(PreferencesAction.id));
-        JButton quitButton = new JButton(am.getFreeColAction(QuitAction.id));
+		setCancelComponent(quitButton);
+		okButton.setAction(am.getFreeColAction((canContinue) ? ContinueAction.id : NewAction.id));
 
-        setCancelComponent(quitButton);
-        okButton.setAction(am.getFreeColAction((canContinue)
-                ? ContinueAction.id
-                : NewAction.id));
+		Image tempImage = ResourceManager.getImage("image.flavor.Title");
+		JLabel logoLabel = new JLabel(new ImageIcon(tempImage));
+		logoLabel.setBorder(new CompoundBorder(new EmptyBorder(2, 2, 0, 2), new BevelBorder(BevelBorder.LOWERED)));
+		add(logoLabel);
 
-        Image tempImage = ResourceManager.getImage("image.flavor.Title");
-        JLabel logoLabel = new JLabel(new ImageIcon(tempImage));
-        logoLabel.setBorder(new CompoundBorder(new EmptyBorder(2,2,0,2),
-                new BevelBorder(BevelBorder.LOWERED)));
-        add(logoLabel);
+		add(okButton, "newline 20, width 70%");
+		if (canContinue)
+			add(newButton, "width 70%");
+		add(openButton, "width 70%");
+		add(mapEditorButton, "width 70%");
+		add(optionsButton, "width 70%");
+		add(quitButton, "width 70%");
 
-        add(okButton, "newline 20, width 70%");
-        if (canContinue) add(newButton, "width 70%");
-        add(openButton, "width 70%");
-        add(mapEditorButton, "width 70%");
-        add(optionsButton, "width 70%");
-        add(quitButton, "width 70%");
+		setSize(getPreferredSize());
+	}
 
-        setSize(getPreferredSize());
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        // The actions are handled implicitly by the JButton/FreeColActions
-        getGUI().removeFromCanvas(this);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		// The actions are handled implicitly by the JButton/FreeColActions
+		getGUI().removeFromCanvas(this);
+	}
 }

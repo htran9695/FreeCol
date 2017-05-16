@@ -23,56 +23,55 @@ import javax.swing.JTextField;
 
 import net.sf.freecol.common.option.TextOption;
 
-
 /**
  * This class provides visualization for a
- * {@link net.sf.freecol.common.option.TextOption} in order to enable
- * values to be both seen and changed.
+ * {@link net.sf.freecol.common.option.TextOption} in order to enable values to
+ * be both seen and changed.
  */
-public final class TextOptionUI extends OptionUI<TextOption>  {
+public final class TextOptionUI extends OptionUI<TextOption> {
 
-    /** The box. */
-    private final JTextField box = new JTextField(16);
+	/** The box. */
+	private final JTextField box = new JTextField(16);
 
+	/**
+	 * Creates a new <code>TextOptionUI</code> for the given
+	 * <code>TextOption</code>.
+	 *
+	 * @param option
+	 *            The <code>TextOption</code> to make a user interface for.
+	 * @param editable
+	 *            boolean whether user can modify the setting.
+	 */
+	public TextOptionUI(final TextOption option, boolean editable) {
+		super(option, editable);
 
-    /**
-     * Creates a new <code>TextOptionUI</code> for the given
-     * <code>TextOption</code>.
-     *
-     * @param option The <code>TextOption</code> to make a user interface for.
-     * @param editable boolean whether user can modify the setting.
-     */
-    public TextOptionUI(final TextOption option, boolean editable) {
-        super(option, editable);
+		box.setText(option.getValue());
+		initialize();
+	}
 
-        box.setText(option.getValue());
-        initialize();
-    }
+	// Implement OptionUI
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public JTextField getComponent() {
+		return box;
+	}
 
-    // Implement OptionUI
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void updateOption() {
+		getOption().setValue(box.getText());
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public JTextField getComponent() {
-        return box;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateOption() {
-        getOption().setValue(box.getText());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void reset() {
-        box.setText(getOption().getValue());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void reset() {
+		box.setText(getOption().getValue());
+	}
 }

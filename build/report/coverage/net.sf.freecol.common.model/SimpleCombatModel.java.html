@@ -34,7 +34,6 @@ import static net.sf.freecol.common.util.CollectionUtils.*;
 import net.sf.freecol.common.util.LogBuilder;
 import static net.sf.freecol.common.util.RandomUtils.*;
 
-
 /**
  * This class implements the original Colonization combat model.
  *
@@ -44,861 +43,853 @@ import static net.sf.freecol.common.util.RandomUtils.*;
  */
 public class SimpleCombatModel extends CombatModel {
 
-<span class="fc" id="L47">    private static final Logger logger = Logger.getLogger(SimpleCombatModel.class.getName());</span>
-
-    /**
-     * The maximum attack power of a Colony's fortifications against a
-     * naval unit.
-     */
-    public static final int MAXIMUM_BOMBARD_POWER = 48;
-
-    /** A defence percentage bonus that disables the fortification bonus. */
-    public static final int STRONG_DEFENCE_THRESHOLD = 150; // percent
-
-<span class="fc" id="L58">    public static final Modifier UNKNOWN_DEFENCE_MODIFIER</span>
-        = new Modifier(&quot;bogus&quot;, Modifier.UNKNOWN, ModifierType.ADDITIVE);
-
-
-    /**
-     * Deliberately empty constructor.
-     */
-<span class="fc" id="L65">    public SimpleCombatModel() {}</span>
-
-
-    /**
-     * Calculates the odds of success in combat.
-     *
-     * @param attacker The attacker.
-     * @param defender The defender.
-     * @return The combat odds.
-     */
-    @Override
-    public CombatOdds calculateCombatOdds(FreeColGameObject attacker,
-                                          FreeColGameObject defender) {
-<span class="fc" id="L78">        return calculateCombatOdds(attacker, defender, null);</span>
-    }
-
-    /**
-     * Calculates the odds of success in combat.
-     *
-     * @param attacker The attacker.
-     * @param defender The defender.
-     * @param lb An optional &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     * @return The combat odds.
-     */
-    private CombatOdds calculateCombatOdds(FreeColGameObject attacker,
-                                           FreeColGameObject defender,
-                                           LogBuilder lb) {
-<span class="pc bpc" id="L92" title="2 of 4 branches missed.">        if (attacker == null || defender == null) {</span>
-<span class="nc bnc" id="L93" title="All 2 branches missed.">            if (lb != null) lb.add(&quot; odds=unknowable&quot;);</span>
-<span class="nc" id="L94">            return new CombatOdds(CombatOdds.UNKNOWN_ODDS);</span>
-        }
-
-<span class="fc bfc" id="L97" title="All 2 branches covered.">        if (lb != null) lb.add(&quot; attacker=&quot;, attacker, &quot; &quot;);</span>
-<span class="fc" id="L98">        double attackPower = getOffencePower(attacker, defender, lb);</span>
-<span class="fc bfc" id="L99" title="All 2 branches covered.">        if (lb != null) lb.add(&quot; defender=&quot;, defender, &quot; &quot;);</span>
-<span class="fc" id="L100">        double defencePower = getDefencePower(attacker, defender, lb);</span>
-<span class="pc bpc" id="L101" title="1 of 4 branches missed.">        if (attackPower == 0.0 &amp;&amp; defencePower == 0.0) {</span>
-<span class="nc bnc" id="L102" title="All 2 branches missed.">            if (lb != null) lb.add(&quot; odds=unknown&quot;);</span>
-<span class="nc" id="L103">            return new CombatOdds(CombatOdds.UNKNOWN_ODDS);</span>
-        }
-<span class="fc" id="L105">        double victory = attackPower / (attackPower + defencePower);</span>
-<span class="fc bfc" id="L106" title="All 2 branches covered.">        if (lb != null) lb.add(&quot; odds=&quot;, victory);</span>
-<span class="fc" id="L107">        return new CombatOdds(victory);</span>
-    }
-
-    /**
-     * Get the offensive power of a unit attacking another.
-     *
-     * @param attacker The attacker.
-     * @param defender The defender.
-     * @return The offensive power.
-     */
-    @Override
-    public double getOffencePower(FreeColGameObject attacker,
-                                  FreeColGameObject defender) {
-<span class="fc" id="L120">        return getOffencePower(attacker, defender, null);</span>
-    }
-
-    /**
-     * Helper to log modifiers with.
-     *
-     * @param lb The &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     * @param modSet A set of &lt;code&gt;Modifiers&lt;/code&gt; to log.
-     */   
-    private void logModifiers(LogBuilder lb, Set&lt;Modifier&gt; modSet) {
-<span class="fc" id="L130">        lb.addCollection(&quot; &quot;, modSet.stream()</span>
-<span class="fc" id="L131">            .sorted().collect(Collectors.toList()));</span>
-<span class="fc" id="L132">    }</span>
-
-    /**
-     * Get the offensive power of a unit attacking another.
-     *
-     * @param attacker The attacker.
-     * @param defender The defender.
-     * @param lb An optional &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     * @return The offensive power.
-     */
-    private double getOffencePower(FreeColGameObject attacker,
-                                   FreeColGameObject defender,
-                                   LogBuilder lb) {
-<span class="fc" id="L145">        double result = 0.0;</span>
-<span class="pc bpc" id="L146" title="1 of 2 branches missed.">        if (attacker == null) {</span>
-<span class="nc" id="L147">            throw new IllegalStateException(&quot;Null attacker&quot;);</span>
-
-<span class="fc bfc" id="L149" title="All 2 branches covered.">        } else if (combatIsAttackMeasurement(attacker, defender)</span>
-<span class="fc bfc" id="L150" title="All 2 branches covered.">            || combatIsAttack(attacker, defender)</span>
-<span class="pc bpc" id="L151" title="1 of 2 branches missed.">            || combatIsSettlementAttack(attacker, defender)) {</span>
-<span class="fc" id="L152">            Set&lt;Modifier&gt; mods = getOffensiveModifiers(attacker, defender);</span>
-<span class="fc" id="L153">            Turn turn = attacker.getGame().getTurn(); </span>
-<span class="fc" id="L154">            result = FeatureContainer.applyModifiers(0.0f, turn, mods);</span>
-<span class="fc bfc" id="L155" title="All 2 branches covered.">            if (lb != null) {</span>
-<span class="fc" id="L156">                logModifiers(lb, mods);</span>
-<span class="fc" id="L157">                lb.add(&quot; = &quot;, result);</span>
-            }
-
-<span class="pc bnc" id="L160" title="All 2 branches missed.">        } else if (combatIsBombard(attacker, defender)) {</span>
-<span class="nc" id="L161">            Settlement attackerSettlement = (Settlement) attacker;</span>
-<span class="nc bnc" id="L162" title="All 2 branches missed.">            if (attackerSettlement.hasAbility(Ability.BOMBARD_SHIPS)) {</span>
-<span class="nc" id="L163">                result += attackerSettlement.getTile().getUnitList().stream()</span>
-<span class="nc" id="L164">                    .filter(u -&gt; u.hasAbility(Ability.BOMBARD))</span>
-<span class="nc" id="L165">                    .mapToDouble(u -&gt; u.getType().getOffence()).sum();</span>
-            }
-<span class="nc bnc" id="L167" title="All 2 branches missed.">            if (result &gt; MAXIMUM_BOMBARD_POWER) result = MAXIMUM_BOMBARD_POWER;</span>
-<span class="nc bnc" id="L168" title="All 2 branches missed.">            if (lb != null) lb.add(&quot; bombard=&quot;, result);</span>
-
-<span class="nc" id="L170">        } else {</span>
-<span class="nc" id="L171">            throw new IllegalArgumentException(&quot;Bogus combat&quot;);</span>
-        }
-<span class="fc" id="L173">        return result;</span>
-    }
-
-    /**
-     * Get the defensive power wrt an attacker.
-     *
-     * @param attacker The attacker.
-     * @param defender The defender.
-     * @return The defensive power.
-     */
-    @Override
-    public double getDefencePower(FreeColGameObject attacker,
-                                  FreeColGameObject defender) {
-<span class="fc" id="L186">        return getDefencePower(attacker, defender, null);</span>
-    }
-
-    /**
-     * Get the defensive power wrt an attacker.
-     *
-     * @param attacker The attacker.
-     * @param defender The defender.
-     * @param lb An optional &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     * @return The defensive power.
-     */
-    public double getDefencePower(FreeColGameObject attacker,
-                                  FreeColGameObject defender,
-                                  LogBuilder lb) {
-        double result;
-<span class="fc bfc" id="L201" title="All 2 branches covered.">        if (combatIsDefenceMeasurement(attacker, defender)</span>
-<span class="pc bpc" id="L202" title="1 of 2 branches missed.">            || combatIsAttack(attacker, defender)</span>
-<span class="nc bnc" id="L203" title="All 2 branches missed.">            || combatIsSettlementAttack(attacker, defender)</span>
-<span class="nc bnc" id="L204" title="All 2 branches missed.">            || combatIsBombard(attacker, defender)) {</span>
-<span class="fc" id="L205">            Set&lt;Modifier&gt; mods = getDefensiveModifiers(attacker, defender);</span>
-<span class="fc" id="L206">            Turn turn = defender.getGame().getTurn();</span>
-<span class="fc" id="L207">            result = FeatureContainer.applyModifiers(0.0f, turn, mods);</span>
-<span class="fc bfc" id="L208" title="All 2 branches covered.">            if (lb != null) {</span>
-<span class="fc" id="L209">                logModifiers(lb, mods);</span>
-<span class="fc" id="L210">                lb.add(&quot; = &quot;, result);</span>
-            }
-
-<span class="fc" id="L213">        } else {</span>
-<span class="nc" id="L214">            throw new IllegalArgumentException(&quot;Bogus combat&quot;);</span>
-        }
-<span class="fc" id="L216">        return result;</span>
-    }
-
-    /**
-     * Collect all the offensive modifiers that apply to an attack.
-     *
-     * @param attacker The attacker.
-     * @param defender The defender.
-     * @return All the applicable offensive modifiers.
-     */
-    @Override
-    public Set&lt;Modifier&gt; getOffensiveModifiers(FreeColGameObject attacker,
-                                               FreeColGameObject defender) {
-<span class="fc" id="L229">        Set&lt;Modifier&gt; result = new HashSet&lt;&gt;();</span>
-        Modifier m;
-<span class="pc bpc" id="L231" title="1 of 2 branches missed.">        if (attacker == null) {</span>
-<span class="nc" id="L232">            throw new IllegalStateException(&quot;Null attacker&quot;);</span>
-<span class="fc bfc" id="L233" title="All 2 branches covered.">        } else if (combatIsAttackMeasurement(attacker, defender)</span>
-<span class="fc bfc" id="L234" title="All 2 branches covered.">            || combatIsAttack(attacker, defender)</span>
-<span class="pc bpc" id="L235" title="1 of 2 branches missed.">            || combatIsSettlementAttack(attacker, defender)) {</span>
-<span class="fc" id="L236">            final Unit attackerUnit = (Unit)attacker;</span>
-<span class="fc" id="L237">            final Turn turn = attackerUnit.getGame().getTurn();</span>
-
-            // Base offense
-<span class="fc" id="L240">            result.add(new Modifier(Modifier.OFFENCE,</span>
-<span class="fc" id="L241">                                    attackerUnit.getType().getBaseOffence(),</span>
-                                    ModifierType.ADDITIVE,
-                                    Specification.BASE_OFFENCE_SOURCE,
-                                    Modifier.BASE_COMBAT_INDEX));
-
-            // Unit offensive modifiers, including role+equipment,
-            // qualified by unit type so that scopes work
-            // @compat 0.11.0
-            // getCombatModifiers -&gt; getModifiers one day
-<span class="fc" id="L250">            result.addAll(attackerUnit.getCombatModifiers(Modifier.OFFENCE,</span>
-<span class="fc" id="L251">                    attackerUnit.getType(), turn));</span>
-            // end @compat 0.11.0
-
-            // Special bonuses against certain nation types
-<span class="fc bfc" id="L255" title="All 2 branches covered.">            if (defender instanceof Ownable) {</span>
-<span class="fc" id="L256">                Player owner = ((Ownable)defender).getOwner();</span>
-<span class="fc" id="L257">                result.addAll(attackerUnit</span>
-<span class="fc" id="L258">                    .getModifiers(Modifier.OFFENCE_AGAINST,</span>
-<span class="fc" id="L259">                                  owner.getNationType()));</span>
-            }
-
-            // Land/naval specific
-<span class="fc bfc" id="L263" title="All 2 branches covered.">            if (attackerUnit.isNaval()) {</span>
-<span class="fc" id="L264">                addNavalOffensiveModifiers(attackerUnit, result);</span>
-            } else {
-<span class="fc" id="L266">                addLandOffensiveModifiers(attackerUnit, defender, result);</span>
-            }
-
-<span class="pc bnc" id="L269" title="All 2 branches missed.">        } else if (combatIsBombard(attacker, defender)) {</span>
-            ; // Bombard strength handled by getOffensePower
-
-        } else {
-<span class="nc" id="L273">            throw new IllegalArgumentException(&quot;Bogus combat&quot;);</span>
-        }
-
-        // @compat 0.11.0
-        // Any modifier with the default modifier index needs to be fixed
-<span class="fc bfc" id="L278" title="All 2 branches covered.">        for (Modifier r : result) {</span>
-<span class="pc bpc" id="L279" title="1 of 2 branches missed.">            if (r.getModifierIndex() == Modifier.DEFAULT_MODIFIER_INDEX) {</span>
-<span class="nc" id="L280">                r.setModifierIndex(Modifier.GENERAL_COMBAT_INDEX);</span>
-            }
-<span class="fc" id="L282">        }</span>
-        // end @compat 0.11.0
-
-<span class="fc" id="L285">        return result;</span>
-    }
-
-    /**
-     * Add all the offensive modifiers that apply to a naval attack.
-     *
-     * @param attacker The attacker.
-     * @param result The set of modifiers to add to.
-     */
-    private void addNavalOffensiveModifiers(Unit attacker,
-                                            Set&lt;Modifier&gt; result) {
-        // Attack bonus
-<span class="fc" id="L297">        final Specification spec = attacker.getSpecification();</span>
-<span class="fc" id="L298">        result.addAll(spec.getModifiers(Modifier.ATTACK_BONUS));</span>
-
-        // Goods penalty always applies
-<span class="fc" id="L301">        int goodsCount = attacker.getGoodsSpaceTaken();</span>
-<span class="fc bfc" id="L302" title="All 2 branches covered.">        if (goodsCount &gt; 0) {</span>
-<span class="fc bfc" id="L303" title="All 2 branches covered.">            for (Modifier m : spec.getModifiers(Modifier.CARGO_PENALTY)) {</span>
-<span class="fc" id="L304">                Modifier c = new Modifier(m);</span>
-<span class="fc" id="L305">                c.setValue(c.getValue() * goodsCount);</span>
-<span class="fc" id="L306">                result.add(c);</span>
-<span class="fc" id="L307">            }</span>
-        }
-<span class="fc" id="L309">    }</span>
-
-    /**
-     * Add the popular support bonus to the result set if applicable.
-     *
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; under attack.
-     * @param attacker The attacking &lt;code&gt;Unit&lt;/code&gt;.
-     * @param result The set of modifiers to add to.
-     */
-    private void addPopularSupportBonus(Colony colony, Unit attacker,
-                                        Set&lt;Modifier&gt; result) {
-<span class="nc" id="L320">        int bonus = colony.getSoL();</span>
-<span class="nc bnc" id="L321" title="All 2 branches missed.">        if (bonus &gt;= 0) {</span>
-<span class="nc bnc" id="L322" title="All 2 branches missed.">            if (attacker.getOwner().isREF()) bonus = 100 - bonus;</span>
-<span class="nc bnc" id="L323" title="All 2 branches missed.">            if (bonus &gt; 0) {</span>
-<span class="nc" id="L324">                result.add(new Modifier(Modifier.POPULAR_SUPPORT,</span>
-                                        bonus, ModifierType.PERCENTAGE, colony,
-                                        Modifier.GENERAL_COMBAT_INDEX));
-            }
-        }
-<span class="nc" id="L329">    }</span>
-
-    /**
-     * Add all the offensive modifiers that apply to a land attack.
-     *
-     * @param attacker The attacker &lt;code&gt;Unit&lt;/code&gt;.
-     * @param defender The defender.
-     * @param result The set of modifiers to add to.
-     */
-    private void addLandOffensiveModifiers(Unit attacker,
-                                           FreeColGameObject defender,
-                                           Set&lt;Modifier&gt; result) {
-<span class="fc" id="L341">        final Specification spec = attacker.getSpecification();</span>
-
-        // Attack bonus
-<span class="fc" id="L344">        result.addAll(spec.getModifiers(Modifier.ATTACK_BONUS));</span>
-
-        // Movement penalty
-<span class="pc bpc" id="L347" title="1 of 3 branches missed.">        switch (attacker.getMovesLeft()) {</span>
-        case 1:
-<span class="fc" id="L349">            result.addAll(spec.getModifiers(Modifier.BIG_MOVEMENT_PENALTY));</span>
-<span class="fc" id="L350">            break;</span>
-        case 2:
-<span class="nc" id="L352">            result.addAll(spec.getModifiers(Modifier.SMALL_MOVEMENT_PENALTY));</span>
-<span class="nc" id="L353">            break;</span>
-        default:
-            break;
-        }
-
-        // Amphibious attack?
-<span class="pc bpc" id="L359" title="1 of 2 branches missed.">        if (combatIsAmphibious(attacker, defender)) {</span>
-<span class="nc" id="L360">            result.addAll(spec.getModifiers(Modifier.AMPHIBIOUS_ATTACK));</span>
-        }
-
-<span class="pc bpc" id="L363" title="1 of 2 branches missed.">        if (combatIsAttackMeasurement(attacker, defender)) {</span>
-            ; // No defender information available
-
-<span class="fc bfc" id="L366" title="All 2 branches covered.">        } else if (combatIsSettlementAttack(attacker, defender)) {</span>
-            // Settlement present, apply bombardment bonus
-<span class="fc" id="L368">            result.addAll(attacker.getModifiers(Modifier.BOMBARD_BONUS));</span>
-
-            // Popular support bonus
-<span class="pc bpc" id="L371" title="1 of 2 branches missed.">            if (combatIsWarOfIndependence(attacker, defender)) {</span>
-<span class="nc" id="L372">                addPopularSupportBonus((Colony)defender, attacker, result);</span>
-            }
-
-<span class="pc bpc" id="L375" title="1 of 2 branches missed.">        } else if (combatIsAttack(attacker, defender)) {</span>
-<span class="fc" id="L376">            Unit defenderUnit = (Unit) defender;</span>
-<span class="fc" id="L377">            Tile tile = defenderUnit.getTile();</span>
-<span class="pc bpc" id="L378" title="1 of 2 branches missed.">            if (tile != null) {</span>
-<span class="fc bfc" id="L379" title="All 2 branches covered.">                if (tile.hasSettlement()) {</span>
-                    // Bombard bonus applies to settlement defence
-<span class="fc" id="L381">                    result.addAll(attacker</span>
-<span class="fc" id="L382">                                  .getModifiers(Modifier.BOMBARD_BONUS));</span>
-
-                    // Popular support bonus
-<span class="pc bpc" id="L385" title="1 of 2 branches missed.">                    if (combatIsWarOfIndependence(attacker, defender)) {</span>
-<span class="nc" id="L386">                        addPopularSupportBonus((Colony)tile.getSettlement(),</span>
-                                               attacker, result);
-                    }
-                } else {
-                    // Ambush bonus in the open = defender's defence
-                    // bonus, if defender is REF, or attacker is indian.
-<span class="pc bpc" id="L392" title="1 of 2 branches missed.">                    if (isAmbush(attacker, defender)) {</span>
-<span class="nc bnc" id="L393" title="All 2 branches missed.">                        for (Modifier m : tile.getDefenceModifiers()) {</span>
-<span class="nc" id="L394">                            Modifier mod = new Modifier(Modifier.OFFENCE, m);</span>
-<span class="nc" id="L395">                            mod.setSource(Specification.AMBUSH_BONUS_SOURCE);</span>
-<span class="nc" id="L396">                            result.add(mod);</span>
-<span class="nc" id="L397">                        }</span>
-                    }
-                }
-            }
-
-            // Artillery in the open penalty, attacker must be on a
-            // tile and neither unit can be in a settlement.
-<span class="fc bfc" id="L404" title="All 2 branches covered.">            if (attacker.hasAbility(Ability.BOMBARD)</span>
-<span class="pc bpc" id="L405" title="1 of 2 branches missed.">                &amp;&amp; attacker.getLocation() instanceof Tile</span>
-<span class="pc bpc" id="L406" title="1 of 2 branches missed.">                &amp;&amp; attacker.getSettlement() == null</span>
-<span class="pc bpc" id="L407" title="1 of 2 branches missed.">                &amp;&amp; attacker.getState() != Unit.UnitState.FORTIFIED</span>
-<span class="pc bpc" id="L408" title="1 of 2 branches missed.">                &amp;&amp; defenderUnit.getSettlement() == null) {</span>
-<span class="fc" id="L409">                result.addAll(spec.getModifiers(Modifier.ARTILLERY_IN_THE_OPEN));</span>
-            }
-<span class="fc" id="L411">        } else {</span>
-<span class="nc" id="L412">            throw new IllegalStateException(&quot;Bogus combat&quot;);</span>
-        }
-<span class="fc" id="L414">    }</span>
-
-    /**
-     * Collect all defensive modifiers when defending against an attack.
-     *
-     * @param attacker The attacker.
-     * @param defender The defender.
-     * @return All the applicable defensive modifiers.
-     */
-    @Override
-    public Set&lt;Modifier&gt; getDefensiveModifiers(FreeColGameObject attacker,
-                                               FreeColGameObject defender) {
-<span class="fc" id="L426">        Set&lt;Modifier&gt; result = new HashSet&lt;&gt;();</span>
-<span class="fc bfc" id="L427" title="All 2 branches covered.">        if (combatIsDefenceMeasurement(attacker, defender)</span>
-<span class="pc bpc" id="L428" title="1 of 2 branches missed.">            || combatIsAttack(attacker, defender)</span>
-<span class="nc bnc" id="L429" title="All 2 branches missed.">            || combatIsBombard(attacker, defender)) {</span>
-<span class="fc" id="L430">            final Unit defenderUnit = (Unit)defender;</span>
-<span class="fc" id="L431">            final Turn turn = defenderUnit.getGame().getTurn();</span>
-
-            // Base defence
-<span class="fc" id="L434">            result.add(new Modifier(Modifier.DEFENCE,</span>
-<span class="fc" id="L435">                                    defenderUnit.getType().getBaseDefence(),</span>
-                                    ModifierType.ADDITIVE,
-                                    Specification.BASE_DEFENCE_SOURCE,
-                                    Modifier.BASE_COMBAT_INDEX));
-
-            // Unit specific
-            // @compat 0.11.0
-            // getCombatModifiers -&gt; getModifiers one day
-<span class="fc" id="L443">            result.addAll(defenderUnit.getCombatModifiers(Modifier.DEFENCE,</span>
-<span class="fc" id="L444">                    defenderUnit.getType(), turn));</span>
-            // end @compat 0.11.0
-
-            // Land/naval split
-<span class="fc bfc" id="L448" title="All 2 branches covered.">            if (defenderUnit.isNaval()) {</span>
-<span class="fc" id="L449">                addNavalDefensiveModifiers(defenderUnit, result);</span>
-            } else {
-<span class="fc" id="L451">                addLandDefensiveModifiers(attacker, defenderUnit, result);</span>
-            }
-
-<span class="pc bnc" id="L454" title="All 2 branches missed.">        } else if (combatIsSettlementAttack(attacker, defender)) {</span>
-<span class="nc" id="L455">            Settlement settlement = (Settlement)defender;</span>
-            // Tile defence bonus
-<span class="nc" id="L457">            Tile tile = settlement.getTile();</span>
-<span class="nc" id="L458">            result.addAll(tile.getType().getDefenceModifiers());</span>
-
-            // Settlement defence bonus
-<span class="nc" id="L461">            result.addAll(settlement.getDefenceModifiers());</span>
-
-            // Not allowed to see inside the settlement.  This only applies 
-            // to the pre-combat dialog--- the actual attack is on the
-            // unit chosen to defend.
-<span class="nc" id="L466">            result.add(UNKNOWN_DEFENCE_MODIFIER);</span>
-
-<span class="nc" id="L468">        } else {</span>
-<span class="nc" id="L469">            throw new IllegalArgumentException(&quot;Bogus combat&quot;);</span>
-        }
-
-        // @compat 0.11.0
-        // Any modifier with the default modifier index needs to be fixed
-<span class="fc bfc" id="L474" title="All 2 branches covered.">        for (Modifier r : result) {</span>
-<span class="fc bfc" id="L475" title="All 2 branches covered.">            if (r.getModifierIndex() == Modifier.DEFAULT_MODIFIER_INDEX) {</span>
-<span class="fc" id="L476">                r.setModifierIndex(Modifier.GENERAL_COMBAT_INDEX);</span>
-            }
-<span class="fc" id="L478">        }</span>
-        // end @compat 0.11.0
-
-<span class="fc" id="L481">        return result;</span>
-    }
-
-    /**
-     * Add all the defensive modifiers that apply to a naval attack.
-     *
-     * @param defender The defender &lt;code&gt;Unit&lt;/code&gt;.
-     * @param result The set of modifiers to add to.
-     */
-    private void addNavalDefensiveModifiers(Unit defender,
-                                            Set&lt;Modifier&gt; result) {
-<span class="fc" id="L492">        final Specification spec = defender.getSpecification();</span>
-
-        // Cargo penalty always applies
-<span class="fc" id="L495">        int goodsCount = defender.getVisibleGoodsCount();</span>
-<span class="fc bfc" id="L496" title="All 2 branches covered.">        if (goodsCount &gt; 0) {</span>
-<span class="fc bfc" id="L497" title="All 2 branches covered.">            for (Modifier m : spec.getModifiers(Modifier.CARGO_PENALTY)) {</span>
-<span class="fc" id="L498">                Modifier c = new Modifier(m);</span>
-<span class="fc" id="L499">                c.setValue(c.getValue() * goodsCount);</span>
-<span class="fc" id="L500">                result.add(c);</span>
-<span class="fc" id="L501">            }</span>
-        }
-<span class="fc" id="L503">    }</span>
-
-    /**
-     * Does a given object provide a strong defence bonus?
-     *
-     * @param fco The &lt;code&gt;FreeColObject&lt;/code&gt; to check.
-     * @return True if a strong defence bonus is present.
-     */
-    private boolean hasStrongDefenceModifier(FreeColObject fco) {
-<span class="fc" id="L512">        return any(fco.getDefenceModifiers(),</span>
-<span class="pc bpc" id="L513" title="1 of 2 branches missed.">            m -&gt; m.getType() == ModifierType.PERCENTAGE</span>
-<span class="pc bpc" id="L514" title="1 of 2 branches missed.">                &amp;&amp; m.getValue() &gt;= STRONG_DEFENCE_THRESHOLD);</span>
-    }
-
-    /**
-     * Add all the defensive modifiers that apply to a land attack.
-     *
-     * @param attacker The attacker.
-     * @param defender The defender &lt;code&gt;Unit&lt;/code&gt;.
-     * @param result The set of modifiers to add to.
-     */
-    private void addLandDefensiveModifiers(FreeColGameObject attacker,
-                                           Unit defender,
-                                           Set&lt;Modifier&gt; result) {
-<span class="fc" id="L527">        final Specification spec = defender.getSpecification();</span>
-<span class="fc" id="L528">        final Tile tile = defender.getTile();</span>
-<span class="pc bpc" id="L529" title="1 of 2 branches missed.">        final Settlement settlement = (tile == null) ? null</span>
-<span class="fc" id="L530">            : tile.getSettlement();</span>
-
-<span class="pc bpc" id="L532" title="1 of 2 branches missed.">        if (tile != null) {</span>
-<span class="fc" id="L533">            boolean disableFortified = false;</span>
-
-            // Tile defence bonus
-<span class="fc" id="L536">            disableFortified |= hasStrongDefenceModifier(tile.getType());</span>
-
-<span class="fc bfc" id="L538" title="All 2 branches covered.">            if (settlement == null) {</span>
-                // PF#73 demonstrated that tile modifiers do not apply
-                // for colonies
-<span class="fc" id="L541">                result.addAll(tile.getType().getDefenceModifiers());</span>
-
-                // Artillery in the Open penalty
-<span class="pc bpc" id="L544" title="1 of 2 branches missed.">                if (defender.hasAbility(Ability.BOMBARD)</span>
-<span class="nc bnc" id="L545" title="All 2 branches missed.">                    &amp;&amp; defender.getState() != Unit.UnitState.FORTIFIED) {</span>
-<span class="nc" id="L546">                    result.addAll(spec.getModifiers(Modifier.ARTILLERY_IN_THE_OPEN));</span>
-                }
-
-            } else { // In settlement
-                // Settlement defence bonus
-<span class="fc" id="L551">                result.addAll(settlement.getDefenceModifiers());</span>
-
-                // Artillery defence bonus against an Indian raid
-<span class="pc bpc" id="L554" title="3 of 4 branches missed.">                if (defender.hasAbility(Ability.BOMBARD)</span>
-                    &amp;&amp; attacker != null
-<span class="nc bnc" id="L556" title="All 2 branches missed.">                    &amp;&amp; ((Unit)attacker).getOwner().isIndian()) {</span>
-<span class="nc" id="L557">                    result.addAll(spec.getModifiers(Modifier.ARTILLERY_AGAINST_RAID));</span>
-                }
-
-                // Automatic defensive role (e.g. Revere)
-<span class="fc" id="L561">                Role autoRole = defender.getAutomaticRole();</span>
-<span class="fc bfc" id="L562" title="All 2 branches covered.">                if (autoRole != null) {</span>
-<span class="fc" id="L563">                    result.addAll(autoRole.getDefenceModifiers());</span>
-                }
-
-<span class="fc bfc" id="L566" title="All 2 branches covered.">                if (settlement instanceof Colony) {</span>
-<span class="fc" id="L567">                    Building stockade = ((Colony)settlement).getStockade();</span>
-<span class="pc bpc" id="L568" title="1 of 2 branches missed.">                    if (stockade != null) {</span>
-<span class="nc" id="L569">                        disableFortified |= hasStrongDefenceModifier(stockade.getType());</span>
-                    }
-                }
-            }
-
-            // Fortify bonus
-<span class="pc bpc" id="L575" title="1 of 4 branches missed.">            if (defender.getState() == Unit.UnitState.FORTIFIED</span>
-                &amp;&amp; !disableFortified) {
-<span class="fc" id="L577">                result.addAll(spec.getModifiers(Modifier.FORTIFIED));</span>
-            }
-        }
-<span class="fc" id="L580">    }</span>
-
-    /**
-     * Generates a result of a unit attacking.
-     * Takes care to only call the pseudo-random source *once*.
-     *
-     * @param random A pseudo-random number source.
-     * @param attacker The attacker.
-     * @param defender The defender.
-     * @return The results of the combat.
-     */
-    @Override
-    public List&lt;CombatResult&gt; generateAttackResult(Random random,
-        FreeColGameObject attacker, FreeColGameObject defender) {
-<span class="fc" id="L594">        LogBuilder lb = new LogBuilder(256);</span>
-<span class="fc" id="L595">        lb.add(&quot;Combat&quot;);</span>
-<span class="fc" id="L596">        ArrayList&lt;CombatResult&gt; crs = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L597">        CombatOdds odds = calculateCombatOdds(attacker, defender, lb);</span>
-<span class="fc" id="L598">        double r = randomDouble(logger, &quot;AttackResult&quot;, random);</span>
-<span class="fc" id="L599">        lb.add(&quot; random(1.0)=&quot;, r);</span>
-<span class="fc" id="L600">        boolean great = false; // Great win or loss?</span>
-        String action;
-
-<span class="pc bpc" id="L603" title="1 of 2 branches missed.">        if (combatIsAttack(attacker, defender)) {</span>
-<span class="fc" id="L604">            Unit attackerUnit = (Unit) attacker;</span>
-<span class="fc" id="L605">            Unit defenderUnit = (Unit) defender;</span>
-<span class="fc" id="L606">            action = &quot;Attack&quot;;</span>
-
-            // For random double 0 &lt;= r &lt; 1.0:
-            // Partition this range into wins &lt; odds.win and losses above.
-            // Within the 0 &lt;= r &lt; odds.win range, partition the first 10%
-            // to be great wins and the rest to be ordinary wins.
-            //   r &lt; 0.1 * odds.win  =&gt; great win
-            //   else r &lt; odds.win   =&gt; win
-            // Within the odds.win &lt;= r &lt; 1.0 range, partition the first
-            // 20% to be evasions (if defender has the evadeAttack ability),
-            // the next 70% to be ordinary losses, and the rest great losses.
-            //   r &lt; odds.win + 0.2 * (1.0 - odds.win) = 0.8 * odds.win + 0.2
-            //     =&gt; evade
-            //   else r &lt; odds.win + (0.2 + 0.7) * (1.0 - odds.win)
-            //     = 0.1 * odds.win + 0.9 =&gt; loss
-            //   else =&gt; great loss
-            // ...and beached ships always lose.
-<span class="pc bpc" id="L623" title="1 of 4 branches missed.">            if (r &lt; odds.win || defenderUnit.isBeached()) {</span>
-<span class="fc bfc" id="L624" title="All 2 branches covered.">                great = r &lt; 0.1 * odds.win; // Great Win</span>
-<span class="fc" id="L625">                crs.add(CombatResult.WIN);</span>
-<span class="fc" id="L626">                resolveAttack(attackerUnit, defenderUnit, great,</span>
-                    // Rescale to 0 &lt;= r &lt; 1
-                    r / (0.1 * odds.win), crs);
-<span class="fc bfc" id="L629" title="All 2 branches covered.">            } else if (r &lt; 0.8 * odds.win + 0.2</span>
-<span class="pc bpc" id="L630" title="1 of 2 branches missed.">                    &amp;&amp; defenderUnit.hasAbility(Ability.EVADE_ATTACK)) {</span>
-<span class="nc" id="L631">                crs.add(CombatResult.NO_RESULT);</span>
-<span class="nc" id="L632">                crs.add(CombatResult.EVADE_ATTACK);</span>
-            } else {
-<span class="pc bpc" id="L634" title="1 of 2 branches missed.">                great = r &gt;= 0.1 * odds.win + 0.9; // Great Loss</span>
-<span class="fc" id="L635">                crs.add(CombatResult.LOSE);</span>
-<span class="fc" id="L636">                resolveAttack(defenderUnit, attackerUnit, great,</span>
-                    // Rescaling to 0 &lt;= r &lt; 1
-                    // (rearrange: 0.8 * odds.win + 0.2 &lt;= r &lt; 1.0)
-                    (1.25 * r - 0.25 - odds.win)/(1.0 - odds.win), crs);
-            }
-
-<span class="pc bnc" id="L642" title="All 2 branches missed.">        } else if (combatIsBombard(attacker, defender)) {</span>
-<span class="nc" id="L643">            Unit defenderUnit = (Unit) defender;</span>
-<span class="nc bnc" id="L644" title="All 2 branches missed.">            if (!defenderUnit.isNaval()) {</span>
-                // One day we might want:
-                //   crs.add(CombatResult.SLAUGHTER_UNIT_BOMBARD);
-<span class="nc" id="L647">                throw new IllegalStateException(&quot;Bombard of non-naval&quot;);</span>
-            }
-<span class="nc" id="L649">            action = &quot;Bombard&quot;;</span>
-
-            // The bombard succeeds.
-<span class="nc bnc" id="L652" title="All 2 branches missed.">            if (r &lt;= odds.win) {</span>
-<span class="nc" id="L653">                crs.add(CombatResult.WIN);</span>
-
-                // Great wins occur at most in 1 in 3 of successful bombards,
-                // Good defences reduce this proportion.
-<span class="nc" id="L657">                double offencePower = getOffencePower(attacker, defender);</span>
-<span class="nc" id="L658">                double defencePower = getDefencePower(attacker, defender);</span>
-<span class="nc" id="L659">                double diff = Math.max(3.0, defencePower * 2.0 - offencePower);</span>
-<span class="nc bnc" id="L660" title="All 2 branches missed.">                great = r &lt; odds.win / diff;</span>
-
-                // Sink the defender on great wins or lack of repair
-                // location, otherwise just damage.
-<span class="nc bnc" id="L664" title="All 4 branches missed.">                if (great || defenderUnit.getRepairLocation() == null) {</span>
-<span class="nc" id="L665">                    crs.add(CombatResult.SINK_SHIP_BOMBARD);</span>
-                } else {
-<span class="nc" id="L667">                    crs.add(CombatResult.DAMAGE_SHIP_BOMBARD);</span>
-                }
-
-            // The bombard fails but this is not a win for the
-            // defender, just an evasion, as it is not currently given
-            // an opportunity to return fire.
-<span class="nc" id="L673">            } else {</span>
-<span class="nc" id="L674">                crs.add(CombatResult.NO_RESULT);</span>
-<span class="nc" id="L675">                crs.add(CombatResult.EVADE_BOMBARD);</span>
-            }
-
-<span class="nc" id="L678">        } else {</span>
-<span class="nc" id="L679">            throw new IllegalStateException(&quot;Bogus combat&quot;);</span>
-        }
-
-        // Log the results so that we have a solid record of combat
-        // determinations for debugging and investigation of user
-        // `I just lost N combats' complaints.
-<span class="fc" id="L685">        lb.add(&quot; great=&quot;, great, &quot; &quot;, action);</span>
-<span class="fc bfc" id="L686" title="All 2 branches covered.">        for (CombatResult cr : crs) lb.add(&quot; &quot;, cr);</span>
-<span class="fc" id="L687">        lb.log(logger, Level.INFO);</span>
-
-<span class="fc" id="L689">        return crs;</span>
-    }
-
-    /**
-     * Resolve all the consequences of a normal attack.
-     *
-     * @param winner The winning &lt;code&gt;Unit&lt;/code&gt;.
-     * @param loser The losing &lt;code&gt;Unit&lt;/code&gt;.
-     * @param great True if this is a great win/loss.
-     * @param r A &quot;residual&quot; random value (for convert/burn mission).
-     * @param crs A list of &lt;code&gt;CombatResult&lt;/code&gt;s to add to.
-     */
-    private void resolveAttack(Unit winner, Unit loser, boolean great,
-                               double r, List&lt;CombatResult&gt; crs) {
-<span class="fc" id="L703">        Player loserPlayer = loser.getOwner();</span>
-<span class="fc" id="L704">        Tile tile = loser.getTile();</span>
-<span class="fc" id="L705">        Player winnerPlayer = winner.getOwner();</span>
-<span class="fc bfc" id="L706" title="All 2 branches covered.">        boolean attackerWon = crs.get(0) == CombatResult.WIN;</span>
-<span class="fc" id="L707">        boolean loserMustDie = loser.hasAbility(Ability.DISPOSE_ON_COMBAT_LOSS);</span>
-
-<span class="fc bfc" id="L709" title="All 2 branches covered.">        if (loser.isNaval()) {</span>
-            // Naval victors get to loot the defenders hold.  Sink the
-            // loser on great win/loss, lack of repair location, or
-            // beached.
-<span class="pc bpc" id="L713" title="2 of 4 branches missed.">            if (winner.isNaval() &amp;&amp; winner.canCaptureGoods()</span>
-<span class="fc bfc" id="L714" title="All 2 branches covered.">                &amp;&amp; !loser.getGoodsList().isEmpty()) {</span>
-<span class="fc" id="L715">                crs.add(CombatResult.LOOT_SHIP);</span>
-            }
-<span class="pc bpc" id="L717" title="2 of 4 branches missed.">            if (great || loserMustDie</span>
-<span class="pc bpc" id="L718" title="1 of 2 branches missed.">                || loser.getRepairLocation() == null</span>
-<span class="pc bpc" id="L719" title="1 of 2 branches missed.">                || loser.isBeached()) {</span>
-<span class="nc" id="L720">                crs.add(CombatResult.SINK_SHIP_ATTACK);</span>
-            } else {
-<span class="fc" id="L722">                crs.add(CombatResult.DAMAGE_SHIP_ATTACK);</span>
-            }
-
-        } else { // loser is land unit
-            // Autoequip the defender?
-<span class="fc bfc" id="L727" title="All 2 branches covered.">            Role autoRole = (attackerWon) ? loser.getAutomaticRole() : null;</span>
-<span class="fc bfc" id="L728" title="All 2 branches covered.">            if (autoRole != null) crs.add(CombatResult.AUTOEQUIP_UNIT);</span>
-
-            // Special handling for settlements
-<span class="fc" id="L731">            boolean done = false;</span>
-<span class="fc" id="L732">            Settlement settlement = tile.getSettlement();</span>
-<span class="fc bfc" id="L733" title="All 2 branches covered.">            if (settlement instanceof Colony) {</span>
-<span class="fc" id="L734">                final Colony colony = (Colony)settlement;</span>
-                // A Colony falls to Europeans when the last defender
-                // is unarmed.  Natives will pillage if possible but
-                // otherwise proceed to kill colonists incrementally
-                // until the colony falls for lack of survivors.
-                // Ships in a falling colony will be damaged or sunk
-                // if they have no repair location.
-<span class="fc bfc" id="L741" title="All 4 branches covered.">                if (!loser.isDefensiveUnit() &amp;&amp; autoRole == null) {</span>
-<span class="fc" id="L742">                    List&lt;Unit&gt; ships = colony.getTile().getNavalUnits();</span>
-<span class="fc bfc" id="L743" title="All 2 branches covered.">                    final CombatResult shipResult = (ships.isEmpty()) ? null</span>
-<span class="pc bpc" id="L744" title="1 of 2 branches missed.">                        : (ships.get(0).getRepairLocation() == null)</span>
-                        ? CombatResult.SINK_COLONY_SHIPS
-                        : CombatResult.DAMAGE_COLONY_SHIPS;
-
-<span class="fc bfc" id="L748" title="All 2 branches covered.">                    if (winnerPlayer.isEuropean()) {</span>
-<span class="pc bpc" id="L749" title="1 of 2 branches missed.">                        if (loserMustDie) {</span>
-<span class="nc" id="L750">                            crs.add(CombatResult.SLAUGHTER_UNIT);</span>
-                        }
-<span class="pc bpc" id="L752" title="1 of 2 branches missed.">                        if (shipResult != null) crs.add(shipResult);</span>
-<span class="fc" id="L753">                        crs.add(CombatResult.CAPTURE_COLONY);</span>
-<span class="fc" id="L754">                        done = true;</span>
-
-<span class="pc bpc" id="L756" title="1 of 4 branches missed.">                    } else if (!great &amp;&amp; colony.canBePillaged(winner)) {</span>
-<span class="fc" id="L757">                        crs.add(CombatResult.PILLAGE_COLONY);</span>
-<span class="fc" id="L758">                        done = true;</span>
-
-<span class="pc bpc" id="L760" title="1 of 2 branches missed.">                    } else if (colony.getUnitCount() &gt; 1</span>
-<span class="fc bfc" id="L761" title="All 2 branches covered.">                        || loser.getLocation() == tile) {</span>
-<span class="fc" id="L762">                        loserMustDie = true;</span>
-<span class="fc" id="L763">                        done = false; // Treat as ordinary combat</span>
-
-                    } else {
-<span class="fc" id="L766">                        crs.add(CombatResult.SLAUGHTER_UNIT);</span>
-<span class="pc bpc" id="L767" title="1 of 2 branches missed.">                        if (shipResult != null) crs.add(shipResult);</span>
-<span class="fc" id="L768">                        crs.add(CombatResult.DESTROY_COLONY);</span>
-<span class="fc" id="L769">                        done = true;</span>
-                    }
-                }
- 
-<span class="fc bfc" id="L773" title="All 2 branches covered.">            } else if (settlement instanceof IndianSettlement) {</span>
-<span class="fc" id="L774">                final IndianSettlement is = (IndianSettlement)settlement;</span>
-                // Attacking and defeating the defender of a native
-                // settlement with a mission may yield converts but
-                // also may provoke the burning of all missions.
-                // Native settlements fall when there are no units
-                // present either in-settlement or on the settlement
-                // tile.
-<span class="fc" id="L781">                int lose = 0;</span>
-<span class="pc bpc" id="L782" title="1 of 2 branches missed.">                if (loserMustDie) {</span>
-                    // Add death of loser before any convert captures,
-                    // or the RNG might randomly decide to convert the
-                    // unit that is then slaughtered.
-<span class="fc" id="L786">                    crs.add(CombatResult.SLAUGHTER_UNIT);</span>
-<span class="fc" id="L787">                    lose++;</span>
-                    // For now, no usual unit combat actions can proceed,
-                    // which means we can not expect to capture equipment
-                    // from settlements without untangling this dependency.
-<span class="fc" id="L791">                    done = true;</span>
-                }
-<span class="pc bpc" id="L793" title="1 of 2 branches missed.">                if (attackerWon) {</span>
-<span class="pc bpc" id="L794" title="1 of 2 branches missed.">                    if (r &lt; winner.getConvertProbability()) {</span>
-<span class="pc bpc" id="L795" title="1 of 2 branches missed.">                        if (is.getUnitCount() + tile.getUnitCount() &gt; lose</span>
-<span class="pc bpc" id="L796" title="1 of 2 branches missed.">                            &amp;&amp; is.hasMissionary(winnerPlayer)</span>
-<span class="pc bpc" id="L797" title="1 of 2 branches missed.">                            &amp;&amp; !combatIsAmphibious(winner, loser)) {</span>
-<span class="fc" id="L798">                            crs.add(CombatResult.CAPTURE_CONVERT);</span>
-<span class="fc" id="L799">                            lose++;</span>
-                        }
-<span class="nc bnc" id="L801" title="All 2 branches missed.">                    } else if (r &gt;= 1.0 - winner.getBurnProbability()) {</span>
-<span class="nc bnc" id="L802" title="All 2 branches missed.">                        if (any(loserPlayer.getIndianSettlements(),</span>
-<span class="nc" id="L803">                                s -&gt; s.hasMissionary(winnerPlayer))) {</span>
-<span class="nc" id="L804">                            crs.add(CombatResult.BURN_MISSIONS);</span>
-                        }
-                    }
-                }
-<span class="pc bpc" id="L808" title="1 of 2 branches missed.">                if (settlement.getUnitCount() + tile.getUnitCount() &lt;= lose) {</span>
-<span class="nc" id="L809">                    crs.add(CombatResult.DESTROY_SETTLEMENT);</span>
-<span class="nc" id="L810">                    done = true;</span>
-                }
-            }
-
-<span class="fc bfc" id="L814" title="All 2 branches covered.">            if (!done) {</span>
-<span class="fc" id="L815">                final Role loserRole = loser.getRole();</span>
-                // First check if the loser was automatically armed, and
-                // if so see if the winner can capture that equipment,
-                // which may kill or demote the loser.
-<span class="fc bfc" id="L819" title="All 2 branches covered.">                if (autoRole != null) {</span>
-<span class="pc bpc" id="L820" title="1 of 2 branches missed.">                    crs.add((winner.canCaptureEquipment(autoRole) != null)</span>
-                        ? CombatResult.CAPTURE_AUTOEQUIP
-                        : CombatResult.LOSE_AUTOEQUIP);
-<span class="pc bpc" id="L823" title="1 of 2 branches missed.">                    if (loserMustDie) {</span>
-<span class="nc" id="L824">                        crs.add(CombatResult.SLAUGHTER_UNIT);</span>
-<span class="pc bpc" id="L825" title="1 of 2 branches missed.">                    } else if (loser.hasAbility(Ability.DEMOTE_ON_ALL_EQUIPMENT_LOST)) {</span>
-<span class="nc" id="L826">                        crs.add(CombatResult.DEMOTE_UNIT);</span>
-                    }
-
-                // Some losers are just doomed (e.g. seasonedScout), do not
-                // check for capture/demote/lose-equipment.
-<span class="fc bfc" id="L831" title="All 2 branches covered.">                } else if (loserMustDie) {</span>
-<span class="fc" id="L832">                    crs.add(CombatResult.SLAUGHTER_UNIT);</span>
-
-                // Then check if the user had other offensive
-                // role-equipment, that can be captured or lost, which
-                // may kill or demote the loser.
-<span class="fc bfc" id="L837" title="All 2 branches covered.">                } else if (loserRole.isOffensive()) {</span>
-<span class="fc bfc" id="L838" title="All 2 branches covered.">                    crs.add((winner.canCaptureEquipment(loserRole) != null)</span>
-                        ? CombatResult.CAPTURE_EQUIP
-                        : CombatResult.LOSE_EQUIP);
-<span class="pc bpc" id="L841" title="1 of 2 branches missed.">                    if (loserMustDie</span>
-<span class="pc bpc" id="L842" title="1 of 2 branches missed.">                        || loser.losingEquipmentKillsUnit()) {</span>
-<span class="nc" id="L843">                        crs.add(CombatResult.SLAUGHTER_UNIT);</span>
-<span class="fc bfc" id="L844" title="All 2 branches covered.">                    } else if (loser.losingEquipmentDemotesUnit()) {</span>
-<span class="fc" id="L845">                        crs.add(CombatResult.DEMOTE_UNIT);</span>
-                    }
-
-                // But some can be captured.
-<span class="fc bfc" id="L849" title="All 2 branches covered.">                } else if (loser.hasAbility(Ability.CAN_BE_CAPTURED)</span>
-<span class="fc bfc" id="L850" title="All 2 branches covered.">                    &amp;&amp; winner.hasAbility(Ability.CAPTURE_UNITS)</span>
-<span class="pc bpc" id="L851" title="1 of 2 branches missed.">                    &amp;&amp; !combatIsAmphibious(winner, loser)) {</span>
-                    // Demotion on capture is handled by capture routine.
-<span class="fc" id="L853">                    crs.add(CombatResult.CAPTURE_UNIT);</span>
-
-                // Or losing just causes a demotion.
-<span class="fc bfc" id="L856" title="All 2 branches covered.">                } else if (loser.getTypeChange(ChangeType.DEMOTION,</span>
-                                               loserPlayer) != null) {
-<span class="fc" id="L858">                    crs.add(CombatResult.DEMOTE_UNIT);</span>
-
-                // But finally, the default is to kill them.
-                } else {
-<span class="fc" id="L862">                    crs.add(CombatResult.SLAUGHTER_UNIT);</span>
-                }
-            }
-        }
-
-        // Promote great winners or with automatic promotion, if possible.
-<span class="fc" id="L868">        UnitTypeChange promotion = winner.getType()</span>
-<span class="fc" id="L869">            .getUnitTypeChange(ChangeType.PROMOTION, winnerPlayer);</span>
-<span class="fc bfc" id="L870" title="All 2 branches covered.">        if (promotion != null</span>
-<span class="pc bpc" id="L871" title="1 of 4 branches missed.">            &amp;&amp; (winner.hasAbility(Ability.AUTOMATIC_PROMOTION)</span>
-                || (great
-<span class="nc" id="L873">                    &amp;&amp; (100 * (r - Math.floor(r))</span>
-<span class="nc bnc" id="L874" title="All 2 branches missed.">                        &lt;= promotion.getProbability(ChangeType.PROMOTION))))) {</span>
-<span class="fc" id="L875">            crs.add(CombatResult.PROMOTE_UNIT);</span>
-        }
-<span class="fc" id="L877">    }</span>
-
-    /**
-     * Could this attack be an ambush?
-     *
-     * @param attacker The attacker.
-     * @param defender The defender.
-     * @return True if the attack can be an ambush.
-     */
-    private boolean isAmbush(FreeColGameObject attacker,
-                             FreeColGameObject defender) {
-<span class="pc bpc" id="L888" title="2 of 4 branches missed.">        if (attacker instanceof Unit &amp;&amp; defender instanceof Unit) {</span>
-<span class="fc" id="L889">            Unit attackerUnit = (Unit)attacker;</span>
-<span class="fc" id="L890">            Unit defenderUnit = (Unit)defender;</span>
-<span class="pc bpc" id="L891" title="1 of 2 branches missed.">            return attackerUnit.getSettlement() == null</span>
-<span class="pc bpc" id="L892" title="1 of 2 branches missed.">                &amp;&amp; attackerUnit.hasTile()</span>
-<span class="pc bpc" id="L893" title="1 of 2 branches missed.">                &amp;&amp; defenderUnit.getSettlement() == null</span>
-<span class="fc bfc" id="L894" title="All 2 branches covered.">                &amp;&amp; defenderUnit.getState() != Unit.UnitState.FORTIFIED</span>
-<span class="pc bpc" id="L895" title="1 of 2 branches missed.">                &amp;&amp; defenderUnit.hasTile()</span>
-<span class="pc bpc" id="L896" title="1 of 2 branches missed.">                &amp;&amp; (attackerUnit.hasAbility(Ability.AMBUSH_BONUS)</span>
-<span class="fc bfc" id="L897" title="All 2 branches covered.">                    || defenderUnit.hasAbility(Ability.AMBUSH_PENALTY))</span>
-<span class="pc bpc" id="L898" title="1 of 2 branches missed.">                &amp;&amp; (attackerUnit.getTile().hasAbility(Ability.AMBUSH_TERRAIN)</span>
-<span class="pc bpc" id="L899" title="1 of 2 branches missed.">                    || defenderUnit.getTile().hasAbility(Ability.AMBUSH_TERRAIN));</span>
-        }
-<span class="nc" id="L901">        return false;</span>
-    }
+	/** The Constant logger. */
+<span class="fc" id="L47">	private static final Logger logger = Logger.getLogger(SimpleCombatModel.class.getName());</span>
+
+	/**
+	 * The maximum attack power of a Colony's fortifications against a naval
+	 * unit.
+	 */
+	public static final int MAXIMUM_BOMBARD_POWER = 48;
+
+	/** A defence percentage bonus that disables the fortification bonus. */
+	public static final int STRONG_DEFENCE_THRESHOLD = 150; // percent
+
+	/** The Constant UNKNOWN_DEFENCE_MODIFIER. */
+<span class="fc" id="L59">	public static final Modifier UNKNOWN_DEFENCE_MODIFIER = new Modifier(&quot;bogus&quot;, Modifier.UNKNOWN,</span>
+			ModifierType.ADDITIVE);
+
+	/**
+	 * Deliberately empty constructor.
+	 */
+<span class="fc" id="L65">	public SimpleCombatModel() {</span>
+<span class="fc" id="L66">	}</span>
+
+	/**
+	 * Calculates the odds of success in combat.
+	 *
+	 * @param attacker
+	 *            The attacker.
+	 * @param defender
+	 *            The defender.
+	 * @return The combat odds.
+	 */
+	@Override
+	public CombatOdds calculateCombatOdds(FreeColGameObject attacker, FreeColGameObject defender) {
+<span class="fc" id="L79">		return calculateCombatOdds(attacker, defender, null);</span>
+	}
+
+	/**
+	 * Calculates the odds of success in combat.
+	 *
+	 * @param attacker
+	 *            The attacker.
+	 * @param defender
+	 *            The defender.
+	 * @param lb
+	 *            An optional &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 * @return The combat odds.
+	 */
+	private CombatOdds calculateCombatOdds(FreeColGameObject attacker, FreeColGameObject defender, LogBuilder lb) {
+<span class="pc bpc" id="L94" title="2 of 4 branches missed.">		if (attacker == null || defender == null) {</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">			if (lb != null)</span>
+<span class="nc" id="L96">				lb.add(&quot; odds=unknowable&quot;);</span>
+<span class="nc" id="L97">			return new CombatOdds(CombatOdds.UNKNOWN_ODDS);</span>
+		}
+
+<span class="fc bfc" id="L100" title="All 2 branches covered.">		if (lb != null)</span>
+<span class="fc" id="L101">			lb.add(&quot; attacker=&quot;, attacker, &quot; &quot;);</span>
+<span class="fc" id="L102">		double attackPower = getOffencePower(attacker, defender, lb);</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">		if (lb != null)</span>
+<span class="fc" id="L104">			lb.add(&quot; defender=&quot;, defender, &quot; &quot;);</span>
+<span class="fc" id="L105">		double defencePower = getDefencePower(attacker, defender, lb);</span>
+<span class="pc bpc" id="L106" title="1 of 4 branches missed.">		if (attackPower == 0.0 &amp;&amp; defencePower == 0.0) {</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">			if (lb != null)</span>
+<span class="nc" id="L108">				lb.add(&quot; odds=unknown&quot;);</span>
+<span class="nc" id="L109">			return new CombatOdds(CombatOdds.UNKNOWN_ODDS);</span>
+		}
+<span class="fc" id="L111">		double victory = attackPower / (attackPower + defencePower);</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">		if (lb != null)</span>
+<span class="fc" id="L113">			lb.add(&quot; odds=&quot;, victory);</span>
+<span class="fc" id="L114">		return new CombatOdds(victory);</span>
+	}
+
+	/**
+	 * Get the offensive power of a unit attacking another.
+	 *
+	 * @param attacker
+	 *            The attacker.
+	 * @param defender
+	 *            The defender.
+	 * @return The offensive power.
+	 */
+	@Override
+	public double getOffencePower(FreeColGameObject attacker, FreeColGameObject defender) {
+<span class="fc" id="L128">		return getOffencePower(attacker, defender, null);</span>
+	}
+
+	/**
+	 * Helper to log modifiers with.
+	 *
+	 * @param lb
+	 *            The &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 * @param modSet
+	 *            A set of &lt;code&gt;Modifiers&lt;/code&gt; to log.
+	 */
+	private void logModifiers(LogBuilder lb, Set&lt;Modifier&gt; modSet) {
+<span class="fc" id="L140">		lb.addCollection(&quot; &quot;, modSet.stream().sorted().collect(Collectors.toList()));</span>
+<span class="fc" id="L141">	}</span>
+
+	/**
+	 * Get the offensive power of a unit attacking another.
+	 *
+	 * @param attacker
+	 *            The attacker.
+	 * @param defender
+	 *            The defender.
+	 * @param lb
+	 *            An optional &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 * @return The offensive power.
+	 */
+	private double getOffencePower(FreeColGameObject attacker, FreeColGameObject defender, LogBuilder lb) {
+<span class="fc" id="L155">		double result = 0.0;</span>
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">		if (attacker == null) {</span>
+<span class="nc" id="L157">			throw new IllegalStateException(&quot;Null attacker&quot;);</span>
+
+<span class="fc bfc" id="L159" title="All 4 branches covered.">		} else if (combatIsAttackMeasurement(attacker, defender) || combatIsAttack(attacker, defender)</span>
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">				|| combatIsSettlementAttack(attacker, defender)) {</span>
+<span class="fc" id="L161">			Set&lt;Modifier&gt; mods = getOffensiveModifiers(attacker, defender);</span>
+<span class="fc" id="L162">			Turn turn = attacker.getGame().getTurn();</span>
+<span class="fc" id="L163">			result = FeatureContainer.applyModifiers(0.0f, turn, mods);</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">			if (lb != null) {</span>
+<span class="fc" id="L165">				logModifiers(lb, mods);</span>
+<span class="fc" id="L166">				lb.add(&quot; = &quot;, result);</span>
+			}
+
+<span class="pc bnc" id="L169" title="All 2 branches missed.">		} else if (combatIsBombard(attacker, defender)) {</span>
+<span class="nc" id="L170">			Settlement attackerSettlement = (Settlement) attacker;</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">			if (attackerSettlement.hasAbility(Ability.BOMBARD_SHIPS)) {</span>
+<span class="nc" id="L172">				result += attackerSettlement.getTile().getUnitList().stream().filter(u -&gt; u.hasAbility(Ability.BOMBARD))</span>
+<span class="nc" id="L173">						.mapToDouble(u -&gt; u.getType().getOffence()).sum();</span>
+			}
+<span class="nc bnc" id="L175" title="All 2 branches missed.">			if (result &gt; MAXIMUM_BOMBARD_POWER)</span>
+<span class="nc" id="L176">				result = MAXIMUM_BOMBARD_POWER;</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">			if (lb != null)</span>
+<span class="nc" id="L178">				lb.add(&quot; bombard=&quot;, result);</span>
+
+<span class="nc" id="L180">		} else {</span>
+<span class="nc" id="L181">			throw new IllegalArgumentException(&quot;Bogus combat&quot;);</span>
+		}
+<span class="fc" id="L183">		return result;</span>
+	}
+
+	/**
+	 * Get the defensive power wrt an attacker.
+	 *
+	 * @param attacker
+	 *            The attacker.
+	 * @param defender
+	 *            The defender.
+	 * @return The defensive power.
+	 */
+	@Override
+	public double getDefencePower(FreeColGameObject attacker, FreeColGameObject defender) {
+<span class="fc" id="L197">		return getDefencePower(attacker, defender, null);</span>
+	}
+
+	/**
+	 * Get the defensive power wrt an attacker.
+	 *
+	 * @param attacker
+	 *            The attacker.
+	 * @param defender
+	 *            The defender.
+	 * @param lb
+	 *            An optional &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 * @return The defensive power.
+	 */
+	public double getDefencePower(FreeColGameObject attacker, FreeColGameObject defender, LogBuilder lb) {
+		double result;
+<span class="pc bpc" id="L213" title="1 of 4 branches missed.">		if (combatIsDefenceMeasurement(attacker, defender) || combatIsAttack(attacker, defender)</span>
+<span class="nc bnc" id="L214" title="All 4 branches missed.">				|| combatIsSettlementAttack(attacker, defender) || combatIsBombard(attacker, defender)) {</span>
+<span class="fc" id="L215">			Set&lt;Modifier&gt; mods = getDefensiveModifiers(attacker, defender);</span>
+<span class="fc" id="L216">			Turn turn = defender.getGame().getTurn();</span>
+<span class="fc" id="L217">			result = FeatureContainer.applyModifiers(0.0f, turn, mods);</span>
+<span class="fc bfc" id="L218" title="All 2 branches covered.">			if (lb != null) {</span>
+<span class="fc" id="L219">				logModifiers(lb, mods);</span>
+<span class="fc" id="L220">				lb.add(&quot; = &quot;, result);</span>
+			}
+
+<span class="fc" id="L223">		} else {</span>
+<span class="nc" id="L224">			throw new IllegalArgumentException(&quot;Bogus combat&quot;);</span>
+		}
+<span class="fc" id="L226">		return result;</span>
+	}
+
+	/**
+	 * Collect all the offensive modifiers that apply to an attack.
+	 *
+	 * @param attacker
+	 *            The attacker.
+	 * @param defender
+	 *            The defender.
+	 * @return All the applicable offensive modifiers.
+	 */
+	@Override
+	public Set&lt;Modifier&gt; getOffensiveModifiers(FreeColGameObject attacker, FreeColGameObject defender) {
+<span class="fc" id="L240">		Set&lt;Modifier&gt; result = new HashSet&lt;&gt;();</span>
+		Modifier m;
+<span class="pc bpc" id="L242" title="1 of 2 branches missed.">		if (attacker == null) {</span>
+<span class="nc" id="L243">			throw new IllegalStateException(&quot;Null attacker&quot;);</span>
+<span class="fc bfc" id="L244" title="All 4 branches covered.">		} else if (combatIsAttackMeasurement(attacker, defender) || combatIsAttack(attacker, defender)</span>
+<span class="pc bpc" id="L245" title="1 of 2 branches missed.">				|| combatIsSettlementAttack(attacker, defender)) {</span>
+<span class="fc" id="L246">			final Unit attackerUnit = (Unit) attacker;</span>
+<span class="fc" id="L247">			final Turn turn = attackerUnit.getGame().getTurn();</span>
+
+			// Base offense
+<span class="fc" id="L250">			result.add(new Modifier(Modifier.OFFENCE, attackerUnit.getType().getBaseOffence(), ModifierType.ADDITIVE,</span>
+					Specification.BASE_OFFENCE_SOURCE, Modifier.BASE_COMBAT_INDEX));
+
+			// Unit offensive modifiers, including role+equipment,
+			// qualified by unit type so that scopes work
+			// @compat 0.11.0
+			// getCombatModifiers -&gt; getModifiers one day
+<span class="fc" id="L257">			result.addAll(attackerUnit.getCombatModifiers(Modifier.OFFENCE, attackerUnit.getType(), turn));</span>
+			// end @compat 0.11.0
+
+			// Special bonuses against certain nation types
+<span class="fc bfc" id="L261" title="All 2 branches covered.">			if (defender instanceof Ownable) {</span>
+<span class="fc" id="L262">				Player owner = ((Ownable) defender).getOwner();</span>
+<span class="fc" id="L263">				result.addAll(attackerUnit.getModifiers(Modifier.OFFENCE_AGAINST, owner.getNationType()));</span>
+			}
+
+			// Land/naval specific
+<span class="fc bfc" id="L267" title="All 2 branches covered.">			if (attackerUnit.isNaval()) {</span>
+<span class="fc" id="L268">				addNavalOffensiveModifiers(attackerUnit, result);</span>
+			} else {
+<span class="fc" id="L270">				addLandOffensiveModifiers(attackerUnit, defender, result);</span>
+			}
+
+<span class="pc bnc" id="L273" title="All 2 branches missed.">		} else if (combatIsBombard(attacker, defender)) {</span>
+			; // Bombard strength handled by getOffensePower
+
+		} else {
+<span class="nc" id="L277">			throw new IllegalArgumentException(&quot;Bogus combat&quot;);</span>
+		}
+
+		// @compat 0.11.0
+		// Any modifier with the default modifier index needs to be fixed
+<span class="fc bfc" id="L282" title="All 2 branches covered.">		for (Modifier r : result) {</span>
+<span class="pc bpc" id="L283" title="1 of 2 branches missed.">			if (r.getModifierIndex() == Modifier.DEFAULT_MODIFIER_INDEX) {</span>
+<span class="nc" id="L284">				r.setModifierIndex(Modifier.GENERAL_COMBAT_INDEX);</span>
+			}
+<span class="fc" id="L286">		}</span>
+		// end @compat 0.11.0
+
+<span class="fc" id="L289">		return result;</span>
+	}
+
+	/**
+	 * Add all the offensive modifiers that apply to a naval attack.
+	 *
+	 * @param attacker
+	 *            The attacker.
+	 * @param result
+	 *            The set of modifiers to add to.
+	 */
+	private void addNavalOffensiveModifiers(Unit attacker, Set&lt;Modifier&gt; result) {
+		// Attack bonus
+<span class="fc" id="L302">		final Specification spec = attacker.getSpecification();</span>
+<span class="fc" id="L303">		result.addAll(spec.getModifiers(Modifier.ATTACK_BONUS));</span>
+
+		// Goods penalty always applies
+<span class="fc" id="L306">		int goodsCount = attacker.getGoodsSpaceTaken();</span>
+<span class="fc bfc" id="L307" title="All 2 branches covered.">		if (goodsCount &gt; 0) {</span>
+<span class="fc bfc" id="L308" title="All 2 branches covered.">			for (Modifier m : spec.getModifiers(Modifier.CARGO_PENALTY)) {</span>
+<span class="fc" id="L309">				Modifier c = new Modifier(m);</span>
+<span class="fc" id="L310">				c.setValue(c.getValue() * goodsCount);</span>
+<span class="fc" id="L311">				result.add(c);</span>
+<span class="fc" id="L312">			}</span>
+		}
+<span class="fc" id="L314">	}</span>
+
+	/**
+	 * Add the popular support bonus to the result set if applicable.
+	 *
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; under attack.
+	 * @param attacker
+	 *            The attacking &lt;code&gt;Unit&lt;/code&gt;.
+	 * @param result
+	 *            The set of modifiers to add to.
+	 */
+	private void addPopularSupportBonus(Colony colony, Unit attacker, Set&lt;Modifier&gt; result) {
+<span class="nc" id="L327">		int bonus = colony.getSoL();</span>
+<span class="nc bnc" id="L328" title="All 2 branches missed.">		if (bonus &gt;= 0) {</span>
+<span class="nc bnc" id="L329" title="All 2 branches missed.">			if (attacker.getOwner().isREF())</span>
+<span class="nc" id="L330">				bonus = 100 - bonus;</span>
+<span class="nc bnc" id="L331" title="All 2 branches missed.">			if (bonus &gt; 0) {</span>
+<span class="nc" id="L332">				result.add(new Modifier(Modifier.POPULAR_SUPPORT, bonus, ModifierType.PERCENTAGE, colony,</span>
+						Modifier.GENERAL_COMBAT_INDEX));
+			}
+		}
+<span class="nc" id="L336">	}</span>
+
+	/**
+	 * Add all the offensive modifiers that apply to a land attack.
+	 *
+	 * @param attacker
+	 *            The attacker &lt;code&gt;Unit&lt;/code&gt;.
+	 * @param defender
+	 *            The defender.
+	 * @param result
+	 *            The set of modifiers to add to.
+	 */
+	private void addLandOffensiveModifiers(Unit attacker, FreeColGameObject defender, Set&lt;Modifier&gt; result) {
+<span class="fc" id="L349">		final Specification spec = attacker.getSpecification();</span>
+
+		// Attack bonus
+<span class="fc" id="L352">		result.addAll(spec.getModifiers(Modifier.ATTACK_BONUS));</span>
+
+		// Movement penalty
+<span class="pc bpc" id="L355" title="1 of 3 branches missed.">		switch (attacker.getMovesLeft()) {</span>
+		case 1:
+<span class="fc" id="L357">			result.addAll(spec.getModifiers(Modifier.BIG_MOVEMENT_PENALTY));</span>
+<span class="fc" id="L358">			break;</span>
+		case 2:
+<span class="nc" id="L360">			result.addAll(spec.getModifiers(Modifier.SMALL_MOVEMENT_PENALTY));</span>
+<span class="nc" id="L361">			break;</span>
+		default:
+			break;
+		}
+
+		// Amphibious attack?
+<span class="pc bpc" id="L367" title="1 of 2 branches missed.">		if (combatIsAmphibious(attacker, defender)) {</span>
+<span class="nc" id="L368">			result.addAll(spec.getModifiers(Modifier.AMPHIBIOUS_ATTACK));</span>
+		}
+
+<span class="pc bpc" id="L371" title="1 of 2 branches missed.">		if (combatIsAttackMeasurement(attacker, defender)) {</span>
+			; // No defender information available
+
+<span class="fc bfc" id="L374" title="All 2 branches covered.">		} else if (combatIsSettlementAttack(attacker, defender)) {</span>
+			// Settlement present, apply bombardment bonus
+<span class="fc" id="L376">			result.addAll(attacker.getModifiers(Modifier.BOMBARD_BONUS));</span>
+
+			// Popular support bonus
+<span class="pc bpc" id="L379" title="1 of 2 branches missed.">			if (combatIsWarOfIndependence(attacker, defender)) {</span>
+<span class="nc" id="L380">				addPopularSupportBonus((Colony) defender, attacker, result);</span>
+			}
+
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">		} else if (combatIsAttack(attacker, defender)) {</span>
+<span class="fc" id="L384">			Unit defenderUnit = (Unit) defender;</span>
+<span class="fc" id="L385">			Tile tile = defenderUnit.getTile();</span>
+<span class="pc bpc" id="L386" title="1 of 2 branches missed.">			if (tile != null) {</span>
+<span class="fc bfc" id="L387" title="All 2 branches covered.">				if (tile.hasSettlement()) {</span>
+					// Bombard bonus applies to settlement defence
+<span class="fc" id="L389">					result.addAll(attacker.getModifiers(Modifier.BOMBARD_BONUS));</span>
+
+					// Popular support bonus
+<span class="pc bpc" id="L392" title="1 of 2 branches missed.">					if (combatIsWarOfIndependence(attacker, defender)) {</span>
+<span class="nc" id="L393">						addPopularSupportBonus((Colony) tile.getSettlement(), attacker, result);</span>
+					}
+				} else {
+					// Ambush bonus in the open = defender's defence
+					// bonus, if defender is REF, or attacker is indian.
+<span class="pc bpc" id="L398" title="1 of 2 branches missed.">					if (isAmbush(attacker, defender)) {</span>
+<span class="nc bnc" id="L399" title="All 2 branches missed.">						for (Modifier m : tile.getDefenceModifiers()) {</span>
+<span class="nc" id="L400">							Modifier mod = new Modifier(Modifier.OFFENCE, m);</span>
+<span class="nc" id="L401">							mod.setSource(Specification.AMBUSH_BONUS_SOURCE);</span>
+<span class="nc" id="L402">							result.add(mod);</span>
+<span class="nc" id="L403">						}</span>
+					}
+				}
+			}
+
+			// Artillery in the open penalty, attacker must be on a
+			// tile and neither unit can be in a settlement.
+<span class="pc bpc" id="L410" title="1 of 4 branches missed.">			if (attacker.hasAbility(Ability.BOMBARD) &amp;&amp; attacker.getLocation() instanceof Tile</span>
+<span class="pc bpc" id="L411" title="2 of 4 branches missed.">					&amp;&amp; attacker.getSettlement() == null &amp;&amp; attacker.getState() != Unit.UnitState.FORTIFIED</span>
+<span class="pc bpc" id="L412" title="1 of 2 branches missed.">					&amp;&amp; defenderUnit.getSettlement() == null) {</span>
+<span class="fc" id="L413">				result.addAll(spec.getModifiers(Modifier.ARTILLERY_IN_THE_OPEN));</span>
+			}
+<span class="fc" id="L415">		} else {</span>
+<span class="nc" id="L416">			throw new IllegalStateException(&quot;Bogus combat&quot;);</span>
+		}
+<span class="fc" id="L418">	}</span>
+
+	/**
+	 * Collect all defensive modifiers when defending against an attack.
+	 *
+	 * @param attacker
+	 *            The attacker.
+	 * @param defender
+	 *            The defender.
+	 * @return All the applicable defensive modifiers.
+	 */
+	@Override
+	public Set&lt;Modifier&gt; getDefensiveModifiers(FreeColGameObject attacker, FreeColGameObject defender) {
+<span class="fc" id="L431">		Set&lt;Modifier&gt; result = new HashSet&lt;&gt;();</span>
+<span class="pc bpc" id="L432" title="1 of 4 branches missed.">		if (combatIsDefenceMeasurement(attacker, defender) || combatIsAttack(attacker, defender)</span>
+<span class="nc bnc" id="L433" title="All 2 branches missed.">				|| combatIsBombard(attacker, defender)) {</span>
+<span class="fc" id="L434">			final Unit defenderUnit = (Unit) defender;</span>
+<span class="fc" id="L435">			final Turn turn = defenderUnit.getGame().getTurn();</span>
+
+			// Base defence
+<span class="fc" id="L438">			result.add(new Modifier(Modifier.DEFENCE, defenderUnit.getType().getBaseDefence(), ModifierType.ADDITIVE,</span>
+					Specification.BASE_DEFENCE_SOURCE, Modifier.BASE_COMBAT_INDEX));
+
+			// Unit specific
+			// @compat 0.11.0
+			// getCombatModifiers -&gt; getModifiers one day
+<span class="fc" id="L444">			result.addAll(defenderUnit.getCombatModifiers(Modifier.DEFENCE, defenderUnit.getType(), turn));</span>
+			// end @compat 0.11.0
+
+			// Land/naval split
+<span class="fc bfc" id="L448" title="All 2 branches covered.">			if (defenderUnit.isNaval()) {</span>
+<span class="fc" id="L449">				addNavalDefensiveModifiers(defenderUnit, result);</span>
+			} else {
+<span class="fc" id="L451">				addLandDefensiveModifiers(attacker, defenderUnit, result);</span>
+			}
+
+<span class="pc bnc" id="L454" title="All 2 branches missed.">		} else if (combatIsSettlementAttack(attacker, defender)) {</span>
+<span class="nc" id="L455">			Settlement settlement = (Settlement) defender;</span>
+			// Tile defence bonus
+<span class="nc" id="L457">			Tile tile = settlement.getTile();</span>
+<span class="nc" id="L458">			result.addAll(tile.getType().getDefenceModifiers());</span>
+
+			// Settlement defence bonus
+<span class="nc" id="L461">			result.addAll(settlement.getDefenceModifiers());</span>
+
+			// Not allowed to see inside the settlement. This only applies
+			// to the pre-combat dialog--- the actual attack is on the
+			// unit chosen to defend.
+<span class="nc" id="L466">			result.add(UNKNOWN_DEFENCE_MODIFIER);</span>
+
+<span class="nc" id="L468">		} else {</span>
+<span class="nc" id="L469">			throw new IllegalArgumentException(&quot;Bogus combat&quot;);</span>
+		}
+
+		// @compat 0.11.0
+		// Any modifier with the default modifier index needs to be fixed
+<span class="fc bfc" id="L474" title="All 2 branches covered.">		for (Modifier r : result) {</span>
+<span class="pc bpc" id="L475" title="1 of 2 branches missed.">			if (r.getModifierIndex() == Modifier.DEFAULT_MODIFIER_INDEX) {</span>
+<span class="nc" id="L476">				r.setModifierIndex(Modifier.GENERAL_COMBAT_INDEX);</span>
+			}
+<span class="fc" id="L478">		}</span>
+		// end @compat 0.11.0
+
+<span class="fc" id="L481">		return result;</span>
+	}
+
+	/**
+	 * Add all the defensive modifiers that apply to a naval attack.
+	 *
+	 * @param defender
+	 *            The defender &lt;code&gt;Unit&lt;/code&gt;.
+	 * @param result
+	 *            The set of modifiers to add to.
+	 */
+	private void addNavalDefensiveModifiers(Unit defender, Set&lt;Modifier&gt; result) {
+<span class="fc" id="L493">		final Specification spec = defender.getSpecification();</span>
+
+		// Cargo penalty always applies
+<span class="fc" id="L496">		int goodsCount = defender.getVisibleGoodsCount();</span>
+<span class="fc bfc" id="L497" title="All 2 branches covered.">		if (goodsCount &gt; 0) {</span>
+<span class="fc bfc" id="L498" title="All 2 branches covered.">			for (Modifier m : spec.getModifiers(Modifier.CARGO_PENALTY)) {</span>
+<span class="fc" id="L499">				Modifier c = new Modifier(m);</span>
+<span class="fc" id="L500">				c.setValue(c.getValue() * goodsCount);</span>
+<span class="fc" id="L501">				result.add(c);</span>
+<span class="fc" id="L502">			}</span>
+		}
+<span class="fc" id="L504">	}</span>
+
+	/**
+	 * Does a given object provide a strong defence bonus?.
+	 *
+	 * @param fco
+	 *            The &lt;code&gt;FreeColObject&lt;/code&gt; to check.
+	 * @return True if a strong defence bonus is present.
+	 */
+	private boolean hasStrongDefenceModifier(FreeColObject fco) {
+<span class="fc" id="L514">		return any(fco.getDefenceModifiers(),</span>
+<span class="pc bpc" id="L515" title="2 of 4 branches missed.">				m -&gt; m.getType() == ModifierType.PERCENTAGE &amp;&amp; m.getValue() &gt;= STRONG_DEFENCE_THRESHOLD);</span>
+	}
+
+	/**
+	 * Add all the defensive modifiers that apply to a land attack.
+	 *
+	 * @param attacker
+	 *            The attacker.
+	 * @param defender
+	 *            The defender &lt;code&gt;Unit&lt;/code&gt;.
+	 * @param result
+	 *            The set of modifiers to add to.
+	 */
+	private void addLandDefensiveModifiers(FreeColGameObject attacker, Unit defender, Set&lt;Modifier&gt; result) {
+<span class="fc" id="L529">		final Specification spec = defender.getSpecification();</span>
+<span class="fc" id="L530">		final Tile tile = defender.getTile();</span>
+<span class="pc bpc" id="L531" title="1 of 2 branches missed.">		final Settlement settlement = (tile == null) ? null : tile.getSettlement();</span>
+
+<span class="pc bpc" id="L533" title="1 of 2 branches missed.">		if (tile != null) {</span>
+<span class="fc" id="L534">			boolean disableFortified = false;</span>
+
+			// Tile defence bonus
+<span class="fc" id="L537">			disableFortified |= hasStrongDefenceModifier(tile.getType());</span>
+
+<span class="fc bfc" id="L539" title="All 2 branches covered.">			if (settlement == null) {</span>
+				// PF#73 demonstrated that tile modifiers do not apply
+				// for colonies
+<span class="fc" id="L542">				result.addAll(tile.getType().getDefenceModifiers());</span>
+
+				// Artillery in the Open penalty
+<span class="pc bpc" id="L545" title="3 of 4 branches missed.">				if (defender.hasAbility(Ability.BOMBARD) &amp;&amp; defender.getState() != Unit.UnitState.FORTIFIED) {</span>
+<span class="nc" id="L546">					result.addAll(spec.getModifiers(Modifier.ARTILLERY_IN_THE_OPEN));</span>
+				}
+
+			} else { // In settlement
+				// Settlement defence bonus
+<span class="fc" id="L551">				result.addAll(settlement.getDefenceModifiers());</span>
+
+				// Artillery defence bonus against an Indian raid
+<span class="pc bpc" id="L554" title="3 of 4 branches missed.">				if (defender.hasAbility(Ability.BOMBARD) &amp;&amp; attacker != null</span>
+<span class="nc bnc" id="L555" title="All 2 branches missed.">						&amp;&amp; ((Unit) attacker).getOwner().isIndian()) {</span>
+<span class="nc" id="L556">					result.addAll(spec.getModifiers(Modifier.ARTILLERY_AGAINST_RAID));</span>
+				}
+
+				// Automatic defensive role (e.g. Revere)
+<span class="fc" id="L560">				Role autoRole = defender.getAutomaticRole();</span>
+<span class="fc bfc" id="L561" title="All 2 branches covered.">				if (autoRole != null) {</span>
+<span class="fc" id="L562">					result.addAll(autoRole.getDefenceModifiers());</span>
+				}
+
+<span class="fc bfc" id="L565" title="All 2 branches covered.">				if (settlement instanceof Colony) {</span>
+<span class="fc" id="L566">					Building stockade = ((Colony) settlement).getStockade();</span>
+<span class="pc bpc" id="L567" title="1 of 2 branches missed.">					if (stockade != null) {</span>
+<span class="nc" id="L568">						disableFortified |= hasStrongDefenceModifier(stockade.getType());</span>
+					}
+				}
+			}
+
+			// Fortify bonus
+<span class="pc bpc" id="L574" title="1 of 4 branches missed.">			if (defender.getState() == Unit.UnitState.FORTIFIED &amp;&amp; !disableFortified) {</span>
+<span class="fc" id="L575">				result.addAll(spec.getModifiers(Modifier.FORTIFIED));</span>
+			}
+		}
+<span class="fc" id="L578">	}</span>
+
+	/**
+	 * Generates a result of a unit attacking. Takes care to only call the
+	 * pseudo-random source *once*.
+	 *
+	 * @param random
+	 *            A pseudo-random number source.
+	 * @param attacker
+	 *            The attacker.
+	 * @param defender
+	 *            The defender.
+	 * @return The results of the combat.
+	 */
+	@Override
+	public List&lt;CombatResult&gt; generateAttackResult(Random random, FreeColGameObject attacker,
+			FreeColGameObject defender) {
+<span class="fc" id="L595">		LogBuilder lb = new LogBuilder(256);</span>
+<span class="fc" id="L596">		lb.add(&quot;Combat&quot;);</span>
+<span class="fc" id="L597">		ArrayList&lt;CombatResult&gt; crs = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L598">		CombatOdds odds = calculateCombatOdds(attacker, defender, lb);</span>
+<span class="fc" id="L599">		double r = randomDouble(logger, &quot;AttackResult&quot;, random);</span>
+<span class="fc" id="L600">		lb.add(&quot; random(1.0)=&quot;, r);</span>
+<span class="fc" id="L601">		boolean great = false; // Great win or loss?</span>
+		String action;
+
+<span class="pc bpc" id="L604" title="1 of 2 branches missed.">		if (combatIsAttack(attacker, defender)) {</span>
+<span class="fc" id="L605">			Unit attackerUnit = (Unit) attacker;</span>
+<span class="fc" id="L606">			Unit defenderUnit = (Unit) defender;</span>
+<span class="fc" id="L607">			action = &quot;Attack&quot;;</span>
+
+			// For random double 0 &lt;= r &lt; 1.0:
+			// Partition this range into wins &lt; odds.win and losses above.
+			// Within the 0 &lt;= r &lt; odds.win range, partition the first 10%
+			// to be great wins and the rest to be ordinary wins.
+			// r &lt; 0.1 * odds.win =&gt; great win
+			// else r &lt; odds.win =&gt; win
+			// Within the odds.win &lt;= r &lt; 1.0 range, partition the first
+			// 20% to be evasions (if defender has the evadeAttack ability),
+			// the next 70% to be ordinary losses, and the rest great losses.
+			// r &lt; odds.win + 0.2 * (1.0 - odds.win) = 0.8 * odds.win + 0.2
+			// =&gt; evade
+			// else r &lt; odds.win + (0.2 + 0.7) * (1.0 - odds.win)
+			// = 0.1 * odds.win + 0.9 =&gt; loss
+			// else =&gt; great loss
+			// ...and beached ships always lose.
+<span class="pc bpc" id="L624" title="1 of 4 branches missed.">			if (r &lt; odds.win || defenderUnit.isBeached()) {</span>
+<span class="fc bfc" id="L625" title="All 2 branches covered.">				great = r &lt; 0.1 * odds.win; // Great Win</span>
+<span class="fc" id="L626">				crs.add(CombatResult.WIN);</span>
+<span class="fc" id="L627">				resolveAttack(attackerUnit, defenderUnit, great,</span>
+						// Rescale to 0 &lt;= r &lt; 1
+						r / (0.1 * odds.win), crs);
+<span class="pc bpc" id="L630" title="1 of 4 branches missed.">			} else if (r &lt; 0.8 * odds.win + 0.2 &amp;&amp; defenderUnit.hasAbility(Ability.EVADE_ATTACK)) {</span>
+<span class="nc" id="L631">				crs.add(CombatResult.NO_RESULT);</span>
+<span class="nc" id="L632">				crs.add(CombatResult.EVADE_ATTACK);</span>
+			} else {
+<span class="pc bpc" id="L634" title="1 of 2 branches missed.">				great = r &gt;= 0.1 * odds.win + 0.9; // Great Loss</span>
+<span class="fc" id="L635">				crs.add(CombatResult.LOSE);</span>
+<span class="fc" id="L636">				resolveAttack(defenderUnit, attackerUnit, great,</span>
+						// Rescaling to 0 &lt;= r &lt; 1
+						// (rearrange: 0.8 * odds.win + 0.2 &lt;= r &lt; 1.0)
+						(1.25 * r - 0.25 - odds.win) / (1.0 - odds.win), crs);
+			}
+
+<span class="pc bnc" id="L642" title="All 2 branches missed.">		} else if (combatIsBombard(attacker, defender)) {</span>
+<span class="nc" id="L643">			Unit defenderUnit = (Unit) defender;</span>
+<span class="nc bnc" id="L644" title="All 2 branches missed.">			if (!defenderUnit.isNaval()) {</span>
+				// One day we might want:
+				// crs.add(CombatResult.SLAUGHTER_UNIT_BOMBARD);
+<span class="nc" id="L647">				throw new IllegalStateException(&quot;Bombard of non-naval&quot;);</span>
+			}
+<span class="nc" id="L649">			action = &quot;Bombard&quot;;</span>
+
+			// The bombard succeeds.
+<span class="nc bnc" id="L652" title="All 2 branches missed.">			if (r &lt;= odds.win) {</span>
+<span class="nc" id="L653">				crs.add(CombatResult.WIN);</span>
+
+				// Great wins occur at most in 1 in 3 of successful bombards,
+				// Good defences reduce this proportion.
+<span class="nc" id="L657">				double offencePower = getOffencePower(attacker, defender);</span>
+<span class="nc" id="L658">				double defencePower = getDefencePower(attacker, defender);</span>
+<span class="nc" id="L659">				double diff = Math.max(3.0, defencePower * 2.0 - offencePower);</span>
+<span class="nc bnc" id="L660" title="All 2 branches missed.">				great = r &lt; odds.win / diff;</span>
+
+				// Sink the defender on great wins or lack of repair
+				// location, otherwise just damage.
+<span class="nc bnc" id="L664" title="All 4 branches missed.">				if (great || defenderUnit.getRepairLocation() == null) {</span>
+<span class="nc" id="L665">					crs.add(CombatResult.SINK_SHIP_BOMBARD);</span>
+				} else {
+<span class="nc" id="L667">					crs.add(CombatResult.DAMAGE_SHIP_BOMBARD);</span>
+				}
+
+				// The bombard fails but this is not a win for the
+				// defender, just an evasion, as it is not currently given
+				// an opportunity to return fire.
+<span class="nc" id="L673">			} else {</span>
+<span class="nc" id="L674">				crs.add(CombatResult.NO_RESULT);</span>
+<span class="nc" id="L675">				crs.add(CombatResult.EVADE_BOMBARD);</span>
+			}
+
+<span class="nc" id="L678">		} else {</span>
+<span class="nc" id="L679">			throw new IllegalStateException(&quot;Bogus combat&quot;);</span>
+		}
+
+		// Log the results so that we have a solid record of combat
+		// determinations for debugging and investigation of user
+		// `I just lost N combats' complaints.
+<span class="fc" id="L685">		lb.add(&quot; great=&quot;, great, &quot; &quot;, action);</span>
+<span class="fc bfc" id="L686" title="All 2 branches covered.">		for (CombatResult cr : crs)</span>
+<span class="fc" id="L687">			lb.add(&quot; &quot;, cr);</span>
+<span class="fc" id="L688">		lb.log(logger, Level.INFO);</span>
+
+<span class="fc" id="L690">		return crs;</span>
+	}
+
+	/**
+	 * Resolve all the consequences of a normal attack.
+	 *
+	 * @param winner
+	 *            The winning &lt;code&gt;Unit&lt;/code&gt;.
+	 * @param loser
+	 *            The losing &lt;code&gt;Unit&lt;/code&gt;.
+	 * @param great
+	 *            True if this is a great win/loss.
+	 * @param r
+	 *            A &quot;residual&quot; random value (for convert/burn mission).
+	 * @param crs
+	 *            A list of &lt;code&gt;CombatResult&lt;/code&gt;s to add to.
+	 */
+	private void resolveAttack(Unit winner, Unit loser, boolean great, double r, List&lt;CombatResult&gt; crs) {
+<span class="fc" id="L708">		Player loserPlayer = loser.getOwner();</span>
+<span class="fc" id="L709">		Tile tile = loser.getTile();</span>
+<span class="fc" id="L710">		Player winnerPlayer = winner.getOwner();</span>
+<span class="fc bfc" id="L711" title="All 2 branches covered.">		boolean attackerWon = crs.get(0) == CombatResult.WIN;</span>
+<span class="fc" id="L712">		boolean loserMustDie = loser.hasAbility(Ability.DISPOSE_ON_COMBAT_LOSS);</span>
+
+<span class="fc bfc" id="L714" title="All 2 branches covered.">		if (loser.isNaval()) {</span>
+			// Naval victors get to loot the defenders hold. Sink the
+			// loser on great win/loss, lack of repair location, or
+			// beached.
+<span class="pc bpc" id="L718" title="2 of 6 branches missed.">			if (winner.isNaval() &amp;&amp; winner.canCaptureGoods() &amp;&amp; !loser.getGoodsList().isEmpty()) {</span>
+<span class="fc" id="L719">				crs.add(CombatResult.LOOT_SHIP);</span>
+			}
+<span class="pc bpc" id="L721" title="4 of 8 branches missed.">			if (great || loserMustDie || loser.getRepairLocation() == null || loser.isBeached()) {</span>
+<span class="nc" id="L722">				crs.add(CombatResult.SINK_SHIP_ATTACK);</span>
+			} else {
+<span class="fc" id="L724">				crs.add(CombatResult.DAMAGE_SHIP_ATTACK);</span>
+			}
+
+		} else { // loser is land unit
+			// Autoequip the defender?
+<span class="fc bfc" id="L729" title="All 2 branches covered.">			Role autoRole = (attackerWon) ? loser.getAutomaticRole() : null;</span>
+<span class="fc bfc" id="L730" title="All 2 branches covered.">			if (autoRole != null)</span>
+<span class="fc" id="L731">				crs.add(CombatResult.AUTOEQUIP_UNIT);</span>
+
+			// Special handling for settlements
+<span class="fc" id="L734">			boolean done = false;</span>
+<span class="fc" id="L735">			Settlement settlement = tile.getSettlement();</span>
+<span class="fc bfc" id="L736" title="All 2 branches covered.">			if (settlement instanceof Colony) {</span>
+<span class="fc" id="L737">				final Colony colony = (Colony) settlement;</span>
+				// A Colony falls to Europeans when the last defender
+				// is unarmed. Natives will pillage if possible but
+				// otherwise proceed to kill colonists incrementally
+				// until the colony falls for lack of survivors.
+				// Ships in a falling colony will be damaged or sunk
+				// if they have no repair location.
+<span class="fc bfc" id="L744" title="All 4 branches covered.">				if (!loser.isDefensiveUnit() &amp;&amp; autoRole == null) {</span>
+<span class="fc" id="L745">					List&lt;Unit&gt; ships = colony.getTile().getNavalUnits();</span>
+<span class="fc bfc" id="L746" title="All 2 branches covered.">					final CombatResult shipResult = (ships.isEmpty()) ? null</span>
+<span class="pc bpc" id="L747" title="1 of 2 branches missed.">							: (ships.get(0).getRepairLocation() == null) ? CombatResult.SINK_COLONY_SHIPS</span>
+									: CombatResult.DAMAGE_COLONY_SHIPS;
+
+<span class="fc bfc" id="L750" title="All 2 branches covered.">					if (winnerPlayer.isEuropean()) {</span>
+<span class="pc bpc" id="L751" title="1 of 2 branches missed.">						if (loserMustDie) {</span>
+<span class="nc" id="L752">							crs.add(CombatResult.SLAUGHTER_UNIT);</span>
+						}
+<span class="pc bpc" id="L754" title="1 of 2 branches missed.">						if (shipResult != null)</span>
+<span class="nc" id="L755">							crs.add(shipResult);</span>
+<span class="fc" id="L756">						crs.add(CombatResult.CAPTURE_COLONY);</span>
+<span class="fc" id="L757">						done = true;</span>
+
+<span class="pc bpc" id="L759" title="1 of 4 branches missed.">					} else if (!great &amp;&amp; colony.canBePillaged(winner)) {</span>
+<span class="fc" id="L760">						crs.add(CombatResult.PILLAGE_COLONY);</span>
+<span class="fc" id="L761">						done = true;</span>
+
+<span class="pc bpc" id="L763" title="1 of 4 branches missed.">					} else if (colony.getUnitCount() &gt; 1 || loser.getLocation() == tile) {</span>
+<span class="fc" id="L764">						loserMustDie = true;</span>
+<span class="fc" id="L765">						done = false; // Treat as ordinary combat</span>
+
+					} else {
+<span class="fc" id="L768">						crs.add(CombatResult.SLAUGHTER_UNIT);</span>
+<span class="pc bpc" id="L769" title="1 of 2 branches missed.">						if (shipResult != null)</span>
+<span class="nc" id="L770">							crs.add(shipResult);</span>
+<span class="fc" id="L771">						crs.add(CombatResult.DESTROY_COLONY);</span>
+<span class="fc" id="L772">						done = true;</span>
+					}
+				}
+
+<span class="fc bfc" id="L776" title="All 2 branches covered.">			} else if (settlement instanceof IndianSettlement) {</span>
+<span class="fc" id="L777">				final IndianSettlement is = (IndianSettlement) settlement;</span>
+				// Attacking and defeating the defender of a native
+				// settlement with a mission may yield converts but
+				// also may provoke the burning of all missions.
+				// Native settlements fall when there are no units
+				// present either in-settlement or on the settlement
+				// tile.
+<span class="fc" id="L784">				int lose = 0;</span>
+<span class="pc bpc" id="L785" title="1 of 2 branches missed.">				if (loserMustDie) {</span>
+					// Add death of loser before any convert captures,
+					// or the RNG might randomly decide to convert the
+					// unit that is then slaughtered.
+<span class="fc" id="L789">					crs.add(CombatResult.SLAUGHTER_UNIT);</span>
+<span class="fc" id="L790">					lose++;</span>
+					// For now, no usual unit combat actions can proceed,
+					// which means we can not expect to capture equipment
+					// from settlements without untangling this dependency.
+<span class="fc" id="L794">					done = true;</span>
+				}
+<span class="pc bpc" id="L796" title="1 of 2 branches missed.">				if (attackerWon) {</span>
+<span class="pc bpc" id="L797" title="1 of 2 branches missed.">					if (r &lt; winner.getConvertProbability()) {</span>
+<span class="pc bpc" id="L798" title="2 of 4 branches missed.">						if (is.getUnitCount() + tile.getUnitCount() &gt; lose &amp;&amp; is.hasMissionary(winnerPlayer)</span>
+<span class="pc bpc" id="L799" title="1 of 2 branches missed.">								&amp;&amp; !combatIsAmphibious(winner, loser)) {</span>
+<span class="fc" id="L800">							crs.add(CombatResult.CAPTURE_CONVERT);</span>
+<span class="fc" id="L801">							lose++;</span>
+						}
+<span class="nc bnc" id="L803" title="All 2 branches missed.">					} else if (r &gt;= 1.0 - winner.getBurnProbability()) {</span>
+<span class="nc bnc" id="L804" title="All 2 branches missed.">						if (any(loserPlayer.getIndianSettlements(), s -&gt; s.hasMissionary(winnerPlayer))) {</span>
+<span class="nc" id="L805">							crs.add(CombatResult.BURN_MISSIONS);</span>
+						}
+					}
+				}
+<span class="pc bpc" id="L809" title="1 of 2 branches missed.">				if (settlement.getUnitCount() + tile.getUnitCount() &lt;= lose) {</span>
+<span class="nc" id="L810">					crs.add(CombatResult.DESTROY_SETTLEMENT);</span>
+<span class="nc" id="L811">					done = true;</span>
+				}
+			}
+
+<span class="fc bfc" id="L815" title="All 2 branches covered.">			if (!done) {</span>
+<span class="fc" id="L816">				final Role loserRole = loser.getRole();</span>
+				// First check if the loser was automatically armed, and
+				// if so see if the winner can capture that equipment,
+				// which may kill or demote the loser.
+<span class="fc bfc" id="L820" title="All 2 branches covered.">				if (autoRole != null) {</span>
+<span class="pc bpc" id="L821" title="1 of 2 branches missed.">					crs.add((winner.canCaptureEquipment(autoRole) != null) ? CombatResult.CAPTURE_AUTOEQUIP</span>
+							: CombatResult.LOSE_AUTOEQUIP);
+<span class="pc bpc" id="L823" title="1 of 2 branches missed.">					if (loserMustDie) {</span>
+<span class="nc" id="L824">						crs.add(CombatResult.SLAUGHTER_UNIT);</span>
+<span class="pc bpc" id="L825" title="1 of 2 branches missed.">					} else if (loser.hasAbility(Ability.DEMOTE_ON_ALL_EQUIPMENT_LOST)) {</span>
+<span class="nc" id="L826">						crs.add(CombatResult.DEMOTE_UNIT);</span>
+					}
+
+					// Some losers are just doomed (e.g. seasonedScout), do not
+					// check for capture/demote/lose-equipment.
+<span class="fc bfc" id="L831" title="All 2 branches covered.">				} else if (loserMustDie) {</span>
+<span class="fc" id="L832">					crs.add(CombatResult.SLAUGHTER_UNIT);</span>
+
+					// Then check if the user had other offensive
+					// role-equipment, that can be captured or lost, which
+					// may kill or demote the loser.
+<span class="fc bfc" id="L837" title="All 2 branches covered.">				} else if (loserRole.isOffensive()) {</span>
+<span class="fc bfc" id="L838" title="All 2 branches covered.">					crs.add((winner.canCaptureEquipment(loserRole) != null) ? CombatResult.CAPTURE_EQUIP</span>
+							: CombatResult.LOSE_EQUIP);
+<span class="pc bpc" id="L840" title="2 of 4 branches missed.">					if (loserMustDie || loser.losingEquipmentKillsUnit()) {</span>
+<span class="nc" id="L841">						crs.add(CombatResult.SLAUGHTER_UNIT);</span>
+<span class="fc bfc" id="L842" title="All 2 branches covered.">					} else if (loser.losingEquipmentDemotesUnit()) {</span>
+<span class="fc" id="L843">						crs.add(CombatResult.DEMOTE_UNIT);</span>
+					}
+
+					// But some can be captured.
+<span class="fc bfc" id="L847" title="All 4 branches covered.">				} else if (loser.hasAbility(Ability.CAN_BE_CAPTURED) &amp;&amp; winner.hasAbility(Ability.CAPTURE_UNITS)</span>
+<span class="pc bpc" id="L848" title="1 of 2 branches missed.">						&amp;&amp; !combatIsAmphibious(winner, loser)) {</span>
+					// Demotion on capture is handled by capture routine.
+<span class="fc" id="L850">					crs.add(CombatResult.CAPTURE_UNIT);</span>
+
+					// Or losing just causes a demotion.
+<span class="fc bfc" id="L853" title="All 2 branches covered.">				} else if (loser.getTypeChange(ChangeType.DEMOTION, loserPlayer) != null) {</span>
+<span class="fc" id="L854">					crs.add(CombatResult.DEMOTE_UNIT);</span>
+
+					// But finally, the default is to kill them.
+				} else {
+<span class="fc" id="L858">					crs.add(CombatResult.SLAUGHTER_UNIT);</span>
+				}
+			}
+		}
+
+		// Promote great winners or with automatic promotion, if possible.
+<span class="fc" id="L864">		UnitTypeChange promotion = winner.getType().getUnitTypeChange(ChangeType.PROMOTION, winnerPlayer);</span>
+<span class="pc bpc" id="L865" title="1 of 6 branches missed.">		if (promotion != null &amp;&amp; (winner.hasAbility(Ability.AUTOMATIC_PROMOTION)</span>
+<span class="nc bnc" id="L866" title="All 2 branches missed.">				|| (great &amp;&amp; (100 * (r - Math.floor(r)) &lt;= promotion.getProbability(ChangeType.PROMOTION))))) {</span>
+<span class="fc" id="L867">			crs.add(CombatResult.PROMOTE_UNIT);</span>
+		}
+<span class="fc" id="L869">	}</span>
+
+	/**
+	 * Could this attack be an ambush?.
+	 *
+	 * @param attacker
+	 *            The attacker.
+	 * @param defender
+	 *            The defender.
+	 * @return True if the attack can be an ambush.
+	 */
+	private boolean isAmbush(FreeColGameObject attacker, FreeColGameObject defender) {
+<span class="pc bpc" id="L881" title="2 of 4 branches missed.">		if (attacker instanceof Unit &amp;&amp; defender instanceof Unit) {</span>
+<span class="fc" id="L882">			Unit attackerUnit = (Unit) attacker;</span>
+<span class="fc" id="L883">			Unit defenderUnit = (Unit) defender;</span>
+<span class="pc bpc" id="L884" title="2 of 4 branches missed.">			return attackerUnit.getSettlement() == null &amp;&amp; attackerUnit.hasTile()</span>
+<span class="pc bpc" id="L885" title="1 of 4 branches missed.">					&amp;&amp; defenderUnit.getSettlement() == null &amp;&amp; defenderUnit.getState() != Unit.UnitState.FORTIFIED</span>
+<span class="pc bpc" id="L886" title="1 of 2 branches missed.">					&amp;&amp; defenderUnit.hasTile()</span>
+<span class="pc bpc" id="L887" title="1 of 2 branches missed.">					&amp;&amp; (attackerUnit.hasAbility(Ability.AMBUSH_BONUS)</span>
+<span class="fc bfc" id="L888" title="All 2 branches covered.">							|| defenderUnit.hasAbility(Ability.AMBUSH_PENALTY))</span>
+<span class="pc bpc" id="L889" title="1 of 2 branches missed.">					&amp;&amp; (attackerUnit.getTile().hasAbility(Ability.AMBUSH_TERRAIN)</span>
+<span class="pc bpc" id="L890" title="1 of 2 branches missed.">							|| defenderUnit.getTile().hasAbility(Ability.AMBUSH_TERRAIN));</span>
+		}
+<span class="nc" id="L892">		return false;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

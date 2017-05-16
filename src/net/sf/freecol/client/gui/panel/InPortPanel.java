@@ -23,7 +23,6 @@ import java.awt.Component;
 
 import net.sf.freecol.common.model.Unit;
 
-
 /**
  * This class displays the carriers present in a port.
  *
@@ -31,56 +30,58 @@ import net.sf.freecol.common.model.Unit;
  */
 public abstract class InPortPanel extends UnitPanel {
 
-    /**
-     * Create an InPortPanel.
-     *
-     * @param portPanel The <code>PortPanel</code> to enclose.
-     * @param name An optional name for the panel.
-     * @param editable Is this panel editable?
-     */
-    public InPortPanel(PortPanel portPanel, String name, boolean editable) {
-        super(portPanel, name, editable);
-    }
+	/**
+	 * Create an InPortPanel.
+	 *
+	 * @param portPanel
+	 *            The <code>PortPanel</code> to enclose.
+	 * @param name
+	 *            An optional name for the panel.
+	 * @param editable
+	 *            Is this panel editable?
+	 */
+	public InPortPanel(PortPanel portPanel, String name, boolean editable) {
+		super(portPanel, name, editable);
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void selectLabel() {
+		// Keep the previous selected unit if possible, otherwise default
+		// on the last carrier.
+		PortPanel portPanel = getPortPanel();
+		if (portPanel == null)
+			return;
+		Unit selectedUnit = portPanel.getSelectedUnit();
+		UnitLabel lastCarrier = null;
+		for (Component component : getComponents()) {
+			if (component instanceof UnitLabel) {
+				UnitLabel label = (UnitLabel) component;
+				Unit unit = label.getUnit();
+				if (unit == selectedUnit) {
+					portPanel.setSelectedUnitLabel(label);
+					return;
+				}
+				if (unit.isCarrier() && unit.getTradeRoute() == null) {
+					lastCarrier = label;
+				}
+			}
+		}
+		if (lastCarrier != null) {
+			portPanel.setSelectedUnitLabel(lastCarrier);
+		}
+		// No revalidate+repaint as this is done in setSelectedUnitLabel
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void selectLabel() {
-        // Keep the previous selected unit if possible, otherwise default
-        // on the last carrier.
-        PortPanel portPanel = getPortPanel();
-        if (portPanel == null) return;
-        Unit selectedUnit = portPanel.getSelectedUnit();
-        UnitLabel lastCarrier = null;
-        for (Component component : getComponents()) {
-            if (component instanceof UnitLabel) {
-                UnitLabel label = (UnitLabel)component;
-                Unit unit = label.getUnit();
-                if (unit == selectedUnit) {
-                    portPanel.setSelectedUnitLabel(label);
-                    return;
-                }
-                if (unit.isCarrier() && unit.getTradeRoute() == null) {
-                    lastCarrier = label;
-                }
-            }
-        }
-        if (lastCarrier != null) {
-            portPanel.setSelectedUnitLabel(lastCarrier);
-        }
-        // No revalidate+repaint as this is done in setSelectedUnitLabel
-    }
+	// Override JLabel
 
-
-    // Override JLabel
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getUIClassID() {
-        return "InPortPanelUI";
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getUIClassID() {
+		return "InPortPanelUI";
+	}
 }

@@ -23,41 +23,39 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
- * Returns to the <code>MainPanel</code>.
- * All in-game components are removed.
+ * Returns to the <code>MainPanel</code>. All in-game components are removed.
  *
  * @see net.sf.freecol.client.gui.panel.MainPanel
  */
 public class ShowMainAction extends FreeColAction {
 
-    /** The Constant id. */
-    public static final String id = "showMainAction";
+	/** The Constant id. */
+	public static final String id = "showMainAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ShowMainAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ShowMainAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        if (!getGUI().confirmStopGame()) return;
-        getConnectController().quitGame(true);
-        getGUI().removeInGameComponents();
-        freeColClient.setMapEditor(false);
-        freeColClient.setGame(null);
-        getGUI().returnToTitle();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		if (!getGUI().confirmStopGame())
+			return;
+		getConnectController().quitGame(true);
+		getGUI().removeInGameComponents();
+		freeColClient.setMapEditor(false);
+		freeColClient.setGame(null);
+		getGUI().returnToTitle();
+	}
 }

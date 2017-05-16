@@ -24,43 +24,43 @@ import java.util.Random;
 import net.sf.freecol.common.util.LogBuilder;
 import net.sf.freecol.server.control.ChangeSet;
 
-
 /**
- * Interface for server-side objects which needs to store
- * extra information to a save game.
+ * Interface for server-side objects which needs to store extra information to a
+ * save game.
  */
 public interface ServerModelObject {
 
-    /*
-      All ServerModelObjects must also implement a trivial constructor
-      (ServerGame does not but it is special, being the Game itself)
-      of the form:
+	/*
+	 * All ServerModelObjects must also implement a trivial constructor
+	 * (ServerGame does not but it is special, being the Game itself) of the
+	 * form:
+	 * 
+	 * public <constructor>(Game game, String id) { super(game, id); }
+	 */
 
-      public <constructor>(Game game, String id) {
-          super(game, id);
-      }
-    */
+	/**
+	 * Get the object identifier.
+	 *
+	 * @return The object identifier.
+	 */
+	public String getId();
 
-    /**
-     * Get the object identifier.
-     *
-     * @return The object identifier.
-     */
-    public String getId();
+	/**
+	 * Gets the tag to use when saving this server object.
+	 *
+	 * @return The server object tag.
+	 */
+	public String getServerXMLElementTagName();
 
-    /**
-     * Gets the tag to use when saving this server object.
-     *
-     * @return The server object tag.
-     */
-    public String getServerXMLElementTagName();
-
-    /**
-     * Executes new-turn actions for this server object.
-     *
-     * @param random A pseudo-random number source.
-     * @param lb A <code>LogBuilder</code> to log to.
-     * @param cs A <code>ChangeSet</code> to update.
-     */
-    public void csNewTurn(Random random, LogBuilder lb, ChangeSet cs);
-} 
+	/**
+	 * Executes new-turn actions for this server object.
+	 *
+	 * @param random
+	 *            A pseudo-random number source.
+	 * @param lb
+	 *            A <code>LogBuilder</code> to log to.
+	 * @param cs
+	 *            A <code>ChangeSet</code> to update.
+	 */
+	public void csNewTurn(Random random, LogBuilder lb, ChangeSet cs);
+}

@@ -23,7 +23,6 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for initiating chatting.
  *
@@ -31,40 +30,37 @@ import net.sf.freecol.client.FreeColClient;
  */
 public class ChatAction extends FreeColAction {
 
-    public static final String id = "chatAction";
+	/** The Constant id. */
+	public static final String id = "chatAction";
 
+	/**
+	 * Creates a new <code>ChatAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ChatAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>ChatAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ChatAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		return super.shouldBeEnabled() && !freeColClient.isSinglePlayer()
+				&& (!getGUI().isShowingSubPanel() || getGame() != null && !freeColClient.currentPlayerIsMyPlayer());
+	}
 
-    // Override FreeColAction
+	// Interface ActionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        return super.shouldBeEnabled()
-            && !freeColClient.isSinglePlayer()
-            && (!getGUI().isShowingSubPanel() || getGame() != null
-                && !freeColClient.currentPlayerIsMyPlayer());
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        getGUI().showChatPanel();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		getGUI().showChatPanel();
+	}
 }

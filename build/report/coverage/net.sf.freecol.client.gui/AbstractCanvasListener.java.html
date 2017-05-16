@@ -26,119 +26,123 @@ import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.Direction;
 
-
 /**
  * The outline of a canvas listener.
+ *
+ * @see AbstractCanvasEvent
  */
 public class AbstractCanvasListener {
 
-    /** Space to auto-scroll. */
-    protected static final int AUTO_SCROLL_SPACE = 1;
+	/** Space to auto-scroll. */
+	protected static final int AUTO_SCROLL_SPACE = 1;
 
-    /** Space to drag-scroll. */
-    private static final int DRAG_SCROLL_SPACE = 100;
+	/** Space to drag-scroll. */
+	private static final int DRAG_SCROLL_SPACE = 100;
 
-    /** The enclosing client. */
-    protected final FreeColClient freeColClient;
+	/** The enclosing client. */
+	protected final FreeColClient freeColClient;
 
-    protected final Canvas canvas;
+	/** The canvas. */
+	protected final Canvas canvas;
 
-    /** The scroll thread itself. */
-<span class="nc" id="L47">    protected ScrollThread scrollThread = null;</span>
+	/** The scroll thread itself. */
+<span class="nc" id="L49">	protected ScrollThread scrollThread = null;</span>
 
+	/**
+	 * Create a new AbstractCanvasListener.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param canvas
+	 *            the canvas
+	 */
+<span class="nc" id="L59">	public AbstractCanvasListener(FreeColClient freeColClient, Canvas canvas) {</span>
+<span class="nc" id="L60">		this.freeColClient = freeColClient;</span>
+<span class="nc" id="L61">		this.canvas = canvas;</span>
+<span class="nc" id="L62">		this.scrollThread = null;</span>
+<span class="nc" id="L63">	}</span>
 
-    /**
-     * Create a new AbstractCanvasListener.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     */
-<span class="nc" id="L55">    public AbstractCanvasListener(FreeColClient freeColClient, Canvas canvas) {</span>
-<span class="nc" id="L56">        this.freeColClient = freeColClient;</span>
-<span class="nc" id="L57">        this.canvas = canvas;</span>
-<span class="nc" id="L58">        this.scrollThread = null;</span>
-<span class="nc" id="L59">    }</span>
+	/**
+	 * Auto-scroll to a mouse position if necessary.
+	 *
+	 * @param e
+	 *            The &lt;code&gt;MouseEvent&lt;/code&gt; that initiating the scroll.
+	 */
+	protected void performAutoScrollIfActive(MouseEvent e) {
+<span class="nc bnc" id="L72" title="All 4 branches missed.">		if (e.getComponent().isEnabled() &amp;&amp; freeColClient.getClientOptions().getBoolean(ClientOptions.AUTO_SCROLL)) {</span>
+<span class="nc" id="L73">			scroll(e.getX(), e.getY(), AUTO_SCROLL_SPACE);</span>
+		} else {
+<span class="nc" id="L75">			stopScrollIfScrollIsActive();</span>
+		}
+<span class="nc" id="L77">	}</span>
 
+	/**
+	 * Drag-scroll to a mouse position if necessary.
+	 *
+	 * @param e
+	 *            The &lt;code&gt;MouseEvent&lt;/code&gt; that initiating the scroll.
+	 */
+	protected void performDragScrollIfActive(MouseEvent e) {
+<span class="nc bnc" id="L86" title="All 2 branches missed.">		if (e.getComponent().isEnabled()</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">				&amp;&amp; freeColClient.getClientOptions().getBoolean(ClientOptions.MAP_SCROLL_ON_DRAG)) {</span>
+<span class="nc" id="L88">			scroll(e.getX(), e.getY(), DRAG_SCROLL_SPACE);</span>
+		} else {
+<span class="nc" id="L90">			stopScrollIfScrollIsActive();</span>
+		}
+<span class="nc" id="L92">	}</span>
 
-    /**
-     * Auto-scroll to a mouse position if necessary.
-     *
-     * @param e The &lt;code&gt;MouseEvent&lt;/code&gt; that initiating the scroll.
-     */
-    protected void performAutoScrollIfActive(MouseEvent e) {
-<span class="nc bnc" id="L68" title="All 2 branches missed.">        if (e.getComponent().isEnabled() &amp;&amp; freeColClient</span>
-<span class="nc bnc" id="L69" title="All 2 branches missed.">            .getClientOptions().getBoolean(ClientOptions.AUTO_SCROLL)) {</span>
-<span class="nc" id="L70">            scroll(e.getX(), e.getY(), AUTO_SCROLL_SPACE);</span>
-        } else {
-<span class="nc" id="L72">            stopScrollIfScrollIsActive();</span>
-        }
-<span class="nc" id="L74">    }</span>
+	/**
+	 * Stop scrolling.
+	 */
+	protected void stopScrollIfScrollIsActive() {
+<span class="nc bnc" id="L98" title="All 2 branches missed.">		if (scrollThread != null) {</span>
+<span class="nc" id="L99">			scrollThread.interrupt();</span>
+<span class="nc" id="L100">			scrollThread = null;</span>
+		}
+<span class="nc" id="L102">	}</span>
 
-    /**
-     * Drag-scroll to a mouse position if necessary.
-     *
-     * @param e The &lt;code&gt;MouseEvent&lt;/code&gt; that initiating the scroll.
-     */
-    protected void performDragScrollIfActive(MouseEvent e) {
-<span class="nc bnc" id="L82" title="All 2 branches missed.">        if (e.getComponent().isEnabled() &amp;&amp; freeColClient</span>
-<span class="nc bnc" id="L83" title="All 2 branches missed.">            .getClientOptions().getBoolean(ClientOptions.MAP_SCROLL_ON_DRAG)) {</span>
-<span class="nc" id="L84">            scroll(e.getX(), e.getY(), DRAG_SCROLL_SPACE);</span>
-        } else {
-<span class="nc" id="L86">            stopScrollIfScrollIsActive();</span>
-        }
-<span class="nc" id="L88">    }</span>
+	/**
+	 * Scroll the map if the given (x,y) coordinate is close to an edge.
+	 *
+	 * @param x
+	 *            The x coordinate.
+	 * @param y
+	 *            The y coordinate.
+	 * @param scrollSpace
+	 *            The clearance from the relevant edge
+	 */
+	private void scroll(int x, int y, int scrollSpace) {
+		Direction direction;
+<span class="nc" id="L116">		Dimension size = canvas.getSize();</span>
+<span class="nc bnc" id="L117" title="All 4 branches missed.">		if (x &lt; scrollSpace &amp;&amp; y &lt; scrollSpace) { // Upper-Left</span>
+<span class="nc" id="L118">			direction = Direction.NW;</span>
+<span class="nc bnc" id="L119" title="All 4 branches missed.">		} else if (x &gt;= size.width - scrollSpace &amp;&amp; y &lt; scrollSpace) { // Upper-Right</span>
+<span class="nc" id="L120">			direction = Direction.NE;</span>
+<span class="nc bnc" id="L121" title="All 4 branches missed.">		} else if (x &gt;= size.width - scrollSpace &amp;&amp; y &gt;= size.height - scrollSpace) { // Bottom-Right</span>
+<span class="nc" id="L122">			direction = Direction.SE;</span>
+<span class="nc bnc" id="L123" title="All 4 branches missed.">		} else if (x &lt; scrollSpace &amp;&amp; y &gt;= size.height - scrollSpace) { // Bottom-Left</span>
+<span class="nc" id="L124">			direction = Direction.SW;</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">		} else if (y &lt; scrollSpace) { // Top</span>
+<span class="nc" id="L126">			direction = Direction.N;</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">		} else if (x &gt;= size.width - scrollSpace) { // Right</span>
+<span class="nc" id="L128">			direction = Direction.E;</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">		} else if (y &gt;= size.height - scrollSpace) { // Bottom</span>
+<span class="nc" id="L130">			direction = Direction.S;</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">		} else if (x &lt; scrollSpace) { // Left</span>
+<span class="nc" id="L132">			direction = Direction.W;</span>
+		} else {
+<span class="nc" id="L134">			direction = null;</span>
+		}
 
-    /**
-     * Stop scrolling.
-     */
-    protected void stopScrollIfScrollIsActive() {
-<span class="nc bnc" id="L94" title="All 2 branches missed.">        if (scrollThread != null) {</span>
-<span class="nc" id="L95">            scrollThread.interrupt();</span>
-<span class="nc" id="L96">            scrollThread = null;</span>
-        }
-<span class="nc" id="L98">    }</span>
-
-    /**
-     * Scroll the map if the given (x,y) coordinate is close to an edge.
-     *
-     * @param x The x coordinate.
-     * @param y The y coordinate.
-     * @param scrollSpace The clearance from the relevant edge
-     */
-    private void scroll(int x, int y, int scrollSpace) {
-        Direction direction;
-<span class="nc" id="L109">        Dimension size = canvas.getSize();</span>
-<span class="nc bnc" id="L110" title="All 4 branches missed.">        if (x &lt; scrollSpace &amp;&amp; y &lt; scrollSpace) { // Upper-Left</span>
-<span class="nc" id="L111">            direction = Direction.NW;</span>
-<span class="nc bnc" id="L112" title="All 4 branches missed.">        } else if (x &gt;= size.width - scrollSpace</span>
-            &amp;&amp; y &lt; scrollSpace) { // Upper-Right
-<span class="nc" id="L114">            direction = Direction.NE;</span>
-<span class="nc bnc" id="L115" title="All 4 branches missed.">        } else if (x &gt;= size.width - scrollSpace</span>
-            &amp;&amp; y &gt;= size.height - scrollSpace) { // Bottom-Right
-<span class="nc" id="L117">            direction = Direction.SE;</span>
-<span class="nc bnc" id="L118" title="All 4 branches missed.">        } else if (x &lt; scrollSpace</span>
-            &amp;&amp; y &gt;= size.height - scrollSpace) { // Bottom-Left
-<span class="nc" id="L120">            direction = Direction.SW;</span>
-<span class="nc bnc" id="L121" title="All 2 branches missed.">        } else if (y &lt; scrollSpace) { // Top</span>
-<span class="nc" id="L122">            direction = Direction.N;</span>
-<span class="nc bnc" id="L123" title="All 2 branches missed.">        } else if (x &gt;= size.width - scrollSpace) { // Right</span>
-<span class="nc" id="L124">            direction = Direction.E;</span>
-<span class="nc bnc" id="L125" title="All 2 branches missed.">        } else if (y &gt;= size.height - scrollSpace) { // Bottom</span>
-<span class="nc" id="L126">            direction = Direction.S;</span>
-<span class="nc bnc" id="L127" title="All 2 branches missed.">        } else if (x &lt; scrollSpace) { // Left</span>
-<span class="nc" id="L128">            direction = Direction.W;</span>
-        } else {
-<span class="nc" id="L130">            direction = null;</span>
-        }
-
-<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (direction == null) {</span>
-<span class="nc" id="L134">            stopScrollIfScrollIsActive();</span>
-<span class="nc bnc" id="L135" title="All 4 branches missed.">        } else if (scrollThread == null || scrollThread.isInterrupted()) {</span>
-<span class="nc" id="L136">            scrollThread = new ScrollThread(canvas);</span>
-<span class="nc" id="L137">            scrollThread.setDirection(direction);</span>
-<span class="nc" id="L138">            scrollThread.start();</span>
-        } else {
-<span class="nc" id="L140">            scrollThread.setDirection(direction);</span>
-        }
-<span class="nc" id="L142">    }</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">		if (direction == null) {</span>
+<span class="nc" id="L138">			stopScrollIfScrollIsActive();</span>
+<span class="nc bnc" id="L139" title="All 4 branches missed.">		} else if (scrollThread == null || scrollThread.isInterrupted()) {</span>
+<span class="nc" id="L140">			scrollThread = new ScrollThread(canvas);</span>
+<span class="nc" id="L141">			scrollThread.setDirection(direction);</span>
+<span class="nc" id="L142">			scrollThread.start();</span>
+		} else {
+<span class="nc" id="L144">			scrollThread.setDirection(direction);</span>
+		}
+<span class="nc" id="L146">	}</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -32,114 +32,111 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent when speaking to a chief.
  */
 public class ScoutSpeakToChiefMessage extends DOMMessage {
 
-    /** The identifier of the unit that is speaking. */
-    private final String unitId;
+	/** The identifier of the unit that is speaking. */
+	private final String unitId;
 
-    /** The direction of the settlement from the unit. */
-    private final String directionString;
+	/** The direction of the settlement from the unit. */
+	private final String directionString;
 
+	/**
+	 * Create a new <code>ScoutSpeakToChiefMessage</code> with the supplied unit
+	 * and direction.
+	 *
+	 * @param unit
+	 *            The <code>Unit</code> that is learning.
+	 * @param direction
+	 *            The <code>Direction</code> the unit is looking.
+	 */
+	public ScoutSpeakToChiefMessage(Unit unit, Direction direction) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>ScoutSpeakToChiefMessage</code> with the
-     * supplied unit and direction.
-     *
-     * @param unit The <code>Unit</code> that is learning.
-     * @param direction The <code>Direction</code> the unit is looking.
-     */
-    public ScoutSpeakToChiefMessage(Unit unit, Direction direction) {
-        super(getXMLElementTagName());
+		this.unitId = unit.getId();
+		this.directionString = String.valueOf(direction);
+	}
 
-        this.unitId = unit.getId();
-        this.directionString = String.valueOf(direction);
-    }
+	/**
+	 * Create a new <code>ScoutSpeakToChiefMessage</code> from a supplied
+	 * element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public ScoutSpeakToChiefMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>ScoutSpeakToChiefMessage</code> from a
-     * supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public ScoutSpeakToChiefMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.unitId = element.getAttribute("unitId");
+		this.directionString = element.getAttribute("direction");
+	}
 
-        this.unitId = element.getAttribute("unitId");
-        this.directionString = element.getAttribute("direction");
-    }
+	/**
+	 * Handle a "scoutSpeakToChief"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the message.
+	 * @param player
+	 *            The <code>Player</code> the message applies to.
+	 * @param connection
+	 *            The <code>Connection</code> message was received on.
+	 * @return An element containing the result of the scouting action, or an
+	 *         error <code>Element</code> on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
 
+		Unit unit;
+		try {
+			unit = player.getOurFreeColGameObject(unitId, Unit.class);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
+		if (!unit.hasAbility(Ability.SPEAK_WITH_CHIEF)) {
+			return DOMMessage.clientError("Unit lacks ability to speak to chief: " + unitId);
+		}
 
-    /**
-     * Handle a "scoutSpeakToChief"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the message.
-     * @param player The <code>Player</code> the message applies to.
-     * @param connection The <code>Connection</code> message was received on.
-     * @return An element containing the result of the scouting
-     *     action, or an error <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
+		Tile tile;
+		try {
+			tile = unit.getNeighbourTile(directionString);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
 
-        Unit unit;
-        try {
-            unit = player.getOurFreeColGameObject(unitId, Unit.class);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
-        if (!unit.hasAbility(Ability.SPEAK_WITH_CHIEF)) {
-            return DOMMessage.clientError("Unit lacks ability to speak to chief: "
-                + unitId);
-        }
+		IndianSettlement is = tile.getIndianSettlement();
+		if (is == null) {
+			return DOMMessage.clientError("There is no native settlement at: " + tile.getId());
+		}
 
-        Tile tile;
-        try {
-            tile = unit.getNeighbourTile(directionString);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
+		MoveType type = unit.getMoveType(is.getTile());
+		if (type != MoveType.ENTER_INDIAN_SETTLEMENT_WITH_SCOUT) {
+			return DOMMessage.clientError("Unable to enter " + is.getName() + ": " + type.whyIllegal());
+		}
 
-        IndianSettlement is = tile.getIndianSettlement();
-        if (is == null) {
-            return DOMMessage.clientError("There is no native settlement at: "
-                + tile.getId());
-        }
+		// Valid request, do the scouting.
+		return server.getInGameController().scoutSpeakToChief(serverPlayer, unit, is);
+	}
 
-        MoveType type = unit.getMoveType(is.getTile());
-        if (type != MoveType.ENTER_INDIAN_SETTLEMENT_WITH_SCOUT) {
-            return DOMMessage.clientError("Unable to enter "
-                + is.getName() + ": " + type.whyIllegal());
-        }
+	/**
+	 * Convert this ScoutSpeakToChiefMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		return createMessage(getXMLElementTagName(), "unitId", unitId, "direction", directionString);
+	}
 
-        // Valid request, do the scouting.
-        return server.getInGameController()
-            .scoutSpeakToChief(serverPlayer, unit, is);
-    }
-
-    /**
-     * Convert this ScoutSpeakToChiefMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        return createMessage(getXMLElementTagName(),
-            "unitId", unitId,
-            "direction", directionString);
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "scoutSpeakToChief".
-     */
-    public static String getXMLElementTagName() {
-        return "scoutSpeakToChief";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "scoutSpeakToChief".
+	 */
+	public static String getXMLElementTagName() {
+		return "scoutSpeakToChief";
+	}
 }

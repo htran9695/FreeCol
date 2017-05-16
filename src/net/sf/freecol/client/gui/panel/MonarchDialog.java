@@ -39,74 +39,72 @@ import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Monarch.MonarchAction;
 import net.sf.freecol.common.model.StringTemplate;
 
-
 /**
  * This panel is used to show monarch actions.
  *
- * Generally monarch actions require a choice to accept or reject, but
- * some do not.  Therefore the value of the dialog is boolean, but
- * there may not be a meaningful accept option in some cases.  This
- * prevents just extending FreeColConfirmDialog. 
+ * Generally monarch actions require a choice to accept or reject, but some do
+ * not. Therefore the value of the dialog is boolean, but there may not be a
+ * meaningful accept option in some cases. This prevents just extending
+ * FreeColConfirmDialog.
  */
 public final class MonarchDialog extends FreeColDialog<Boolean> {
 
-    /**
-     * Creates a dialog to handle monarch interactions.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param frame The owner frame.
-     * @param action The <code>MonarchAction</code> the monarch is performing.
-     * @param template The <code>StringTemplate</code> describing the action.
-     * @param monarchKey The resource key for the monarch image.
-     */
-    public MonarchDialog(FreeColClient freeColClient, JFrame frame,
-            MonarchAction action, StringTemplate template, String monarchKey) {
-        super(freeColClient, frame);
+	/**
+	 * Creates a dialog to handle monarch interactions.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param frame
+	 *            The owner frame.
+	 * @param action
+	 *            The <code>MonarchAction</code> the monarch is performing.
+	 * @param template
+	 *            The <code>StringTemplate</code> describing the action.
+	 * @param monarchKey
+	 *            The resource key for the monarch image.
+	 */
+	public MonarchDialog(FreeColClient freeColClient, JFrame frame, MonarchAction action, StringTemplate template,
+			String monarchKey) {
+		super(freeColClient, frame);
 
-        final ImageLibrary lib = freeColClient.getGUI().getImageLibrary();
-        final String messageId = action.getTextKey();
-        if (!Messages.containsKey(messageId)) {
-            throw new IllegalStateException("Unrecognized monarch action: "
-                + action);
-        }
-        String yesId = action.getYesKey();
-        if (!Messages.containsKey(yesId)) yesId = null;        
-        String noId = action.getNoKey();
-        if (!Messages.containsKey(noId)) noId = "close";
+		final ImageLibrary lib = freeColClient.getGUI().getImageLibrary();
+		final String messageId = action.getTextKey();
+		if (!Messages.containsKey(messageId)) {
+			throw new IllegalStateException("Unrecognized monarch action: " + action);
+		}
+		String yesId = action.getYesKey();
+		if (!Messages.containsKey(yesId))
+			yesId = null;
+		String noId = action.getNoKey();
+		if (!Messages.containsKey(noId))
+			noId = "close";
 
-        String hdrKey = action.getHeaderKey();
-        if (!Messages.containsKey(hdrKey)) {
-            hdrKey = "monarchDialog.default";
-        }
-        JLabel header = Utility.localizedHeaderLabel(hdrKey,
-            SwingConstants.LEADING, FontLibrary.FontSize.MEDIUM);
+		String hdrKey = action.getHeaderKey();
+		if (!Messages.containsKey(hdrKey)) {
+			hdrKey = "monarchDialog.default";
+		}
+		JLabel header = Utility.localizedHeaderLabel(hdrKey, SwingConstants.LEADING, FontLibrary.FontSize.MEDIUM);
 
-        MigPanel panel = new MigPanel(new MigLayout("wrap 2, insets 10",
-                                                    "[]20[]"));
-        panel.add(header, "span, align center, wrap 20");
-        if (action == MonarchAction.RAISE_TAX_ACT
-            || action == MonarchAction.RAISE_TAX_WAR) {
-            JButton helpButton = Utility.localizedButton("help");
-            helpButton.addActionListener((ActionEvent ae) -> {
-                    getGUI().showColopediaPanel("colopedia.concepts.taxes");
-                });
-            panel.add(helpButton, "tag help");
-        }
-        JTextArea text = (template == null)
-            ? Utility.localizedTextArea(messageId, 30)
-            : Utility.localizedTextArea(StringTemplate.copy(messageId, template), 30);
-        panel.add(text);
-        panel.setSize(panel.getPreferredSize());
+		MigPanel panel = new MigPanel(new MigLayout("wrap 2, insets 10", "[]20[]"));
+		panel.add(header, "span, align center, wrap 20");
+		if (action == MonarchAction.RAISE_TAX_ACT || action == MonarchAction.RAISE_TAX_WAR) {
+			JButton helpButton = Utility.localizedButton("help");
+			helpButton.addActionListener((ActionEvent ae) -> {
+				getGUI().showColopediaPanel("colopedia.concepts.taxes");
+			});
+			panel.add(helpButton, "tag help");
+		}
+		JTextArea text = (template == null) ? Utility.localizedTextArea(messageId, 30)
+				: Utility.localizedTextArea(StringTemplate.copy(messageId, template), 30);
+		panel.add(text);
+		panel.setSize(panel.getPreferredSize());
 
-        List<ChoiceItem<Boolean>> c = choices();
-        if (yesId != null) {
-            c.add(new ChoiceItem<>(Messages.message(yesId), Boolean.TRUE)
-                .okOption());
-        }
-        c.add(new ChoiceItem<>(Messages.message(noId), Boolean.FALSE)
-            .cancelOption().defaultOption());
+		List<ChoiceItem<Boolean>> c = choices();
+		if (yesId != null) {
+			c.add(new ChoiceItem<>(Messages.message(yesId), Boolean.TRUE).okOption());
+		}
+		c.add(new ChoiceItem<>(Messages.message(noId), Boolean.FALSE).cancelOption().defaultOption());
 
-        initializeDialog(frame, DialogType.QUESTION, false, panel,
-                         new ImageIcon(lib.getMiscImage(monarchKey)), c);
-    }
+		initializeDialog(frame, DialogType.QUESTION, false, panel, new ImageIcon(lib.getMiscImage(monarchKey)), c);
+	}
 }

@@ -19,15 +19,27 @@
 
 package net.sf.freecol.client.gui.panel;
 
+/**
+ * The Class Parameters.
+ */
 public class Parameters {
 
-    public final int distToLandFromHighSeas;
+	/** The dist to land from high seas. */
+	public final int distToLandFromHighSeas;
 
-    public final int maxDistanceToEdge;
+	/** The max distance to edge. */
+	public final int maxDistanceToEdge;
 
-
-    Parameters(int distToLandFromHighSeas, int maxDistanceToEdge) {
-        this.distToLandFromHighSeas = distToLandFromHighSeas;
-        this.maxDistanceToEdge = maxDistanceToEdge;
-    }
+	/**
+	 * Instantiates a new parameters.
+	 *
+	 * @param distToLandFromHighSeas
+	 *            the dist to land from high seas
+	 * @param maxDistanceToEdge
+	 *            the max distance to edge
+	 */
+	Parameters(int distToLandFromHighSeas, int maxDistanceToEdge) {
+		this.distToLandFromHighSeas = distToLandFromHighSeas;
+		this.maxDistanceToEdge = maxDistanceToEdge;
+	}
 }

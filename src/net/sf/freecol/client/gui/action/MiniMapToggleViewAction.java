@@ -24,52 +24,53 @@ import net.sf.freecol.client.ClientOptions;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * Change view in on the minimap.
  */
 public class MiniMapToggleViewAction extends MapboardAction {
-    
-    /** The Constant id. */
-    public static final String id = "miniMapToggleBordersAction";
-    
-    
-    /**
-     * Creates a new <code>MiniMapToggleViewAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public MiniMapToggleViewAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
 
-        addImageIcons("toggle_view_politics");
-    }
+	/** The Constant id. */
+	public static final String id = "miniMapToggleBordersAction";
 
-    /**
-     * Creates a new <code>MiniMapToggleViewAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param b a <code>boolean</code> value
-     */
-    public MiniMapToggleViewAction(FreeColClient freeColClient, boolean b) {
-        super(freeColClient, id + ".secondary");
- 
-        addImageIcons("toggle_view_politics");
-    }
+	/**
+	 * Creates a new <code>MiniMapToggleViewAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public MiniMapToggleViewAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
 
-    // Interface ActionListener
+		addImageIcons("toggle_view_politics");
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        getGUI().miniMapToggleViewControls();
+	/**
+	 * Creates a new <code>MiniMapToggleViewAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param b
+	 *            a <code>boolean</code> value
+	 */
+	public MiniMapToggleViewAction(FreeColClient freeColClient, boolean b) {
+		super(freeColClient, id + ".secondary");
 
-        if (freeColClient.getClientOptions().getBoolean(ClientOptions.MINIMAP_TOGGLE_BORDERS)) {
-            addImageIcons("toggle_view_politics");
-        } else {
-            addImageIcons("toggle_view_economic");
-        }
-    }
+		addImageIcons("toggle_view_politics");
+	}
+
+	// Interface ActionListener
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		getGUI().miniMapToggleViewControls();
+
+		if (freeColClient.getClientOptions().getBoolean(ClientOptions.MINIMAP_TOGGLE_BORDERS)) {
+			addImageIcons("toggle_view_politics");
+		} else {
+			addImageIcons("toggle_view_economic");
+		}
+	}
 }

@@ -24,53 +24,53 @@ import net.sf.freecol.client.ClientOptions;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for enable/disable fog of war in on the minimap.
  */
 public class MiniMapToggleFogOfWarAction extends MapboardAction {
 
-    /** The Constant id. */
-    public static final String id = "miniMapToggleFogOfWarAction";
+	/** The Constant id. */
+	public static final String id = "miniMapToggleFogOfWarAction";
 
+	/**
+	 * Creates a new <code>MiniMapToggleFogAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public MiniMapToggleFogOfWarAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
 
-    /**
-     * Creates a new <code>MiniMapToggleFogAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public MiniMapToggleFogOfWarAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-        
-        addImageIcons("toggle_fog_of_war");
-    }
+		addImageIcons("toggle_fog_of_war");
+	}
 
-    /**
-     * Creates a new <code>MiniMapToggleFogAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param b a <code>boolean</code> value
-     */
-    public MiniMapToggleFogOfWarAction(FreeColClient freeColClient, boolean b) {
-        super(freeColClient, id + ".secondary");
+	/**
+	 * Creates a new <code>MiniMapToggleFogAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param b
+	 *            a <code>boolean</code> value
+	 */
+	public MiniMapToggleFogOfWarAction(FreeColClient freeColClient, boolean b) {
+		super(freeColClient, id + ".secondary");
 
-        addImageIcons("toggle_fog_of_war");
-    }
-    
-    // Interface ActionListener
+		addImageIcons("toggle_fog_of_war");
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        getGUI().miniMapToggleFogOfWarControls();
+	// Interface ActionListener
 
-        if (freeColClient.getClientOptions().getBoolean(ClientOptions.MINIMAP_TOGGLE_FOG_OF_WAR)) {
-            addImageIcons("toggle_fog_of_war");
-        } else {
-            addImageIcons("toggle_fog_of_war_no");
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		getGUI().miniMapToggleFogOfWarControls();
+
+		if (freeColClient.getClientOptions().getBoolean(ClientOptions.MINIMAP_TOGGLE_FOG_OF_WAR)) {
+			addImageIcons("toggle_fog_of_war");
+		} else {
+			addImageIcons("toggle_fog_of_war_no");
+		}
+	}
 }
-

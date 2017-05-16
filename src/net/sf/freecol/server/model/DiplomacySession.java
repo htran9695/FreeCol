@@ -27,67 +27,115 @@ import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.server.control.ChangeSet;
 import net.sf.freecol.server.control.ChangeSet.See;
 
-
 /**
  * A type of session to handle diplomacy.
  */
 public class DiplomacySession extends TransactionSession {
 
-    private static final Logger logger = Logger.getLogger(DiplomacySession.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(DiplomacySession.class.getName());
 
-    /** The agreement under consideration. */
-    private DiplomaticTrade agreement;
+	/** The agreement under consideration. */
+	private DiplomaticTrade agreement;
 
-    /** The initiating unit. */
-    private final Unit unit;
+	/** The initiating unit. */
+	private final Unit unit;
 
-    /** The other player's settlement. */
-    private final Settlement settlement;
+	/** The other player's settlement. */
+	private final Settlement settlement;
 
-    /** The other player's unit (only non-null in first contact cases). */
-    private final Unit otherUnit;
+	/** The other player's unit (only non-null in first contact cases). */
+	private final Unit otherUnit;
 
+	/**
+	 * Instantiates a new diplomacy session.
+	 *
+	 * @param unit
+	 *            the unit
+	 * @param settlement
+	 *            the settlement
+	 */
+	public DiplomacySession(Unit unit, Settlement settlement) {
+		super(makeSessionKey(DiplomacySession.class, unit, settlement));
+		this.agreement = null;
+		this.unit = unit;
+		this.settlement = settlement;
+		this.otherUnit = null;
+	}
 
-    public DiplomacySession(Unit unit, Settlement settlement) {
-        super(makeSessionKey(DiplomacySession.class, unit, settlement));
-        this.agreement = null;
-        this.unit = unit;
-        this.settlement = settlement;
-        this.otherUnit = null;
-    }
+	/**
+	 * Instantiates a new diplomacy session.
+	 *
+	 * @param unit
+	 *            the unit
+	 * @param otherUnit
+	 *            the other unit
+	 */
+	public DiplomacySession(Unit unit, Unit otherUnit) {
+		super(makeSessionKey(DiplomacySession.class, unit, otherUnit));
+		this.agreement = null;
+		this.unit = unit;
+		this.settlement = null;
+		this.otherUnit = otherUnit;
+	}
 
-    public DiplomacySession(Unit unit, Unit otherUnit) {
-        super(makeSessionKey(DiplomacySession.class, unit, otherUnit));
-        this.agreement = null;
-        this.unit = unit;
-        this.settlement = null;
-        this.otherUnit = otherUnit;
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * net.sf.freecol.server.model.TransactionSession#complete(net.sf.freecol.
+	 * server.control.ChangeSet)
+	 */
+	@Override
+	public void complete(ChangeSet cs) {
+		unit.setMovesLeft(0);
+		cs.add(See.only((ServerPlayer) unit.getOwner()), unit);
+		super.complete(cs);
+	}
 
-    @Override
-    public void complete(ChangeSet cs) {
-        unit.setMovesLeft(0);
-        cs.add(See.only((ServerPlayer)unit.getOwner()), unit);
-        super.complete(cs);
-    }
+	/**
+	 * Gets the agreement.
+	 *
+	 * @return the agreement
+	 */
+	public DiplomaticTrade getAgreement() {
+		return agreement;
+	}
 
-    public DiplomaticTrade getAgreement() {
-        return agreement;
-    }
+	/**
+	 * Sets the agreement.
+	 *
+	 * @param agreement
+	 *            the new agreement
+	 */
+	public void setAgreement(DiplomaticTrade agreement) {
+		this.agreement = agreement;
+	}
 
-    public void setAgreement(DiplomaticTrade agreement) {
-        this.agreement = agreement;
-    }
-    
-    public Unit getUnit() {
-        return unit;
-    }
+	/**
+	 * Gets the unit.
+	 *
+	 * @return the unit
+	 */
+	public Unit getUnit() {
+		return unit;
+	}
 
-    public Settlement getSettlement() {
-        return settlement;
-    }
+	/**
+	 * Gets the settlement.
+	 *
+	 * @return the settlement
+	 */
+	public Settlement getSettlement() {
+		return settlement;
+	}
 
-    public Unit getOtherUnit() {
-        return otherUnit;
-    }
+	/**
+	 * Gets the other unit.
+	 *
+	 * @return the other unit
+	 */
+	public Unit getOtherUnit() {
+		return otherUnit;
+	}
 }

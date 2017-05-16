@@ -24,109 +24,110 @@ import javax.xml.stream.XMLStreamException;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 
-
 /**
  * The types of resources (e.g. fish bonus) found on a tile.
  */
 public final class ResourceType extends FreeColGameObjectType {
 
-    /** Maximum and minimum values for this resource type. */
-    private int maxValue, minValue;
+	/** Maximum and minimum values for this resource type. */
+	private int maxValue, minValue;
 
+	/**
+	 * Creates a new resource type.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public ResourceType(String id, Specification specification) {
+		super(id, specification);
+	}
 
-    /**
-     * Creates a new resource type.
-     *
-     * @param id The object identifier.
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public ResourceType(String id, Specification specification) {
-        super(id, specification);
-    }
+	/**
+	 * Gets the maximum value for this resource.
+	 *
+	 * @return The maximum value.
+	 */
+	public int getMaxValue() {
+		return maxValue;
+	}
 
+	/**
+	 * Gets the minimum value for this resource.
+	 *
+	 * @return The minimum value.
+	 */
+	public int getMinValue() {
+		return minValue;
+	}
 
-    /**
-     * Gets the maximum value for this resource.
-     *
-     * @return The maximum value.
-     */
-    public int getMaxValue() {
-        return maxValue;
-    }
+	/**
+	 * Get the best goods type to make with this resource type.
+	 *
+	 * @return The best <code>GoodsType</code>.
+	 */
+	public GoodsType getBestGoodsType() {
+		final Specification spec = getSpecification();
+		GoodsType bestType = null;
+		float bestValue = 0f;
+		for (Modifier modifier : getModifiers()) {
+			GoodsType goodsType = spec.getGoodsType(modifier.getId());
+			float value = spec.getInitialPrice(goodsType) * modifier.applyTo(100);
+			if (bestType == null || value > bestValue) {
+				bestType = goodsType;
+				bestValue = value;
+			}
+		}
+		return bestType;
+	}
 
-    /**
-     * Gets the minimum value for this resource.
-     *
-     * @return The minimum value.
-     */
-    public int getMinValue() {
-        return minValue;
-    }
+	// Serialization
 
+	/** The Constant MAXIMUM_VALUE_TAG. */
+	private static final String MAXIMUM_VALUE_TAG = "maximum-value";
 
-    /**
-     * Get the best goods type to make with this resource type.
-     *
-     * @return The best <code>GoodsType</code>.
-     */
-    public GoodsType getBestGoodsType() {
-        final Specification spec = getSpecification();
-        GoodsType bestType = null;
-        float bestValue = 0f;
-        for (Modifier modifier : getModifiers()) {
-            GoodsType goodsType = spec.getGoodsType(modifier.getId());
-            float value = spec.getInitialPrice(goodsType) * modifier.applyTo(100);
-            if (bestType == null || value > bestValue) {
-                bestType = goodsType;
-                bestValue = value;
-            }
-        }
-        return bestType;
-    }
+	/** The Constant MINIMUM_VALUE_TAG. */
+	private static final String MINIMUM_VALUE_TAG = "minimum-value";
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-    // Serialization
+		if (maxValue > -1) {
+			xw.writeAttribute(MAXIMUM_VALUE_TAG, maxValue);
+			xw.writeAttribute(MINIMUM_VALUE_TAG, minValue);
+		}
+	}
 
-    private static final String MAXIMUM_VALUE_TAG = "maximum-value";
-    private static final String MINIMUM_VALUE_TAG = "minimum-value";
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		super.readAttributes(xr);
 
+		maxValue = xr.getAttribute(MAXIMUM_VALUE_TAG, -1);
+		minValue = xr.getAttribute(MINIMUM_VALUE_TAG, -1);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-        if (maxValue > -1) {
-            xw.writeAttribute(MAXIMUM_VALUE_TAG, maxValue);
-            xw.writeAttribute(MINIMUM_VALUE_TAG, minValue);
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        super.readAttributes(xr);
-
-        maxValue = xr.getAttribute(MAXIMUM_VALUE_TAG, -1);
-        minValue = xr.getAttribute(MINIMUM_VALUE_TAG, -1);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "resource-type".
-     */
-    public static String getXMLElementTagName() {
-        return "resource-type";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "resource-type".
+	 */
+	public static String getXMLElementTagName() {
+		return "resource-type";
+	}
 }

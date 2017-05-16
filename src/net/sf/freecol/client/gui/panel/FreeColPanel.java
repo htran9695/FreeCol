@@ -46,236 +46,247 @@ import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Specification;
 
-
 /**
  * Superclass for all panels in FreeCol.
  */
 public abstract class FreeColPanel extends MigPanel implements ActionListener {
 
-    private static final Logger logger = Logger.getLogger(FreeColPanel.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(FreeColPanel.class.getName());
 
-    protected static final String CANCEL = "CANCEL";
-    protected static final String OK = "OK";
-    protected static final String HELP = "HELP";
+	/** The Constant CANCEL. */
+	protected static final String CANCEL = "CANCEL";
 
-    // The margin to use.
-    protected static final int MARGIN = 3;
+	/** The Constant OK. */
+	protected static final String OK = "OK";
 
-    private final FreeColClient freeColClient;
+	/** The Constant HELP. */
+	protected static final String HELP = "HELP";
 
-    protected boolean editable = true;
+	/** The Constant MARGIN. */
+	// The margin to use.
+	protected static final int MARGIN = 3;
 
-    protected JButton okButton = Utility.localizedButton("ok");
+	/** The free col client. */
+	private final FreeColClient freeColClient;
 
+	/** The editable. */
+	protected boolean editable = true;
 
-    /**
-     * Constructor.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public FreeColPanel(FreeColClient freeColClient) {
-        this(freeColClient, new FlowLayout());
-    }
+	/** The ok button. */
+	protected JButton okButton = Utility.localizedButton("ok");
 
-    /**
-     * Default constructor.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param layout The <code>LayoutManager</code> to be used.
-     */
-    public FreeColPanel(FreeColClient freeColClient, LayoutManager layout) {
-        super(layout);
+	/**
+	 * Constructor.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public FreeColPanel(FreeColClient freeColClient) {
+		this(freeColClient, new FlowLayout());
+	}
 
-        this.freeColClient = freeColClient;
+	/**
+	 * Default constructor.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param layout
+	 *            The <code>LayoutManager</code> to be used.
+	 */
+	public FreeColPanel(FreeColClient freeColClient, LayoutManager layout) {
+		super(layout);
 
-        setBorder(FreeColImageBorder.imageBorder);
+		this.freeColClient = freeColClient;
 
-        okButton.setActionCommand(OK);
-        okButton.addActionListener(this);
-        setCancelComponent(okButton);
-    }
+		setBorder(FreeColImageBorder.imageBorder);
 
+		okButton.setActionCommand(OK);
+		okButton.addActionListener(this);
+		setCancelComponent(okButton);
+	}
 
-    /**
-     * Get the FreeColClient.
-     *
-     * @return The current <code>FreeColClient</code>.
-     */
-    protected FreeColClient getFreeColClient() {
-        return freeColClient;
-    }
+	/**
+	 * Get the FreeColClient.
+	 *
+	 * @return The current <code>FreeColClient</code>.
+	 */
+	protected FreeColClient getFreeColClient() {
+		return freeColClient;
+	}
 
-    /**
-     * Is this panel editable?
-     *
-     * @return True if the panel is editable.
-     */
-    protected boolean isEditable() {
-        return editable;
-    }
+	/**
+	 * Is this panel editable?.
+	 *
+	 * @return True if the panel is editable.
+	 */
+	protected boolean isEditable() {
+		return editable;
+	}
 
-    /**
-     * Get the game.
-     *
-     * @return The current <code>Game</code>.
-     */
-    protected Game getGame() {
-        return freeColClient.getGame();
-    }
+	/**
+	 * Get the game.
+	 *
+	 * @return The current <code>Game</code>.
+	 */
+	protected Game getGame() {
+		return freeColClient.getGame();
+	}
 
-    /**
-     * Get the GUI.
-     *
-     * @return The current <code>GUI</code>.
-     */
-    protected SwingGUI getGUI() {
-        return (SwingGUI)freeColClient.getGUI();
-    }
+	/**
+	 * Get the GUI.
+	 *
+	 * @return The current <code>GUI</code>.
+	 */
+	protected SwingGUI getGUI() {
+		return (SwingGUI) freeColClient.getGUI();
+	}
 
-    /**
-     * Get the image library.
-     *
-     * @return The <code>ImageLibrary</code>.
-     */
-    protected ImageLibrary getImageLibrary() {
-        return getGUI().getImageLibrary();
-    }
+	/**
+	 * Get the image library.
+	 *
+	 * @return The <code>ImageLibrary</code>.
+	 */
+	protected ImageLibrary getImageLibrary() {
+		return getGUI().getImageLibrary();
+	}
 
-    /**
-     * Get the game specification.
-     *
-     * @return The <code>Specification</code>.
-     */
-    protected Specification getSpecification() {
-        return freeColClient.getGame().getSpecification();
-    }
+	/**
+	 * Get the game specification.
+	 *
+	 * @return The <code>Specification</code>.
+	 */
+	protected Specification getSpecification() {
+		return freeColClient.getGame().getSpecification();
+	}
 
-    /**
-     * Get the player.
-     *
-     * @return The client <code>Player</code>.
-     */
-    protected Player getMyPlayer() {
-        return freeColClient.getMyPlayer();
-    }
+	/**
+	 * Get the player.
+	 *
+	 * @return The client <code>Player</code>.
+	 */
+	protected Player getMyPlayer() {
+		return freeColClient.getMyPlayer();
+	}
 
-    /**
-     * Get the client options.
-     *
-     * @return The <code>ClientOptions</code>.
-     */
-    protected ClientOptions getClientOptions() {
-        return (freeColClient == null) ? null
-            : freeColClient.getClientOptions();
-    }
+	/**
+	 * Get the client options.
+	 *
+	 * @return The <code>ClientOptions</code>.
+	 */
+	protected ClientOptions getClientOptions() {
+		return (freeColClient == null) ? null : freeColClient.getClientOptions();
+	}
 
-    /**
-     * Get the client controller.
-     *
-     * @return The client <code>InGameController</code>.
-     */
-    protected InGameController igc() {
-        return freeColClient.getInGameController();
-    }
+	/**
+	 * Get the client controller.
+	 *
+	 * @return The client <code>InGameController</code>.
+	 */
+	protected InGameController igc() {
+		return freeColClient.getInGameController();
+	}
 
-    /**
-     * Create a button for a colony.
-     *
-     * @param colony The <code>Colony</code> to create a button for.
-     * @return The new button.
-     */
-    public JButton createColonyButton(Colony colony) {
-        JButton button = Utility.getLinkButton(colony.getName(), null,
-                                               colony.getId());
-        button.addActionListener(this);
-        return button;
-    }
+	/**
+	 * Create a button for a colony.
+	 *
+	 * @param colony
+	 *            The <code>Colony</code> to create a button for.
+	 * @return The new button.
+	 */
+	public JButton createColonyButton(Colony colony) {
+		JButton button = Utility.getLinkButton(colony.getName(), null, colony.getId());
+		button.addActionListener(this);
+		return button;
+	}
 
-    /**
-     * Make the given button the CANCEL button.
-     *
-     * @param cancelButton an <code>AbstractButton</code> value
-     */
-    public final void setCancelComponent(AbstractButton cancelButton) {
-        if (cancelButton == null) throw new NullPointerException();
+	/**
+	 * Make the given button the CANCEL button.
+	 *
+	 * @param cancelButton
+	 *            an <code>AbstractButton</code> value
+	 */
+	public final void setCancelComponent(AbstractButton cancelButton) {
+		if (cancelButton == null)
+			throw new NullPointerException();
 
-        InputMap inputMap
-            = getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
-        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0, true),
-                     "release");
+		InputMap inputMap = getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+		inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0, true), "release");
 
-        Action cancelAction = cancelButton.getAction();
-        getActionMap().put("release", cancelAction);
-    }
+		Action cancelAction = cancelButton.getAction();
+		getActionMap().put("release", cancelAction);
+	}
 
-    /**
-     * Add a routine to be called when this panel closes.
-     * Triggered by Canvas.notifyClose.
-     *
-     * @param runnable Some code to run on close.
-     */
-    public void addClosingCallback(final Runnable runnable) {
-        addPropertyChangeListener(new PropertyChangeListener() {
-                @Override
-                public void propertyChange(PropertyChangeEvent e) {
-                    if ("closing".equals(e.getPropertyName())) {
-                        runnable.run();
-                        // Lambda unsuitable due to use of "this"
-                        FreeColPanel.this.removePropertyChangeListener(this);
-                    }
-                }
-            });
-    }
+	/**
+	 * Add a routine to be called when this panel closes. Triggered by
+	 * Canvas.notifyClose.
+	 *
+	 * @param runnable
+	 *            Some code to run on close.
+	 */
+	public void addClosingCallback(final Runnable runnable) {
+		addPropertyChangeListener(new PropertyChangeListener() {
+			@Override
+			public void propertyChange(PropertyChangeEvent e) {
+				if ("closing".equals(e.getPropertyName())) {
+					runnable.run();
+					// Lambda unsuitable due to use of "this"
+					FreeColPanel.this.removePropertyChangeListener(this);
+				}
+			}
+		});
+	}
 
-    // Interface ActionListener
+	// Interface ActionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        final String command = ae.getActionCommand();
-        if (OK.equals(command)) {
-            getGUI().removeFromCanvas(this);
-        } else {
-            logger.warning("Bad event: " + command);
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		final String command = ae.getActionCommand();
+		if (OK.equals(command)) {
+			getGUI().removeFromCanvas(this);
+		} else {
+			logger.warning("Bad event: " + command);
+		}
+	}
 
+	// Override Component
 
-    // Override Component
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void removeNotify() {
+		super.removeNotify();
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void removeNotify() {
-        super.removeNotify();
+		// removeNotify gets called when a JPanel has no parent any
+		// more, that is the best opportunity available for JPanels
+		// to be given a chance to remove leak generating references.
 
-        // removeNotify gets called when a JPanel has no parent any
-        // more, that is the best opportunity available for JPanels
-        // to be given a chance to remove leak generating references.
+		if (okButton == null)
+			return; // Been here before
 
-        if (okButton == null) return; // Been here before
+		// We need to make sure the layout is cleared because some
+		// versions of MigLayout are leaky.
+		setLayout(null);
 
-        // We need to make sure the layout is cleared because some
-        // versions of MigLayout are leaky.
-        setLayout(null);
+		okButton.removeActionListener(this);
+		okButton = null;
 
-        okButton.removeActionListener(this);
-        okButton = null;
+		for (MouseListener listener : getMouseListeners()) {
+			removeMouseListener(listener);
+		}
+	}
 
-        for (MouseListener listener : getMouseListeners()) {
-            removeMouseListener(listener);
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void requestFocus() {
-        // The OK button requests focus if it exists.
-        if (okButton != null) okButton.requestFocus();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void requestFocus() {
+		// The OK button requests focus if it exists.
+		if (okButton != null)
+			okButton.requestFocus();
+	}
 }

@@ -80,643 +80,642 @@ import net.sf.freecol.common.networking.WorkMessage;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-
 /**
  * Wrapper class for AI message handling.
  */
-<span class="nc" id="L87">public class AIMessage {</span>
-
-<span class="fc" id="L89">    private static final Logger logger = Logger.getLogger(AIMessage.class.getName());</span>
-
-
-    /**
-     * Ask the server a question.
-     *
-     * @param conn The &lt;code&gt;Connection&lt;/code&gt; to use when
-     *     communicating with the server.
-     * @param request The &lt;code&gt;Element&lt;/code&gt; to send.
-     * @return The reply &lt;code&gt;Element&lt;/code&gt;.
-     */
-    private static Element ask(Connection conn, Element request) {
-        Element reply;
-        try {
-<span class="fc" id="L103">            reply = conn.ask(request);</span>
-<span class="nc" id="L104">        } catch (IOException e) {</span>
-<span class="nc" id="L105">            logger.log(Level.WARNING, &quot;Could not send \&quot;&quot;</span>
-<span class="nc" id="L106">                + request.getTagName() + &quot;\&quot;-message.&quot;, e);</span>
-<span class="nc" id="L107">            reply = null;</span>
-<span class="fc" id="L108">        }</span>
-<span class="fc" id="L109">        return reply;</span>
-    }
-
-    /**
-     * Handle error elements.
-     *
-     * @param element The &lt;code&gt;Element&lt;/code&gt; to check.
-     * @param tag The tag that was originally sent.
-     * @return True if there was an error.
-     */
-    private static boolean checkError(Element element, String tag) {
-<span class="pc bpc" id="L120" title="1 of 4 branches missed.">        if (element != null &amp;&amp; &quot;error&quot;.equals(element.getTagName())) {</span>
-<span class="fc" id="L121">            String messageId = element.getAttribute(&quot;messageID&quot;);</span>
-<span class="fc" id="L122">            String messageText = element.getAttribute(&quot;message&quot;);</span>
-<span class="fc" id="L123">            logger.warning(&quot;AIMessage.&quot; + tag + &quot; error,&quot;</span>
-                + &quot; messageId: &quot; + messageId
-                + &quot; message: &quot; + messageText);
-<span class="fc" id="L126">            return true;</span>
-        }
-<span class="fc" id="L128">        return false;</span>
-    }
-
-    /**
-     * Ask the server a question, handling the reply.
-     *
-     * @param conn The &lt;code&gt;Connection&lt;/code&gt; to use when
-     *     communicating with the server.
-     * @param request The &lt;code&gt;Element&lt;/code&gt; to send.
-     * @return True if the message was sent, handled, and no error returned.
-     */
-    private static boolean askHandling(Connection conn, Element request) {
-<span class="fc bfc" id="L140" title="All 2 branches covered.">        while (request != null) {</span>
-<span class="fc" id="L141">            Element reply = ask(conn, request);</span>
-<span class="pc bpc" id="L142" title="1 of 2 branches missed.">            if (reply == null) break;</span>
-<span class="fc bfc" id="L143" title="All 2 branches covered.">            if (checkError(reply, request.getTagName())) return false;</span>
-            try {
-<span class="fc" id="L145">                request = conn.handle(reply);</span>
-<span class="nc" id="L146">            } catch (FreeColException fce) {</span>
-<span class="nc" id="L147">                logger.log(Level.WARNING, &quot;AI handler failed: &quot; + reply, fce);</span>
-<span class="nc" id="L148">                return false;</span>
-<span class="fc" id="L149">            }</span>
-<span class="fc" id="L150">        }</span>
-<span class="fc" id="L151">        return true;</span>
-    }
-
-    /**
-     * Ask the server a question, returning non-error replies.
-     *
-     * @param conn The &lt;code&gt;Connection&lt;/code&gt; to use when
-     *     communicating with the server.
-     * @param request The &lt;code&gt;Element&lt;/code&gt; to send.
-     * @return The reply &lt;code&gt;Element&lt;/code&gt; if not an error, otherwise null.
-     */
-    private static Element askExpecting(Connection conn, Element request,
-                                        String expect) {
-<span class="fc" id="L164">        Element reply = ask(conn, request);</span>
-<span class="pc bpc" id="L165" title="2 of 4 branches missed.">        if (checkError(reply, request.getTagName())</span>
-<span class="nc" id="L166">            || reply == null) return null;</span>
-       
-<span class="fc" id="L168">        final String tag = reply.getTagName();</span>
-<span class="pc bpc" id="L169" title="1 of 2 branches missed.">        if (&quot;multiple&quot;.equals(tag)) {</span>
-<span class="nc" id="L170">            List&lt;Element&gt; replies = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L171">            NodeList nodes = reply.getChildNodes();</span>
-<span class="nc" id="L172">            Element result = null;</span>
-
-<span class="nc bnc" id="L174" title="All 2 branches missed.">            for (int i = 0; i &lt; nodes.getLength(); i++) {</span>
-<span class="nc bnc" id="L175" title="All 2 branches missed.">                if (nodes.item(i) instanceof Element</span>
-<span class="nc bnc" id="L176" title="All 2 branches missed.">                    &amp;&amp; ((Element)nodes.item(i)).getTagName().equals(expect)) {</span>
-<span class="nc" id="L177">                    result = (Element)nodes.item(i);</span>
-<span class="nc" id="L178">                    continue;</span>
-                }
-                try {
-<span class="nc" id="L181">                    Element e = conn.handle((Element)nodes.item(i));</span>
-<span class="nc bnc" id="L182" title="All 2 branches missed.">                    if (e != null) replies.add(e);</span>
-<span class="nc" id="L183">                } catch (FreeColException fce) {</span>
-<span class="nc" id="L184">                    logger.log(Level.WARNING, &quot;AI handler failed: &quot; + reply, fce);</span>
-<span class="nc" id="L185">                }</span>
-            }
-<span class="nc bnc" id="L187" title="All 4 branches missed.">            if (!askHandling(conn, DOMMessage.collapseElements(replies))</span>
-<span class="nc" id="L188">                || result == null) return null;</span>
-<span class="nc" id="L189">            reply = result;</span>
-        }
-
-<span class="pc bpc" id="L192" title="1 of 2 branches missed.">        if (expect.equals(reply.getTagName())) return reply;</span>
-<span class="nc" id="L193">        logger.log(Level.WARNING, &quot;AI handler expected &quot; + expect</span>
-            + &quot;, recieved &quot; + tag);
-<span class="nc" id="L195">        return null;</span>
-    }
-        
-    /**
-     * Sends a DOMMessage to the server.
-     *
-     * @param connection The &lt;code&gt;Connection&lt;/code&gt; to use
-     *     when communicating with the server.
-     * @param request The &lt;code&gt;Element&lt;/code&gt; to send.
-     * @return True if the message was sent and a non-error reply returned.
-     */
-    private static boolean sendMessage(Connection connection,
-                                       Element request) {
-<span class="fc" id="L208">        return askHandling(connection, request);</span>
-    }
-
-    /**
-     * Send a message to the server.
-     *
-     * @param connection The &lt;code&gt;Connection&lt;/code&gt; to use
-     *     when communicating with the server.
-     * @param message The &lt;code&gt;Message&lt;/code&gt; to send.
-     * @return True if the message was sent, and a non-null, non-error
-     *     reply returned.
-     */
-    private static boolean sendMessage(Connection connection,
-                                       DOMMessage message) {
-<span class="pc bpc" id="L222" title="2 of 4 branches missed.">        return (connection != null &amp;&amp; message != null)</span>
-<span class="pc" id="L223">            ? sendMessage(connection, message.toXMLElement())</span>
-            : false;
-    }
-
-    /**
-     * Send a trivial message.
-     *
-     * @param connection The &lt;code&gt;Connection&lt;/code&gt; to send on.
-     * @param tag The tag of the message.
-     * @param attributes Attributes to add to the message.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean sendTrivial(Connection connection, String tag,
-                                      String... attributes) {
-<span class="nc" id="L237">        return sendMessage(connection, makeTrivial(tag, attributes));</span>
-    }
-
-    /**
-     * Make a trivial message.
-     *
-     * @param tag The tag of the message.
-     * @param attributes Attributes to add to the message.
-     * @return The Element encapsulating the message.
-     */
-    public static Element makeTrivial(String tag, String... attributes) {
-<span class="nc bnc" id="L248" title="All 2 branches missed.">        if ((attributes.length &amp; 1) == 1) {</span>
-<span class="nc" id="L249">            throw new IllegalArgumentException(&quot;Attributes list must have even length&quot;);</span>
-        }
-<span class="nc" id="L251">        return DOMMessage.createMessage(tag, attributes);</span>
-    }
-
-
-    /**
-     * An AIUnit attacks in the given direction.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to attack with.
-     * @param direction The &lt;code&gt;Direction&lt;/code&gt; to attack in.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askAttack(AIUnit aiUnit, Direction direction) {
-<span class="nc" id="L263">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L264">                           new AttackMessage(aiUnit.getUnit(), direction));</span>
-    }
-
-
-    /**
-     * An AIUnit builds a colony.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to build the colony.
-     * @param name The name of the colony.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askBuildColony(AIUnit aiUnit, String name) {
-<span class="nc" id="L276">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L277">                           new BuildColonyMessage(name, aiUnit.getUnit()));</span>
-    }
-
-
-    /**
-     * An AIUnit cashes in.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; cashing in.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askCashInTreasureTrain(AIUnit aiUnit) {
-<span class="nc" id="L288">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L289">                           new CashInTreasureTrainMessage(aiUnit.getUnit()));</span>
-    }
-
-
-    /**
-     * An AIUnit changes state.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to change the state of.
-     * @param state The new &lt;code&gt;UnitState&lt;/code&gt;.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askChangeState(AIUnit aiUnit, UnitState state) {
-<span class="nc" id="L301">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L302">                           new ChangeStateMessage(aiUnit.getUnit(), state));</span>
-    }
-
-
-    /**
-     * An AIUnit changes its work type.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to change the work type of.
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to produce.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askChangeWorkType(AIUnit aiUnit, GoodsType type) {
-<span class="nc" id="L314">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L315">                           new ChangeWorkTypeMessage(aiUnit.getUnit(), type));</span>
-    }
-
-
-   /**
-     * An AIUnit changes its work improvement type.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to change the work type of.
-     * @param type The &lt;code&gt;TileImprovementType&lt;/code&gt; to produce.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askChangeWorkImprovementType(AIUnit aiUnit,
-                                                  TileImprovementType type) {
-<span class="nc" id="L328">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L329">            new ChangeWorkImprovementTypeMessage(aiUnit.getUnit(), type));</span>
-    }
-
-
-    /**
-     * Claims a tile for a colony.
-     *
-     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to claim.
-     * @param claimant The &lt;code&gt;AIUnit&lt;/code&gt; or &lt;code&gt;AIColony&lt;/code&gt;
-     *     that is claiming.
-     * @param price The price to pay.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askClaimLand(Tile tile, AIObject claimant,
-                                       int price) {
-        FreeColGameObject fcgo;
-        Player owner;
-<span class="nc bnc" id="L346" title="All 2 branches missed.">        if (claimant instanceof AIUnit) {</span>
-<span class="nc" id="L347">            fcgo = ((AIUnit)claimant).getUnit();</span>
-<span class="nc" id="L348">            owner = ((Unit)fcgo).getOwner();</span>
-<span class="nc bnc" id="L349" title="All 2 branches missed.">        } else if (claimant instanceof AIColony) {</span>
-<span class="nc" id="L350">            fcgo = ((AIColony)claimant).getColony();</span>
-<span class="nc" id="L351">            owner = ((Colony)fcgo).getOwner();</span>
-        } else {
-<span class="nc" id="L353">            throw new IllegalArgumentException(&quot;Claimant must be an AIUnit&quot;</span>
-<span class="nc" id="L354">                + &quot; or AIColony: &quot; + claimant.getId());</span>
-        }
-<span class="nc" id="L356">        return sendMessage(claimant.getAIMain().getAIPlayer(owner)</span>
-<span class="nc" id="L357">            .getConnection(), new ClaimLandMessage(tile, fcgo, price));</span>
-    }
-
-
-    /**
-     * Clears the speciality of a unit.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to clear.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askClearSpeciality(AIUnit aiUnit) {
-<span class="nc" id="L368">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L369">                           new ClearSpecialityMessage(aiUnit.getUnit()));</span>
-    }
-
-
-    /**
-     * An AIUnit closes a transaction.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; that closes the transaction.
-     * @param settlement The target &lt;code&gt;Settlement&lt;/code&gt;.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askCloseTransaction(AIUnit aiUnit,
-                                              Settlement settlement) {
-<span class="nc" id="L382">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L383">                           new CloseTransactionMessage(aiUnit.getUnit(),</span>
-                                                       settlement));
-    }
-
-
-    /**
-     * An AIUnit delivers a gift.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; delivering the gift.
-     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; to give to.
-     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to give.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askDeliverGift(AIUnit aiUnit, Settlement settlement,
-                                         Goods goods) {
-<span class="nc" id="L398">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L399">                           new DeliverGiftMessage(aiUnit.getUnit(),</span>
-                                                  settlement, goods));
-    }
-
-
-    /**
-     * An AIUnit disbands.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to disband.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askDisband(AIUnit aiUnit) {
-<span class="nc" id="L411">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L412">                           new DisbandUnitMessage(aiUnit.getUnit()));</span>
-    }
-
-
-    /**
-     * An AIUnit disembarks.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; disembarking.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askDisembark(AIUnit aiUnit) {
-<span class="nc" id="L423">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L424">                           new DisembarkMessage(aiUnit.getUnit()));</span>
-    }
-
-
-    /**
-     * An AIUnit embarks.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; carrier.
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is embarking.
-     * @param direction The &lt;code&gt;Direction&lt;/code&gt; to embark in (may be null).
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askEmbark(AIUnit aiUnit, Unit unit,
-                                    Direction direction) {
-<span class="nc" id="L438">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L439">                           new EmbarkMessage(unit, aiUnit.getUnit(),</span>
-                                             direction));
-    }
-
-
-    /**
-     * A unit in Europe emigrates.
-     *
-     * @param aiPlayer The &lt;code&gt;AIPlayer&lt;/code&gt; requiring emigration.
-     * @param slot The slot to emigrate from.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askEmigrate(AIPlayer aiPlayer, int slot) {
-<span class="fc" id="L452">        return sendMessage(aiPlayer.getConnection(),</span>
-                           new EmigrateUnitMessage(slot));
-    }
-
-
-    /**
-     * Ends the player turn.
-     *
-     * @param aiPlayer The &lt;code&gt;AIPlayer&lt;/code&gt; ending the turn.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askEndTurn(AIPlayer aiPlayer) {
-<span class="nc" id="L464">        return sendTrivial(aiPlayer.getConnection(), &quot;endTurn&quot;);</span>
-    }
-
-
-    /**
-     * Change the role of a unit.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to equip.
-     * @param role The &lt;code&gt;Role&lt;/code&gt; to equip for.
-     * @param roleCount The role count.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askEquipForRole(AIUnit aiUnit, Role role,
-                                          int roleCount) {
-<span class="fc" id="L478">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="fc" id="L479">            new EquipForRoleMessage(aiUnit.getUnit(), role, roleCount));</span>
-    }
-
-
-    /**
-     * Establishes a mission in the given direction.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; establishing the mission.
-     * @param direction The &lt;code&gt;Direction&lt;/code&gt; to move the unit.
-     * @param denounce Is this a denunciation?
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askEstablishMission(AIUnit aiUnit,
-                                              Direction direction,
-                                              boolean denounce) {
-<span class="nc" id="L494">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L495">                           new MissionaryMessage(aiUnit.getUnit(), direction,</span>
-                                                 denounce));
-    }
-
-
-    /**
-     * Gets a nation summary for a player.
-     *
-     * @param owner The &lt;code&gt;AIPlayer&lt;/code&gt; making the inquiry.
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to summarize.
-     * @return A &lt;code&gt;NationSummary&lt;/code&gt; if the message was sent,
-     *      and a non-error reply returned.
-     */
-    public static NationSummary askGetNationSummary(AIPlayer owner,
-                                                    Player player) {
-<span class="fc" id="L510">        Element reply = askExpecting(owner.getConnection(),</span>
-<span class="fc" id="L511">            new GetNationSummaryMessage(player).toXMLElement(),</span>
-<span class="fc" id="L512">            GetNationSummaryMessage.getXMLElementTagName());</span>
-<span class="fc" id="L513">        return new GetNationSummaryMessage(reply).getNationSummary();</span>
-    }
-
-
-    /**
-     * An AIUnit gets a transaction.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; that gets a transaction.
-     * @param settlement The target &lt;code&gt;Settlement&lt;/code&gt;.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askGetTransaction(AIUnit aiUnit,
-                                            Settlement settlement) {
-<span class="nc" id="L526">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L527">                           new GetTransactionMessage(aiUnit.getUnit(),</span>
-                                                     settlement));
-    }
-
-
-    /**
-     * Makes demands to a colony.  One and only one of goods or gold is valid.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; that is demanding.
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to demand of.
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to demand.
-     * @param amount The amount of goods to demand.
-     * @return True if the message was sent, a non-error reply returned, and
-     *     the demand was accepted.
-     */
-    public static boolean askIndianDemand(AIUnit aiUnit, Colony colony,
-                                          GoodsType type, int amount) {
-<span class="nc" id="L544">        Element reply = askExpecting(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L545">            new IndianDemandMessage(aiUnit.getUnit(), colony,</span>
-<span class="nc" id="L546">                                    type, amount).toXMLElement(),</span>
-<span class="nc" id="L547">            IndianDemandMessage.getXMLElementTagName());</span>
-<span class="nc" id="L548">        return new IndianDemandMessage(colony.getGame(), reply).getResult();</span>
-    }
-
-
-    /**
-     * An AI unit loads some cargo.
-     *
-     * @param loc The &lt;code&gt;Location&lt;/code&gt; where the goods are.
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to load.
-     * @param amount The amount of goods to load.
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; that is loading.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askLoadGoods(Location loc, GoodsType type,
-                                       int amount, AIUnit aiUnit) {
-<span class="nc" id="L563">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L564">            new LoadGoodsMessage(loc, type, amount, aiUnit.getUnit()));</span>
-    }
-
-
-    /**
-     * An AI unit loots some cargo.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; that is looting.
-     * @param defenderId The object identifier of the defending unit.
-     * @param goods A list of &lt;code&gt;Goods&lt;/code&gt; to loot.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askLoot(AIUnit aiUnit, String defenderId,
-                                  List&lt;Goods&gt; goods) {
-<span class="fc" id="L578">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="fc" id="L579">                           new LootCargoMessage(aiUnit.getUnit(), defenderId,</span>
-                                                goods));
-    }
-
-
-    /**
-     * Moves an AIUnit in the given direction.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to move.
-     * @param direction The &lt;code&gt;Direction&lt;/code&gt; to move the unit.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askMove(AIUnit aiUnit, Direction direction) {
-<span class="fc" id="L592">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="fc" id="L593">                           new MoveMessage(aiUnit.getUnit(), direction));</span>
-    }
-
-
-    /**
-     * Moves an AIUnit across the high seas.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to move.
-     * @param destination The &lt;code&gt;Location&lt;/code&gt; to move to.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askMoveTo(AIUnit aiUnit, Location destination) {
-<span class="nc" id="L605">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L606">                           new MoveToMessage(aiUnit.getUnit(), destination));</span>
-    }
-
-
-    /**
-     * An AIUnit is put outside a colony.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to put out.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askPutOutsideColony(AIUnit aiUnit) {
-<span class="nc" id="L617">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L618">                           new PutOutsideColonyMessage(aiUnit.getUnit()));</span>
-    }
-
-
-    /**
-     * Rearrange an AI colony.
-     *
-     * @param aiColony The &lt;code&gt;AIColony&lt;/code&gt; to rearrange.
-     * @param workers A list of worker &lt;code&gt;Unit&lt;/code&gt;s that may change.
-     * @param scratch A copy of the underlying &lt;code&gt;Colony&lt;/code&gt; with the
-     *     workers arranged as required.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askRearrangeColony(AIColony aiColony,
-                                             List&lt;Unit&gt; workers,
-                                             Colony scratch) {
-<span class="fc" id="L634">        Colony colony = aiColony.getColony();</span>
-<span class="fc" id="L635">        RearrangeColonyMessage message = new RearrangeColonyMessage(colony);</span>
-<span class="fc bfc" id="L636" title="All 2 branches covered.">        for (Unit u : workers) {</span>
-<span class="fc" id="L637">            Unit su = scratch.getCorresponding(u);</span>
-<span class="fc bfc" id="L638" title="All 2 branches covered.">            if (u.getLocation().getId().equals(su.getLocation().getId())</span>
-<span class="fc bfc" id="L639" title="All 2 branches covered.">                &amp;&amp; u.getWorkType() == su.getWorkType()</span>
-<span class="pc bpc" id="L640" title="1 of 2 branches missed.">                &amp;&amp; u.getRole() == su.getRole()</span>
-<span class="pc bpc" id="L641" title="1 of 2 branches missed.">                &amp;&amp; u.getRoleCount() == su.getRoleCount()) continue;</span>
-<span class="fc" id="L642">            message.addChange(u,</span>
-<span class="fc" id="L643">                (Location)colony.getCorresponding((FreeColObject)su.getLocation()),</span>
-<span class="fc" id="L644">                su.getWorkType(), su.getRole(), su.getRoleCount());</span>
-<span class="fc" id="L645">        }</span>
-<span class="pc bpc" id="L646" title="1 of 2 branches missed.">        return (message.isEmpty()) ? false</span>
-<span class="fc" id="L647">            : sendMessage(aiColony.getAIOwner().getConnection(), message);</span>
-    }
-        
-
-    /**
-     * An AI unit scouts a native settlement.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; that is scouting.
-     * @param direction The &lt;code&gt;Direction&lt;/code&gt; to move.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askScoutSpeakToChief(AIUnit aiUnit,
-                                               Direction direction) {
-<span class="nc" id="L660">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L661">                           new ScoutSpeakToChiefMessage(aiUnit.getUnit(), </span>
-                                                        direction));
-    }
-
-
-    /**
-     * Set the build queue in a colony.
-     *
-     * @param aiColony The &lt;code&gt;AIColony&lt;/code&gt; that is building.
-     * @param queue The list of &lt;code&gt;BuildableType&lt;/code&gt;s to build.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askSetBuildQueue(AIColony aiColony,
-                                           List&lt;BuildableType&gt; queue) {
-<span class="fc" id="L675">        return sendMessage(aiColony.getAIOwner().getConnection(),</span>
-<span class="fc" id="L676">                           new SetBuildQueueMessage(aiColony.getColony(),</span>
-                                                    queue));
-    }
-
-
-    /**
-     * Train unit in Europe.
-     *
-     * @param aiPlayer The &lt;code&gt;AIPlayer&lt;/code&gt; requiring training.
-     * @param type The &lt;code&gt;UnitType&lt;/code&gt; to train.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askTrainUnitInEurope(AIPlayer aiPlayer,
-                                               UnitType type) {
-<span class="nc" id="L690">        return sendMessage(aiPlayer.getConnection(),</span>
-                           new TrainUnitInEuropeMessage(type));
-    }
-
-
-    /**
-     * An AI unit unloads some cargo.
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to unload.
-     * @param amount The amount of goods to unload.
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; that is unloading.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askUnloadGoods(GoodsType type, int amount,
-                                         AIUnit aiUnit) {
-<span class="nc" id="L705">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L706">            new UnloadGoodsMessage(type, amount, aiUnit.getUnit()));</span>
-    }
-
-
-    /**
-     * Set a unit to work in a work location.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to work.
-     * @param workLocation The &lt;code&gt;WorkLocation&lt;/code&gt; to work in.
-     * @return True if the message was sent, and a non-error reply returned.
-     */
-    public static boolean askWork(AIUnit aiUnit, WorkLocation workLocation) {
-<span class="nc" id="L718">        return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
-<span class="nc" id="L719">                           new WorkMessage(aiUnit.getUnit(), workLocation));</span>
-    }
+<span class="nc" id="L86">public class AIMessage {</span>
+
+	/** The Constant logger. */
+<span class="fc" id="L89">	private static final Logger logger = Logger.getLogger(AIMessage.class.getName());</span>
+
+	/**
+	 * Ask the server a question.
+	 *
+	 * @param conn
+	 *            The &lt;code&gt;Connection&lt;/code&gt; to use when communicating with the
+	 *            server.
+	 * @param request
+	 *            The &lt;code&gt;Element&lt;/code&gt; to send.
+	 * @return The reply &lt;code&gt;Element&lt;/code&gt;.
+	 */
+	private static Element ask(Connection conn, Element request) {
+		Element reply;
+		try {
+<span class="fc" id="L104">			reply = conn.ask(request);</span>
+<span class="nc" id="L105">		} catch (IOException e) {</span>
+<span class="nc" id="L106">			logger.log(Level.WARNING, &quot;Could not send \&quot;&quot; + request.getTagName() + &quot;\&quot;-message.&quot;, e);</span>
+<span class="nc" id="L107">			reply = null;</span>
+<span class="fc" id="L108">		}</span>
+<span class="fc" id="L109">		return reply;</span>
+	}
+
+	/**
+	 * Handle error elements.
+	 *
+	 * @param element
+	 *            The &lt;code&gt;Element&lt;/code&gt; to check.
+	 * @param tag
+	 *            The tag that was originally sent.
+	 * @return True if there was an error.
+	 */
+	private static boolean checkError(Element element, String tag) {
+<span class="pc bpc" id="L122" title="1 of 4 branches missed.">		if (element != null &amp;&amp; &quot;error&quot;.equals(element.getTagName())) {</span>
+<span class="fc" id="L123">			String messageId = element.getAttribute(&quot;messageID&quot;);</span>
+<span class="fc" id="L124">			String messageText = element.getAttribute(&quot;message&quot;);</span>
+<span class="fc" id="L125">			logger.warning(&quot;AIMessage.&quot; + tag + &quot; error,&quot; + &quot; messageId: &quot; + messageId + &quot; message: &quot; + messageText);</span>
+<span class="fc" id="L126">			return true;</span>
+		}
+<span class="fc" id="L128">		return false;</span>
+	}
+
+	/**
+	 * Ask the server a question, handling the reply.
+	 *
+	 * @param conn
+	 *            The &lt;code&gt;Connection&lt;/code&gt; to use when communicating with the
+	 *            server.
+	 * @param request
+	 *            The &lt;code&gt;Element&lt;/code&gt; to send.
+	 * @return True if the message was sent, handled, and no error returned.
+	 */
+	private static boolean askHandling(Connection conn, Element request) {
+<span class="fc bfc" id="L142" title="All 2 branches covered.">		while (request != null) {</span>
+<span class="fc" id="L143">			Element reply = ask(conn, request);</span>
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">			if (reply == null)</span>
+<span class="nc" id="L145">				break;</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">			if (checkError(reply, request.getTagName()))</span>
+<span class="fc" id="L147">				return false;</span>
+			try {
+<span class="fc" id="L149">				request = conn.handle(reply);</span>
+<span class="nc" id="L150">			} catch (FreeColException fce) {</span>
+<span class="nc" id="L151">				logger.log(Level.WARNING, &quot;AI handler failed: &quot; + reply, fce);</span>
+<span class="nc" id="L152">				return false;</span>
+<span class="fc" id="L153">			}</span>
+<span class="fc" id="L154">		}</span>
+<span class="fc" id="L155">		return true;</span>
+	}
+
+	/**
+	 * Ask the server a question, returning non-error replies.
+	 *
+	 * @param conn
+	 *            The &lt;code&gt;Connection&lt;/code&gt; to use when communicating with the
+	 *            server.
+	 * @param request
+	 *            The &lt;code&gt;Element&lt;/code&gt; to send.
+	 * @param expect
+	 *            the expect
+	 * @return The reply &lt;code&gt;Element&lt;/code&gt; if not an error, otherwise null.
+	 */
+	private static Element askExpecting(Connection conn, Element request, String expect) {
+<span class="fc" id="L171">		Element reply = ask(conn, request);</span>
+<span class="pc bpc" id="L172" title="2 of 4 branches missed.">		if (checkError(reply, request.getTagName()) || reply == null)</span>
+<span class="nc" id="L173">			return null;</span>
+
+<span class="fc" id="L175">		final String tag = reply.getTagName();</span>
+<span class="pc bpc" id="L176" title="1 of 2 branches missed.">		if (&quot;multiple&quot;.equals(tag)) {</span>
+<span class="nc" id="L177">			List&lt;Element&gt; replies = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L178">			NodeList nodes = reply.getChildNodes();</span>
+<span class="nc" id="L179">			Element result = null;</span>
+
+<span class="nc bnc" id="L181" title="All 2 branches missed.">			for (int i = 0; i &lt; nodes.getLength(); i++) {</span>
+<span class="nc bnc" id="L182" title="All 4 branches missed.">				if (nodes.item(i) instanceof Element &amp;&amp; ((Element) nodes.item(i)).getTagName().equals(expect)) {</span>
+<span class="nc" id="L183">					result = (Element) nodes.item(i);</span>
+<span class="nc" id="L184">					continue;</span>
+				}
+				try {
+<span class="nc" id="L187">					Element e = conn.handle((Element) nodes.item(i));</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">					if (e != null)</span>
+<span class="nc" id="L189">						replies.add(e);</span>
+<span class="nc" id="L190">				} catch (FreeColException fce) {</span>
+<span class="nc" id="L191">					logger.log(Level.WARNING, &quot;AI handler failed: &quot; + reply, fce);</span>
+<span class="nc" id="L192">				}</span>
+			}
+<span class="nc bnc" id="L194" title="All 4 branches missed.">			if (!askHandling(conn, DOMMessage.collapseElements(replies)) || result == null)</span>
+<span class="nc" id="L195">				return null;</span>
+<span class="nc" id="L196">			reply = result;</span>
+		}
+
+<span class="pc bpc" id="L199" title="1 of 2 branches missed.">		if (expect.equals(reply.getTagName()))</span>
+<span class="fc" id="L200">			return reply;</span>
+<span class="nc" id="L201">		logger.log(Level.WARNING, &quot;AI handler expected &quot; + expect + &quot;, recieved &quot; + tag);</span>
+<span class="nc" id="L202">		return null;</span>
+	}
+
+	/**
+	 * Sends a DOMMessage to the server.
+	 *
+	 * @param connection
+	 *            The &lt;code&gt;Connection&lt;/code&gt; to use when communicating with the
+	 *            server.
+	 * @param request
+	 *            The &lt;code&gt;Element&lt;/code&gt; to send.
+	 * @return True if the message was sent and a non-error reply returned.
+	 */
+	private static boolean sendMessage(Connection connection, Element request) {
+<span class="fc" id="L216">		return askHandling(connection, request);</span>
+	}
+
+	/**
+	 * Send a message to the server.
+	 *
+	 * @param connection
+	 *            The &lt;code&gt;Connection&lt;/code&gt; to use when communicating with the
+	 *            server.
+	 * @param message
+	 *            The &lt;code&gt;Message&lt;/code&gt; to send.
+	 * @return True if the message was sent, and a non-null, non-error reply
+	 *         returned.
+	 */
+	private static boolean sendMessage(Connection connection, DOMMessage message) {
+<span class="pc bpc" id="L231" title="2 of 4 branches missed.">		return (connection != null &amp;&amp; message != null) ? sendMessage(connection, message.toXMLElement()) : false;</span>
+	}
+
+	/**
+	 * Send a trivial message.
+	 *
+	 * @param connection
+	 *            The &lt;code&gt;Connection&lt;/code&gt; to send on.
+	 * @param tag
+	 *            The tag of the message.
+	 * @param attributes
+	 *            Attributes to add to the message.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean sendTrivial(Connection connection, String tag, String... attributes) {
+<span class="nc" id="L246">		return sendMessage(connection, makeTrivial(tag, attributes));</span>
+	}
+
+	/**
+	 * Make a trivial message.
+	 *
+	 * @param tag
+	 *            The tag of the message.
+	 * @param attributes
+	 *            Attributes to add to the message.
+	 * @return The Element encapsulating the message.
+	 */
+	public static Element makeTrivial(String tag, String... attributes) {
+<span class="nc bnc" id="L259" title="All 2 branches missed.">		if ((attributes.length &amp; 1) == 1) {</span>
+<span class="nc" id="L260">			throw new IllegalArgumentException(&quot;Attributes list must have even length&quot;);</span>
+		}
+<span class="nc" id="L262">		return DOMMessage.createMessage(tag, attributes);</span>
+	}
+
+	/**
+	 * An AIUnit attacks in the given direction.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to attack with.
+	 * @param direction
+	 *            The &lt;code&gt;Direction&lt;/code&gt; to attack in.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askAttack(AIUnit aiUnit, Direction direction) {
+<span class="nc" id="L275">		return sendMessage(aiUnit.getAIOwner().getConnection(), new AttackMessage(aiUnit.getUnit(), direction));</span>
+	}
+
+	/**
+	 * An AIUnit builds a colony.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to build the colony.
+	 * @param name
+	 *            The name of the colony.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askBuildColony(AIUnit aiUnit, String name) {
+<span class="nc" id="L288">		return sendMessage(aiUnit.getAIOwner().getConnection(), new BuildColonyMessage(name, aiUnit.getUnit()));</span>
+	}
+
+	/**
+	 * An AIUnit cashes in.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; cashing in.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askCashInTreasureTrain(AIUnit aiUnit) {
+<span class="nc" id="L299">		return sendMessage(aiUnit.getAIOwner().getConnection(), new CashInTreasureTrainMessage(aiUnit.getUnit()));</span>
+	}
+
+	/**
+	 * An AIUnit changes state.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to change the state of.
+	 * @param state
+	 *            The new &lt;code&gt;UnitState&lt;/code&gt;.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askChangeState(AIUnit aiUnit, UnitState state) {
+<span class="nc" id="L312">		return sendMessage(aiUnit.getAIOwner().getConnection(), new ChangeStateMessage(aiUnit.getUnit(), state));</span>
+	}
+
+	/**
+	 * An AIUnit changes its work type.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to change the work type of.
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to produce.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askChangeWorkType(AIUnit aiUnit, GoodsType type) {
+<span class="nc" id="L325">		return sendMessage(aiUnit.getAIOwner().getConnection(), new ChangeWorkTypeMessage(aiUnit.getUnit(), type));</span>
+	}
+
+	/**
+	 * An AIUnit changes its work improvement type.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to change the work type of.
+	 * @param type
+	 *            The &lt;code&gt;TileImprovementType&lt;/code&gt; to produce.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askChangeWorkImprovementType(AIUnit aiUnit, TileImprovementType type) {
+<span class="nc" id="L338">		return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
+<span class="nc" id="L339">				new ChangeWorkImprovementTypeMessage(aiUnit.getUnit(), type));</span>
+	}
+
+	/**
+	 * Claims a tile for a colony.
+	 *
+	 * @param tile
+	 *            The &lt;code&gt;Tile&lt;/code&gt; to claim.
+	 * @param claimant
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; or &lt;code&gt;AIColony&lt;/code&gt; that is
+	 *            claiming.
+	 * @param price
+	 *            The price to pay.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askClaimLand(Tile tile, AIObject claimant, int price) {
+		FreeColGameObject fcgo;
+		Player owner;
+<span class="nc bnc" id="L357" title="All 2 branches missed.">		if (claimant instanceof AIUnit) {</span>
+<span class="nc" id="L358">			fcgo = ((AIUnit) claimant).getUnit();</span>
+<span class="nc" id="L359">			owner = ((Unit) fcgo).getOwner();</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">		} else if (claimant instanceof AIColony) {</span>
+<span class="nc" id="L361">			fcgo = ((AIColony) claimant).getColony();</span>
+<span class="nc" id="L362">			owner = ((Colony) fcgo).getOwner();</span>
+		} else {
+<span class="nc" id="L364">			throw new IllegalArgumentException(&quot;Claimant must be an AIUnit&quot; + &quot; or AIColony: &quot; + claimant.getId());</span>
+		}
+<span class="nc" id="L366">		return sendMessage(claimant.getAIMain().getAIPlayer(owner).getConnection(),</span>
+				new ClaimLandMessage(tile, fcgo, price));
+	}
+
+	/**
+	 * Clears the speciality of a unit.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to clear.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askClearSpeciality(AIUnit aiUnit) {
+<span class="nc" id="L378">		return sendMessage(aiUnit.getAIOwner().getConnection(), new ClearSpecialityMessage(aiUnit.getUnit()));</span>
+	}
+
+	/**
+	 * An AIUnit closes a transaction.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; that closes the transaction.
+	 * @param settlement
+	 *            The target &lt;code&gt;Settlement&lt;/code&gt;.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askCloseTransaction(AIUnit aiUnit, Settlement settlement) {
+<span class="nc" id="L391">		return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
+<span class="nc" id="L392">				new CloseTransactionMessage(aiUnit.getUnit(), settlement));</span>
+	}
+
+	/**
+	 * An AIUnit delivers a gift.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; delivering the gift.
+	 * @param settlement
+	 *            The &lt;code&gt;Settlement&lt;/code&gt; to give to.
+	 * @param goods
+	 *            The &lt;code&gt;Goods&lt;/code&gt; to give.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askDeliverGift(AIUnit aiUnit, Settlement settlement, Goods goods) {
+<span class="nc" id="L407">		return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
+<span class="nc" id="L408">				new DeliverGiftMessage(aiUnit.getUnit(), settlement, goods));</span>
+	}
+
+	/**
+	 * An AIUnit disbands.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to disband.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askDisband(AIUnit aiUnit) {
+<span class="nc" id="L419">		return sendMessage(aiUnit.getAIOwner().getConnection(), new DisbandUnitMessage(aiUnit.getUnit()));</span>
+	}
+
+	/**
+	 * An AIUnit disembarks.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; disembarking.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askDisembark(AIUnit aiUnit) {
+<span class="nc" id="L430">		return sendMessage(aiUnit.getAIOwner().getConnection(), new DisembarkMessage(aiUnit.getUnit()));</span>
+	}
+
+	/**
+	 * An AIUnit embarks.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; carrier.
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is embarking.
+	 * @param direction
+	 *            The &lt;code&gt;Direction&lt;/code&gt; to embark in (may be null).
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askEmbark(AIUnit aiUnit, Unit unit, Direction direction) {
+<span class="nc" id="L445">		return sendMessage(aiUnit.getAIOwner().getConnection(), new EmbarkMessage(unit, aiUnit.getUnit(), direction));</span>
+	}
+
+	/**
+	 * A unit in Europe emigrates.
+	 *
+	 * @param aiPlayer
+	 *            The &lt;code&gt;AIPlayer&lt;/code&gt; requiring emigration.
+	 * @param slot
+	 *            The slot to emigrate from.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askEmigrate(AIPlayer aiPlayer, int slot) {
+<span class="nc" id="L458">		return sendMessage(aiPlayer.getConnection(), new EmigrateUnitMessage(slot));</span>
+	}
+
+	/**
+	 * Ends the player turn.
+	 *
+	 * @param aiPlayer
+	 *            The &lt;code&gt;AIPlayer&lt;/code&gt; ending the turn.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askEndTurn(AIPlayer aiPlayer) {
+<span class="nc" id="L469">		return sendTrivial(aiPlayer.getConnection(), &quot;endTurn&quot;);</span>
+	}
+
+	/**
+	 * Change the role of a unit.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to equip.
+	 * @param role
+	 *            The &lt;code&gt;Role&lt;/code&gt; to equip for.
+	 * @param roleCount
+	 *            The role count.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askEquipForRole(AIUnit aiUnit, Role role, int roleCount) {
+<span class="fc" id="L484">		return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
+<span class="fc" id="L485">				new EquipForRoleMessage(aiUnit.getUnit(), role, roleCount));</span>
+	}
+
+	/**
+	 * Establishes a mission in the given direction.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; establishing the mission.
+	 * @param direction
+	 *            The &lt;code&gt;Direction&lt;/code&gt; to move the unit.
+	 * @param denounce
+	 *            Is this a denunciation?
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askEstablishMission(AIUnit aiUnit, Direction direction, boolean denounce) {
+<span class="nc" id="L500">		return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
+<span class="nc" id="L501">				new MissionaryMessage(aiUnit.getUnit(), direction, denounce));</span>
+	}
+
+	/**
+	 * Gets a nation summary for a player.
+	 *
+	 * @param owner
+	 *            The &lt;code&gt;AIPlayer&lt;/code&gt; making the inquiry.
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to summarize.
+	 * @return A &lt;code&gt;NationSummary&lt;/code&gt; if the message was sent, and a
+	 *         non-error reply returned.
+	 */
+	public static NationSummary askGetNationSummary(AIPlayer owner, Player player) {
+<span class="fc" id="L515">		Element reply = askExpecting(owner.getConnection(), new GetNationSummaryMessage(player).toXMLElement(),</span>
+<span class="fc" id="L516">				GetNationSummaryMessage.getXMLElementTagName());</span>
+<span class="fc" id="L517">		return new GetNationSummaryMessage(reply).getNationSummary();</span>
+	}
+
+	/**
+	 * An AIUnit gets a transaction.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; that gets a transaction.
+	 * @param settlement
+	 *            The target &lt;code&gt;Settlement&lt;/code&gt;.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askGetTransaction(AIUnit aiUnit, Settlement settlement) {
+<span class="nc" id="L530">		return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
+<span class="nc" id="L531">				new GetTransactionMessage(aiUnit.getUnit(), settlement));</span>
+	}
+
+	/**
+	 * Makes demands to a colony. One and only one of goods or gold is valid.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; that is demanding.
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; to demand of.
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to demand.
+	 * @param amount
+	 *            The amount of goods to demand.
+	 * @return True if the message was sent, a non-error reply returned, and the
+	 *         demand was accepted.
+	 */
+	public static boolean askIndianDemand(AIUnit aiUnit, Colony colony, GoodsType type, int amount) {
+<span class="nc" id="L549">		Element reply = askExpecting(aiUnit.getAIOwner().getConnection(),</span>
+<span class="nc" id="L550">				new IndianDemandMessage(aiUnit.getUnit(), colony, type, amount).toXMLElement(),</span>
+<span class="nc" id="L551">				IndianDemandMessage.getXMLElementTagName());</span>
+<span class="nc" id="L552">		return new IndianDemandMessage(colony.getGame(), reply).getResult();</span>
+	}
+
+	/**
+	 * An AI unit loads some cargo.
+	 *
+	 * @param loc
+	 *            The &lt;code&gt;Location&lt;/code&gt; where the goods are.
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to load.
+	 * @param amount
+	 *            The amount of goods to load.
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; that is loading.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askLoadGoods(Location loc, GoodsType type, int amount, AIUnit aiUnit) {
+<span class="nc" id="L569">		return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
+<span class="nc" id="L570">				new LoadGoodsMessage(loc, type, amount, aiUnit.getUnit()));</span>
+	}
+
+	/**
+	 * An AI unit loots some cargo.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; that is looting.
+	 * @param defenderId
+	 *            The object identifier of the defending unit.
+	 * @param goods
+	 *            A list of &lt;code&gt;Goods&lt;/code&gt; to loot.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askLoot(AIUnit aiUnit, String defenderId, List&lt;Goods&gt; goods) {
+<span class="fc" id="L585">		return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
+<span class="fc" id="L586">				new LootCargoMessage(aiUnit.getUnit(), defenderId, goods));</span>
+	}
+
+	/**
+	 * Moves an AIUnit in the given direction.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to move.
+	 * @param direction
+	 *            The &lt;code&gt;Direction&lt;/code&gt; to move the unit.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askMove(AIUnit aiUnit, Direction direction) {
+<span class="fc" id="L599">		return sendMessage(aiUnit.getAIOwner().getConnection(), new MoveMessage(aiUnit.getUnit(), direction));</span>
+	}
+
+	/**
+	 * Moves an AIUnit across the high seas.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to move.
+	 * @param destination
+	 *            The &lt;code&gt;Location&lt;/code&gt; to move to.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askMoveTo(AIUnit aiUnit, Location destination) {
+<span class="nc" id="L612">		return sendMessage(aiUnit.getAIOwner().getConnection(), new MoveToMessage(aiUnit.getUnit(), destination));</span>
+	}
+
+	/**
+	 * An AIUnit is put outside a colony.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to put out.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askPutOutsideColony(AIUnit aiUnit) {
+<span class="nc" id="L623">		return sendMessage(aiUnit.getAIOwner().getConnection(), new PutOutsideColonyMessage(aiUnit.getUnit()));</span>
+	}
+
+	/**
+	 * Rearrange an AI colony.
+	 *
+	 * @param aiColony
+	 *            The &lt;code&gt;AIColony&lt;/code&gt; to rearrange.
+	 * @param workers
+	 *            A list of worker &lt;code&gt;Unit&lt;/code&gt;s that may change.
+	 * @param scratch
+	 *            A copy of the underlying &lt;code&gt;Colony&lt;/code&gt; with the workers
+	 *            arranged as required.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askRearrangeColony(AIColony aiColony, List&lt;Unit&gt; workers, Colony scratch) {
+<span class="fc" id="L639">		Colony colony = aiColony.getColony();</span>
+<span class="fc" id="L640">		RearrangeColonyMessage message = new RearrangeColonyMessage(colony);</span>
+<span class="fc bfc" id="L641" title="All 2 branches covered.">		for (Unit u : workers) {</span>
+<span class="fc" id="L642">			Unit su = scratch.getCorresponding(u);</span>
+<span class="fc bfc" id="L643" title="All 4 branches covered.">			if (u.getLocation().getId().equals(su.getLocation().getId()) &amp;&amp; u.getWorkType() == su.getWorkType()</span>
+<span class="pc bpc" id="L644" title="2 of 4 branches missed.">					&amp;&amp; u.getRole() == su.getRole() &amp;&amp; u.getRoleCount() == su.getRoleCount())</span>
+<span class="fc" id="L645">				continue;</span>
+<span class="fc" id="L646">			message.addChange(u, (Location) colony.getCorresponding((FreeColObject) su.getLocation()), su.getWorkType(),</span>
+<span class="fc" id="L647">					su.getRole(), su.getRoleCount());</span>
+<span class="fc" id="L648">		}</span>
+<span class="pc bpc" id="L649" title="1 of 2 branches missed.">		return (message.isEmpty()) ? false : sendMessage(aiColony.getAIOwner().getConnection(), message);</span>
+	}
+
+	/**
+	 * An AI unit scouts a native settlement.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; that is scouting.
+	 * @param direction
+	 *            The &lt;code&gt;Direction&lt;/code&gt; to move.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askScoutSpeakToChief(AIUnit aiUnit, Direction direction) {
+<span class="nc" id="L662">		return sendMessage(aiUnit.getAIOwner().getConnection(),</span>
+<span class="nc" id="L663">				new ScoutSpeakToChiefMessage(aiUnit.getUnit(), direction));</span>
+	}
+
+	/**
+	 * Set the build queue in a colony.
+	 *
+	 * @param aiColony
+	 *            The &lt;code&gt;AIColony&lt;/code&gt; that is building.
+	 * @param queue
+	 *            The list of &lt;code&gt;BuildableType&lt;/code&gt;s to build.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askSetBuildQueue(AIColony aiColony, List&lt;BuildableType&gt; queue) {
+<span class="fc" id="L676">		return sendMessage(aiColony.getAIOwner().getConnection(),</span>
+<span class="fc" id="L677">				new SetBuildQueueMessage(aiColony.getColony(), queue));</span>
+	}
+
+	/**
+	 * Train unit in Europe.
+	 *
+	 * @param aiPlayer
+	 *            The &lt;code&gt;AIPlayer&lt;/code&gt; requiring training.
+	 * @param type
+	 *            The &lt;code&gt;UnitType&lt;/code&gt; to train.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askTrainUnitInEurope(AIPlayer aiPlayer, UnitType type) {
+<span class="nc" id="L690">		return sendMessage(aiPlayer.getConnection(), new TrainUnitInEuropeMessage(type));</span>
+	}
+
+	/**
+	 * An AI unit unloads some cargo.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to unload.
+	 * @param amount
+	 *            The amount of goods to unload.
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; that is unloading.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askUnloadGoods(GoodsType type, int amount, AIUnit aiUnit) {
+<span class="nc" id="L705">		return sendMessage(aiUnit.getAIOwner().getConnection(), new UnloadGoodsMessage(type, amount, aiUnit.getUnit()));</span>
+	}
+
+	/**
+	 * Set a unit to work in a work location.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to work.
+	 * @param workLocation
+	 *            The &lt;code&gt;WorkLocation&lt;/code&gt; to work in.
+	 * @return True if the message was sent, and a non-error reply returned.
+	 */
+	public static boolean askWork(AIUnit aiUnit, WorkLocation workLocation) {
+<span class="nc" id="L718">		return sendMessage(aiUnit.getAIOwner().getConnection(), new WorkMessage(aiUnit.getUnit(), workLocation));</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

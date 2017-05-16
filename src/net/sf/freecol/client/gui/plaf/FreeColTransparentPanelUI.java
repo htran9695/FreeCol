@@ -28,34 +28,47 @@ import javax.swing.JComponent;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.basic.BasicPanelUI;
 
-
 /**
- * Draws with partial transparency.  Used in Europe.
+ * Draws with partial transparency. Used in Europe.
  */
 public class FreeColTransparentPanelUI extends BasicPanelUI {
 
-    private static final FreeColTransparentPanelUI sharedInstance = new FreeColTransparentPanelUI();
+	/** The Constant sharedInstance. */
+	private static final FreeColTransparentPanelUI sharedInstance = new FreeColTransparentPanelUI();
 
+	/**
+	 * Creates the UI.
+	 *
+	 * @param c
+	 *            the c
+	 * @return the component UI
+	 */
+	public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
+		return sharedInstance;
+	}
 
-    public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
-        return sharedInstance;
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.plaf.ComponentUI#paint(java.awt.Graphics,
+	 * javax.swing.JComponent)
+	 */
+	@Override
+	public void paint(java.awt.Graphics g, javax.swing.JComponent c) {
+		if (c.isOpaque()) {
+			throw new IllegalStateException(
+					"FreeColTransparentPanelUI can only be used on components which are !isOpaque()");
+		}
 
-    @Override
-    public void paint(java.awt.Graphics g, javax.swing.JComponent c) {
-        if (c.isOpaque()) {
-            throw new IllegalStateException("FreeColTransparentPanelUI can only be used on components which are !isOpaque()");
-        }
+		int width = c.getWidth();
+		int height = c.getHeight();
 
-        int width = c.getWidth();
-        int height = c.getHeight();
-
-        Graphics2D g2 = (Graphics2D)g;
-        Composite oldComposite = g2.getComposite();
-        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
-        g2.setColor(Color.WHITE);
-        g2.fillRect(0, 0, width, height);
-        g2.setComposite(oldComposite);
-    }
+		Graphics2D g2 = (Graphics2D) g;
+		Composite oldComposite = g2.getComposite();
+		g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
+		g2.setColor(Color.WHITE);
+		g2.fillRect(0, 0, width, height);
+		g2.setComposite(oldComposite);
+	}
 
 }

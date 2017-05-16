@@ -22,27 +22,30 @@ package net.sf.freecol.server.generator;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Map.Layer;
 
-
+/**
+ * The Interface MapLoader.
+ */
 public interface MapLoader {
 
-    /**
-     * Load a map into the given game, copying all layers up to the
-     * given layer. Returns the highest layer actually copied,
-     * e.g. NONE if map loading failed, or the highest level available
-     * if an even higher level was requested.
-     *
-     * @param game a <code>Game</code> value
-     * @param layer a <code>Layer</code> value
-     * @return a <code>Layer</code> value
-     */
-    public Layer loadMap(Game game, Layer layer);
+	/**
+	 * Load a map into the given game, copying all layers up to the given layer.
+	 * Returns the highest layer actually copied, e.g. NONE if map loading
+	 * failed, or the highest level available if an even higher level was
+	 * requested.
+	 *
+	 * @param game
+	 *            a <code>Game</code> value
+	 * @param layer
+	 *            a <code>Layer</code> value
+	 * @return a <code>Layer</code> value
+	 */
+	public Layer loadMap(Game game, Layer layer);
 
-
-    /**
-     * Returns the highest layer this MapLoader is able to load.
-     *
-     * @return a <code>Layer</code> value
-     */
-    public Layer getHighestLayer();
+	/**
+	 * Returns the highest layer this MapLoader is able to load.
+	 *
+	 * @return a <code>Layer</code> value
+	 */
+	public Layer getHighestLayer();
 
 }

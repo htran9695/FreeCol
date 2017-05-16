@@ -28,70 +28,71 @@ import javax.swing.JSlider;
 import net.sf.freecol.client.gui.panel.Utility;
 import net.sf.freecol.common.option.Option;
 
-
 /**
  * This class provides a JSlider as visualization for an
- * {@link net.sf.freecol.common.option.IntegerOption} or one of its
- * subclasses.
+ * {@link net.sf.freecol.common.option.IntegerOption} or one of its subclasses.
+ *
+ * @param <T>
+ *            the generic type
  */
-public class SliderOptionUI<T extends Option<Integer>> extends OptionUI<T>  {
+public class SliderOptionUI<T extends Option<Integer>> extends OptionUI<T> {
 
-    private final JSlider slider = new JSlider();
+	/** The slider. */
+	private final JSlider slider = new JSlider();
 
-    /**
-     * Creates a new <code>SliderOptionUI</code> for the given
-     * <code>IntegerOption</code>.
-     *
-     * @param option The <code>IntegerOption</code> to make a user
-     *     interface for.
-     * @param editable boolean whether user can modify the setting
-     */
-    public SliderOptionUI(final T option, boolean editable) {
-        super(option, editable);
+	/**
+	 * Creates a new <code>SliderOptionUI</code> for the given
+	 * <code>IntegerOption</code>.
+	 *
+	 * @param option
+	 *            The <code>IntegerOption</code> to make a user interface for.
+	 * @param editable
+	 *            boolean whether user can modify the setting
+	 */
+	public SliderOptionUI(final T option, boolean editable) {
+		super(option, editable);
 
-        slider.setBorder(Utility.localizedBorder(super.getJLabel().getText(),
-                                             Color.BLACK));
-        slider.setOrientation(JSlider.HORIZONTAL);
-        slider.setPreferredSize(new Dimension(500, 50));
-        slider.setPaintLabels(true);
-        slider.setPaintTicks(true);
-        slider.setExtent(0);
+		slider.setBorder(Utility.localizedBorder(super.getJLabel().getText(), Color.BLACK));
+		slider.setOrientation(JSlider.HORIZONTAL);
+		slider.setPreferredSize(new Dimension(500, 50));
+		slider.setPaintLabels(true);
+		slider.setPaintTicks(true);
+		slider.setExtent(0);
 
-        initialize();
-    }
+		initialize();
+	}
 
+	// Implement OptionUI
 
-    // Implement OptionUI
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public final JLabel getJLabel() {
+		return null;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final JLabel getJLabel() {
-        return null;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public JSlider getComponent() {
+		return slider;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public JSlider getComponent() {
-        return slider;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void updateOption() {
+		getOption().setValue(slider.getValue());
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateOption() {
-        getOption().setValue(slider.getValue());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void reset() {
-        slider.setValue(getOption().getValue());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void reset() {
+		slider.setValue(getOption().getValue());
+	}
 }

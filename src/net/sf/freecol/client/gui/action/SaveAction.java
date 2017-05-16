@@ -23,52 +23,51 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for saving the game.
  */
 public class SaveAction extends FreeColAction {
 
-    /** The Constant id. */
-    public static final String id = "saveAction";
+	/** The Constant id. */
+	public static final String id = "saveAction";
 
+	/**
+	 * Creates a new <code>SaveAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The main controller object for the client.
+	 */
+	public SaveAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>SaveAction</code>.
-     *
-     * @param freeColClient The main controller object for the client.
-     */
-    public SaveAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		if (freeColClient.isMapEditor())
+			return true;
 
-    // Override FreeColAction
+		// In game
+		if (!freeColClient.canSaveCurrentGame())
+			return false;
+		return !getGUI().isShowingSubPanel();
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        if (freeColClient.isMapEditor()) return true;
+	// Interface ActionListener
 
-        // In game
-        if (!freeColClient.canSaveCurrentGame()) return false;
-        return !getGUI().isShowingSubPanel();
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        if (!freeColClient.isMapEditor()) {
-            igc().saveGame();
-        } else {
-            freeColClient.getMapEditorController().saveGame();
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		if (!freeColClient.isMapEditor()) {
+			igc().saveGame();
+		} else {
+			freeColClient.getMapEditorController().saveGame();
+		}
+	}
 }

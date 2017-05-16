@@ -25,25 +25,42 @@ import javax.swing.plaf.basic.BasicPanelUI;
 
 import net.sf.freecol.client.gui.ImageLibrary;
 
-
 /**
- * Draw the "image.background.FreeColPanel" resource as a tiled background image.
+ * Draw the "image.background.FreeColPanel" resource as a tiled background
+ * image.
  */
 public class FreeColPanelUI extends BasicPanelUI {
 
-    private static final FreeColPanelUI sharedInstance = new FreeColPanelUI();
+	/** The Constant sharedInstance. */
+	private static final FreeColPanelUI sharedInstance = new FreeColPanelUI();
 
+	/**
+	 * Instantiates a new free col panel UI.
+	 */
+	private FreeColPanelUI() {
+	}
 
-    private FreeColPanelUI() {}
+	/**
+	 * Creates the UI.
+	 *
+	 * @param c
+	 *            the c
+	 * @return the component UI
+	 */
+	public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
+		return sharedInstance;
+	}
 
-    public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
-        return sharedInstance;
-    }
-
-    @Override
-    public void paint(java.awt.Graphics g, javax.swing.JComponent c) {
-        if (c.isOpaque()) {
-            ImageLibrary.drawTiledImage("image.background.FreeColPanel", g, c, null);
-        }
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.plaf.ComponentUI#paint(java.awt.Graphics,
+	 * javax.swing.JComponent)
+	 */
+	@Override
+	public void paint(java.awt.Graphics g, javax.swing.JComponent c) {
+		if (c.isOpaque()) {
+			ImageLibrary.drawTiledImage("image.background.FreeColPanel", g, c, null);
+		}
+	}
 }

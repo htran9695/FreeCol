@@ -22,41 +22,40 @@ package net.sf.freecol.server.control;
 import net.sf.freecol.server.FreeColServer;
 import net.sf.freecol.server.model.ServerGame;
 
-
 /**
  * This base class provides thread-safe access to a
- * {@link net.sf.freecol.server.FreeColServer} for several subclasses. 
+ * {@link net.sf.freecol.server.FreeColServer} for several subclasses.
  */
 public class FreeColServerHolder {
 
-    /** The main server object. */
-    private final FreeColServer freeColServer;
+	/** The main server object. */
+	private final FreeColServer freeColServer;
 
+	/**
+	 * Constructor.
+	 * 
+	 * @param server
+	 *            The initial value for the server.
+	 */
+	protected FreeColServerHolder(FreeColServer server) {
+		this.freeColServer = server;
+	}
 
-    /**
-     * Constructor.
-     * 
-     * @param server The initial value for the server.
-     */
-    protected FreeColServerHolder(FreeColServer server) {
-        this.freeColServer = server;
-    }
+	/**
+	 * Returns the main server object.
+	 * 
+	 * @return The main server object.
+	 */
+	protected FreeColServer getFreeColServer() {
+		return freeColServer;
+	}
 
-    /**
-     * Returns the main server object.
-     * 
-     * @return The main server object.
-     */
-    protected FreeColServer getFreeColServer() {
-        return freeColServer;
-    }
-
-    /**
-     * Returns the Game.
-     *
-     * @return a <code>Game</code> value
-     */
-    protected ServerGame getGame() {
-        return freeColServer.getGame();
-    }
+	/**
+	 * Returns the Game.
+	 *
+	 * @return a <code>Game</code> value
+	 */
+	protected ServerGame getGame() {
+		return freeColServer.getGame();
+	}
 }

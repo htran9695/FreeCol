@@ -59,10 +59,9 @@ import net.sf.freecol.common.resources.ResourceManager;
 
 import static net.sf.freecol.common.util.StringUtils.splitText;
 
-
 /**
- * The InfoPanel is really a wrapper for a collection of useful panels
- * that share the lower right corner.
+ * The InfoPanel is really a wrapper for a collection of useful panels that
+ * share the lower right corner.
  *
  * - EndTurnPanel: shows the end-turn button when there are no active units
  *
@@ -74,492 +73,505 @@ import static net.sf.freecol.common.util.StringUtils.splitText;
  */
 public final class InfoPanel extends FreeColPanel {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(InfoPanel.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(InfoPanel.class.getName());
 
-    private static final int SLACK = 5; // Small gap
+	/** The Constant SLACK. */
+	private static final int SLACK = 5; // Small gap
 
-    /**
-     * Panel for ending the turn.
-     */
-    public class EndTurnPanel extends MigPanel {
+	/**
+	 * Panel for ending the turn.
+	 */
+	public class EndTurnPanel extends MigPanel {
 
-        public EndTurnPanel() {
-            super(new MigLayout("wrap 1, center", "[center]", ""));
+		/**
+		 * Instantiates a new end turn panel.
+		 */
+		public EndTurnPanel() {
+			super(new MigLayout("wrap 1, center", "[center]", ""));
 
-            final ImageLibrary lib = getGUI().getTileImageLibrary();
-            Font font = FontLibrary.createFont(FontLibrary.FontType.NORMAL,
-                FontLibrary.FontSize.TINY, lib.getScaleFactor());
+			final ImageLibrary lib = getGUI().getTileImageLibrary();
+			Font font = FontLibrary.createFont(FontLibrary.FontType.NORMAL, FontLibrary.FontSize.TINY,
+					lib.getScaleFactor());
 
-            String labelString = Messages.message("infoPanel.endTurn");
-            for (String s : splitText(labelString, " /",
-                                      getFontMetrics(font), 150)) {
-                JLabel label = new JLabel(s);
-                label.setFont(font);
-                add(label);
-            }
+			String labelString = Messages.message("infoPanel.endTurn");
+			for (String s : splitText(labelString, " /", getFontMetrics(font), 150)) {
+				JLabel label = new JLabel(s);
+				label.setFont(font);
+				add(label);
+			}
 
-            JButton button = new JButton(getFreeColClient().getActionManager()
-                .getFreeColAction(EndTurnAction.id));
-            button.setFont(font);
-            add(button);
-            setOpaque(false);
-            setSize(getPreferredSize());
-        }
-    }
+			JButton button = new JButton(getFreeColClient().getActionManager().getFreeColAction(EndTurnAction.id));
+			button.setFont(font);
+			add(button);
+			setOpaque(false);
+			setSize(getPreferredSize());
+		}
+	}
 
-    /**
-     * Panel for displaying <code>Tile</code>-information.
-     */
-    public class TileInfoPanel extends MigPanel {
+	/**
+	 * Panel for displaying <code>Tile</code>-information.
+	 */
+	public class TileInfoPanel extends MigPanel {
 
-        private static final int PRODUCTION = 4;
-        
-        private Tile tile;
+		/** The Constant PRODUCTION. */
+		private static final int PRODUCTION = 4;
 
-        // TODO: Find a way of removing the need for an extremely tiny font.
-        //private final Font font = new JLabel().getFont().deriveFont(8f);
+		/** The tile. */
+		private Tile tile;
 
+		// TODO: Find a way of removing the need for an extremely tiny font.
+		// private final Font font = new JLabel().getFont().deriveFont(8f);
 
-        /**
-         * Create a <code>TileInfoPanel</code>.
-         */
-        public TileInfoPanel() {
-            super(new MigLayout("fill, wrap " + (PRODUCTION+1) + ", gap 1 1"));
+		/**
+		 * Create a <code>TileInfoPanel</code>.
+		 */
+		public TileInfoPanel() {
+			super(new MigLayout("fill, wrap " + (PRODUCTION + 1) + ", gap 1 1"));
 
-            setSize(260, 130);
-            setOpaque(false);
-        }
+			setSize(260, 130);
+			setOpaque(false);
+		}
 
+		/**
+		 * Updates this <code>InfoPanel</code>.
+		 *
+		 * @param tile
+		 *            The displayed tile (or null if none)
+		 */
+		public void update(Tile tile) {
+			this.tile = tile;
 
-        /**
-         * Updates this <code>InfoPanel</code>.
-         *
-         * @param tile The displayed tile (or null if none)
-         */
-        public void update(Tile tile) {
-            this.tile = tile;
+			removeAll();
 
-            removeAll();
+			final ImageLibrary lib = getGUI().getTileImageLibrary();
+			final Font font = FontLibrary.createFont(FontLibrary.FontType.NORMAL, FontLibrary.FontSize.TINY,
+					lib.getScaleFactor());
+			if (tile != null) {
+				final int width = getWidth() - SLACK;
+				BufferedImage image = getGUI().createTileImageWithBeachBorderAndItems(tile);
+				if (tile.isExplored()) {
+					String text = Messages.message(tile.getLabel());
+					for (String s : splitText(text, " /", getFontMetrics(font), width)) {
+						JLabel label = new JLabel(s);
+						// itemLabel.setFont(font);
+						add(label, "span, align center");
+					}
 
-            final ImageLibrary lib = getGUI().getTileImageLibrary();
-            final Font font = FontLibrary.createFont(FontLibrary.FontType.NORMAL,
-                FontLibrary.FontSize.TINY, lib.getScaleFactor());
-            if (tile != null) {
-                final int width = getWidth() - SLACK;
-                BufferedImage image = getGUI().createTileImageWithBeachBorderAndItems(tile);
-                if (tile.isExplored()) {
-                    String text = Messages.message(tile.getLabel());
-                    for (String s : splitText(text, " /",
-                                              getFontMetrics(font), width)) {
-                        JLabel label = new JLabel(s);
-                        //itemLabel.setFont(font);
-                        add(label, "span, align center");
-                    }
+					add(new JLabel(new ImageIcon(image)), "spany");
 
-                    add(new JLabel(new ImageIcon(image)), "spany");
+					final Player owner = tile.getOwner();
+					if (owner == null) {
+						add(new JLabel(), "span " + PRODUCTION);
+					} else {
+						StringTemplate t = owner.getNationLabel();
+						add(Utility.localizedLabel(t), "span " + PRODUCTION);
+					}
 
-                    final Player owner = tile.getOwner();
-                    if (owner == null) {
-                        add(new JLabel(), "span " + PRODUCTION);
-                    } else {
-                        StringTemplate t = owner.getNationLabel();
-                        add(Utility.localizedLabel(t), "span " + PRODUCTION);
-                    }
+					JLabel defenceLabel = Utility.localizedLabel(StringTemplate.template("infoPanel.defenseBonus")
+							.addAmount("%bonus%", tile.getDefenceBonusPercentage()));
+					// defenceLabel.setFont(font);
+					add(defenceLabel, "span " + PRODUCTION);
 
-                    JLabel defenceLabel = Utility.localizedLabel(StringTemplate
-                        .template("infoPanel.defenseBonus")
-                        .addAmount("%bonus%", tile.getDefenceBonusPercentage()));
-                    //defenceLabel.setFont(font);
-                    add(defenceLabel, "span " + PRODUCTION);
+					JLabel moveLabel = Utility.localizedLabel(StringTemplate.template("infoPanel.movementCost")
+							.addAmount("%cost%", tile.getType().getBasicMoveCost() / 3));
+					// moveLabel.setFont(font);
+					add(moveLabel, "span " + PRODUCTION);
 
-                    JLabel moveLabel = Utility.localizedLabel(StringTemplate
-                        .template("infoPanel.movementCost")
-                        .addAmount("%cost%", tile.getType().getBasicMoveCost()/3));
-                    //moveLabel.setFont(font);
-                    add(moveLabel, "span " + PRODUCTION);
+					List<AbstractGoods> produce = tile.getType().getPossibleProduction(true);
+					if (produce.isEmpty()) {
+						add(new JLabel(), "span " + PRODUCTION);
+					} else {
+						Collections.sort(produce, AbstractGoods.abstractGoodsComparator);
+						for (AbstractGoods ag : produce) {
+							GoodsType type = ag.getType();
+							int n = tile.getPotentialProduction(type, null);
+							JLabel label = new JLabel(String.valueOf(n), new ImageIcon(lib.getSmallIconImage(type)),
+									JLabel.RIGHT);
+							label.setToolTipText(Messages.getName(type));
+							label.setFont(font);
+							add(label);
+						}
+					}
+				} else {
+					add(Utility.localizedLabel("unexplored"), "span, align center");
+					add(new JLabel(new ImageIcon(image)), "spany");
+				}
+			}
+			revalidate();
+			repaint();
+		}
 
-                    List<AbstractGoods> produce = tile.getType()
-                        .getPossibleProduction(true);
-                    if (produce.isEmpty()) {
-                        add(new JLabel(), "span " + PRODUCTION);
-                    } else {
-                        Collections.sort(produce,
-                            AbstractGoods.abstractGoodsComparator);
-                        for (AbstractGoods ag : produce) {
-                            GoodsType type = ag.getType();
-                            int n = tile.getPotentialProduction(type, null);
-                            JLabel label = new JLabel(String.valueOf(n),
-                                new ImageIcon(lib.getSmallIconImage(type)),
-                                JLabel.RIGHT);
-                            label.setToolTipText(Messages.getName(type));
-                            label.setFont(font);
-                            add(label);
-                        }
-                    }
-                } else {
-                    add(Utility.localizedLabel("unexplored"),
-                        "span, align center");
-                    add(new JLabel(new ImageIcon(image)), "spany");
-                }
-            }
-            revalidate();
-            repaint();
-        }
+		/**
+		 * Gets the <code>Tile</code> in which this <code>InfoPanel</code> is
+		 * displaying information about.
+		 *
+		 * @return The <code>Tile</code> or <i>null</i> if no <code>Tile</code>
+		 *         applies.
+		 */
+		public Tile getTile() {
+			return tile;
+		}
+	}
 
-        /**
-         * Gets the <code>Tile</code> in which this <code>InfoPanel</code>
-         * is displaying information about.
-         *
-         * @return The <code>Tile</code> or <i>null</i> if no
-         *         <code>Tile</code> applies.
-         */
-        public Tile getTile() {
-            return tile;
-        }
-    }
+	/**
+	 * Panel for displaying <code>Unit</code>-information.
+	 */
+	public class UnitInfoPanel extends JPanel implements PropertyChangeListener {
 
-    /**
-     * Panel for displaying <code>Unit</code>-information.
-     */
-    public class UnitInfoPanel extends JPanel
-        implements PropertyChangeListener {
+		/** The unit to display. */
+		private Unit unit;
 
-        /** The unit to display. */
-        private Unit unit;
+		/**
+		 * Create a new unit information panel.
+		 */
+		public UnitInfoPanel() {
+			super(new MigLayout("wrap 5, fill, gap 0 0", "", ""));
 
+			setSize(260, 130);
+			setOpaque(false);
+		}
 
-        /**
-         * Create a new unit information panel.
-         */
-        public UnitInfoPanel() {
-            super(new MigLayout("wrap 5, fill, gap 0 0", "", ""));
+		/**
+		 * Does this panel have a unit to display?.
+		 *
+		 * @return True if this panel has a non-null unit.
+		 */
+		public boolean hasUnit() {
+			return this.unit != null;
+		}
 
-            setSize(260, 130);
-            setOpaque(false);
-        }
+		/**
+		 * Updates this unit information panel to use a new unit.
+		 *
+		 * @param unit
+		 *            The displayed <code>Unit</code> (may be null).
+		 */
+		public void update(Unit unit) {
+			if (this.unit != unit) {
+				if (this.unit != null) {
+					this.unit.removePropertyChangeListener(this);
+					GoodsContainer gc = this.unit.getGoodsContainer();
+					if (gc != null)
+						gc.removePropertyChangeListener(this);
+				}
+				if (unit != null) {
+					unit.addPropertyChangeListener(this);
+					GoodsContainer gc = unit.getGoodsContainer();
+					if (gc != null)
+						gc.addPropertyChangeListener(this);
+				}
+				logger.info("Switching UnitInfoPanel from "
+						+ (this.unit == null ? "null"
+								: (this.unit.getId() + " " + this.unit.getDescription() + " "
+										+ this.unit.getMovesAsString()))
+						+ " to " + (unit == null ? "null"
+								: (unit.getId() + " " + unit.getDescription() + " " + unit.getMovesAsString())));
+				this.unit = unit;
+			}
+			update();
+		}
 
+		/**
+		 * Unconditionally update this panel.
+		 */
+		public void update() {
+			removeAll();
 
-        /**
-         * Does this panel have a unit to display?
-         *
-         * @return True if this panel has a non-null unit.
-         */
-        public boolean hasUnit() {
-            return this.unit != null;
-        }
+			final ImageLibrary lib = getGUI().getTileImageLibrary();
+			Font font = FontLibrary.createFont(FontLibrary.FontType.NORMAL, FontLibrary.FontSize.TINY,
+					lib.getScaleFactor());
+			String text;
+			JLabel textLabel;
+			if (unit != null) {
+				ImageIcon ii = new ImageIcon(lib.getUnitImage(unit));
+				JLabel imageLabel = new JLabel(ii);
+				add(imageLabel, "spany, gapafter 5px");
+				int width = getWidth() - ii.getIconWidth() - SLACK;
+				text = unit.getDescription(Unit.UnitLabelType.FULL);
+				for (String s : splitText(text, " /", getFontMetrics(font), width)) {
+					textLabel = new JLabel(s);
+					textLabel.setFont(font);
+					add(textLabel, "span 5");
+				}
 
-        /**
-         * Updates this unit information panel to use a new unit.
-         *
-         * @param unit The displayed <code>Unit</code> (may be null).
-         */
-        public void update(Unit unit) {
-            if (this.unit != unit) {
-                if (this.unit != null) {
-                    this.unit.removePropertyChangeListener(this);
-                    GoodsContainer gc = this.unit.getGoodsContainer();
-                    if (gc != null) gc.removePropertyChangeListener(this);
-                }
-                if (unit != null) {
-                    unit.addPropertyChangeListener(this);
-                    GoodsContainer gc = unit.getGoodsContainer();
-                    if (gc != null) gc.addPropertyChangeListener(this);
-                }
-                logger.info("Switching UnitInfoPanel from " +
-                    (this.unit == null ? "null" :
-                        (this.unit.getId() + " " + this.unit.getDescription() +
-                        " " + this.unit.getMovesAsString())) +
-                     " to " +
-                    (unit == null ? "null" :
-                        (unit.getId() + " " + unit.getDescription() +
-                        " " + unit.getMovesAsString())));
-                this.unit = unit;
-            }
-            update();
-        }
+				text = (unit.isInEurope()) ? Messages.getName(unit.getOwner().getEurope())
+						: Messages.message("infoPanel.moves") + " " + unit.getMovesAsString();
+				textLabel = new JLabel(text);
+				textLabel.setFont(font);
+				add(textLabel, "span 5");
 
-        /**
-         * Unconditionally update this panel.
-         */
-        public void update() {
-            removeAll();
+				if (unit.isCarrier()) {
+					ImageIcon icon;
+					JLabel label;
+					for (Goods goods : unit.getGoodsList()) {
+						int amount = goods.getAmount();
+						GoodsType gt = goods.getType();
+						// FIXME: Get size of full stack from appropriate place.
+						if (amount == 100) {
+							icon = new ImageIcon(lib.getIconImage(gt));
+							label = new JLabel(icon);
+						} else {
+							icon = new ImageIcon(lib.getSmallIconImage(gt));
+							label = new JLabel(String.valueOf(amount), icon, JLabel.RIGHT);
+						}
+						text = Messages.message(goods.getLabel(true));
+						label.setFont(font);
+						label.setToolTipText(text);
+						add(label);
+					}
+					for (Unit carriedUnit : unit.getUnitList()) {
+						icon = new ImageIcon(lib.getSmallerUnitImage(carriedUnit));
+						label = new JLabel(icon);
+						text = carriedUnit.getDescription(Unit.UnitLabelType.NATIONAL);
+						label.setFont(font);
+						label.setToolTipText(text);
+						add(label);
+					}
+				}
+			}
+			revalidate();
+		}
 
-            final ImageLibrary lib = getGUI().getTileImageLibrary();
-            Font font = FontLibrary.createFont(FontLibrary.FontType.NORMAL,
-                FontLibrary.FontSize.TINY, lib.getScaleFactor());
-            String text;
-            JLabel textLabel;
-            if (unit != null) {
-                ImageIcon ii = new ImageIcon(lib.getUnitImage(unit));
-                JLabel imageLabel = new JLabel(ii);
-                add(imageLabel, "spany, gapafter 5px");
-                int width = getWidth() - ii.getIconWidth() - SLACK;
-                text = unit.getDescription(Unit.UnitLabelType.FULL);
-                for (String s : splitText(text, " /",
-                                          getFontMetrics(font), width)) {
-                    textLabel = new JLabel(s);
-                    textLabel.setFont(font);
-                    add(textLabel, "span 5");
-                }
+		// Interface PropertyChangeListener
 
-                text = (unit.isInEurope())
-                    ? Messages.getName(unit.getOwner().getEurope())
-                    : Messages.message("infoPanel.moves")
-                        + " " + unit.getMovesAsString();
-                textLabel = new JLabel(text);
-                textLabel.setFont(font);
-                add(textLabel, "span 5");
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void propertyChange(PropertyChangeEvent event) {
+			update();
+		}
+	}
 
-                if (unit.isCarrier()) {
-                    ImageIcon icon;
-                    JLabel label;
-                    for (Goods goods : unit.getGoodsList()) {
-                        int amount = goods.getAmount();
-                        GoodsType gt = goods.getType();
-                        // FIXME: Get size of full stack from appropriate place.
-                        if(amount == 100) {
-                            icon = new ImageIcon(lib.getIconImage(gt));
-                            label = new JLabel(icon);
-                        } else {
-                            icon = new ImageIcon(lib.getSmallIconImage(gt));
-                            label = new JLabel(String.valueOf(amount),
-                                               icon, JLabel.RIGHT);
-                        }
-                        text = Messages.message(goods.getLabel(true));
-                        label.setFont(font);
-                        label.setToolTipText(text);
-                        add(label);
-                    }
-                    for (Unit carriedUnit : unit.getUnitList()) {
-                        icon = new ImageIcon(lib.getSmallerUnitImage(carriedUnit));
-                        label = new JLabel(icon);
-                        text = carriedUnit.getDescription(Unit.UnitLabelType.NATIONAL);
-                        label.setFont(font);
-                        label.setToolTipText(text);
-                        add(label);
-                    }
-                }
-            }
-            revalidate();
-        }
+	/**
+	 * The Enum InfoPanelMode.
+	 */
+	private static enum InfoPanelMode {
 
+		/** The none. */
+		NONE,
+		/** The end. */
+		END,
+		/** The map. */
+		MAP,
+		/** The tile. */
+		TILE,
+		/** The unit. */
+		UNIT;
+	}
 
-        // Interface PropertyChangeListener
+	/** The Constant PANEL_WIDTH. */
+	private static final int PANEL_WIDTH = 260;
 
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void propertyChange(PropertyChangeEvent event) {
-            update();
-        }
-    }
+	/** The Constant PANEL_HEIGHT. */
+	public static final int PANEL_HEIGHT = 130;
 
-    private static enum InfoPanelMode {
-        NONE, END, MAP, TILE, UNIT;
-    }
+	/** The mode. */
+	private InfoPanelMode mode = InfoPanelMode.NONE;
 
-    private static final int PANEL_WIDTH = 260;
+	/** The end turn panel. */
+	private final EndTurnPanel endTurnPanel;
 
-    public static final int PANEL_HEIGHT = 130;
+	/** The map editor panel. */
+	private final JPanel mapEditorPanel;
 
-    private InfoPanelMode mode = InfoPanelMode.NONE;
+	/** The tile info panel. */
+	private final TileInfoPanel tileInfoPanel;
 
-    private final EndTurnPanel endTurnPanel;
+	/** The unit info panel. */
+	private final UnitInfoPanel unitInfoPanel;
 
-    private final JPanel mapEditorPanel;
+	/** The skin. */
+	private final Image skin;
 
-    private final TileInfoPanel tileInfoPanel;
+	/**
+	 * The constructor that will add the items to this panel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public InfoPanel(final FreeColClient freeColClient) {
+		this(freeColClient, true);
+	}
 
-    private final UnitInfoPanel unitInfoPanel;
+	/**
+	 * The constructor that will add the items to this panel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param useSkin
+	 *            Use the info panel skin.
+	 */
+	public InfoPanel(final FreeColClient freeColClient, boolean useSkin) {
+		super(freeColClient);
 
-    private final Image skin;
+		this.endTurnPanel = new EndTurnPanel();
+		this.mapEditorPanel = new JPanel(null);
+		this.mapEditorPanel.setSize(130, 100);
+		this.mapEditorPanel.setOpaque(false);
+		this.tileInfoPanel = new TileInfoPanel();
+		this.unitInfoPanel = new UnitInfoPanel();
+		this.skin = (useSkin) ? ResourceManager.getImage("image.skin.InfoPanel") : null;
 
+		setLayout(null);
+		int internalPanelTop = 0;
+		int internalPanelHeight = 128;
+		if (this.skin != null) {
+			setBorder(null);
+			setSize(this.skin.getWidth(null), this.skin.getHeight(null));
+			setOpaque(false);
+			internalPanelTop = 75;
+			internalPanelHeight = 128;
+		} else {
+			setSize(PANEL_WIDTH, PANEL_HEIGHT);
+		}
 
-    /**
-     * The constructor that will add the items to this panel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public InfoPanel(final FreeColClient freeColClient) {
-        this(freeColClient, true);
-    }
+		add(this.endTurnPanel, internalPanelTop, internalPanelHeight);
+		add(this.mapEditorPanel, internalPanelTop, internalPanelHeight);
+		add(this.tileInfoPanel, internalPanelTop, internalPanelHeight);
+		add(this.unitInfoPanel, internalPanelTop, internalPanelHeight);
 
-    /**
-     * The constructor that will add the items to this panel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param useSkin Use the info panel skin.
-     */
-    public InfoPanel(final FreeColClient freeColClient, boolean useSkin) {
-        super(freeColClient);
+		addMouseListener(new MouseAdapter() {
+			@Override
+			public void mousePressed(MouseEvent e) {
+				Unit activeUnit = getGUI().getActiveUnit();
+				if (activeUnit != null && activeUnit.hasTile()) {
+					getGUI().setFocus(activeUnit.getTile());
+				}
+			}
+		});
+	}
 
-        this.endTurnPanel = new EndTurnPanel();
-        this.mapEditorPanel = new JPanel(null);
-        this.mapEditorPanel.setSize(130, 100);
-        this.mapEditorPanel.setOpaque(false);
-        this.tileInfoPanel = new TileInfoPanel();
-        this.unitInfoPanel = new UnitInfoPanel();
-        this.skin = (useSkin) ? ResourceManager.getImage("image.skin.InfoPanel")
-            : null;
+	/**
+	 * Adds a panel to show information.
+	 *
+	 * @param panel
+	 *            the panel
+	 * @param internalTop
+	 *            the internal top
+	 * @param internalHeight
+	 *            the internal height
+	 */
+	private void add(JPanel panel, int internalTop, int internalHeight) {
+		panel.setVisible(false);
+		panel.setLocation((getWidth() - panel.getWidth()) / 2, internalTop + (internalHeight - panel.getHeight()) / 2);
+		add(panel);
+	}
 
-        setLayout(null);
-        int internalPanelTop = 0;
-        int internalPanelHeight = 128;
-        if (this.skin != null) {
-            setBorder(null);
-            setSize(this.skin.getWidth(null), this.skin.getHeight(null));
-            setOpaque(false);
-            internalPanelTop = 75;
-            internalPanelHeight = 128;
-        } else {
-            setSize(PANEL_WIDTH, PANEL_HEIGHT);
-        }
+	/**
+	 * Get the mode for this panel.
+	 *
+	 * @return The panel mode.
+	 */
+	private InfoPanelMode getMode() {
+		return (getFreeColClient().isMapEditor()) ? InfoPanelMode.MAP
+				: (getGUI().getViewMode() == GUI.VIEW_TERRAIN_MODE) ? InfoPanelMode.TILE
+						: (unitInfoPanel.hasUnit()) ? InfoPanelMode.UNIT
+								: (getFreeColClient().getMyPlayer() == null) ? InfoPanelMode.NONE : InfoPanelMode.END;
+	}
 
-        add(this.endTurnPanel, internalPanelTop, internalPanelHeight);
-        add(this.mapEditorPanel, internalPanelTop, internalPanelHeight);
-        add(this.tileInfoPanel, internalPanelTop, internalPanelHeight);
-        add(this.unitInfoPanel, internalPanelTop, internalPanelHeight);
+	/**
+	 * Updates this <code>InfoPanel</code>.
+	 *
+	 * @param mapTransform
+	 *            The current MapTransform.
+	 */
+	public void update(MapTransform mapTransform) {
+		final JPanel p = (mapTransform == null) ? null : mapTransform.getDescriptionPanel();
+		if (p != null) {
+			p.setOpaque(false);
+			final Dimension d = p.getPreferredSize();
+			p.setBounds(0, (this.mapEditorPanel.getHeight() - d.height) / 2, this.mapEditorPanel.getWidth(), d.height);
+			this.mapEditorPanel.removeAll();
+			this.mapEditorPanel.add(p, BorderLayout.CENTER);
+			this.mapEditorPanel.validate();
+			this.mapEditorPanel.revalidate();
+		}
+		update();
+	}
 
-        addMouseListener(new MouseAdapter() {
-                @Override
-                public void mousePressed(MouseEvent e) {
-                    Unit activeUnit = getGUI().getActiveUnit();
-                    if (activeUnit != null && activeUnit.hasTile()) {
-                        getGUI().setFocus(activeUnit.getTile());
-                    }
-                }
-            });
-    }
+	/**
+	 * Updates this <code>InfoPanel</code>.
+	 *
+	 * @param tile
+	 *            The displayed tile (or null if none)
+	 */
+	public void update(Tile tile) {
+		if (this.tileInfoPanel.getTile() != tile) {
+			this.tileInfoPanel.update(tile);
+		}
+		update();
+	}
 
-    /**
-     * Adds a panel to show information
-     */
-    private void add(JPanel panel, int internalTop, int internalHeight) {
-        panel.setVisible(false);
-        panel.setLocation((getWidth() - panel.getWidth()) / 2, internalTop
-                + (internalHeight - panel.getHeight()) / 2);
-        add(panel);
-    }
+	/**
+	 * Updates this <code>InfoPanel</code>.
+	 *
+	 * @param unit
+	 *            The displayed unit (or null if none)
+	 */
+	public void update(Unit unit) {
+		this.unitInfoPanel.update(unit);
+		update();
+	}
 
-    /**
-     * Get the mode for this panel.
-     *
-     * @return The panel mode.
-     */
-    private InfoPanelMode getMode() {
-        return (getFreeColClient().isMapEditor())
-            ? InfoPanelMode.MAP
-            : (getGUI().getViewMode() == GUI.VIEW_TERRAIN_MODE)
-            ? InfoPanelMode.TILE
-            : (unitInfoPanel.hasUnit())
-            ? InfoPanelMode.UNIT
-            : (getFreeColClient().getMyPlayer() == null)
-            ? InfoPanelMode.NONE
-            : InfoPanelMode.END;
-    }
+	/**
+	 * Update this <code>InfoPanel</code> by selecting the correct internal
+	 * panel to display.
+	 */
+	public void update() {
+		InfoPanelMode newMode = getMode();
+		if (newMode == InfoPanelMode.END && getFreeColClient().getMyPlayer().hasNextActiveUnit()) {
+			logger.warning("Inconsistent InfoPanel status");
+		}
+		if (this.mode != newMode) {
+			logger.info("Switching InfoPanel mode from " + mode + " to " + newMode);
+			switch (this.mode = newMode) {
+			case END:
+				this.mapEditorPanel.setVisible(false);
+				this.tileInfoPanel.setVisible(false);
+				this.unitInfoPanel.setVisible(false);
+				this.endTurnPanel.setVisible(true);
+				break;
+			case MAP:
+				this.endTurnPanel.setVisible(false);
+				this.tileInfoPanel.setVisible(false);
+				this.unitInfoPanel.setVisible(false);
+				this.mapEditorPanel.setVisible(true);
+				break;
+			case TILE:
+				this.endTurnPanel.setVisible(false);
+				this.mapEditorPanel.setVisible(false);
+				this.unitInfoPanel.setVisible(false);
+				this.tileInfoPanel.setVisible(true);
+				break;
+			case UNIT:
+				this.endTurnPanel.setVisible(false);
+				this.mapEditorPanel.setVisible(false);
+				this.tileInfoPanel.setVisible(false);
+				this.unitInfoPanel.setVisible(true);
+				break;
+			case NONE:
+			default:
+				this.endTurnPanel.setVisible(false);
+				this.mapEditorPanel.setVisible(false);
+				this.tileInfoPanel.setVisible(false);
+				this.unitInfoPanel.setVisible(false);
+				break;
+			}
+		}
+	}
 
-    /**
-     * Updates this <code>InfoPanel</code>.
-     *
-     * @param mapTransform The current MapTransform.
-     */
-    public void update(MapTransform mapTransform) {
-        final JPanel p = (mapTransform == null) ? null
-            : mapTransform.getDescriptionPanel();
-        if (p != null) {
-            p.setOpaque(false);
-            final Dimension d = p.getPreferredSize();
-            p.setBounds(0, (this.mapEditorPanel.getHeight() - d.height)/2,
-                this.mapEditorPanel.getWidth(), d.height);
-            this.mapEditorPanel.removeAll();
-            this.mapEditorPanel.add(p, BorderLayout.CENTER);
-            this.mapEditorPanel.validate();
-            this.mapEditorPanel.revalidate();
-        }
-        update();
-    }
+	// Override JComponent
 
-    /**
-     * Updates this <code>InfoPanel</code>.
-     *
-     * @param tile The displayed tile (or null if none)
-     */
-    public void update(Tile tile) {
-        if (this.tileInfoPanel.getTile() != tile) {
-            this.tileInfoPanel.update(tile);
-        }
-        update();
-    }
-
-    /**
-     * Updates this <code>InfoPanel</code>.
-     *
-     * @param unit The displayed unit (or null if none)
-     */
-    public void update(Unit unit) {
-        this.unitInfoPanel.update(unit);
-        update();
-    }
-
-    /**
-     * Update this <code>InfoPanel</code> by selecting the correct internal
-     * panel to display.
-     */
-    public void update() {
-        InfoPanelMode newMode = getMode();
-        if(newMode == InfoPanelMode.END &&
-           getFreeColClient().getMyPlayer().hasNextActiveUnit()) {
-            logger.warning("Inconsistent InfoPanel status");
-        }
-        if (this.mode != newMode) {
-            logger.info("Switching InfoPanel mode from " + mode +
-                        " to " + newMode);
-            switch (this.mode = newMode) {
-            case END:
-                this.mapEditorPanel.setVisible(false);
-                this.tileInfoPanel.setVisible(false);
-                this.unitInfoPanel.setVisible(false);
-                this.endTurnPanel.setVisible(true);
-                break;
-            case MAP:
-                this.endTurnPanel.setVisible(false);
-                this.tileInfoPanel.setVisible(false);
-                this.unitInfoPanel.setVisible(false);
-                this.mapEditorPanel.setVisible(true);
-                break;
-            case TILE:
-                this.endTurnPanel.setVisible(false);
-                this.mapEditorPanel.setVisible(false);
-                this.unitInfoPanel.setVisible(false);
-                this.tileInfoPanel.setVisible(true);
-                break;
-            case UNIT:
-                this.endTurnPanel.setVisible(false);
-                this.mapEditorPanel.setVisible(false);
-                this.tileInfoPanel.setVisible(false);
-                this.unitInfoPanel.setVisible(true);
-                break;
-            case NONE: default:
-                this.endTurnPanel.setVisible(false);
-                this.mapEditorPanel.setVisible(false);
-                this.tileInfoPanel.setVisible(false);
-                this.unitInfoPanel.setVisible(false);
-                break;
-            }
-        }
-    }
-
-
-    // Override JComponent
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void paintComponent(Graphics graphics) {
-        if (this.skin != null) graphics.drawImage(this.skin, 0, 0, null);
-        super.paintComponent(graphics);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void paintComponent(Graphics graphics) {
+		if (this.skin != null)
+			graphics.drawImage(this.skin, 0, 0, null);
+		super.paintComponent(graphics);
+	}
 }

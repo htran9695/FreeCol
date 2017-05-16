@@ -25,27 +25,39 @@ import javax.swing.plaf.basic.BasicPanelUI;
 
 import net.sf.freecol.client.gui.ImageLibrary;
 
-
 /**
- * Draw the "image.background.FreeColBrightPanel" resource as a tiled
- * background image.  BrightPanel is intended to provide a lighter
- * background than the default panel, and is used for panels that
- * might contain icons and text annotations, for example, many of the
- * subpanels in the ColonyPanel.
+ * Draw the "image.background.FreeColBrightPanel" resource as a tiled background
+ * image. BrightPanel is intended to provide a lighter background than the
+ * default panel, and is used for panels that might contain icons and text
+ * annotations, for example, many of the subpanels in the ColonyPanel.
  */
 public class FreeColBrightPanelUI extends BasicPanelUI {
 
-    private static final FreeColBrightPanelUI sharedInstance = new FreeColBrightPanelUI();
+	/** The Constant sharedInstance. */
+	private static final FreeColBrightPanelUI sharedInstance = new FreeColBrightPanelUI();
 
-    public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
-        return sharedInstance;
-    }
+	/**
+	 * Creates the UI.
+	 *
+	 * @param c
+	 *            the c
+	 * @return the component UI
+	 */
+	public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
+		return sharedInstance;
+	}
 
-    @Override
-    public void paint(java.awt.Graphics g, javax.swing.JComponent c) {
-        if (c.isOpaque()) {
-            ImageLibrary.drawTiledImage("image.background.FreeColBrightPanel", g, c, null);
-        }
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.plaf.ComponentUI#paint(java.awt.Graphics,
+	 * javax.swing.JComponent)
+	 */
+	@Override
+	public void paint(java.awt.Graphics g, javax.swing.JComponent c) {
+		if (c.isOpaque()) {
+			ImageLibrary.drawTiledImage("image.background.FreeColBrightPanel", g, c, null);
+		}
+	}
 
 }

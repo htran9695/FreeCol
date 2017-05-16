@@ -30,139 +30,137 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent when purchasing at an IndianSettlement.
  */
 public class BuyMessage extends DOMMessage {
 
-    /** The object identifier of the unit that is buying. */
-    private final String unitId;
+	/** The object identifier of the unit that is buying. */
+	private final String unitId;
 
-    /** The object identifier of the settlement that is selling. */
-    private final String settlementId;
+	/** The object identifier of the settlement that is selling. */
+	private final String settlementId;
 
-    /** The goods to be bought. */
-    private final Goods goods;
+	/** The goods to be bought. */
+	private final Goods goods;
 
-    /** The price to pay. */
-    private final String goldString;
+	/** The price to pay. */
+	private final String goldString;
 
+	/**
+	 * Create a new <code>BuyMessage</code>.
+	 *
+	 * @param unit
+	 *            The <code>Unit</code> that is buying.
+	 * @param settlement
+	 *            The <code>Settlement</code> that is trading.
+	 * @param goods
+	 *            The <code>Goods</code> to buy.
+	 * @param gold
+	 *            The price of the goods.
+	 */
+	public BuyMessage(Unit unit, Settlement settlement, Goods goods, int gold) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>BuyMessage</code>.
-     *
-     * @param unit The <code>Unit</code> that is buying.
-     * @param settlement The <code>Settlement</code> that is trading.
-     * @param goods The <code>Goods</code> to buy.
-     * @param gold The price of the goods.
-     */
-    public BuyMessage(Unit unit, Settlement settlement, Goods goods,
-                      int gold) {
-        super(getXMLElementTagName());
+		this.unitId = unit.getId();
+		this.settlementId = settlement.getId();
+		this.goods = goods;
+		this.goldString = Integer.toString(gold);
+	}
 
-        this.unitId = unit.getId();
-        this.settlementId = settlement.getId();
-        this.goods = goods;
-        this.goldString = Integer.toString(gold);
-    }
+	/**
+	 * Create a new <code>BuyMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public BuyMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>BuyMessage</code> from a
-     * supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public BuyMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.unitId = element.getAttribute("unit");
+		this.settlementId = element.getAttribute("settlement");
+		this.goods = new Goods(game, DOMMessage.getChildElement(element, Goods.getXMLElementTagName()));
+		this.goldString = element.getAttribute("gold");
+	}
 
-        this.unitId = element.getAttribute("unit");
-        this.settlementId = element.getAttribute("settlement");
-        this.goods = new Goods(game,
-            DOMMessage.getChildElement(element, Goods.getXMLElementTagName()));
-        this.goldString = element.getAttribute("gold");
-    }
+	// Public interface
 
+	/**
+	 * What is the price currently negotiated for this transaction?.
+	 *
+	 * @return The current price.
+	 */
+	public int getGold() {
+		try {
+			return Integer.parseInt(goldString);
+		} catch (NumberFormatException e) {
+			return -1;
+		}
+	}
 
-    // Public interface
+	/**
+	 * Handle a "buy"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the message.
+	 * @param player
+	 *            The <code>Player</code> the message applies to.
+	 * @param connection
+	 *            The <code>Connection</code> message was received on.
+	 * @return An update following the purchase, or an error
+	 *         <code>Element</code> on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
 
-    /**
-     * What is the price currently negotiated for this transaction?
-     *
-     * @return The current price.
-     */
-    public int getGold() {
-        try {
-            return Integer.parseInt(goldString);
-        } catch (NumberFormatException e) {
-            return -1;
-        }
-    }
+		Unit unit;
+		try {
+			unit = player.getOurFreeColGameObject(unitId, Unit.class);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
 
+		ServerIndianSettlement settlement;
+		try {
+			settlement = (ServerIndianSettlement) unit.getAdjacentIndianSettlementSafely(settlementId);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
 
-    /**
-     * Handle a "buy"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the message.
-     * @param player The <code>Player</code> the message applies to.
-     * @param connection The <code>Connection</code> message was received on.
-     * @return An update following the purchase, or an error
-     *     <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
+		// Make sure we are trying to buy something that is there
+		if (goods.getLocation() != settlement) {
+			return DOMMessage.clientError("Goods " + goods.getId() + " is not at settlement " + settlementId);
+		}
 
-        Unit unit;
-        try {
-            unit = player.getOurFreeColGameObject(unitId, Unit.class);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
+		int gold = getGold();
+		if (gold < 0)
+			return DOMMessage.clientError("Bad gold: " + goldString);
 
-        ServerIndianSettlement settlement;
-        try {
-            settlement = (ServerIndianSettlement)unit.getAdjacentIndianSettlementSafely(settlementId);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
+		// Try to buy.
+		return server.getInGameController().buyFromSettlement(serverPlayer, unit, settlement, goods, gold);
+	}
 
-        // Make sure we are trying to buy something that is there
-        if (goods.getLocation() != settlement) {
-            return DOMMessage.clientError("Goods " + goods.getId()
-                + " is not at settlement " + settlementId);
-        }
+	/**
+	 * Convert this BuyMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		Element result = createMessage(getXMLElementTagName(), "unit", unitId, "settlement", settlementId, "gold",
+				goldString);
+		result.appendChild(goods.toXMLElement(result.getOwnerDocument()));
+		return result;
+	}
 
-        int gold = getGold();
-        if (gold < 0) return DOMMessage.clientError("Bad gold: " + goldString);
-
-        // Try to buy.
-        return server.getInGameController()
-            .buyFromSettlement(serverPlayer, unit, settlement, goods, gold);
-    }
-
-    /**
-     * Convert this BuyMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        Element result = createMessage(getXMLElementTagName(),
-            "unit", unitId,
-            "settlement", settlementId,
-            "gold", goldString);
-        result.appendChild(goods.toXMLElement(result.getOwnerDocument()));
-        return result;
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "buy".
-     */
-    public static String getXMLElementTagName() {
-        return "buy";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "buy".
+	 */
+	public static String getXMLElementTagName() {
+		return "buy";
+	}
 }

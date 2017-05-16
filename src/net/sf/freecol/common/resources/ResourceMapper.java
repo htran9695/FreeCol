@@ -24,57 +24,127 @@ package net.sf.freecol.common.resources;
  */
 public final class ResourceMapper implements ResourceFactory.ResourceSink {
 
-    private final ResourceMapping resourceMapping;
-    private String key;
+	/** The resource mapping. */
+	private final ResourceMapping resourceMapping;
 
-    public ResourceMapper(ResourceMapping resourceMapping) {
-        this.resourceMapping = resourceMapping;
-        key = null;
-    }
+	/** The key. */
+	private String key;
 
-    public void setKey(String key) {
-        this.key = key;
-    }
+	/**
+	 * Instantiates a new resource mapper.
+	 *
+	 * @param resourceMapping
+	 *            the resource mapping
+	 */
+	public ResourceMapper(ResourceMapping resourceMapping) {
+		this.resourceMapping = resourceMapping;
+		key = null;
+	}
 
+	/**
+	 * Sets the key.
+	 *
+	 * @param key
+	 *            the new key
+	 */
+	public void setKey(String key) {
+		this.key = key;
+	}
 
-    @Override
-    public void add(ColorResource r) {
-        resourceMapping.add(key, r);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * net.sf.freecol.common.resources.ResourceFactory.ResourceSink#add(net.sf.
+	 * freecol.common.resources.ColorResource)
+	 */
+	@Override
+	public void add(ColorResource r) {
+		resourceMapping.add(key, r);
+	}
 
-    @Override
-    public void add(FontResource r) {
-        resourceMapping.add(key, r);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * net.sf.freecol.common.resources.ResourceFactory.ResourceSink#add(net.sf.
+	 * freecol.common.resources.FontResource)
+	 */
+	@Override
+	public void add(FontResource r) {
+		resourceMapping.add(key, r);
+	}
 
-    @Override
-    public void add(StringResource r) {
-        resourceMapping.add(key, r);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * net.sf.freecol.common.resources.ResourceFactory.ResourceSink#add(net.sf.
+	 * freecol.common.resources.StringResource)
+	 */
+	@Override
+	public void add(StringResource r) {
+		resourceMapping.add(key, r);
+	}
 
-    @Override
-    public void add(FAFileResource r) {
-        resourceMapping.add(key, r);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * net.sf.freecol.common.resources.ResourceFactory.ResourceSink#add(net.sf.
+	 * freecol.common.resources.FAFileResource)
+	 */
+	@Override
+	public void add(FAFileResource r) {
+		resourceMapping.add(key, r);
+	}
 
-    @Override
-    public void add(SZAResource r) {
-        resourceMapping.add(key, r);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * net.sf.freecol.common.resources.ResourceFactory.ResourceSink#add(net.sf.
+	 * freecol.common.resources.SZAResource)
+	 */
+	@Override
+	public void add(SZAResource r) {
+		resourceMapping.add(key, r);
+	}
 
-    @Override
-    public void add(AudioResource r) {
-        resourceMapping.add(key, r);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * net.sf.freecol.common.resources.ResourceFactory.ResourceSink#add(net.sf.
+	 * freecol.common.resources.AudioResource)
+	 */
+	@Override
+	public void add(AudioResource r) {
+		resourceMapping.add(key, r);
+	}
 
-    @Override
-    public void add(VideoResource r) {
-        resourceMapping.add(key, r);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * net.sf.freecol.common.resources.ResourceFactory.ResourceSink#add(net.sf.
+	 * freecol.common.resources.VideoResource)
+	 */
+	@Override
+	public void add(VideoResource r) {
+		resourceMapping.add(key, r);
+	}
 
-    @Override
-    public void add(ImageResource r) {
-        resourceMapping.add(key, r);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * net.sf.freecol.common.resources.ResourceFactory.ResourceSink#add(net.sf.
+	 * freecol.common.resources.ImageResource)
+	 */
+	@Override
+	public void add(ImageResource r) {
+		resourceMapping.add(key, r);
+	}
 
 }

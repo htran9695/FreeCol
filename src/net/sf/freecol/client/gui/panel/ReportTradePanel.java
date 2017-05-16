@@ -48,226 +48,208 @@ import net.sf.freecol.common.model.TypeCountMap;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.resources.ResourceManager;
 
-
 /**
  * This panel displays the Trade Report.
  */
 public final class ReportTradePanel extends ReportPanel {
 
-    /** The colonies. */
-    private final List<Colony> colonies;
+	/** The colonies. */
+	private final List<Colony> colonies;
 
+	/**
+	 * The constructor that will add the items to this panel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ReportTradePanel(FreeColClient freeColClient) {
+		super(freeColClient, "reportTradeAction");
 
-    /**
-     * The constructor that will add the items to this panel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ReportTradePanel(FreeColClient freeColClient) {
-        super(freeColClient, "reportTradeAction");
+		final Player player = getMyPlayer();
+		Color warnColor = ResourceManager.getColor("color.report.trade.warn");
 
-        final Player player = getMyPlayer();
-        Color warnColor = ResourceManager.getColor("color.report.trade.warn");
+		this.colonies = freeColClient.getMySortedColonies();
 
-        this.colonies = freeColClient.getMySortedColonies();
+		JPanel goodsHeader = new MigPanel("ReportPanelUI");
+		goodsHeader.setBorder(new EmptyBorder(20, 20, 0, 20));
+		scrollPane.setColumnHeaderView(goodsHeader);
 
-        JPanel goodsHeader = new MigPanel("ReportPanelUI");
-        goodsHeader.setBorder(new EmptyBorder(20, 20, 0, 20));
-        scrollPane.setColumnHeaderView(goodsHeader);
+		final Specification spec = getSpecification();
+		List<GoodsType> storableGoods = spec.getStorableGoodsTypeList();
+		Market market = player.getMarket();
 
-        final Specification spec = getSpecification();
-        List<GoodsType> storableGoods = spec.getStorableGoodsTypeList();
-        Market market = player.getMarket();
+		// Display Panel
+		reportPanel.removeAll();
+		goodsHeader.removeAll();
 
-        // Display Panel
-        reportPanel.removeAll();
-        goodsHeader.removeAll();
+		ImageLibrary lib = getImageLibrary();
 
-        ImageLibrary lib = getImageLibrary();
+		String layoutConstraints = "insets 0, gap 0 0";
+		String columnConstraints = "[25%!, fill]["
+				+ Math.round(lib.getScaleFactor() * (ImageLibrary.ICON_SIZE.width * 1.25f)) + "!, fill]";
+		String rowConstraints = "[fill]";
 
-        String layoutConstraints = "insets 0, gap 0 0";
-        String columnConstraints = "[25%!, fill]["
-            + Math.round(lib.getScaleFactor()
-                * (ImageLibrary.ICON_SIZE.width * 1.25f))
-            + "!, fill]";
-        String rowConstraints = "[fill]";
+		reportPanel.setLayout(new MigLayout(layoutConstraints, columnConstraints, rowConstraints));
+		goodsHeader.setLayout(new MigLayout(layoutConstraints, columnConstraints, rowConstraints));
+		goodsHeader.setOpaque(true);
 
-        reportPanel.setLayout(new MigLayout(layoutConstraints,
-                                            columnConstraints, rowConstraints));
-        goodsHeader.setLayout(new MigLayout(layoutConstraints,
-                                            columnConstraints, rowConstraints));
-        goodsHeader.setOpaque(true);
+		JLabel emptyLabel = new JLabel();
+		emptyLabel.setBorder(Utility.TOPLEFTCELLBORDER);
+		goodsHeader.add(emptyLabel, "cell 0 0");
 
-        JLabel emptyLabel = new JLabel();
-        emptyLabel.setBorder(Utility.TOPLEFTCELLBORDER);
-        goodsHeader.add(emptyLabel, "cell 0 0");
-        
-        /**
-         * Total Units Sold by Player
-         */
-        JLabel jl = createLeftLabel("report.trade.unitsSold");
-        jl.setBorder(Utility.TOPLEFTCELLBORDER);
-        reportPanel.add(jl, "cell 0 0");
-        reportPanel.add(createLeftLabel("report.trade.beforeTaxes"), "cell 0 1");
-        reportPanel.add(createLeftLabel("report.trade.afterTaxes"), "cell 0 2");
-        reportPanel.add(createLeftLabel("report.trade.cargoUnits"), "cell 0 3");
-        reportPanel.add(createLeftLabel("report.trade.totalUnits"), "cell 0 4");
-        reportPanel.add(createLeftLabel("report.trade.totalDelta"), "cell 0 5");
+		/**
+		 * Total Units Sold by Player
+		 */
+		JLabel jl = createLeftLabel("report.trade.unitsSold");
+		jl.setBorder(Utility.TOPLEFTCELLBORDER);
+		reportPanel.add(jl, "cell 0 0");
+		reportPanel.add(createLeftLabel("report.trade.beforeTaxes"), "cell 0 1");
+		reportPanel.add(createLeftLabel("report.trade.afterTaxes"), "cell 0 2");
+		reportPanel.add(createLeftLabel("report.trade.cargoUnits"), "cell 0 3");
+		reportPanel.add(createLeftLabel("report.trade.totalUnits"), "cell 0 4");
+		reportPanel.add(createLeftLabel("report.trade.totalDelta"), "cell 0 5");
 
-        TypeCountMap<GoodsType> totalUnits = new TypeCountMap<>();
-        TypeCountMap<GoodsType> deltaUnits = new TypeCountMap<>();
-        TypeCountMap<GoodsType> cargoUnits = new TypeCountMap<>();
+		TypeCountMap<GoodsType> totalUnits = new TypeCountMap<>();
+		TypeCountMap<GoodsType> deltaUnits = new TypeCountMap<>();
+		TypeCountMap<GoodsType> cargoUnits = new TypeCountMap<>();
 
-        Iterator<Unit> iterator = player.getUnitIterator();
-        while (iterator.hasNext()) {
-            Unit unit = iterator.next();
-            if (unit.isCarrier()) {
-                for (Goods goods : unit.getGoodsContainer().getCompactGoods()) {
-                    cargoUnits.incrementCount(goods.getType(), goods.getAmount());
-                    totalUnits.incrementCount(goods.getType(), goods.getAmount());
-                }
-            }
-        }
+		Iterator<Unit> iterator = player.getUnitIterator();
+		while (iterator.hasNext()) {
+			Unit unit = iterator.next();
+			if (unit.isCarrier()) {
+				for (Goods goods : unit.getGoodsContainer().getCompactGoods()) {
+					cargoUnits.incrementCount(goods.getType(), goods.getAmount());
+					totalUnits.incrementCount(goods.getType(), goods.getAmount());
+				}
+			}
+		}
 
-        int column = 0;
-        for (GoodsType goodsType : storableGoods) {
-            column++;
-            int sales = player.getSales(goodsType);
-            int beforeTaxes = player.getIncomeBeforeTaxes(goodsType);
-            int afterTaxes = player.getIncomeAfterTaxes(goodsType);
-            goodsHeader.add(new MarketLabel(lib, goodsType, market)
-                .addBorder());
+		int column = 0;
+		for (GoodsType goodsType : storableGoods) {
+			column++;
+			int sales = player.getSales(goodsType);
+			int beforeTaxes = player.getIncomeBeforeTaxes(goodsType);
+			int afterTaxes = player.getIncomeAfterTaxes(goodsType);
+			goodsHeader.add(new MarketLabel(lib, goodsType, market).addBorder());
 
-            jl = createNumberLabel(sales);
-            jl.setBorder(Utility.TOPCELLBORDER);
-            reportPanel.add(jl, "cell " + column + " 0");
-            reportPanel.add(createNumberLabel(beforeTaxes),
-                            "cell " + column + " 1");
-            reportPanel.add(createNumberLabel(afterTaxes),
-                            "cell " + column + " 2");
-            reportPanel.add(createNumberLabel(cargoUnits.getCount(goodsType)),
-                            "cell " + column + " 3");
-        }
+			jl = createNumberLabel(sales);
+			jl.setBorder(Utility.TOPCELLBORDER);
+			reportPanel.add(jl, "cell " + column + " 0");
+			reportPanel.add(createNumberLabel(beforeTaxes), "cell " + column + " 1");
+			reportPanel.add(createNumberLabel(afterTaxes), "cell " + column + " 2");
+			reportPanel.add(createNumberLabel(cargoUnits.getCount(goodsType)), "cell " + column + " 3");
+		}
 
-        int row = 6;
-        boolean first = true;
-        for (Colony colony : colonies) {
-            for (GoodsType goodsType : getSpecification().getGoodsTypeList()) {
-                deltaUnits.incrementCount(goodsType, colony.getNetProductionOf(goodsType));
-            }
-            for (Goods goods : colony.getCompactGoods()) {
-                totalUnits.incrementCount(goods.getType(), goods.getAmount());
-            }
-            JButton colonyButton = createColonyButton(colony);
-            if (colony.hasAbility(Ability.EXPORT)) {
-                colonyButton.setText(colonyButton.getText() + "*");
-            }
-            colonyButton.setBorder((first) ? Utility.TOPLEFTCELLBORDER
-                : Utility.LEFTCELLBORDER);
-            reportPanel.add(colonyButton, "cell 0 " + row + " 1 2");
+		int row = 6;
+		boolean first = true;
+		for (Colony colony : colonies) {
+			for (GoodsType goodsType : getSpecification().getGoodsTypeList()) {
+				deltaUnits.incrementCount(goodsType, colony.getNetProductionOf(goodsType));
+			}
+			for (Goods goods : colony.getCompactGoods()) {
+				totalUnits.incrementCount(goods.getType(), goods.getAmount());
+			}
+			JButton colonyButton = createColonyButton(colony);
+			if (colony.hasAbility(Ability.EXPORT)) {
+				colonyButton.setText(colonyButton.getText() + "*");
+			}
+			colonyButton.setBorder((first) ? Utility.TOPLEFTCELLBORDER : Utility.LEFTCELLBORDER);
+			reportPanel.add(colonyButton, "cell 0 " + row + " 1 2");
 
-            column = 0;
-            for (GoodsType goodsType : storableGoods) {
-                column++;
-                int amount = colony.getGoodsCount(goodsType);
-                JLabel goodsLabel = new JLabel(String.valueOf(amount),
-                                               JLabel.TRAILING);
-                goodsLabel.setBorder((first) ? Utility.TOPCELLBORDER
-                    : Utility.CELLBORDER);
-                goodsLabel.setForeground(GoodsLabel.getColor(goodsType, amount,
-                                                             colony));
-                ExportData ed = colony.getExportData(goodsType);
-                if (ed.getExported()) {
-                    goodsLabel.setToolTipText(Messages.message(StringTemplate
-                            .template("report.trade.export")
-                            .addNamed("%goods%", goodsType)
-                            .addAmount("%amount%", ed.getExportLevel())));
-                }
-                reportPanel.add(goodsLabel, "cell " + column + " " + row);
+			column = 0;
+			for (GoodsType goodsType : storableGoods) {
+				column++;
+				int amount = colony.getGoodsCount(goodsType);
+				JLabel goodsLabel = new JLabel(String.valueOf(amount), JLabel.TRAILING);
+				goodsLabel.setBorder((first) ? Utility.TOPCELLBORDER : Utility.CELLBORDER);
+				goodsLabel.setForeground(GoodsLabel.getColor(goodsType, amount, colony));
+				ExportData ed = colony.getExportData(goodsType);
+				if (ed.getExported()) {
+					goodsLabel.setToolTipText(Messages.message(StringTemplate.template("report.trade.export")
+							.addNamed("%goods%", goodsType).addAmount("%amount%", ed.getExportLevel())));
+				}
+				reportPanel.add(goodsLabel, "cell " + column + " " + row);
 
-                int production = colony.getNetProductionOf(goodsType);
-                JLabel productionLabel = createNumberLabel(production, true);
-                productionLabel.setForeground(GoodsLabel.getColor(goodsType,
-                        production, colony));
-                Collection<StringTemplate> warnings
-                    = colony.getProductionWarnings(goodsType);
-                if (!warnings.isEmpty()) {
-                    StringBuilder sb = new StringBuilder();
-                    for (StringTemplate warning : warnings) {
-                        sb.append(Messages.message(warning))
-                            .append(" ");
-                    }
-                    sb.setLength(sb.length()-1);
-                    productionLabel.setToolTipText(sb.toString());
-                    productionLabel.setForeground(warnColor);
-                }
-                reportPanel.add(productionLabel,
-                                "cell " + column + " " + (row + 1));
-            }
-            row += 2;
-            first = false;
-        }
+				int production = colony.getNetProductionOf(goodsType);
+				JLabel productionLabel = createNumberLabel(production, true);
+				productionLabel.setForeground(GoodsLabel.getColor(goodsType, production, colony));
+				Collection<StringTemplate> warnings = colony.getProductionWarnings(goodsType);
+				if (!warnings.isEmpty()) {
+					StringBuilder sb = new StringBuilder();
+					for (StringTemplate warning : warnings) {
+						sb.append(Messages.message(warning)).append(" ");
+					}
+					sb.setLength(sb.length() - 1);
+					productionLabel.setToolTipText(sb.toString());
+					productionLabel.setForeground(warnColor);
+				}
+				reportPanel.add(productionLabel, "cell " + column + " " + (row + 1));
+			}
+			row += 2;
+			first = false;
+		}
 
-        row++;
-        reportPanel.add(Utility.localizedLabel("report.trade.hasCustomHouse"),
-                        "cell 0 " + row + ", span");
+		row++;
+		reportPanel.add(Utility.localizedLabel("report.trade.hasCustomHouse"), "cell 0 " + row + ", span");
 
-        column = 0;
-        for (GoodsType goodsType : storableGoods) {
-            column++;
-            reportPanel.add(createNumberLabel(totalUnits.getCount(goodsType)),
-                            "cell " + column + " 4");
-            reportPanel.add(createNumberLabel(deltaUnits.getCount(goodsType), true),
-                            "cell " + column + " 5, wrap 20");
-        }
-    }
+		column = 0;
+		for (GoodsType goodsType : storableGoods) {
+			column++;
+			reportPanel.add(createNumberLabel(totalUnits.getCount(goodsType)), "cell " + column + " 4");
+			reportPanel.add(createNumberLabel(deltaUnits.getCount(goodsType), true), "cell " + column + " 5, wrap 20");
+		}
+	}
 
-    /**
-     * Creates the left label.
-     *
-     * @param key the key
-     * @return the j label
-     */
-    private JLabel createLeftLabel(String key) {
-        JLabel result = Utility.localizedLabel(key);
-        result.setBorder(Utility.LEFTCELLBORDER);
-        return result;
-    }
+	/**
+	 * Creates the left label.
+	 *
+	 * @param key
+	 *            the key
+	 * @return the j label
+	 */
+	private JLabel createLeftLabel(String key) {
+		JLabel result = Utility.localizedLabel(key);
+		result.setBorder(Utility.LEFTCELLBORDER);
+		return result;
+	}
 
-    /**
-     * Creates the number label.
-     *
-     * @param value the value
-     * @return the j label
-     */
-    private JLabel createNumberLabel(int value) {
-        return createNumberLabel(value, false);
-    }
+	/**
+	 * Creates the number label.
+	 *
+	 * @param value
+	 *            the value
+	 * @return the j label
+	 */
+	private JLabel createNumberLabel(int value) {
+		return createNumberLabel(value, false);
+	}
 
-    /**
-     * Creates the number label.
-     *
-     * @param value the value
-     * @param alwaysAddSign the always add sign
-     * @return the j label
-     */
-    private JLabel createNumberLabel(int value, boolean alwaysAddSign) {
-        JLabel result = new JLabel(String.valueOf(value), JLabel.TRAILING);
-        result.setBorder(Utility.CELLBORDER);
-        if (value < 0) {
-            result.setForeground(Color.RED);
-        } else if (alwaysAddSign && value > 0) {
-            result.setText("+" + value);
-        }
-        return result;
-    }
+	/**
+	 * Creates the number label.
+	 *
+	 * @param value
+	 *            the value
+	 * @param alwaysAddSign
+	 *            the always add sign
+	 * @return the j label
+	 */
+	private JLabel createNumberLabel(int value, boolean alwaysAddSign) {
+		JLabel result = new JLabel(String.valueOf(value), JLabel.TRAILING);
+		result.setBorder(Utility.CELLBORDER);
+		if (value < 0) {
+			result.setForeground(Color.RED);
+		} else if (alwaysAddSign && value > 0) {
+			result.setText("+" + value);
+		}
+		return result;
+	}
 
-    /**
-     * Creates the border.
-     *
-     * @return the border
-     */
-    protected Border createBorder() {
-        return new EmptyBorder(0, 20, 20, 20);
-    }
+	/**
+	 * Creates the border.
+	 *
+	 * @return the border
+	 */
+	protected Border createBorder() {
+		return new EmptyBorder(0, 20, 20, 20);
+	}
 }

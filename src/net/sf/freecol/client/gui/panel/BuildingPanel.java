@@ -48,224 +48,211 @@ import net.sf.freecol.common.model.GameOptions;
 import net.sf.freecol.common.model.ProductionInfo;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
  * This panel represents a single building in a Colony.
  */
 public class BuildingPanel extends MigPanel implements PropertyChangeListener {
 
-    private static final Logger logger = Logger.getLogger(BuildingPanel.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(BuildingPanel.class.getName());
 
-    /** The enclosing client. */
-    private final FreeColClient freeColClient;
+	/** The enclosing client. */
+	private final FreeColClient freeColClient;
 
-    /** The Building to display. */
-    private final Building building;
+	/** The Building to display. */
+	private final Building building;
 
-    /** Labels for any units present. */
-    private final List<UnitLabel> unitLabels = new ArrayList<>();
+	/** Labels for any units present. */
+	private final List<UnitLabel> unitLabels = new ArrayList<>();
 
+	/**
+	 * Creates this BuildingPanel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param building
+	 *            The building to display information from.
+	 */
+	public BuildingPanel(FreeColClient freeColClient, Building building) {
+		super(new MigLayout("", "[32][32][32]", "[32][44]"));
 
-    /**
-     * Creates this BuildingPanel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param building The building to display information from.
-     */
-    public BuildingPanel(FreeColClient freeColClient, Building building) {
-        super(new MigLayout("", "[32][32][32]", "[32][44]"));
+		this.freeColClient = freeColClient;
+		this.building = building;
 
-        this.freeColClient = freeColClient;
-        this.building = building;
+		setToolTipText(" ");
+	}
 
-        setToolTipText(" ");
-    }
+	/**
+	 * Initialize this building panel.
+	 */
+	public void initialize() {
+		cleanup();
+		addPropertyChangeListeners();
+		update();
+	}
 
+	/**
+	 * Clean up this building panel.
+	 */
+	public void cleanup() {
+		unitLabels.clear();
+		removePropertyChangeListeners();
+		removeAll();
+	}
 
-    /**
-     * Initialize this building panel.
-     */
-    public void initialize() {
-        cleanup();
-        addPropertyChangeListeners();
-        update();
-    }
+	/**
+	 * Add any property change listeners.
+	 */
+	protected void addPropertyChangeListeners() {
+		if (building != null) {
+			building.addPropertyChangeListener(this);
+		}
+	}
 
-    /**
-     * Clean up this building panel.
-     */
-    public void cleanup() {
-        unitLabels.clear();
-        removePropertyChangeListeners();
-        removeAll();
-    }
+	/**
+	 * Remove any property change listeners.
+	 */
+	protected void removePropertyChangeListeners() {
+		if (building != null) {
+			building.removePropertyChangeListener(this);
+		}
+	}
 
-    /**
-     * Add any property change listeners.
-     */
-    protected void addPropertyChangeListeners() {
-        if (building != null) {
-            building.addPropertyChangeListener(this);
-        }
-    }
+	/**
+	 * Update up this building panel.
+	 */
+	public void update() {
+		removeAll();
+		unitLabels.clear();
 
-    /**
-     * Remove any property change listeners.
-     */
-    protected void removePropertyChangeListeners() {
-        if (building != null) {
-            building.removePropertyChangeListener(this);
-        }
-    }
+		final Colony colony = building.getColony();
+		ProductionLabel productionOutput = null;
+		ProductionInfo info = building.getProductionInfo();
+		if (info != null && !info.getProduction().isEmpty()) {
+			AbstractGoods output = info.getProduction().get(0);
+			if (output.getAmount() > 0) {
+				if (building.hasAbility(Ability.AVOID_EXCESS_PRODUCTION)) {
+					int stored = colony.getGoodsCount(output.getType());
+					int capacity = colony.getWarehouseCapacity();
+					if (output.getAmount() + stored > capacity) {
+						output = new AbstractGoods(output.getType(), capacity - stored);
+					}
+				}
+				AbstractGoods maximum = info.getMaximumProduction().isEmpty() ? output
+						: info.getMaximumProduction().get(0);
+				productionOutput = new ProductionLabel(freeColClient, output, maximum.getAmount());
+			}
+		}
+		JLabel upkeep = null;
+		if (building.getSpecification().getBoolean(GameOptions.ENABLE_UPKEEP) && building.getType().getUpkeep() > 0) {
+			upkeep = new UpkeepLabel(building.getType().getUpkeep());
+		}
+		if (productionOutput == null) {
+			if (upkeep != null) {
+				add(upkeep, "span, align center");
+			}
+		} else if (upkeep == null) {
+			add(productionOutput, "span, align center");
+		} else {
+			add(productionOutput, "span, split 2, align center");
+			add(upkeep);
+		}
 
-    /**
-     * Update up this building panel.
-     */
-    public void update() {
-        removeAll();
-        unitLabels.clear();
+		for (Unit unit : building.getUnitList()) {
+			UnitLabel unitLabel = new UnitLabel(freeColClient, unit, true);
+			unitLabels.add(unitLabel);
+			add(unitLabel);
+		}
 
-        final Colony colony = building.getColony();
-        ProductionLabel productionOutput = null;
-        ProductionInfo info = building.getProductionInfo();
-        if (info != null && !info.getProduction().isEmpty()) {
-            AbstractGoods output = info.getProduction().get(0);
-            if (output.getAmount() > 0) {
-                if (building.hasAbility(Ability.AVOID_EXCESS_PRODUCTION)) {
-                    int stored = colony.getGoodsCount(output.getType());
-                    int capacity = colony.getWarehouseCapacity();
-                    if (output.getAmount() + stored > capacity) {
-                        output = new AbstractGoods(output.getType(),
-                                                   capacity - stored);
-                    }
-                }
-                AbstractGoods maximum = info.getMaximumProduction().isEmpty()
-                    ? output : info.getMaximumProduction().get(0);
-                productionOutput = new ProductionLabel(freeColClient, output,
-                                                       maximum.getAmount());
-            }
-        }
-        JLabel upkeep = null;
-        if (building.getSpecification().getBoolean(GameOptions.ENABLE_UPKEEP)
-            && building.getType().getUpkeep() > 0) {
-            upkeep = new UpkeepLabel(building.getType().getUpkeep());
-        }
-        if (productionOutput == null) {
-            if (upkeep != null) {
-                add(upkeep, "span, align center");
-            }
-        } else if (upkeep == null) {
-            add(productionOutput, "span, align center");
-        } else {
-            add(productionOutput, "span, split 2, align center");
-            add(upkeep);
-        }
+		ImageLibrary lib = freeColClient.getGUI().getImageLibrary();
+		Image buildingImage = lib.getBuildingImage(building);
+		setPreferredSize(new Dimension(buildingImage.getWidth(null), buildingImage.getHeight(null)));
+		revalidate();
+		repaint();
+	}
 
-        for (Unit unit : building.getUnitList()) {
-            UnitLabel unitLabel = new UnitLabel(freeColClient, unit, true);
-            unitLabels.add(unitLabel);
-            add(unitLabel);
-        }
+	/**
+	 * Get the building this panel displays.
+	 *
+	 * @return The displayed <code>Building</code>.
+	 */
+	public Building getBuilding() {
+		return building;
+	}
 
-        ImageLibrary lib = freeColClient.getGUI().getImageLibrary();
-        Image buildingImage = lib.getBuildingImage(building);
-        setPreferredSize(new Dimension(buildingImage.getWidth(null), 
-                                       buildingImage.getHeight(null)));
-        revalidate();
-        repaint();
-    }
+	/**
+	 * Get any unit labels for the units present.
+	 *
+	 * @return A list of <code>UnitLabel</code>s.
+	 */
+	public List<UnitLabel> getUnitLabels() {
+		return unitLabels;
+	}
 
+	// Interface PropertyChangeListener
 
-    /**
-     * Get the building this panel displays.
-     *
-     * @return The displayed <code>Building</code>.
-     */
-    public Building getBuilding() {
-        return building;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void propertyChange(PropertyChangeEvent event) {
+		String property = event.getPropertyName();
+		logger.finest(
+				building.getId() + " change " + property + ": " + event.getOldValue() + " -> " + event.getNewValue());
+		update();
+	}
 
-    /**
-     * Get any unit labels for the units present.
-     *
-     * @return A list of <code>UnitLabel</code>s.
-     */
-    public List<UnitLabel> getUnitLabels() {
-        return unitLabels;
-    }
+	// Override JComponent
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public JToolTip createToolTip() {
+		return new BuildingToolTip(freeColClient, building);
+	}
 
-    // Interface PropertyChangeListener
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void paintComponent(Graphics g) {
+		ImageLibrary lib = freeColClient.getGUI().getImageLibrary();
+		g.drawImage(lib.getBuildingImage(building), 0, 0, this);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void propertyChange(PropertyChangeEvent event) {
-        String property = event.getPropertyName();
-        logger.finest(building.getId() + " change " + property
-                      + ": " + event.getOldValue()
-                      + " -> " + event.getNewValue());
-        update();
-    }
+	/**
+	 * A special label to display the building upkeep required.
+	 */
+	public class UpkeepLabel extends JLabel {
 
+		/** The base image to display. */
+		private final int number;
 
-    // Override JComponent
+		/**
+		 * Create an upkeep label.
+		 *
+		 * @param number
+		 *            The upkeep cost.
+		 */
+		public UpkeepLabel(int number) {
+			super(new ImageIcon(freeColClient.getGUI().getImageLibrary().getMiscImage(ImageLibrary.ICON_COIN)));
+			this.number = number;
+		}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public JToolTip createToolTip() {
-        return new BuildingToolTip(freeColClient, building);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void paintComponent(Graphics g) {
-        ImageLibrary lib = freeColClient.getGUI().getImageLibrary();
-        g.drawImage(lib.getBuildingImage(building), 0, 0, this);
-    }
-
-
-    /**
-     * A special label to display the building upkeep required.
-     */
-    public class UpkeepLabel extends JLabel {
-
-        /** The base image to display. */
-        private final int number;
-
-        /**
-         * Create an upkeep label.
-         *
-         * @param number The upkeep cost.
-         */
-        public UpkeepLabel(int number) {
-            super(new ImageIcon(freeColClient.getGUI().getImageLibrary()
-                .getMiscImage(ImageLibrary.ICON_COIN)));
-            this.number = number;
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void paintComponent(Graphics g) {
-            getIcon().paintIcon(null, g, 0, 0);
-            GUI gui = freeColClient.getGUI();
-            ImageLibrary lib = gui.getImageLibrary();
-            BufferedImage image = lib.getStringImage(
-                g,
-                Integer.toString(number), getForeground(),
-                FontLibrary.createFont(FontLibrary.FontType.SIMPLE,
-                    FontLibrary.FontSize.TINY, Font.BOLD,
-                    lib.getScaleFactor()));
-            g.drawImage(image,
-                (getIcon().getIconWidth() - image.getWidth(null))/2,
-                (getIcon().getIconHeight() - image.getHeight(null))/2, null);
-        }
-    }
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void paintComponent(Graphics g) {
+			getIcon().paintIcon(null, g, 0, 0);
+			GUI gui = freeColClient.getGUI();
+			ImageLibrary lib = gui.getImageLibrary();
+			BufferedImage image = lib.getStringImage(g, Integer.toString(number), getForeground(),
+					FontLibrary.createFont(FontLibrary.FontType.SIMPLE, FontLibrary.FontSize.TINY, Font.BOLD,
+							lib.getScaleFactor()));
+			g.drawImage(image, (getIcon().getIconWidth() - image.getWidth(null)) / 2,
+					(getIcon().getIconHeight() - image.getHeight(null)) / 2, null);
+		}
+	}
 }

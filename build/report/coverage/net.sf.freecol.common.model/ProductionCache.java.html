@@ -28,247 +28,233 @@ import java.util.Set;
 
 import static net.sf.freecol.common.util.CollectionUtils.*;
 
-
 /**
- * The &lt;code&gt;ProductionCache&lt;/code&gt; is contains all relevant
- * information about the production and consumption of the
- * colony. This includes the production of all colony tiles and
- * buildings, as well as the consumption of all units, buildings and
- * build queues.
+ * The &lt;code&gt;ProductionCache&lt;/code&gt; is contains all relevant information about
+ * the production and consumption of the colony. This includes the production of
+ * all colony tiles and buildings, as well as the consumption of all units,
+ * buildings and build queues.
  *
  */
 public class ProductionCache {
 
-    /**
-     * The colony whose production is being cached. The goods stored
-     * in the colony may need to be considered in order to prevent
-     * excess production.
-     */
-    private final Colony colony;
+	/**
+	 * The colony whose production is being cached. The goods stored in the
+	 * colony may need to be considered in order to prevent excess production.
+	 */
+	private final Colony colony;
 
-    /** A map of net production by goods type. */
-<span class="fc" id="L50">    private final TypeCountMap&lt;GoodsType&gt; netProduction</span>
-        = new TypeCountMap&lt;&gt;();
+	/** A map of net production by goods type. */
+<span class="fc" id="L47">	private final TypeCountMap&lt;GoodsType&gt; netProduction = new TypeCountMap&lt;&gt;();</span>
 
-    /** A map of production info for various producers and consumers. */
-<span class="fc" id="L54">    private final Map&lt;Object, ProductionInfo&gt; productionAndConsumption</span>
-        = new HashMap&lt;&gt;();
+	/** A map of production info for various producers and consumers. */
+<span class="fc" id="L50">	private final Map&lt;Object, ProductionInfo&gt; productionAndConsumption = new HashMap&lt;&gt;();</span>
 
-    /** A set of the goods used by the colony. */
-<span class="fc" id="L58">    private final Set&lt;GoodsType&gt; goodsUsed = new HashSet&lt;&gt;();</span>
+	/** A set of the goods used by the colony. */
+<span class="fc" id="L53">	private final Set&lt;GoodsType&gt; goodsUsed = new HashSet&lt;&gt;();</span>
 
-    /**
-     * Flag to indicate whether the cache is up to date, or not and
-     * needs {@link #update} to be called.
-     */
-<span class="fc" id="L64">    private boolean upToDate = false;</span>
+	/**
+	 * Flag to indicate whether the cache is up to date, or not and needs
+	 * {@link #update} to be called.
+	 */
+<span class="fc" id="L59">	private boolean upToDate = false;</span>
 
+	/**
+	 * Creates a new &lt;code&gt;ProductionCache&lt;/code&gt; instance.
+	 *
+	 * @param colony
+	 *            a &lt;code&gt;Colony&lt;/code&gt; value
+	 */
+<span class="fc" id="L67">	public ProductionCache(Colony colony) {</span>
+<span class="fc" id="L68">		this.colony = colony;</span>
+<span class="fc" id="L69">	}</span>
 
-    /**
-     * Creates a new &lt;code&gt;ProductionCache&lt;/code&gt; instance.
-     *
-     * @param colony a &lt;code&gt;Colony&lt;/code&gt; value
-     */
-<span class="fc" id="L72">    public ProductionCache(Colony colony) {</span>
-<span class="fc" id="L73">        this.colony = colony;</span>
-<span class="fc" id="L74">    }</span>
+	/**
+	 * Updates all data structures. The method has no side effects.
+	 *
+	 * For now, there is a hard assumption that ColonyTiles do not consume but
+	 * Buildings do. One day we may want to generalize this, which will require
+	 * processing the goods types in an order sorted by the requirement
+	 * dependencies. But not yet. This assumption is made explicit by getting
+	 * the ProductionInfo from ColonyTiles with the simple
+	 * getBasicProductionInfo() routine, but from Buildings with
+	 * getAdjustedProductionInfo() which takes account of the input and output
+	 * goods levels.
+	 *
+	 * FIXME: Ideally these should be unified into a
+	 * WorkLocation.getProductionInfo with the Building-form arguments.
+	 */
+	private synchronized void update() {
+<span class="fc bfc" id="L87" title="All 2 branches covered.">		if (upToDate)</span>
+<span class="fc" id="L88">			return; // nothing to do</span>
+<span class="fc" id="L89">		final Specification spec = colony.getSpecification();</span>
+<span class="fc" id="L90">		final GoodsType bells = spec.getGoodsType(&quot;model.goods.bells&quot;);</span>
 
+<span class="fc" id="L92">		productionAndConsumption.clear();</span>
+<span class="fc" id="L93">		netProduction.clear();</span>
+<span class="fc" id="L94">		goodsUsed.clear();</span>
+<span class="fc" id="L95">		ProductionMap production = new ProductionMap();</span>
 
-    /**
-     * Updates all data structures.  The method has no side effects.
-     *
-     * For now, there is a hard assumption that ColonyTiles do not
-     * consume but Buildings do.  One day we may want to generalize
-     * this, which will require processing the goods types in an order
-     * sorted by the requirement dependencies.  But not yet.  This
-     * assumption is made explicit by getting the ProductionInfo from
-     * ColonyTiles with the simple getBasicProductionInfo() routine,
-     * but from Buildings with getAdjustedProductionInfo() which takes
-     * account of the input and output goods levels.
-     *
-     * FIXME: Ideally these should be unified into a
-     * WorkLocation.getProductionInfo with the Building-form
-     * arguments.
-     */
-    private synchronized void update() {
-<span class="fc bfc" id="L94" title="All 2 branches covered.">        if (upToDate) return; // nothing to do</span>
-<span class="fc" id="L95">        final Specification spec = colony.getSpecification();</span>
-<span class="fc" id="L96">        final GoodsType bells = spec.getGoodsType(&quot;model.goods.bells&quot;);</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">		for (ColonyTile colonyTile : colony.getColonyTiles()) {</span>
+<span class="fc" id="L98">			ProductionInfo info = colonyTile.getBasicProductionInfo();</span>
+<span class="fc" id="L99">			production.add(info.getProduction());</span>
+<span class="fc" id="L100">			productionAndConsumption.put(colonyTile, info);</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">			for (AbstractGoods goods : info.getProduction()) {</span>
+<span class="fc" id="L102">				goodsUsed.add(goods.getType());</span>
+<span class="fc" id="L103">				netProduction.incrementCount(goods.getType().getStoredAs(), goods.getAmount());</span>
+<span class="fc" id="L104">			}</span>
+<span class="fc" id="L105">		}</span>
 
-<span class="fc" id="L98">        productionAndConsumption.clear();</span>
-<span class="fc" id="L99">        netProduction.clear();</span>
-<span class="fc" id="L100">        goodsUsed.clear();</span>
-<span class="fc" id="L101">        ProductionMap production = new ProductionMap();</span>
+		// Add bell production to compensate for the units-that-use-no-bells
+		// as this is not handled by the unit conumption.
+<span class="fc" id="L109">		int unitsThatUseNoBells = spec.getInteger(GameOptions.UNITS_THAT_USE_NO_BELLS);</span>
+<span class="fc" id="L110">		int amount = Math.min(unitsThatUseNoBells, colony.getUnitCount());</span>
+<span class="fc" id="L111">		ProductionInfo bellsInfo = new ProductionInfo();</span>
+<span class="fc" id="L112">		bellsInfo.addProduction(new AbstractGoods(bells, amount));</span>
+<span class="fc" id="L113">		productionAndConsumption.put(this, bellsInfo);</span>
+<span class="fc" id="L114">		netProduction.incrementCount(bells, amount);</span>
 
-<span class="fc bfc" id="L103" title="All 2 branches covered.">        for (ColonyTile colonyTile : colony.getColonyTiles()) {</span>
-<span class="fc" id="L104">            ProductionInfo info = colonyTile.getBasicProductionInfo();</span>
-<span class="fc" id="L105">            production.add(info.getProduction());</span>
-<span class="fc" id="L106">            productionAndConsumption.put(colonyTile, info);</span>
-<span class="fc bfc" id="L107" title="All 2 branches covered.">            for (AbstractGoods goods : info.getProduction()) {</span>
-<span class="fc" id="L108">                goodsUsed.add(goods.getType());</span>
-<span class="fc" id="L109">                netProduction.incrementCount(goods.getType().getStoredAs(),</span>
-<span class="fc" id="L110">                                             goods.getAmount());</span>
-<span class="fc" id="L111">            }</span>
-<span class="fc" id="L112">        }</span>
+<span class="fc" id="L116">		List&lt;AbstractGoods&gt; goods = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L117" title="All 2 branches covered.">		for (Consumer consumer : colony.getConsumers()) {</span>
+<span class="fc" id="L118">			Set&lt;Modifier&gt; modifiers = consumer.getModifiers(Modifier.CONSUME_ONLY_SURPLUS_PRODUCTION);</span>
+<span class="fc" id="L119">			goods.clear();</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">			for (AbstractGoods g : consumer.getConsumedGoods()) {</span>
+<span class="fc" id="L121">				goodsUsed.add(g.getType());</span>
+<span class="fc" id="L122">				AbstractGoods surplus = new AbstractGoods(production.get(g.getType()));</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">				if (modifiers.isEmpty()) {</span>
+<span class="fc" id="L124">					surplus.setAmount(surplus.getAmount() + getGoodsCount(g.getType()));</span>
+				} else {
+<span class="fc" id="L126">					surplus.setAmount((int) FeatureContainer.applyModifiers(surplus.getAmount(), null, modifiers));</span>
+				}
+<span class="fc" id="L128">				goods.add(surplus);</span>
+<span class="fc" id="L129">			}</span>
+<span class="fc" id="L130">			ProductionInfo info = null;</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">			if (consumer instanceof Building) {</span>
+<span class="fc" id="L132">				Building building = (Building) consumer;</span>
+<span class="fc" id="L133">				List&lt;AbstractGoods&gt; outputs = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">				for (AbstractGoods output : building.getOutputs()) {</span>
+<span class="fc" id="L135">					GoodsType outputType = output.getType();</span>
+<span class="fc" id="L136">					goodsUsed.add(outputType);</span>
+<span class="fc" id="L137">					AbstractGoods newOutput = new AbstractGoods(production.get(outputType));</span>
+<span class="fc" id="L138">					newOutput.setAmount(newOutput.getAmount() + getGoodsCount(outputType));</span>
+<span class="fc" id="L139">					outputs.add(newOutput);</span>
+<span class="fc" id="L140">				}</span>
+<span class="fc" id="L141">				info = building.getAdjustedProductionInfo(goods, outputs);</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">			} else if (consumer instanceof Unit) {</span>
+<span class="fc" id="L143">				info = ((Unit) consumer).getProductionInfo(goods);</span>
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">			} else if (consumer instanceof BuildQueue) {</span>
+<span class="fc" id="L145">				info = ((BuildQueue&lt;?&gt;) consumer).getProductionInfo(goods);</span>
+			}
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">			if (info != null) {</span>
+<span class="fc" id="L148">				production.add(info.getProduction());</span>
+<span class="fc" id="L149">				production.remove(info.getConsumption());</span>
+<span class="fc bfc" id="L150" title="All 2 branches covered.">				for (AbstractGoods g : info.getProduction()) {</span>
+<span class="fc" id="L151">					netProduction.incrementCount(g.getType().getStoredAs(), g.getAmount());</span>
+<span class="fc" id="L152">				}</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">				for (AbstractGoods g : info.getConsumption()) {</span>
+<span class="fc" id="L154">					netProduction.incrementCount(g.getType().getStoredAs(), -g.getAmount());</span>
+<span class="fc" id="L155">				}</span>
+<span class="fc" id="L156">				productionAndConsumption.put(consumer, info);</span>
+			}
+<span class="fc" id="L158">		}</span>
+<span class="fc" id="L159">		upToDate = true;</span>
+<span class="fc" id="L160">	}</span>
 
-        // Add bell production to compensate for the units-that-use-no-bells
-        // as this is not handled by the unit conumption.
-<span class="fc" id="L116">        int unitsThatUseNoBells</span>
-<span class="fc" id="L117">            = spec.getInteger(GameOptions.UNITS_THAT_USE_NO_BELLS);</span>
-<span class="fc" id="L118">        int amount = Math.min(unitsThatUseNoBells, colony.getUnitCount());</span>
-<span class="fc" id="L119">        ProductionInfo bellsInfo = new ProductionInfo();</span>
-<span class="fc" id="L120">        bellsInfo.addProduction(new AbstractGoods(bells, amount));</span>
-<span class="fc" id="L121">        productionAndConsumption.put(this, bellsInfo);</span>
-<span class="fc" id="L122">        netProduction.incrementCount(bells, amount);</span>
+	/**
+	 * Returns the number of goods of the given type stored in the colony.
+	 *
+	 * @param type
+	 *            a &lt;code&gt;GoodsType&lt;/code&gt; value
+	 * @return an &lt;code&gt;int&lt;/code&gt; value
+	 */
+	private int getGoodsCount(GoodsType type) {
+<span class="fc" id="L170">		return colony.getGoodsCount(type);</span>
+	}
 
-<span class="fc" id="L124">        List&lt;AbstractGoods&gt; goods = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L125" title="All 2 branches covered.">        for (Consumer consumer : colony.getConsumers()) {</span>
-<span class="fc" id="L126">            Set&lt;Modifier&gt; modifiers = consumer</span>
-<span class="fc" id="L127">                .getModifiers(Modifier.CONSUME_ONLY_SURPLUS_PRODUCTION);</span>
-<span class="fc" id="L128">            goods.clear();</span>
-<span class="fc bfc" id="L129" title="All 2 branches covered.">            for (AbstractGoods g : consumer.getConsumedGoods()) {</span>
-<span class="fc" id="L130">                goodsUsed.add(g.getType());</span>
-<span class="fc" id="L131">                AbstractGoods surplus</span>
-<span class="fc" id="L132">                    = new AbstractGoods(production.get(g.getType()));</span>
-<span class="fc bfc" id="L133" title="All 2 branches covered.">                if (modifiers.isEmpty()) {</span>
-<span class="fc" id="L134">                    surplus.setAmount(surplus.getAmount()</span>
-<span class="fc" id="L135">                        + getGoodsCount(g.getType()));</span>
-                } else {
-<span class="fc" id="L137">                    surplus.setAmount((int)FeatureContainer</span>
-<span class="fc" id="L138">                        .applyModifiers(surplus.getAmount(), null, modifiers));</span>
-                }
-<span class="fc" id="L140">                goods.add(surplus);</span>
-<span class="fc" id="L141">            }</span>
-<span class="fc" id="L142">            ProductionInfo info = null;</span>
-<span class="fc bfc" id="L143" title="All 2 branches covered.">            if (consumer instanceof Building) {</span>
-<span class="fc" id="L144">                Building building = (Building)consumer;</span>
-<span class="fc" id="L145">                List&lt;AbstractGoods&gt; outputs = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L146" title="All 2 branches covered.">                for (AbstractGoods output : building.getOutputs()) {</span>
-<span class="fc" id="L147">                    GoodsType outputType = output.getType();</span>
-<span class="fc" id="L148">                    goodsUsed.add(outputType);</span>
-<span class="fc" id="L149">                    AbstractGoods newOutput</span>
-<span class="fc" id="L150">                        = new AbstractGoods(production.get(outputType));</span>
-<span class="fc" id="L151">                    newOutput.setAmount(newOutput.getAmount()</span>
-<span class="fc" id="L152">                        + getGoodsCount(outputType));</span>
-<span class="fc" id="L153">                    outputs.add(newOutput);</span>
-<span class="fc" id="L154">                }</span>
-<span class="fc" id="L155">                info = building.getAdjustedProductionInfo(goods, outputs);</span>
-<span class="fc bfc" id="L156" title="All 2 branches covered.">            } else if (consumer instanceof Unit) {</span>
-<span class="fc" id="L157">                info = ((Unit)consumer).getProductionInfo(goods);</span>
-<span class="pc bpc" id="L158" title="1 of 2 branches missed.">            } else if (consumer instanceof BuildQueue) {</span>
-<span class="fc" id="L159">                info = ((BuildQueue&lt;?&gt;)consumer).getProductionInfo(goods);</span>
-            }
-<span class="pc bpc" id="L161" title="1 of 2 branches missed.">            if (info != null) {</span>
-<span class="fc" id="L162">                production.add(info.getProduction());</span>
-<span class="fc" id="L163">                production.remove(info.getConsumption());</span>
-<span class="fc bfc" id="L164" title="All 2 branches covered.">                for (AbstractGoods g : info.getProduction()) {</span>
-<span class="fc" id="L165">                    netProduction.incrementCount(g.getType().getStoredAs(),</span>
-<span class="fc" id="L166">                                                 g.getAmount());</span>
-<span class="fc" id="L167">                }</span>
-<span class="fc bfc" id="L168" title="All 2 branches covered.">                for (AbstractGoods g : info.getConsumption()) {</span>
-<span class="fc" id="L169">                    netProduction.incrementCount(g.getType().getStoredAs(),</span>
-<span class="fc" id="L170">                                                 -g.getAmount());</span>
-<span class="fc" id="L171">                }</span>
-<span class="fc" id="L172">                productionAndConsumption.put(consumer, info);</span>
-            }
-<span class="fc" id="L174">        }</span>
-<span class="fc" id="L175">        upToDate = true;</span>
-<span class="fc" id="L176">    }</span>
+	/**
+	 * Invalidates the production cache. This method needs to be called whenever
+	 * global production modifiers change. This might be the case when a new
+	 * {@link FoundingFather} is added, or when the colony's production bonus
+	 * changes.
+	 *
+	 */
+	public synchronized void invalidate() {
+<span class="fc" id="L181">		upToDate = false;</span>
+<span class="fc" id="L182">	}</span>
 
+	/**
+	 * Invalidates the production cache if it produces or consumes the given
+	 * GoodsType. This method needs to be called whenever goods are added to or
+	 * removed from the colony.
+	 *
+	 * @param goodsType
+	 *            a &lt;code&gt;GoodsType&lt;/code&gt; value
+	 */
+	public synchronized void invalidate(GoodsType goodsType) {
+<span class="fc bfc" id="L193" title="All 2 branches covered.">		if (goodsUsed.contains(goodsType)) {</span>
+<span class="fc" id="L194">			upToDate = false;</span>
+		}
+<span class="fc" id="L196">	}</span>
 
-    /**
-     * Returns the number of goods of the given type stored in the
-     * colony.
-     *
-     * @param type a &lt;code&gt;GoodsType&lt;/code&gt; value
-     * @return an &lt;code&gt;int&lt;/code&gt; value
-     */
-    private int getGoodsCount(GoodsType type) {
-<span class="fc" id="L187">        return colony.getGoodsCount(type);</span>
-    }
+	/**
+	 * Does this production cache contain production of a goods type?.
+	 *
+	 * @param goodsType
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to check.
+	 * @return True if there is a production entry for the given type.
+	 */
+	public boolean isProducing(GoodsType goodsType) {
+<span class="nc" id="L206">		update();</span>
+<span class="nc" id="L207">		return any(productionAndConsumption.values(), pi -&gt; AbstractGoods.containsType(goodsType, pi.getProduction()));</span>
+	}
 
-    /**
-     * Invalidates the production cache. This method needs to be
-     * called whenever global production modifiers change. This might
-     * be the case when a new {@link FoundingFather} is added, or when
-     * the colony's production bonus changes.
-     *
-     */
-    public synchronized void invalidate() {
-<span class="fc" id="L198">        upToDate = false;</span>
-<span class="fc" id="L199">    }</span>
+	/**
+	 * Does this production cache contain consumption of a goods type?.
+	 *
+	 * @param goodsType
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to check.
+	 * @return True if there is a consumption entry for the given type.
+	 */
+	public boolean isConsuming(GoodsType goodsType) {
+<span class="nc" id="L218">		update();</span>
+<span class="nc" id="L219">		return any(productionAndConsumption.values(), pi -&gt; AbstractGoods.containsType(goodsType, pi.getConsumption()));</span>
+	}
 
-    /**
-     * Invalidates the production cache if it produces or consumes the
-     * given GoodsType. This method needs to be called whenever goods
-     * are added to or removed from the colony.
-     *
-     * @param goodsType a &lt;code&gt;GoodsType&lt;/code&gt; value
-     */
-    public synchronized void invalidate(GoodsType goodsType) {
-<span class="fc bfc" id="L209" title="All 2 branches covered.">        if (goodsUsed.contains(goodsType)) {</span>
-<span class="fc" id="L210">            upToDate = false;</span>
-        }
-<span class="fc" id="L212">    }</span>
+	/**
+	 * Returns the net production, that is the total production minus the total
+	 * consumption, of the given GoodsType.
+	 *
+	 * @param type
+	 *            a &lt;code&gt;GoodsType&lt;/code&gt; value
+	 * @return an &lt;code&gt;int&lt;/code&gt; value
+	 */
+	public int getNetProductionOf(GoodsType type) {
+<span class="fc" id="L231">		update();</span>
+<span class="fc" id="L232">		return netProduction.getCount(type);</span>
+	}
 
-    /**
-     * Does this production cache contain production of a goods type?
-     *
-     * @param goodsType The &lt;code&gt;GoodsType&lt;/code&gt; to check.
-     * @return True if there is a production entry for the given type.
-     */
-    public boolean isProducing(GoodsType goodsType) {
-<span class="nc" id="L221">        update();</span>
-<span class="nc" id="L222">        return any(productionAndConsumption.values(),</span>
-<span class="nc" id="L223">            pi -&gt; AbstractGoods.containsType(goodsType, pi.getProduction()));</span>
-    }
+	/**
+	 * Gets the &lt;code&gt;ProductionInfo&lt;/code&gt; for the given {@link WorkLocation}
+	 * or {@link Consumer}.
+	 *
+	 * @param object
+	 *            an &lt;code&gt;Object&lt;/code&gt; value
+	 * @return a &lt;code&gt;ProductionInfo&lt;/code&gt; value
+	 */
+	public ProductionInfo getProductionInfo(Object object) {
+<span class="fc" id="L244">		update();</span>
+<span class="fc" id="L245">		return productionAndConsumption.get(object);</span>
+	}
 
-    /**
-     * Does this production cache contain consumption of a goods type?
-     *
-     * @param goodsType The &lt;code&gt;GoodsType&lt;/code&gt; to check.
-     * @return True if there is a consumption entry for the given type.
-     */
-    public boolean isConsuming(GoodsType goodsType) {
-<span class="nc" id="L233">        update();</span>
-<span class="nc" id="L234">        return any(productionAndConsumption.values(),</span>
-<span class="nc" id="L235">            pi -&gt; AbstractGoods.containsType(goodsType, pi.getConsumption()));</span>
-    }
-    
-    /**
-     * Returns the net production, that is the total production minus
-     * the total consumption, of the given GoodsType.
-     *
-     * @param type a &lt;code&gt;GoodsType&lt;/code&gt; value
-     * @return an &lt;code&gt;int&lt;/code&gt; value
-     */
-    public int getNetProductionOf(GoodsType type) {
-<span class="fc" id="L246">        update();</span>
-<span class="fc" id="L247">        return netProduction.getCount(type);</span>
-    }
-
-    /**
-     * Gets the &lt;code&gt;ProductionInfo&lt;/code&gt; for the given
-     * {@link WorkLocation} or {@link Consumer}.
-     *
-     * @param object an &lt;code&gt;Object&lt;/code&gt; value
-     * @return a &lt;code&gt;ProductionInfo&lt;/code&gt; value
-     */
-    public ProductionInfo getProductionInfo(Object object) {
-<span class="fc" id="L258">        update();</span>
-<span class="fc" id="L259">        return productionAndConsumption.get(object);</span>
-    }
-
-    /**
-     * Gets a copy of the current production state.
-     *
-     * @return A copy of the current production state.
-     */
-    public TypeCountMap&lt;GoodsType&gt; getProductionMap() {
-<span class="fc" id="L268">        update();</span>
-<span class="fc" id="L269">        TypeCountMap&lt;GoodsType&gt; result = new TypeCountMap&lt;&gt;();</span>
-<span class="fc" id="L270">        result.putAll(netProduction);</span>
-<span class="fc" id="L271">        return result;</span>
-    }
+	/**
+	 * Gets a copy of the current production state.
+	 *
+	 * @return A copy of the current production state.
+	 */
+	public TypeCountMap&lt;GoodsType&gt; getProductionMap() {
+<span class="fc" id="L254">		update();</span>
+<span class="fc" id="L255">		TypeCountMap&lt;GoodsType&gt; result = new TypeCountMap&lt;&gt;();</span>
+<span class="fc" id="L256">		result.putAll(netProduction);</span>
+<span class="fc" id="L257">		return result;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

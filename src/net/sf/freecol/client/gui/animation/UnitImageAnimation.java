@@ -33,86 +33,91 @@ import net.sf.freecol.common.io.sza.SimpleZippedAnimation;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
  * Class for in-place animation of units.
  */
 public final class UnitImageAnimation {
-    
-    /** The gui. */
-    private final SwingGUI gui;
-    
-    /** The unit. */
-    private final Unit unit;
-    
-    /** The tile. */
-    private final Tile tile;
-    
-    /** The animation. */
-    private final SimpleZippedAnimation animation;
-    
-    /** The mirror. */
-    private final boolean mirror;
 
-    /**
-     * Constructor
-     *
-     * @param gui The gui.
-     * @param unit The <code>Unit</code> to be animated. 
-     * @param tile The <code>Tile</code> where the animation occurs.
-     * @param animation The animation to show.
-     */
-    public UnitImageAnimation(SwingGUI gui, Unit unit, Tile tile,
-                              SimpleZippedAnimation animation, boolean mirror) {
-        this.gui = gui;
-        this.unit = unit;
-        this.tile = tile;
-        this.animation = animation;
-        this.mirror = mirror;
-    }
+	/** The gui. */
+	private final SwingGUI gui;
 
-    /**
-     * Do the animation.
-     */
-    public void animate() {
-        if (gui.getTilePosition(tile) == null) return;
+	/** The unit. */
+	private final Unit unit;
 
-        // Painting the whole screen once to get rid of disposed dialog-boxes.
-        gui.paintImmediatelyCanvasInItsBounds();
-        gui.executeWithUnitOutForAnimation(unit, tile, (JLabel unitLabel) -> {
-                for (AnimationEvent event : animation) {
-                    long time = System.nanoTime();
-                    if (event instanceof ImageAnimationEvent) {
-                        final ImageAnimationEvent ievent = (ImageAnimationEvent) event;
-                        final ImageIcon icon = (ImageIcon)unitLabel.getIcon();
-                        Image image = ievent.getImage();
-                        if(mirror) {
-                            // FIXME: Add mirroring functionality to SimpleZippedAnimation
-                            image = ImageLibrary.createMirroredImage(image);
-                        }
-                        icon.setImage(image);
-                        gui.paintImmediatelyCanvasIn(getDirtyAnimationArea());
-                        
-                        time = ievent.getDurationInMs()
-                            - (System.nanoTime() - time) / 1000000;
-                        if (time > 0) {
-                            try {
-                                Thread.sleep(time);
-                            } catch (InterruptedException ex) {
-                                //ignore
-                            }
-                        }
-                    }
-                }
-            });
-    }
+	/** The tile. */
+	private final Tile tile;
 
-    /**
-     * Gets the dirty animation area.
-     *
-     * @return the dirty animation area
-     */
-    protected Rectangle getDirtyAnimationArea() {
-        return gui.getTileBounds(tile);
-    }
+	/** The animation. */
+	private final SimpleZippedAnimation animation;
+
+	/** The mirror. */
+	private final boolean mirror;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param gui
+	 *            The gui.
+	 * @param unit
+	 *            The <code>Unit</code> to be animated.
+	 * @param tile
+	 *            The <code>Tile</code> where the animation occurs.
+	 * @param animation
+	 *            The animation to show.
+	 * @param mirror
+	 *            the mirror
+	 */
+	public UnitImageAnimation(SwingGUI gui, Unit unit, Tile tile, SimpleZippedAnimation animation, boolean mirror) {
+		this.gui = gui;
+		this.unit = unit;
+		this.tile = tile;
+		this.animation = animation;
+		this.mirror = mirror;
+	}
+
+	/**
+	 * Do the animation.
+	 */
+	public void animate() {
+		if (gui.getTilePosition(tile) == null)
+			return;
+
+		// Painting the whole screen once to get rid of disposed dialog-boxes.
+		gui.paintImmediatelyCanvasInItsBounds();
+		gui.executeWithUnitOutForAnimation(unit, tile, (JLabel unitLabel) -> {
+			for (AnimationEvent event : animation) {
+				long time = System.nanoTime();
+				if (event instanceof ImageAnimationEvent) {
+					final ImageAnimationEvent ievent = (ImageAnimationEvent) event;
+					final ImageIcon icon = (ImageIcon) unitLabel.getIcon();
+					Image image = ievent.getImage();
+					if (mirror) {
+						// FIXME: Add mirroring functionality to
+						// SimpleZippedAnimation
+						image = ImageLibrary.createMirroredImage(image);
+					}
+					icon.setImage(image);
+					gui.paintImmediatelyCanvasIn(getDirtyAnimationArea());
+
+					time = ievent.getDurationInMs() - (System.nanoTime() - time) / 1000000;
+					if (time > 0) {
+						try {
+							Thread.sleep(time);
+						} catch (InterruptedException ex) {
+							// ignore
+						}
+					}
+				}
+			}
+		});
+	}
+
+	/**
+	 * Gets the dirty animation area.
+	 *
+	 * @return the dirty animation area
+	 */
+	protected Rectangle getDirtyAnimationArea() {
+		return gui.getTileBounds(tile);
+	}
 }

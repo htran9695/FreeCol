@@ -46,131 +46,116 @@ import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Turn;
 import net.sf.freecol.common.resources.ResourceManager;
 
-
 /**
  * This panel displays details of founding fathers in the Colopedia.
  */
-public class FatherDetailPanel
-    extends ColopediaGameObjectTypePanel<FoundingFather> {
+public class FatherDetailPanel extends ColopediaGameObjectTypePanel<FoundingFather> {
 
+	/**
+	 * Creates a new instance of this ColopediaDetailPanel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param colopediaPanel
+	 *            The parent ColopediaPanel.
+	 */
+	public FatherDetailPanel(FreeColClient freeColClient, ColopediaPanel colopediaPanel) {
+		super(freeColClient, colopediaPanel, PanelType.FATHERS.getKey());
+	}
 
-    /**
-     * Creates a new instance of this ColopediaDetailPanel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param colopediaPanel The parent ColopediaPanel.
-     */
-    public FatherDetailPanel(FreeColClient freeColClient,
-                             ColopediaPanel colopediaPanel) {
-        super(freeColClient, colopediaPanel, PanelType.FATHERS.getKey());
-    }
+	// Implelement ColopediaDetailPanel
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void addSubTrees(DefaultMutableTreeNode root) {
+		final Specification spec = getSpecification();
+		DefaultMutableTreeNode parent = new DefaultMutableTreeNode(
+				new ColopediaTreeItem(this, getId(), getName(), null));
 
-    // Implelement ColopediaDetailPanel
+		EnumMap<FoundingFatherType, List<FoundingFather>> fathersByType = new EnumMap<>(FoundingFatherType.class);
+		for (FoundingFatherType fatherType : FoundingFatherType.values()) {
+			fathersByType.put(fatherType, new ArrayList<FoundingFather>());
+		}
+		for (FoundingFather foundingFather : spec.getFoundingFathers()) {
+			fathersByType.get(foundingFather.getType()).add(foundingFather);
+		}
+		ImageIcon icon = new ImageIcon(ImageLibrary.getMiscImage(ImageLibrary.BELLS, ImageLibrary.ICON_SIZE));
+		for (FoundingFatherType fatherType : FoundingFatherType.values()) {
+			String id = FoundingFather.getTypeKey(fatherType);
+			String typeName = Messages.message(id);
+			DefaultMutableTreeNode node = new DefaultMutableTreeNode(new ColopediaTreeItem(this, id, typeName, null));
+			parent.add(node);
+			for (FoundingFather father : fathersByType.get(fatherType)) {
+				node.add(buildItem(father, icon));
+			}
+		}
+		root.add(parent);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void addSubTrees(DefaultMutableTreeNode root) {
-        final Specification spec = getSpecification();
-        DefaultMutableTreeNode parent
-            = new DefaultMutableTreeNode(new ColopediaTreeItem(this, getId(),
-                    getName(), null));
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void buildDetail(String id, JPanel panel) {
+		try {
+			FoundingFather father = getSpecification().getFoundingFather(id);
+			buildDetail(father, panel);
+		} catch (IllegalArgumentException e) {
+			// this is not a founding father
+			panel.setLayout(new MigLayout("wrap 1, align center", "align center"));
+			if (getId().equals(id)) {
+				JLabel header = Utility.localizedHeaderLabel(Messages.nameKey(id), SwingConstants.LEADING,
+						FontLibrary.FontSize.SMALL);
+				panel.add(header, "align center, wrap 20");
+				panel.add(Utility.localizedTextArea("colopedia.foundingFather.description", 40));
+			} else {
+				JLabel header = Utility.localizedHeaderLabel(Messages.message(id), SwingConstants.LEADING,
+						FontLibrary.FontSize.SMALL);
+				panel.add(header, "align center, wrap 20");
+				Image image = ResourceManager.getImage("image.flavor." + id);
+				panel.add(new JLabel(new ImageIcon(image)));
+			}
+		}
+	}
 
-        EnumMap<FoundingFatherType, List<FoundingFather>> fathersByType
-            = new EnumMap<>(FoundingFatherType.class);
-        for (FoundingFatherType fatherType : FoundingFatherType.values()) {
-            fathersByType.put(fatherType, new ArrayList<FoundingFather>());
-        }
-        for (FoundingFather foundingFather : spec.getFoundingFathers()) {
-            fathersByType.get(foundingFather.getType()).add(foundingFather);
-        }
-        ImageIcon icon = new ImageIcon(ImageLibrary.getMiscImage(ImageLibrary.BELLS, ImageLibrary.ICON_SIZE));
-        for (FoundingFatherType fatherType : FoundingFatherType.values()) {
-            String id = FoundingFather.getTypeKey(fatherType);
-            String typeName = Messages.message(id);
-            DefaultMutableTreeNode node
-                = new DefaultMutableTreeNode(new ColopediaTreeItem(this, id,
-                        typeName, null));
-            parent.add(node);
-            for (FoundingFather father : fathersByType.get(fatherType)) {
-                node.add(buildItem(father, icon));
-            }
-        }
-        root.add(parent);
-    }
+	/**
+	 * Builds the details panel for the given FoundingFather.
+	 *
+	 * @param father
+	 *            a FoundingFather
+	 * @param panel
+	 *            the detail panel to build
+	 */
+	public void buildDetail(FoundingFather father, JPanel panel) {
+		panel.setLayout(new MigLayout("wrap 2, fillx, gapx 20", "", ""));
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void buildDetail(String id, JPanel panel) {
-        try {
-            FoundingFather father = getSpecification().getFoundingFather(id);
-            buildDetail(father, panel);
-        } catch (IllegalArgumentException e) {
-            // this is not a founding father
-            panel.setLayout(new MigLayout("wrap 1, align center", "align center"));
-            if (getId().equals(id)) {
-                JLabel header = Utility.localizedHeaderLabel(Messages.nameKey(id),
-                    SwingConstants.LEADING, FontLibrary.FontSize.SMALL);
-                panel.add(header, "align center, wrap 20");
-                panel.add(Utility.localizedTextArea("colopedia.foundingFather.description", 40));
-            } else {
-                JLabel header = Utility.localizedHeaderLabel(Messages.message(id),
-                    SwingConstants.LEADING, FontLibrary.FontSize.SMALL);
-                panel.add(header, "align center, wrap 20");
-                Image image = ResourceManager.getImage("image.flavor." + id);
-                panel.add(new JLabel(new ImageIcon(image)));
-            }
-        }
-    }
+		String name = Messages.getName(father);
+		String type = Messages.message(father.getTypeKey());
+		String text = name + " (" + type + ")";
+		JLabel header = new JLabel(text);
+		header.setFont(FontLibrary.createCompatibleFont(text, FontLibrary.FontType.HEADER, FontLibrary.FontSize.SMALL));
 
-    /**
-     * Builds the details panel for the given FoundingFather.
-     *
-     * @param father a FoundingFather
-     * @param panel the detail panel to build
-     */
-    public void buildDetail(FoundingFather father, JPanel panel) {
-        panel.setLayout(new MigLayout("wrap 2, fillx, gapx 20", "", ""));
+		Image image = ImageLibrary.getFoundingFatherImage(father, false);
+		JLabel label = new JLabel(new ImageIcon(image));
 
-        String name = Messages.getName(father);
-        String type = Messages.message(father.getTypeKey());
-        String text = name + " (" + type + ")";
-        JLabel header = new JLabel(text);
-        header.setFont(FontLibrary.createCompatibleFont(text,
-            FontLibrary.FontType.HEADER, FontLibrary.FontSize.SMALL));
+		StringTemplate template = StringTemplate.label("").add(Messages.descriptionKey(father)).addName("\n\n[")
+				.add(father.getId() + ".birthAndDeath").addName("] ").add(father.getId() + ".text");
+		final Turn turn = getMyPlayer().getElectionTurns().get(name);
+		if (turn != null) {
+			template.addName("\n\n").add("report.continentalCongress.elected").addName(" ")
+					.addStringTemplate(turn.getLabel());
+		}
 
-        Image image = ImageLibrary.getFoundingFatherImage(father, false);
-        JLabel label = new JLabel(new ImageIcon(image));
+		panel.add(header, "span, align center, wrap 40");
+		panel.add(label, "top");
+		JTextArea description = Utility.localizedTextArea(template, 20);
+		panel.add(description, "top, growx");
 
-        StringTemplate template = StringTemplate.label("")
-            .add(Messages.descriptionKey(father))
-            .addName("\n\n[")
-            .add(father.getId() + ".birthAndDeath")
-            .addName("] ")
-            .add(father.getId() + ".text");
-        final Turn turn = getMyPlayer().getElectionTurns().get(name);
-        if (turn != null) {
-            template
-                .addName("\n\n")
-                .add("report.continentalCongress.elected")
-                .addName(" ")
-                .addStringTemplate(turn.getLabel());
-        }
-
-        panel.add(header, "span, align center, wrap 40");
-        panel.add(label, "top");
-        JTextArea description = Utility.localizedTextArea(template, 20);
-        panel.add(description, "top, growx");
-
-        Dimension hSize = header.getPreferredSize(),
-            lSize = label.getPreferredSize(),
-            dSize = description.getPreferredSize(), size = new Dimension();
-        size.setSize(lSize.getWidth() + dSize.getWidth() + 20,
-            hSize.getHeight() + lSize.getHeight() + 10);
-        panel.setPreferredSize(size);            
-    }
+		Dimension hSize = header.getPreferredSize(), lSize = label.getPreferredSize(),
+				dSize = description.getPreferredSize(), size = new Dimension();
+		size.setSize(lSize.getWidth() + dSize.getWidth() + 20, hSize.getHeight() + lSize.getHeight() + 10);
+		panel.setPreferredSize(size);
+	}
 }

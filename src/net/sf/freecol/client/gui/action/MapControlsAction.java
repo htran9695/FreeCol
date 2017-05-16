@@ -26,47 +26,45 @@ import javax.swing.AbstractButton;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for displaying the map controls.
  */
 public class MapControlsAction extends SelectableAction {
 
-    public static final String id = "mapControlsAction";
+	/** The Constant id. */
+	public static final String id = "mapControlsAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public MapControlsAction(FreeColClient freeColClient) {
+		super(freeColClient, id, ClientOptions.DISPLAY_MAP_CONTROLS);
+	}
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public MapControlsAction(FreeColClient freeColClient) {
-        super(freeColClient, id, ClientOptions.DISPLAY_MAP_CONTROLS);
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void update() {
+		super.update();
 
-    // Override FreeColAction
+		getGUI().enableMapControls(isEnabled() && isSelected());
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void update() {
-        super.update();
+	// Interface ActionListener
 
-        getGUI().enableMapControls(isEnabled() && isSelected());
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        setSelected(((AbstractButton)ae.getSource()).isSelected());
-        setOption(isSelected());
-        update();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		setSelected(((AbstractButton) ae.getSource()).isSelected());
+		setOption(isSelected());
+		update();
+	}
 }

@@ -19,77 +19,83 @@
 
 package net.sf.freecol.common.networking;
 
-
 /**
- * Class for storing a network response.  If the response has not been
- * set when {@link #getResponse} has been called, this method will
- * block until {@link #setResponse} is called.
+ * Class for storing a network response. If the response has not been set when
+ * {@link #getResponse} has been called, this method will block until
+ * {@link #setResponse} is called.
  */
 public class NetworkReplyObject {
 
-    private Object response = null;
-    private boolean responseGiven = false;
-    private final int networkReplyId;
+	/** The response. */
+	private Object response = null;
 
+	/** The response given. */
+	private boolean responseGiven = false;
 
-    /**
-     * The constructor.
-     *
-     * @param networkReplyId The unique identifier for the network message
-     *                       this object will store.
-     */
-    public NetworkReplyObject(int networkReplyId) {
-        this.networkReplyId = networkReplyId;
-    }
+	/** The network reply id. */
+	private final int networkReplyId;
 
-    /**
-     * Sets the response and continues <code>getResponse()</code>.
-     *
-     * @param response The response.
-     * @see #getResponse
-     */
-    public synchronized void setResponse(Object response) {
-        if (response == null) {
-            throw new NullPointerException();
-        }
-        this.response = response;
-        this.responseGiven = true;
-        notify();
-    }
+	/**
+	 * The constructor.
+	 *
+	 * @param networkReplyId
+	 *            The unique identifier for the network message this object will
+	 *            store.
+	 */
+	public NetworkReplyObject(int networkReplyId) {
+		this.networkReplyId = networkReplyId;
+	}
 
-    /**
-     * Gets the response. If the response has not been set, this method
-     * will block until {@link #setResponse} has been called.
-     *
-     * @return the response.
-     */
-    public synchronized Object getResponse() {
-        if (response == null) {
-            try {
-                while (!responseGiven) {
-                    wait();
-                }
-            } catch (InterruptedException ie) {}
-        }
+	/**
+	 * Sets the response and continues <code>getResponse()</code>.
+	 *
+	 * @param response
+	 *            The response.
+	 * @see #getResponse
+	 */
+	public synchronized void setResponse(Object response) {
+		if (response == null) {
+			throw new NullPointerException();
+		}
+		this.response = response;
+		this.responseGiven = true;
+		notify();
+	}
 
-        return response;
-    }
+	/**
+	 * Gets the response. If the response has not been set, this method will
+	 * block until {@link #setResponse} has been called.
+	 *
+	 * @return the response.
+	 */
+	public synchronized Object getResponse() {
+		if (response == null) {
+			try {
+				while (!responseGiven) {
+					wait();
+				}
+			} catch (InterruptedException ie) {
+			}
+		}
 
-    /**
-     * Gets the unique identifier for the network message this
-     * object will store.
-     *
-     * @return the unique identifier.
-     */
-    public int getNetworkReplyId() {
-        return networkReplyId;
-    }
+		return response;
+	}
 
-    /**
-     * Interrupts any thread waiting for a response.
-     */
-    public synchronized void interrupt() {
-        responseGiven = true;
-        notify();
-    }
+	/**
+	 * Gets the unique identifier for the network message this object will
+	 * store.
+	 *
+	 * @return the unique identifier.
+	 */
+	public int getNetworkReplyId() {
+		return networkReplyId;
+	}
+
+	/**
+	 * Interrupts any thread waiting for a response.
+	 */
+	public synchronized void interrupt() {
+		responseGiven = true;
+		notify();
+	}
 }

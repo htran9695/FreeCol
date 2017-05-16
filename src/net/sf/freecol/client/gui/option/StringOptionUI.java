@@ -27,61 +27,59 @@ import javax.swing.JComboBox;
 import net.sf.freecol.client.gui.plaf.FreeColComboBoxRenderer;
 import net.sf.freecol.common.option.StringOption;
 
-
 /**
  * This class provides visualization for a
- * {@link net.sf.freecol.common.option.StringOption} in order to enable
- * values to be both seen and changed.
+ * {@link net.sf.freecol.common.option.StringOption} in order to enable values
+ * to be both seen and changed.
  */
-public final class StringOptionUI extends OptionUI<StringOption>  {
+public final class StringOptionUI extends OptionUI<StringOption> {
 
-    private final JComboBox<String> box = new JComboBox<>();
+	/** The box. */
+	private final JComboBox<String> box = new JComboBox<>();
 
+	/**
+	 * Creates a new <code>StringOptionUI</code> for the given
+	 * <code>StringOption</code>.
+	 *
+	 * @param option
+	 *            The <code>StringOption</code> to make a user interface for.
+	 * @param editable
+	 *            Whether user can modify the setting.
+	 */
+	public StringOptionUI(final StringOption option, boolean editable) {
+		super(option, editable);
 
-    /**
-     * Creates a new <code>StringOptionUI</code> for the given
-     * <code>StringOption</code>.
-     *
-     * @param option The <code>StringOption</code> to make a user
-     *     interface for.
-     * @param editable Whether user can modify the setting.
-     */
-    public StringOptionUI(final StringOption option, boolean editable) {
-        super(option, editable);
+		List<String> choices = option.getChoices();
+		box.setModel(new DefaultComboBoxModel<>(choices.toArray(new String[choices.size()])));
+		box.setSelectedItem(option.getValue());
+		box.setRenderer(new FreeColComboBoxRenderer<String>("", true));
 
-        List<String> choices = option.getChoices();
-        box.setModel(new DefaultComboBoxModel<>(choices
-                .toArray(new String[choices.size()])));
-        box.setSelectedItem(option.getValue());
-        box.setRenderer(new FreeColComboBoxRenderer<String>("", true));
+		initialize();
+	}
 
-        initialize();
-    }
+	// Implement OptionUI
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public JComboBox<String> getComponent() {
+		return box;
+	}
 
-    // Implement OptionUI
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void updateOption() {
+		getOption().setValue((String) box.getSelectedItem());
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public JComboBox<String> getComponent() {
-        return box;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateOption() {
-        getOption().setValue((String)box.getSelectedItem());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void reset() {
-        box.setSelectedItem(getOption().getValue());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void reset() {
+		box.setSelectedItem(getOption().getValue());
+	}
 }

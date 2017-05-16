@@ -32,143 +32,146 @@ import net.sf.freecol.server.model.ServerPlayer;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-
 /**
  * The message sent when looting cargo.
  */
 public class LootCargoMessage extends DOMMessage {
 
-    /** The object identifier of the unit that is looting. */
-    private final String winnerId;
+	/** The object identifier of the unit that is looting. */
+	private final String winnerId;
 
-    /** The object identifier of the unit that is looted. */
-    private final String loserId;
+	/** The object identifier of the unit that is looted. */
+	private final String loserId;
 
-    /** The goods to be looted. */
-    private final List<Goods> goods;
+	/** The goods to be looted. */
+	private final List<Goods> goods;
 
+	/**
+	 * Create a new <code>LootCargoMessage</code>.
+	 *
+	 * @param winner
+	 *            The <code>Unit</code> that is looting.
+	 * @param loserId
+	 *            The identifier of the <code>Unit</code> that is looted.
+	 * @param goods
+	 *            The <code>AbstractGoods</code> to loot.
+	 */
+	public LootCargoMessage(Unit winner, String loserId, List<Goods> goods) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>LootCargoMessage</code>.
-     *
-     * @param winner The <code>Unit</code> that is looting.
-     * @param loserId The identifier of the <code>Unit</code> that is looted.
-     * @param goods The <code>AbstractGoods</code> to loot.
-     */
-    public LootCargoMessage(Unit winner, String loserId, List<Goods> goods) {
-        super(getXMLElementTagName());
+		this.winnerId = winner.getId();
+		this.loserId = loserId;
+		this.goods = (goods == null) ? null : new ArrayList<>(goods);
+	}
 
-        this.winnerId = winner.getId();
-        this.loserId = loserId;
-        this.goods = (goods == null) ? null : new ArrayList<>(goods);
-    }
+	/**
+	 * Create a new <code>LootCargoMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public LootCargoMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>LootCargoMessage</code> from a
-     * supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public LootCargoMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.winnerId = element.getAttribute("winner");
+		this.loserId = element.getAttribute("loser");
+		NodeList children = element.getChildNodes();
+		if (children.getLength() == 0) {
+			this.goods = null;
+		} else {
+			this.goods = new ArrayList<>();
+			for (int i = 0; i < children.getLength(); i++) {
+				this.goods.add(new Goods(game, (Element) children.item(i)));
+			}
+		}
+	}
 
-        this.winnerId = element.getAttribute("winner");
-        this.loserId = element.getAttribute("loser");
-        NodeList children = element.getChildNodes();
-        if (children.getLength() == 0) {
-            this.goods = null;
-        } else {
-            this.goods = new ArrayList<>();
-            for (int i = 0; i < children.getLength(); i++) {
-                this.goods.add(new Goods(game, (Element) children.item(i)));
-            }
-        }
-    }
+	// Public interface
 
+	/**
+	 * Public accessor to help the client in game controller.
+	 *
+	 * @param game
+	 *            the game
+	 * @return The winner unit.
+	 * @throws ClassCastException
+	 *             the class cast exception
+	 */
+	public Unit getUnit(Game game) throws ClassCastException {
+		return game.getFreeColGameObject(winnerId, Unit.class);
+	}
 
-    // Public interface
+	/**
+	 * Public accessor to help the client in game controller.
+	 *
+	 * @return The defender Object Identifier.
+	 */
+	public String getDefenderId() {
+		return loserId;
+	}
 
-    /**
-     * Public accessor to help the client in game controller.
-     *
-     * @return The winner unit.
-     */
-    public Unit getUnit(Game game) throws ClassCastException {
-        return game.getFreeColGameObject(winnerId, Unit.class);
-    }
+	/**
+	 * Public accessor to help the client in game controller.
+	 *
+	 * @return The goods to loot.
+	 */
+	public List<Goods> getGoods() {
+		return goods;
+	}
 
-    /**
-     * Public accessor to help the client in game controller.
-     *
-     * @return The defender Object Identifier.
-     */
-    public String getDefenderId() {
-        return loserId;
-    }
+	/**
+	 * Handle a "lootCargo"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the message.
+	 * @param player
+	 *            The <code>Player</code> the message applies to.
+	 * @param connection
+	 *            The <code>Connection</code> message was received on.
+	 * @return An <code>Element</code> encapsulating the looting.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
+		final Game game = server.getGame();
 
-    /**
-     * Public accessor to help the client in game controller.
-     *
-     * @return The goods to loot.
-     */
-    public List<Goods> getGoods() {
-        return goods;
-    }
+		Unit winner;
+		try {
+			winner = getUnit(game);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
+		// Do not check loserId, as it might have sunk. It is enough
+		// that the attacker knows it. Similarly the server is better
+		// placed to check the goods validity.
 
+		// Try to loot.
+		return server.getInGameController().lootCargo(serverPlayer, winner, loserId, goods);
+	}
 
-    /**
-     * Handle a "lootCargo"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the message.
-     * @param player The <code>Player</code> the message applies to.
-     * @param connection The <code>Connection</code> message was received on.
-     * @return An <code>Element</code> encapsulating the looting.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
-        final Game game = server.getGame();
+	/**
+	 * Convert this LootCargoMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		Element result = createMessage(getXMLElementTagName(), "winner", winnerId, "loser", loserId);
+		if (goods != null) {
+			for (Goods g : goods) {
+				result.appendChild(g.toXMLElement(result.getOwnerDocument()));
+			}
+		}
+		return result;
+	}
 
-        Unit winner;
-        try {
-            winner = getUnit(game);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
-        // Do not check loserId, as it might have sunk.  It is enough
-        // that the attacker knows it.  Similarly the server is better
-        // placed to check the goods validity.
-
-        // Try to loot.
-        return server.getInGameController()
-            .lootCargo(serverPlayer, winner, loserId, goods);
-    }
-
-    /**
-     * Convert this LootCargoMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        Element result = createMessage(getXMLElementTagName(),
-            "winner", winnerId,
-            "loser", loserId);
-        if (goods != null) {
-            for (Goods g : goods) {
-                result.appendChild(g.toXMLElement(result.getOwnerDocument()));
-            }
-        }
-        return result;
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "lootCargo".
-     */
-    public static String getXMLElementTagName() {
-        return "lootCargo";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "lootCargo".
+	 */
+	public static String getXMLElementTagName() {
+		return "lootCargo";
+	}
 }

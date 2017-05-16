@@ -34,568 +34,663 @@ import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.sza.SimpleZippedAnimation;
 
-
 /**
  * Class for getting resources (images, audio etc).
  */
-<span class="nc" id="L41">public class ResourceManager {</span>
+<span class="nc" id="L40">public class ResourceManager {</span>
 
-<span class="fc" id="L43">    private static final Logger logger = Logger.getLogger(ResourceManager.class.getName());</span>
+	/** The Constant logger. */
+<span class="fc" id="L43">	private static final Logger logger = Logger.getLogger(ResourceManager.class.getName());</span>
 
-    // TODO: There are no obvious flaws currently, but this could still
-    // profit from deeper verification, including checking ResourceMapping and
-    // all Resource classes another time, by someone knowledgeable
-    // in thread safety issues in Java. 
-    // It is currently assumed changing of mappings can happen on any thread,
-    // but Resources are only retrieved or cleaned from the AWT thread.
+	// TODO: There are no obvious flaws currently, but this could still
+	// profit from deeper verification, including checking ResourceMapping and
+	// all Resource classes another time, by someone knowledgeable
+	// in thread safety issues in Java.
+	// It is currently assumed changing of mappings can happen on any thread,
+	// but Resources are only retrieved or cleaned from the AWT thread.
 
-    public static final String REPLACEMENT_IMAGE = &quot;image.miscicon.delete&quot;;
-    public static final String REPLACEMENT_STRING = &quot;X&quot;;
+	/** The Constant REPLACEMENT_IMAGE. */
+	public static final String REPLACEMENT_IMAGE = &quot;image.miscicon.delete&quot;;
 
-    /**
-     * The following fields are mappings from resource IDs to
-     * resources.  A mapping is defined within a specific context.
-     * See the comment on each field's setter for more information:
-     */
-    private static ResourceMapping baseMapping;
-    private static ResourceMapping tcMapping;
-    private static ResourceMapping scenarioMapping;
-    private static ResourceMapping modMapping;
+	/** The Constant REPLACEMENT_STRING. */
+	public static final String REPLACEMENT_STRING = &quot;X&quot;;
 
-    /**
-     * All the mappings above merged into this single ResourceMapping
-     * according to precendence.
-     */
-    private static ResourceMapping mergedContainer;
+	/**
+	 * The following fields are mappings from resource IDs to resources. A
+	 * mapping is defined within a specific context. See the comment on each
+	 * field's setter for more information:
+	 */
+	private static ResourceMapping baseMapping;
 
-<span class="fc" id="L71">    private static volatile Thread preloadThread = null;</span>
+	/** The tc mapping. */
+	private static ResourceMapping tcMapping;
 
+	/** The scenario mapping. */
+	private static ResourceMapping scenarioMapping;
 
-    /**
-     * Sets the mappings specified in the date/base-directory.
-     * Do not access the mapping after the call.
-     *
-     * @param mapping The mapping between IDs and files.
-     */
-    public static synchronized void setBaseMapping(final ResourceMapping mapping) {
-<span class="fc" id="L81">        logger.info(&quot;setBaseMapping &quot; + mapping);</span>
-<span class="fc" id="L82">        baseMapping = mapping;</span>
-<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        update(mapping != null);</span>
-<span class="fc" id="L84">    }</span>
+	/** The mod mapping. */
+	private static ResourceMapping modMapping;
 
-    /**
-     * Sets the mappings specified for a Total Conversion (TC).
-     * Do not access the mapping after the call.
-     *
-     * @param mapping The mapping between IDs and files.
-     */
-    public static synchronized void setTcMapping(final ResourceMapping mapping) {
-<span class="fc" id="L93">        logger.info(&quot;setTcMapping &quot; + mapping);</span>
-<span class="fc" id="L94">        tcMapping = mapping;</span>
-<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        update(mapping != null);</span>
-<span class="fc" id="L96">    }</span>
+	/**
+	 * All the mappings above merged into this single ResourceMapping according
+	 * to precendence.
+	 */
+	private static ResourceMapping mergedContainer;
 
-    /**
-     * Sets the mappings specified by mods.
-     * Do not access the mapping after the call.
-     *
-     * @param mapping A list of the mappings between IDs and files.
-     */
-    public static synchronized void setModMapping(final ResourceMapping mapping) {
-<span class="nc" id="L105">        logger.info(&quot;setModMapping &quot; + mapping);</span>
-<span class="nc" id="L106">        modMapping = mapping;</span>
-<span class="nc bnc" id="L107" title="All 2 branches missed.">        update(mapping != null);</span>
-<span class="nc" id="L108">    }</span>
+	/** The preload thread. */
+<span class="fc" id="L81">	private static volatile Thread preloadThread = null;</span>
 
-    /**
-     * Sets the mappings specified in a scenario.
-     * Do not access the mapping after the call.
-     *
-     * @param mapping The mapping between IDs and files.
-     */
-    public static synchronized void setScenarioMapping(final ResourceMapping mapping) {
-<span class="nc" id="L117">        logger.info(&quot;setScenarioMapping &quot; + mapping);</span>
-<span class="nc" id="L118">        scenarioMapping = mapping;</span>
-        // As this is called when loading a new savegame,
-        // use it as a hint for cleaning up
-<span class="nc" id="L121">        clean();</span>
-<span class="nc bnc" id="L122" title="All 2 branches missed.">        update(mapping != null);</span>
-<span class="nc" id="L123">    }</span>
+	/**
+	 * Sets the mappings specified in the date/base-directory. Do not access the
+	 * mapping after the call.
+	 *
+	 * @param mapping
+	 *            The mapping between IDs and files.
+	 */
+	public static synchronized void setBaseMapping(final ResourceMapping mapping) {
+<span class="fc" id="L91">		logger.info(&quot;setBaseMapping &quot; + mapping);</span>
+<span class="fc" id="L92">		baseMapping = mapping;</span>
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">		update(mapping != null);</span>
+<span class="fc" id="L94">	}</span>
 
-    /**
-     * Clean up easily replaced modified copies in caches.
-     */
-    public static synchronized void clean() {
-<span class="nc bnc" id="L129" title="All 2 branches missed.">        if(baseMapping != null) {</span>
-            for (Map.Entry&lt;String,ImageResource&gt; entry
-<span class="nc bnc" id="L131" title="All 2 branches missed.">                : baseMapping.getImageResources().entrySet()) {</span>
-<span class="nc" id="L132">                ImageResource resource = entry.getValue();</span>
-<span class="nc" id="L133">                resource.clean();</span>
-<span class="nc" id="L134">            }</span>
-        }
-<span class="nc bnc" id="L136" title="All 2 branches missed.">        if(tcMapping != null) {</span>
-            for (Map.Entry&lt;String,ImageResource&gt; entry
-<span class="nc bnc" id="L138" title="All 2 branches missed.">                : tcMapping.getImageResources().entrySet()) {</span>
-<span class="nc" id="L139">                ImageResource resource = entry.getValue();</span>
-<span class="nc" id="L140">                resource.clean();</span>
-<span class="nc" id="L141">            }</span>
-        }
-<span class="nc bnc" id="L143" title="All 2 branches missed.">        if(scenarioMapping != null) {</span>
-            for (Map.Entry&lt;String,ImageResource&gt; entry
-<span class="nc bnc" id="L145" title="All 2 branches missed.">                : scenarioMapping.getImageResources().entrySet()) {</span>
-<span class="nc" id="L146">                ImageResource resource = entry.getValue();</span>
-<span class="nc" id="L147">                resource.clean();</span>
-<span class="nc" id="L148">            }</span>
-        }
-<span class="nc bnc" id="L150" title="All 2 branches missed.">        if(modMapping != null) {</span>
-            for (Map.Entry&lt;String,ImageResource&gt; entry
-<span class="nc bnc" id="L152" title="All 2 branches missed.">                : modMapping.getImageResources().entrySet()) {</span>
-<span class="nc" id="L153">                ImageResource resource = entry.getValue();</span>
-<span class="nc" id="L154">                resource.clean();</span>
-<span class="nc" id="L155">            }</span>
-        }
-<span class="nc" id="L157">        System.gc();</span>
-<span class="nc" id="L158">    }</span>
+	/**
+	 * Sets the mappings specified for a Total Conversion (TC). Do not access
+	 * the mapping after the call.
+	 *
+	 * @param mapping
+	 *            The mapping between IDs and files.
+	 */
+	public static synchronized void setTcMapping(final ResourceMapping mapping) {
+<span class="fc" id="L104">		logger.info(&quot;setTcMapping &quot; + mapping);</span>
+<span class="fc" id="L105">		tcMapping = mapping;</span>
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">		update(mapping != null);</span>
+<span class="fc" id="L107">	}</span>
 
-    /**
-     * Updates the resource mappings after making changes.
-     * 
-     * @param newItems If new items have been added.
-     */
-    private static void update(boolean newItems) {
-<span class="fc" id="L166">        logger.finest(&quot;update(&quot; + newItems + &quot;)&quot;);</span>
-<span class="pc bpc" id="L167" title="1 of 2 branches missed.">        if(newItems) {</span>
-<span class="fc" id="L168">            preloadThread = null;</span>
-        }
-<span class="fc" id="L170">        createMergedContainer();</span>
-<span class="pc bpc" id="L171" title="1 of 2 branches missed.">        if(newItems) {</span>
-            // TODO: This should wait for the thread to exit, if one was running.
-<span class="fc" id="L173">            startBackgroundPreloading();</span>
-        }
-<span class="fc" id="L175">    }</span>
+	/**
+	 * Sets the mappings specified by mods. Do not access the mapping after the
+	 * call.
+	 *
+	 * @param mapping
+	 *            A list of the mappings between IDs and files.
+	 */
+	public static synchronized void setModMapping(final ResourceMapping mapping) {
+<span class="nc" id="L117">		logger.info(&quot;setModMapping &quot; + mapping);</span>
+<span class="nc" id="L118">		modMapping = mapping;</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">		update(mapping != null);</span>
+<span class="nc" id="L120">	}</span>
 
-    /**
-     * Creates a merged container containing all the resources.
-     */
-    private static void createMergedContainer() {
-<span class="fc" id="L181">        ResourceMapping mc = new ResourceMapping();</span>
-<span class="fc" id="L182">        mc.addAll(baseMapping);</span>
-<span class="fc" id="L183">        mc.addAll(tcMapping);</span>
-<span class="fc" id="L184">        mc.addAll(scenarioMapping);</span>
-<span class="fc" id="L185">        mc.addAll(modMapping);</span>
-<span class="fc" id="L186">        mergedContainer = mc;</span>
-<span class="fc" id="L187">    }</span>
+	/**
+	 * Sets the mappings specified in a scenario. Do not access the mapping
+	 * after the call.
+	 *
+	 * @param mapping
+	 *            The mapping between IDs and files.
+	 */
+	public static synchronized void setScenarioMapping(final ResourceMapping mapping) {
+<span class="nc" id="L130">		logger.info(&quot;setScenarioMapping &quot; + mapping);</span>
+<span class="nc" id="L131">		scenarioMapping = mapping;</span>
+		// As this is called when loading a new savegame,
+		// use it as a hint for cleaning up
+<span class="nc" id="L134">		clean();</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">		update(mapping != null);</span>
+<span class="nc" id="L136">	}</span>
 
-    /**
-     * Create and start a new background preload thread.
-     */
-    private static void startBackgroundPreloading() {
-<span class="pc bpc" id="L193" title="1 of 2 branches missed.">        if (&quot;true&quot;.equals(System.getProperty(&quot;java.awt.headless&quot;, &quot;false&quot;))) {</span>
-<span class="fc" id="L194">            return; // Do not preload in headless mode</span>
-        }
+	/**
+	 * Clean up easily replaced modified copies in caches.
+	 */
+	public static synchronized void clean() {
+<span class="nc bnc" id="L142" title="All 2 branches missed.">		if (baseMapping != null) {</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">			for (Map.Entry&lt;String, ImageResource&gt; entry : baseMapping.getImageResources().entrySet()) {</span>
+<span class="nc" id="L144">				ImageResource resource = entry.getValue();</span>
+<span class="nc" id="L145">				resource.clean();</span>
+<span class="nc" id="L146">			}</span>
+		}
+<span class="nc bnc" id="L148" title="All 2 branches missed.">		if (tcMapping != null) {</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">			for (Map.Entry&lt;String, ImageResource&gt; entry : tcMapping.getImageResources().entrySet()) {</span>
+<span class="nc" id="L150">				ImageResource resource = entry.getValue();</span>
+<span class="nc" id="L151">				resource.clean();</span>
+<span class="nc" id="L152">			}</span>
+		}
+<span class="nc bnc" id="L154" title="All 2 branches missed.">		if (scenarioMapping != null) {</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">			for (Map.Entry&lt;String, ImageResource&gt; entry : scenarioMapping.getImageResources().entrySet()) {</span>
+<span class="nc" id="L156">				ImageResource resource = entry.getValue();</span>
+<span class="nc" id="L157">				resource.clean();</span>
+<span class="nc" id="L158">			}</span>
+		}
+<span class="nc bnc" id="L160" title="All 2 branches missed.">		if (modMapping != null) {</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">			for (Map.Entry&lt;String, ImageResource&gt; entry : modMapping.getImageResources().entrySet()) {</span>
+<span class="nc" id="L162">				ImageResource resource = entry.getValue();</span>
+<span class="nc" id="L163">				resource.clean();</span>
+<span class="nc" id="L164">			}</span>
+		}
+<span class="nc" id="L166">		System.gc();</span>
+<span class="nc" id="L167">	}</span>
 
-<span class="nc" id="L197">        preloadThread = new Thread(FreeCol.CLIENT_THREAD + &quot;-Resource loader&quot;) {</span>
-                @Override
-                public void run() {
-                    // Make a local list of the resources to load.
-<span class="nc" id="L201">                    logger.info(&quot;Background thread started&quot;);</span>
-<span class="nc" id="L202">                    List&lt;Resource&gt; resources</span>
-<span class="nc" id="L203">                        = new ArrayList&lt;&gt;(getResources().values());</span>
-<span class="nc" id="L204">                    int n = 0;</span>
-<span class="nc bnc" id="L205" title="All 2 branches missed.">                    for (Resource r : resources) {</span>
-<span class="nc bnc" id="L206" title="All 2 branches missed.">                        if (preloadThread != this) {</span>
-<span class="nc" id="L207">                            logger.info(</span>
-                                &quot;Background thread cancelled after it preloaded &quot;
-                                + n + &quot; resources.&quot;);
-<span class="nc" id="L210">                            return;</span>
-                        }
-                        // TODO: Filter list before running thread?
-<span class="nc bnc" id="L213" title="All 2 branches missed.">                        if (r instanceof Resource.Preloadable) {</span>
-<span class="nc" id="L214">                            ((Resource.Preloadable)r).preload();</span>
-<span class="nc" id="L215">                            n++;</span>
-                        }
-<span class="nc" id="L217">                    }</span>
-<span class="nc" id="L218">                    logger.info(&quot;Background thread preloaded &quot; + n</span>
-                        + &quot; resources.&quot;);
-<span class="nc" id="L220">                }</span>
-            };
-<span class="nc" id="L222">        preloadThread.setPriority(2);</span>
-<span class="nc" id="L223">        preloadThread.start();</span>
-<span class="nc" id="L224">    }</span>
+	/**
+	 * Updates the resource mappings after making changes.
+	 * 
+	 * @param newItems
+	 *            If new items have been added.
+	 */
+	private static void update(boolean newItems) {
+<span class="fc" id="L176">		logger.finest(&quot;update(&quot; + newItems + &quot;)&quot;);</span>
+<span class="pc bpc" id="L177" title="1 of 2 branches missed.">		if (newItems) {</span>
+<span class="fc" id="L178">			preloadThread = null;</span>
+		}
+<span class="fc" id="L180">		createMergedContainer();</span>
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">		if (newItems) {</span>
+			// TODO: This should wait for the thread to exit, if one was
+			// running.
+<span class="fc" id="L184">			startBackgroundPreloading();</span>
+		}
+<span class="fc" id="L186">	}</span>
 
-    /**
-     * When it is anticipated that a resource could not exist use
-     * this method for checking beforehand.
-     * Other metods below are specializations running faster or
-     * allowing to check for many keys at once.
-     * 
-     * @param key The resource to check for.
-     * @return true when the resource exists.
-     */
-    public static synchronized boolean hasResource(final String key) {
-<span class="nc" id="L236">        logger.finest(&quot;hasResource(&quot; + key + &quot;)&quot;);</span>
-<span class="nc" id="L237">        return mergedContainer.containsKey(key);</span>
-    }
+	/**
+	 * Creates a merged container containing all the resources.
+	 */
+	private static void createMergedContainer() {
+<span class="fc" id="L192">		ResourceMapping mc = new ResourceMapping();</span>
+<span class="fc" id="L193">		mc.addAll(baseMapping);</span>
+<span class="fc" id="L194">		mc.addAll(tcMapping);</span>
+<span class="fc" id="L195">		mc.addAll(scenarioMapping);</span>
+<span class="fc" id="L196">		mc.addAll(modMapping);</span>
+<span class="fc" id="L197">		mergedContainer = mc;</span>
+<span class="fc" id="L198">	}</span>
 
-    public static synchronized boolean hasImageResource(final String key) {
-        //logger.finest(&quot;hasImageResource(&quot; + key + &quot;)&quot;);
-<span class="nc" id="L242">        return mergedContainer.containsImageKey(key);</span>
-    }
+	/**
+	 * Create and start a new background preload thread.
+	 */
+	private static void startBackgroundPreloading() {
+<span class="pc bpc" id="L204" title="1 of 2 branches missed.">		if (&quot;true&quot;.equals(System.getProperty(&quot;java.awt.headless&quot;, &quot;false&quot;))) {</span>
+<span class="fc" id="L205">			return; // Do not preload in headless mode</span>
+		}
 
-    public static synchronized boolean hasColorResource(final String key) {
-        //logger.finest(&quot;hasColorResource(&quot; + key + &quot;)&quot;);
-<span class="nc" id="L247">        return mergedContainer.containsColorKey(key);</span>
-    }
+<span class="nc" id="L208">		preloadThread = new Thread(FreeCol.CLIENT_THREAD + &quot;-Resource loader&quot;) {</span>
+			@Override
+			public void run() {
+				// Make a local list of the resources to load.
+<span class="nc" id="L212">				logger.info(&quot;Background thread started&quot;);</span>
+<span class="nc" id="L213">				List&lt;Resource&gt; resources = new ArrayList&lt;&gt;(getResources().values());</span>
+<span class="nc" id="L214">				int n = 0;</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">				for (Resource r : resources) {</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">					if (preloadThread != this) {</span>
+<span class="nc" id="L217">						logger.info(&quot;Background thread cancelled after it preloaded &quot; + n + &quot; resources.&quot;);</span>
+<span class="nc" id="L218">						return;</span>
+					}
+					// TODO: Filter list before running thread?
+<span class="nc bnc" id="L221" title="All 2 branches missed.">					if (r instanceof Resource.Preloadable) {</span>
+<span class="nc" id="L222">						((Resource.Preloadable) r).preload();</span>
+<span class="nc" id="L223">						n++;</span>
+					}
+<span class="nc" id="L225">				}</span>
+<span class="nc" id="L226">				logger.info(&quot;Background thread preloaded &quot; + n + &quot; resources.&quot;);</span>
+<span class="nc" id="L227">			}</span>
+		};
+<span class="nc" id="L229">		preloadThread.setPriority(2);</span>
+<span class="nc" id="L230">		preloadThread.start();</span>
+<span class="nc" id="L231">	}</span>
 
-    public static synchronized Map&lt;String, Resource&gt; getResources() {
-<span class="nc" id="L251">        logger.finest(&quot;getResources&quot;);</span>
-<span class="nc" id="L252">        return mergedContainer.getResources();</span>
-    }
+	/**
+	 * When it is anticipated that a resource could not exist use this method
+	 * for checking beforehand. Other metods below are specializations running
+	 * faster or allowing to check for many keys at once.
+	 * 
+	 * @param key
+	 *            The resource to check for.
+	 * @return true when the resource exists.
+	 */
+	public static synchronized boolean hasResource(final String key) {
+<span class="nc" id="L243">		logger.finest(&quot;hasResource(&quot; + key + &quot;)&quot;);</span>
+<span class="nc" id="L244">		return mergedContainer.containsKey(key);</span>
+	}
 
-    public static synchronized Map&lt;String, ImageResource&gt; getImageResources() {
-<span class="nc" id="L256">        logger.finest(&quot;getImageResources&quot;);</span>
-<span class="nc" id="L257">        return mergedContainer.getImageResources();</span>
-    }
+	/**
+	 * Checks for image resource.
+	 *
+	 * @param key
+	 *            the key
+	 * @return true, if successful
+	 */
+	public static synchronized boolean hasImageResource(final String key) {
+		// logger.finest(&quot;hasImageResource(&quot; + key + &quot;)&quot;);
+<span class="nc" id="L256">		return mergedContainer.containsImageKey(key);</span>
+	}
 
-    /**
-     * Returns a list of all keys starting with the given prefix.
-     *
-     * @param prefix the prefix
-     * @return a list of all keys starting with the given prefix
-     */
-    public static synchronized List&lt;String&gt; getImageKeys(String prefix) {
-        //logger.finest(&quot;getImageKeys(&quot; + prefix + &quot;)&quot;);
-<span class="nc" id="L268">        return mergedContainer.getImageKeys(prefix);</span>
-    }
+	/**
+	 * Checks for color resource.
+	 *
+	 * @param key
+	 *            the key
+	 * @return true, if successful
+	 */
+	public static synchronized boolean hasColorResource(final String key) {
+		// logger.finest(&quot;hasColorResource(&quot; + key + &quot;)&quot;);
+<span class="nc" id="L268">		return mergedContainer.containsColorKey(key);</span>
+	}
 
-    /**
-     * Returns a list of all keys starting with the given prefix and
-     * ending with the given suffix.
-     *
-     * @param prefix the prefix
-     * @param suffix the suffix
-     * @return a list of all resulting keys
-     */
-    public static synchronized List&lt;String&gt; getImageKeys(String prefix,
-                                                              String suffix) {
-<span class="nc" id="L281">        logger.finest(&quot;getImageKeys(&quot; + prefix + &quot;, &quot; + suffix + &quot;)&quot;);</span>
-<span class="nc" id="L282">        return mergedContainer.getImageKeys(prefix, suffix);</span>
-    }
+	/**
+	 * Gets the resources.
+	 *
+	 * @return the resources
+	 */
+	public static synchronized Map&lt;String, Resource&gt; getResources() {
+<span class="nc" id="L277">		logger.finest(&quot;getResources&quot;);</span>
+<span class="nc" id="L278">		return mergedContainer.getResources();</span>
+	}
 
-    /**
-     * Returns a set of all keys starting with the given prefix.
-     *
-     * @param prefix the prefix
-     * @return a set of all keysstarting with the given prefix
-     */
-    public static synchronized Set&lt;String&gt; getImageKeySet(String prefix) {
-        //logger.finest(&quot;getImageKeySet(&quot; + prefix + &quot;)&quot;);
-<span class="nc" id="L293">        return mergedContainer.getImageKeySet(prefix);</span>
-    }
+	/**
+	 * Gets the image resources.
+	 *
+	 * @return the image resources
+	 */
+	public static synchronized Map&lt;String, ImageResource&gt; getImageResources() {
+<span class="nc" id="L287">		logger.finest(&quot;getImageResources&quot;);</span>
+<span class="nc" id="L288">		return mergedContainer.getImageResources();</span>
+	}
 
-    /**
-     * Gets the resource of the given type.
-     *
-     * @param key The resource to get.
-     * @return The resource if there is one with the given
-     *     resource key and type, or else &lt;code&gt;null&lt;/code&gt;.
-     */
-    private static synchronized ColorResource getColorResource(final String key) {
-<span class="nc" id="L304">        final ColorResource r = mergedContainer.getColorResource(key);</span>
-<span class="nc bnc" id="L305" title="All 2 branches missed.">        if (r == null) {</span>
-<span class="nc" id="L306">            logger.warning(&quot;getColorResource(&quot; + key + &quot;) failed&quot;);</span>
-        }
-<span class="nc" id="L308">        return r;</span>
-    }
+	/**
+	 * Returns a list of all keys starting with the given prefix.
+	 *
+	 * @param prefix
+	 *            the prefix
+	 * @return a list of all keys starting with the given prefix
+	 */
+	public static synchronized List&lt;String&gt; getImageKeys(String prefix) {
+		// logger.finest(&quot;getImageKeys(&quot; + prefix + &quot;)&quot;);
+<span class="nc" id="L300">		return mergedContainer.getImageKeys(prefix);</span>
+	}
 
-    private static synchronized FontResource getFontResource(final String key) {
-<span class="nc" id="L312">        final FontResource r = mergedContainer.getFontResource(key);</span>
-<span class="nc bnc" id="L313" title="All 2 branches missed.">        if (r == null) {</span>
-<span class="nc" id="L314">            logger.warning(&quot;getFontResource(&quot; + key + &quot;) failed&quot;);</span>
-        }
-<span class="nc" id="L316">        return r;</span>
-    }
+	/**
+	 * Returns a list of all keys starting with the given prefix and ending with
+	 * the given suffix.
+	 *
+	 * @param prefix
+	 *            the prefix
+	 * @param suffix
+	 *            the suffix
+	 * @return a list of all resulting keys
+	 */
+	public static synchronized List&lt;String&gt; getImageKeys(String prefix, String suffix) {
+<span class="nc" id="L314">		logger.finest(&quot;getImageKeys(&quot; + prefix + &quot;, &quot; + suffix + &quot;)&quot;);</span>
+<span class="nc" id="L315">		return mergedContainer.getImageKeys(prefix, suffix);</span>
+	}
 
-    private static synchronized StringResource getStringResource(final String key) {
-<span class="nc" id="L320">        final StringResource r = mergedContainer.getStringResource(key);</span>
-<span class="nc bnc" id="L321" title="All 2 branches missed.">        if (r == null) {</span>
-<span class="nc" id="L322">            logger.warning(&quot;getStringResource(&quot; + key + &quot;) failed&quot;);</span>
-        }
-<span class="nc" id="L324">        return r;</span>
-    }
+	/**
+	 * Returns a set of all keys starting with the given prefix.
+	 *
+	 * @param prefix
+	 *            the prefix
+	 * @return a set of all keysstarting with the given prefix
+	 */
+	public static synchronized Set&lt;String&gt; getImageKeySet(String prefix) {
+		// logger.finest(&quot;getImageKeySet(&quot; + prefix + &quot;)&quot;);
+<span class="nc" id="L327">		return mergedContainer.getImageKeySet(prefix);</span>
+	}
 
-    private static synchronized FAFileResource getFAFileResource(final String key) {
-<span class="nc" id="L328">        final FAFileResource r = mergedContainer.getFAFileResource(key);</span>
-<span class="nc bnc" id="L329" title="All 2 branches missed.">        if (r == null) {</span>
-<span class="nc" id="L330">            logger.warning(&quot;getFAFileResource(&quot; + key + &quot;) failed&quot;);</span>
-        }
-<span class="nc" id="L332">        return r;</span>
-    }
+	/**
+	 * Gets the resource of the given type.
+	 *
+	 * @param key
+	 *            The resource to get.
+	 * @return The resource if there is one with the given resource key and
+	 *         type, or else &lt;code&gt;null&lt;/code&gt;.
+	 */
+	private static synchronized ColorResource getColorResource(final String key) {
+<span class="nc" id="L339">		final ColorResource r = mergedContainer.getColorResource(key);</span>
+<span class="nc bnc" id="L340" title="All 2 branches missed.">		if (r == null) {</span>
+<span class="nc" id="L341">			logger.warning(&quot;getColorResource(&quot; + key + &quot;) failed&quot;);</span>
+		}
+<span class="nc" id="L343">		return r;</span>
+	}
 
-    private static synchronized SZAResource getSZAResource(final String key) {
-<span class="nc" id="L336">        final SZAResource r = mergedContainer.getSZAResource(key);</span>
-<span class="nc bnc" id="L337" title="All 2 branches missed.">        if (r == null) {</span>
-<span class="nc" id="L338">            logger.warning(&quot;getSZAResource(&quot; + key + &quot;) failed&quot;);</span>
-        }
-<span class="nc" id="L340">        return r;</span>
-    }
+	/**
+	 * Gets the font resource.
+	 *
+	 * @param key
+	 *            the key
+	 * @return the font resource
+	 */
+	private static synchronized FontResource getFontResource(final String key) {
+<span class="nc" id="L354">		final FontResource r = mergedContainer.getFontResource(key);</span>
+<span class="nc bnc" id="L355" title="All 2 branches missed.">		if (r == null) {</span>
+<span class="nc" id="L356">			logger.warning(&quot;getFontResource(&quot; + key + &quot;) failed&quot;);</span>
+		}
+<span class="nc" id="L358">		return r;</span>
+	}
 
-    private static synchronized AudioResource getAudioResource(final String key) {
-<span class="fc" id="L344">        final AudioResource r = mergedContainer.getAudioResource(key);</span>
-<span class="pc bpc" id="L345" title="1 of 2 branches missed.">        if (r == null) {</span>
-<span class="nc" id="L346">            logger.warning(&quot;getAudioResource(&quot; + key + &quot;) failed&quot;);</span>
-        }
-<span class="fc" id="L348">        return r;</span>
-    }
+	/**
+	 * Gets the string resource.
+	 *
+	 * @param key
+	 *            the key
+	 * @return the string resource
+	 */
+	private static synchronized StringResource getStringResource(final String key) {
+<span class="nc" id="L369">		final StringResource r = mergedContainer.getStringResource(key);</span>
+<span class="nc bnc" id="L370" title="All 2 branches missed.">		if (r == null) {</span>
+<span class="nc" id="L371">			logger.warning(&quot;getStringResource(&quot; + key + &quot;) failed&quot;);</span>
+		}
+<span class="nc" id="L373">		return r;</span>
+	}
 
-    private static synchronized VideoResource getVideoResource(final String key) {
-<span class="nc" id="L352">        final VideoResource r = mergedContainer.getVideoResource(key);</span>
-<span class="nc bnc" id="L353" title="All 2 branches missed.">        if (r == null) {</span>
-<span class="nc" id="L354">            logger.warning(&quot;getVideoResource(&quot; + key + &quot;) failed&quot;);</span>
-        }
-<span class="nc" id="L356">        return r;</span>
-    }
+	/**
+	 * Gets the FA file resource.
+	 *
+	 * @param key
+	 *            the key
+	 * @return the FA file resource
+	 */
+	private static synchronized FAFileResource getFAFileResource(final String key) {
+<span class="nc" id="L384">		final FAFileResource r = mergedContainer.getFAFileResource(key);</span>
+<span class="nc bnc" id="L385" title="All 2 branches missed.">		if (r == null) {</span>
+<span class="nc" id="L386">			logger.warning(&quot;getFAFileResource(&quot; + key + &quot;) failed&quot;);</span>
+		}
+<span class="nc" id="L388">		return r;</span>
+	}
 
-    private static synchronized ImageResource getImageResource(final String key) {
-<span class="nc" id="L360">        ImageResource r = mergedContainer.getImageResource(key);</span>
-<span class="nc bnc" id="L361" title="All 2 branches missed.">        if (r == null) {</span>
-<span class="nc" id="L362">            logger.warning(&quot;getImageResource(&quot; + key + &quot;) failed&quot;);</span>
-<span class="nc" id="L363">            r = mergedContainer.getImageResource(REPLACEMENT_IMAGE);</span>
-<span class="nc bnc" id="L364" title="All 2 branches missed.">            if(r == null) {</span>
-<span class="nc" id="L365">                FreeColClient.fatal(&quot;Failed getting replacement image.&quot;);</span>
-            }
-        }
-<span class="nc" id="L368">        return r;</span>
-    }
+	/**
+	 * Gets the SZA resource.
+	 *
+	 * @param key
+	 *            the key
+	 * @return the SZA resource
+	 */
+	private static synchronized SZAResource getSZAResource(final String key) {
+<span class="nc" id="L399">		final SZAResource r = mergedContainer.getSZAResource(key);</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">		if (r == null) {</span>
+<span class="nc" id="L401">			logger.warning(&quot;getSZAResource(&quot; + key + &quot;) failed&quot;);</span>
+		}
+<span class="nc" id="L403">		return r;</span>
+	}
 
-    /**
-     * Returns the image specified by the given key.
-     * Trying to get non-existing images from any of the below methods
-     * is an error. To make modding easier and prevent edited resource
-     * files from crashing the game, a replacement image is returned
-     * and a warning logged.
-     *
-     * @param key The name of the resource to return.
-     * @return The image identified by &lt;code&gt;resource&lt;/code&gt;.
-     */
-    public static BufferedImage getImage(final String key) {
-<span class="nc" id="L382">        BufferedImage image = getImageResource(key).getImage();</span>
-<span class="nc bnc" id="L383" title="All 2 branches missed.">        if(image == null) {</span>
-<span class="nc" id="L384">            logger.warning(&quot;getImage(&quot; + key + &quot;) failed&quot;);</span>
-<span class="nc" id="L385">            image = getImageResource(REPLACEMENT_IMAGE).getImage();</span>
-<span class="nc bnc" id="L386" title="All 2 branches missed.">            if(image == null) {</span>
-<span class="nc" id="L387">                FreeColClient.fatal(&quot;Failed getting replacement image.&quot;);</span>
-            }
-        }
-<span class="nc" id="L390">        return image;</span>
-    }
+	/**
+	 * Gets the audio resource.
+	 *
+	 * @param key
+	 *            the key
+	 * @return the audio resource
+	 */
+	private static synchronized AudioResource getAudioResource(final String key) {
+<span class="fc" id="L414">		final AudioResource r = mergedContainer.getAudioResource(key);</span>
+<span class="pc bpc" id="L415" title="1 of 2 branches missed.">		if (r == null) {</span>
+<span class="nc" id="L416">			logger.warning(&quot;getAudioResource(&quot; + key + &quot;) failed&quot;);</span>
+		}
+<span class="fc" id="L418">		return r;</span>
+	}
 
-    /**
-     * Returns the image specified by the given name.
-     * Please, avoid using too many different scaling factors!
-     * For each is a scaled image cached here for a long time,
-     * which wastes memory if you are not careful.
-     *
-     * @param key The name of the resource to return.
-     * @param scale The size of the requested image (with 1 being normal size,
-     *      2 twice the size, 0.5 half the size etc). Rescaling
-     *      will be performed unless using 1.
-     * @return The image identified by &lt;code&gt;resource&lt;/code&gt;.
-     */
-    public static BufferedImage getImage(final String key, final float scale) {
-<span class="nc" id="L406">        BufferedImage image = getImageResource(key).getImage(scale);</span>
-<span class="nc bnc" id="L407" title="All 2 branches missed.">        if(image == null) {</span>
-<span class="nc" id="L408">            logger.warning(&quot;getImage(&quot; + key + &quot;, &quot; + scale + &quot;) failed&quot;);</span>
-<span class="nc" id="L409">            image = getImageResource(REPLACEMENT_IMAGE).getImage(scale);</span>
-<span class="nc bnc" id="L410" title="All 2 branches missed.">            if(image == null) {</span>
-<span class="nc" id="L411">                FreeColClient.fatal(&quot;Failed getting replacement image.&quot;);</span>
-            }
-        }
-<span class="nc" id="L414">        return image;</span>
-    }
+	/**
+	 * Gets the video resource.
+	 *
+	 * @param key
+	 *            the key
+	 * @return the video resource
+	 */
+	private static synchronized VideoResource getVideoResource(final String key) {
+<span class="nc" id="L429">		final VideoResource r = mergedContainer.getVideoResource(key);</span>
+<span class="nc bnc" id="L430" title="All 2 branches missed.">		if (r == null) {</span>
+<span class="nc" id="L431">			logger.warning(&quot;getVideoResource(&quot; + key + &quot;) failed&quot;);</span>
+		}
+<span class="nc" id="L433">		return r;</span>
+	}
 
-    /**
-     * Returns the image specified by the given name.
-     * Please, avoid using this, as for each size another scaled version
-     * of the image is cached!
-     *
-     * @param key The name of the resource to return.
-     * @param size The size of the requested image. Rescaling
-     *      will be performed if necessary.
-     * @return The image identified by &lt;code&gt;resource&lt;/code&gt;.
-     */
-    public static BufferedImage getImage(final String key, final Dimension size) {
-<span class="nc" id="L428">        BufferedImage image = getImageResource(key).getImage(size);</span>
-<span class="nc bnc" id="L429" title="All 2 branches missed.">        if(image == null) {</span>
-<span class="nc" id="L430">            logger.warning(&quot;getImage(&quot; + key + &quot;, &quot; + size + &quot;) failed&quot;);</span>
-<span class="nc" id="L431">            image = getImageResource(REPLACEMENT_IMAGE).getImage(size);</span>
-<span class="nc bnc" id="L432" title="All 2 branches missed.">            if(image == null) {</span>
-<span class="nc" id="L433">                FreeColClient.fatal(&quot;Failed getting replacement image.&quot;);</span>
-            }
-        }
-<span class="nc" id="L436">        return image;</span>
-    }
+	/**
+	 * Gets the image resource.
+	 *
+	 * @param key
+	 *            the key
+	 * @return the image resource
+	 */
+	private static synchronized ImageResource getImageResource(final String key) {
+<span class="nc" id="L444">		ImageResource r = mergedContainer.getImageResource(key);</span>
+<span class="nc bnc" id="L445" title="All 2 branches missed.">		if (r == null) {</span>
+<span class="nc" id="L446">			logger.warning(&quot;getImageResource(&quot; + key + &quot;) failed&quot;);</span>
+<span class="nc" id="L447">			r = mergedContainer.getImageResource(REPLACEMENT_IMAGE);</span>
+<span class="nc bnc" id="L448" title="All 2 branches missed.">			if (r == null) {</span>
+<span class="nc" id="L449">				FreeColClient.fatal(&quot;Failed getting replacement image.&quot;);</span>
+			}
+		}
+<span class="nc" id="L452">		return r;</span>
+	}
 
-    /**
-     * Returns the a grayscale version of the image specified by
-     * the given name.
-     *
-     * @param key The name of the resource to return.
-     * @param size The size of the requested image. Rescaling
-     *      will be performed if necessary.
-     * @return The image identified by &lt;code&gt;resource&lt;/code&gt;.
-     */
-    public static BufferedImage getGrayscaleImage(final String key, final Dimension size) {
-<span class="nc" id="L449">        BufferedImage image = getImageResource(key).getGrayscaleImage(size);</span>
-<span class="nc bnc" id="L450" title="All 2 branches missed.">        if(image == null) {</span>
-<span class="nc" id="L451">            logger.warning(&quot;getGrayscaleImage(&quot; + key + &quot;, &quot; + size + &quot;) failed&quot;);</span>
-<span class="nc" id="L452">            image = getImageResource(REPLACEMENT_IMAGE).getGrayscaleImage(size);</span>
-<span class="nc bnc" id="L453" title="All 2 branches missed.">            if(image == null) {</span>
-<span class="nc" id="L454">                FreeColClient.fatal(&quot;Failed getting replacement image.&quot;);</span>
-            }
-        }
-<span class="nc" id="L457">        return image;</span>
-    }
+	/**
+	 * Returns the image specified by the given key. Trying to get non-existing
+	 * images from any of the below methods is an error. To make modding easier
+	 * and prevent edited resource files from crashing the game, a replacement
+	 * image is returned and a warning logged.
+	 *
+	 * @param key
+	 *            The name of the resource to return.
+	 * @return The image identified by &lt;code&gt;resource&lt;/code&gt;.
+	 */
+	public static BufferedImage getImage(final String key) {
+<span class="nc" id="L466">		BufferedImage image = getImageResource(key).getImage();</span>
+<span class="nc bnc" id="L467" title="All 2 branches missed.">		if (image == null) {</span>
+<span class="nc" id="L468">			logger.warning(&quot;getImage(&quot; + key + &quot;) failed&quot;);</span>
+<span class="nc" id="L469">			image = getImageResource(REPLACEMENT_IMAGE).getImage();</span>
+<span class="nc bnc" id="L470" title="All 2 branches missed.">			if (image == null) {</span>
+<span class="nc" id="L471">				FreeColClient.fatal(&quot;Failed getting replacement image.&quot;);</span>
+			}
+		}
+<span class="nc" id="L474">		return image;</span>
+	}
 
-    /**
-     * Returns the grayscale version of the image specified by the given name.
-     *
-     * @param key The name of the resource to return.
-     * @param scale The size of the requested image (with 1 being normal size,
-     *      2 twice the size, 0.5 half the size etc). Rescaling
-     *      will be performed unless using 1.
-     * @return The image identified by &lt;code&gt;resource&lt;/code&gt;.
-     */
-    public static BufferedImage getGrayscaleImage(final String key, final float scale) {
-<span class="nc" id="L470">        BufferedImage image = getImageResource(key).getGrayscaleImage(scale);</span>
-<span class="nc bnc" id="L471" title="All 2 branches missed.">        if(image == null) {</span>
-<span class="nc" id="L472">            logger.warning(&quot;getGrayscaleImage(&quot; + key + &quot;, &quot; + scale + &quot;) failed&quot;);</span>
-<span class="nc" id="L473">            image = getImageResource(REPLACEMENT_IMAGE).getGrayscaleImage(scale);</span>
-<span class="nc bnc" id="L474" title="All 2 branches missed.">            if(image == null) {</span>
-<span class="nc" id="L475">                FreeColClient.fatal(&quot;Failed getting replacement image.&quot;);</span>
-            }
-        }
-<span class="nc" id="L478">        return image;</span>
-    }
+	/**
+	 * Returns the image specified by the given name. Please, avoid using too
+	 * many different scaling factors! For each is a scaled image cached here
+	 * for a long time, which wastes memory if you are not careful.
+	 *
+	 * @param key
+	 *            The name of the resource to return.
+	 * @param scale
+	 *            The size of the requested image (with 1 being normal size, 2
+	 *            twice the size, 0.5 half the size etc). Rescaling will be
+	 *            performed unless using 1.
+	 * @return The image identified by &lt;code&gt;resource&lt;/code&gt;.
+	 */
+	public static BufferedImage getImage(final String key, final float scale) {
+<span class="nc" id="L491">		BufferedImage image = getImageResource(key).getImage(scale);</span>
+<span class="nc bnc" id="L492" title="All 2 branches missed.">		if (image == null) {</span>
+<span class="nc" id="L493">			logger.warning(&quot;getImage(&quot; + key + &quot;, &quot; + scale + &quot;) failed&quot;);</span>
+<span class="nc" id="L494">			image = getImageResource(REPLACEMENT_IMAGE).getImage(scale);</span>
+<span class="nc bnc" id="L495" title="All 2 branches missed.">			if (image == null) {</span>
+<span class="nc" id="L496">				FreeColClient.fatal(&quot;Failed getting replacement image.&quot;);</span>
+			}
+		}
+<span class="nc" id="L499">		return image;</span>
+	}
 
-    /**
-     * Returns the animation specified by the given name.
-     * As the artwork is still incomplete and animations exist only for
-     * some military units, null can still be returned in many cases.
-     * FIXME: Check using hasResource before calling this, then replace
-     *        null return with calling FreeColClient.fatal on error.
-     *
-     * @param key The name of the resource to return.
-     * @return The animation identified by &lt;code&gt;resource&lt;/code&gt;
-     *      or &lt;code&gt;null&lt;/code&gt; if there is no animation
-     *      identified by that name.
-     */
-    public static SimpleZippedAnimation getSimpleZippedAnimation(final String key) {
-<span class="nc" id="L494">        final SZAResource r = getSZAResource(key);</span>
-<span class="nc bnc" id="L495" title="All 2 branches missed.">        return (r != null) ? r.getSimpleZippedAnimation() : null;</span>
-    }
+	/**
+	 * Returns the image specified by the given name. Please, avoid using this,
+	 * as for each size another scaled version of the image is cached!
+	 *
+	 * @param key
+	 *            The name of the resource to return.
+	 * @param size
+	 *            The size of the requested image. Rescaling will be performed
+	 *            if necessary.
+	 * @return The image identified by &lt;code&gt;resource&lt;/code&gt;.
+	 */
+	public static BufferedImage getImage(final String key, final Dimension size) {
+<span class="nc" id="L514">		BufferedImage image = getImageResource(key).getImage(size);</span>
+<span class="nc bnc" id="L515" title="All 2 branches missed.">		if (image == null) {</span>
+<span class="nc" id="L516">			logger.warning(&quot;getImage(&quot; + key + &quot;, &quot; + size + &quot;) failed&quot;);</span>
+<span class="nc" id="L517">			image = getImageResource(REPLACEMENT_IMAGE).getImage(size);</span>
+<span class="nc bnc" id="L518" title="All 2 branches missed.">			if (image == null) {</span>
+<span class="nc" id="L519">				FreeColClient.fatal(&quot;Failed getting replacement image.&quot;);</span>
+			}
+		}
+<span class="nc" id="L522">		return image;</span>
+	}
 
-    /**
-     * Returns the animation specified by the given name.
-     *
-     * @param key The name of the resource to return.
-     * @param scale The size of the requested animation (with 1
-     *      being normal size, 2 twice the size, 0.5 half the
-     *      size etc). Rescaling will be performed unless using 1.
-     * @return The animation identified by &lt;code&gt;resource&lt;/code&gt;
-     *      or &lt;code&gt;null&lt;/code&gt; if there is no animation
-     *      identified by that name.
-     */
-    public static SimpleZippedAnimation getSimpleZippedAnimation(final String key, final float scale) {
-<span class="nc" id="L510">        final SZAResource r = getSZAResource(key);</span>
-<span class="nc bnc" id="L511" title="All 2 branches missed.">        return (r != null) ? r.getSimpleZippedAnimation(scale) : null;</span>
-    }
+	/**
+	 * Returns the a grayscale version of the image specified by the given name.
+	 *
+	 * @param key
+	 *            The name of the resource to return.
+	 * @param size
+	 *            The size of the requested image. Rescaling will be performed
+	 *            if necessary.
+	 * @return The image identified by &lt;code&gt;resource&lt;/code&gt;.
+	 */
+	public static BufferedImage getGrayscaleImage(final String key, final Dimension size) {
+<span class="nc" id="L536">		BufferedImage image = getImageResource(key).getGrayscaleImage(size);</span>
+<span class="nc bnc" id="L537" title="All 2 branches missed.">		if (image == null) {</span>
+<span class="nc" id="L538">			logger.warning(&quot;getGrayscaleImage(&quot; + key + &quot;, &quot; + size + &quot;) failed&quot;);</span>
+<span class="nc" id="L539">			image = getImageResource(REPLACEMENT_IMAGE).getGrayscaleImage(size);</span>
+<span class="nc bnc" id="L540" title="All 2 branches missed.">			if (image == null) {</span>
+<span class="nc" id="L541">				FreeColClient.fatal(&quot;Failed getting replacement image.&quot;);</span>
+			}
+		}
+<span class="nc" id="L544">		return image;</span>
+	}
 
-    /**
-     * Returns the &lt;code&gt;Color&lt;/code&gt; with the given name.
-     * Trying to get a non-existing color is an error and will return
-     * magenta as replacement color to prevent crashes when modding.
-     *
-     * @param key The name of the resource to return.
-     * @return An &lt;code&gt;Color&lt;/code&gt; created with the image
-     *      identified by &lt;code&gt;resource&lt;/code&gt; or
-     *      a replacement color if there is no color identified
-     *      by that name.
-     */
-    public static Color getColor(final String key) {
-<span class="nc" id="L526">        final ColorResource r = getColorResource(key);</span>
-<span class="nc bnc" id="L527" title="All 2 branches missed.">        return (r == null) ? ColorResource.REPLACEMENT_COLOR : r.getColor();</span>
-    }
+	/**
+	 * Returns the grayscale version of the image specified by the given name.
+	 *
+	 * @param key
+	 *            The name of the resource to return.
+	 * @param scale
+	 *            The size of the requested image (with 1 being normal size, 2
+	 *            twice the size, 0.5 half the size etc). Rescaling will be
+	 *            performed unless using 1.
+	 * @return The image identified by &lt;code&gt;resource&lt;/code&gt;.
+	 */
+	public static BufferedImage getGrayscaleImage(final String key, final float scale) {
+<span class="nc" id="L559">		BufferedImage image = getImageResource(key).getGrayscaleImage(scale);</span>
+<span class="nc bnc" id="L560" title="All 2 branches missed.">		if (image == null) {</span>
+<span class="nc" id="L561">			logger.warning(&quot;getGrayscaleImage(&quot; + key + &quot;, &quot; + scale + &quot;) failed&quot;);</span>
+<span class="nc" id="L562">			image = getImageResource(REPLACEMENT_IMAGE).getGrayscaleImage(scale);</span>
+<span class="nc bnc" id="L563" title="All 2 branches missed.">			if (image == null) {</span>
+<span class="nc" id="L564">				FreeColClient.fatal(&quot;Failed getting replacement image.&quot;);</span>
+			}
+		}
+<span class="nc" id="L567">		return image;</span>
+	}
 
-    /**
-     * Gets the font with the given name.
-     * Trying to get a nonexisting font is an error and will result
-     * in only getting the emergency font to prevent crashes when modding.
-     *
-     * @param key The name of the resource to query.
-     * @return The &lt;code&gt;Font&lt;/code&gt; found in a FontResource, which
-     *     may default to the Java default font if the resource failed
-     *     to load.
-     */
-    public static Font getFont(final String key) {
-<span class="nc" id="L541">        final FontResource r = getFontResource(key);</span>
-<span class="nc bnc" id="L542" title="All 2 branches missed.">        if (r == null) return FontResource.getEmergencyFont();</span>
-<span class="nc" id="L543">        return r.getFont();</span>
-    }
+	/**
+	 * Returns the animation specified by the given name. As the artwork is
+	 * still incomplete and animations exist only for some military units, null
+	 * can still be returned in many cases. FIXME: Check using hasResource
+	 * before calling this, then replace null return with calling
+	 * FreeColClient.fatal on error.
+	 *
+	 * @param key
+	 *            The name of the resource to return.
+	 * @return The animation identified by &lt;code&gt;resource&lt;/code&gt; or
+	 *         &lt;code&gt;null&lt;/code&gt; if there is no animation identified by that
+	 *         name.
+	 */
+	public static SimpleZippedAnimation getSimpleZippedAnimation(final String key) {
+<span class="nc" id="L584">		final SZAResource r = getSZAResource(key);</span>
+<span class="nc bnc" id="L585" title="All 2 branches missed.">		return (r != null) ? r.getSimpleZippedAnimation() : null;</span>
+	}
 
-    /**
-     * Gets an audio resource with the given name.
-     * This can return null as there as not all necessary sounds have
-     * been added to the game.
-     * FIXME: Change calling code to check using hasResource, then
-     *        replace null return with calling FreeColClient.fatal on error.
-     *
-     * @param key The name of the resource to query.
-     * @return A &lt;code&gt;File&lt;/code&gt; containing the audio data.
-     */
-    public static File getAudio(final String key) {
-<span class="fc" id="L557">        final AudioResource r = getAudioResource(key);</span>
-<span class="pc bpc" id="L558" title="1 of 2 branches missed.">        return (r == null) ? null : r.getAudio();</span>
-    }
+	/**
+	 * Returns the animation specified by the given name.
+	 *
+	 * @param key
+	 *            The name of the resource to return.
+	 * @param scale
+	 *            The size of the requested animation (with 1 being normal size,
+	 *            2 twice the size, 0.5 half the size etc). Rescaling will be
+	 *            performed unless using 1.
+	 * @return The animation identified by &lt;code&gt;resource&lt;/code&gt; or
+	 *         &lt;code&gt;null&lt;/code&gt; if there is no animation identified by that
+	 *         name.
+	 */
+	public static SimpleZippedAnimation getSimpleZippedAnimation(final String key, final float scale) {
+<span class="nc" id="L602">		final SZAResource r = getSZAResource(key);</span>
+<span class="nc bnc" id="L603" title="All 2 branches missed.">		return (r != null) ? r.getSimpleZippedAnimation(scale) : null;</span>
+	}
 
-    /**
-     * Gets the &lt;code&gt;Video&lt;/code&gt; represented by the given resource.
-     * This can return null as there is only one video in FreeCol.
-     * FIXME: Consider calling FreeColClient.fatal on error.
-     * 
-     * @param key The name of the resource to return.
-     * @return The &lt;code&gt;Video&lt;/code&gt; in it's original size.
-     */
-    public static Video getVideo(final String key) {
-<span class="nc" id="L570">        final VideoResource r = getVideoResource(key);</span>
-<span class="nc bnc" id="L571" title="All 2 branches missed.">        return (r != null) ? r.getVideo() : null;</span>
-    }
+	/**
+	 * Returns the &lt;code&gt;Color&lt;/code&gt; with the given name. Trying to get a
+	 * non-existing color is an error and will return magenta as replacement
+	 * color to prevent crashes when modding.
+	 *
+	 * @param key
+	 *            The name of the resource to return.
+	 * @return An &lt;code&gt;Color&lt;/code&gt; created with the image identified by
+	 *         &lt;code&gt;resource&lt;/code&gt; or a replacement color if there is no color
+	 *         identified by that name.
+	 */
+	public static Color getColor(final String key) {
+<span class="nc" id="L618">		final ColorResource r = getColorResource(key);</span>
+<span class="nc bnc" id="L619" title="All 2 branches missed.">		return (r == null) ? ColorResource.REPLACEMENT_COLOR : r.getColor();</span>
+	}
 
-    /**
-     * Gets a FAFile resource with the given name.
-     * This can return null as there is only one FAFile in FreeCol.
-     * FIXME: Consider calling FreeColClient.fatal on error.
-     *
-     * @param key The name of the resource to query.
-     * @return The &lt;code&gt;FAFile&lt;/code&gt; found in a FAFileResource.
-     */
-    public static FAFile getFAFile(final String key) {
-<span class="nc" id="L583">        final FAFileResource r = getFAFileResource(key);</span>
-<span class="nc bnc" id="L584" title="All 2 branches missed.">        return (r == null) ? null : r.getFAFile();</span>
-    }
+	/**
+	 * Gets the font with the given name. Trying to get a nonexisting font is an
+	 * error and will result in only getting the emergency font to prevent
+	 * crashes when modding.
+	 *
+	 * @param key
+	 *            The name of the resource to query.
+	 * @return The &lt;code&gt;Font&lt;/code&gt; found in a FontResource, which may default
+	 *         to the Java default font if the resource failed to load.
+	 */
+	public static Font getFont(final String key) {
+<span class="nc" id="L633">		final FontResource r = getFontResource(key);</span>
+<span class="nc bnc" id="L634" title="All 2 branches missed.">		if (r == null)</span>
+<span class="nc" id="L635">			return FontResource.getEmergencyFont();</span>
+<span class="nc" id="L636">		return r.getFont();</span>
+	}
 
-    /**
-     * Gets a string resource with the given name.
-     * Trying to get a nonexisting string is an error, but returns
-     * a replacement string to prevent crashes.
-     *
-     * @param key The name of the resource to query.
-     * @return The string value.
-     */
-    public static String getString(final String key) {
-<span class="nc" id="L596">        final StringResource r = getStringResource(key);</span>
-<span class="nc bnc" id="L597" title="All 2 branches missed.">        return (r == null) ? REPLACEMENT_STRING : r.getString();</span>
-    }
+	/**
+	 * Gets an audio resource with the given name. This can return null as there
+	 * as not all necessary sounds have been added to the game. FIXME: Change
+	 * calling code to check using hasResource, then replace null return with
+	 * calling FreeColClient.fatal on error.
+	 *
+	 * @param key
+	 *            The name of the resource to query.
+	 * @return A &lt;code&gt;File&lt;/code&gt; containing the audio data.
+	 */
+	public static File getAudio(final String key) {
+<span class="fc" id="L650">		final AudioResource r = getAudioResource(key);</span>
+<span class="pc bpc" id="L651" title="1 of 2 branches missed.">		return (r == null) ? null : r.getAudio();</span>
+	}
+
+	/**
+	 * Gets the &lt;code&gt;Video&lt;/code&gt; represented by the given resource. This can
+	 * return null as there is only one video in FreeCol. FIXME: Consider
+	 * calling FreeColClient.fatal on error.
+	 * 
+	 * @param key
+	 *            The name of the resource to return.
+	 * @return The &lt;code&gt;Video&lt;/code&gt; in it's original size.
+	 */
+	public static Video getVideo(final String key) {
+<span class="nc" id="L664">		final VideoResource r = getVideoResource(key);</span>
+<span class="nc bnc" id="L665" title="All 2 branches missed.">		return (r != null) ? r.getVideo() : null;</span>
+	}
+
+	/**
+	 * Gets a FAFile resource with the given name. This can return null as there
+	 * is only one FAFile in FreeCol. FIXME: Consider calling
+	 * FreeColClient.fatal on error.
+	 *
+	 * @param key
+	 *            The name of the resource to query.
+	 * @return The &lt;code&gt;FAFile&lt;/code&gt; found in a FAFileResource.
+	 */
+	public static FAFile getFAFile(final String key) {
+<span class="nc" id="L678">		final FAFileResource r = getFAFileResource(key);</span>
+<span class="nc bnc" id="L679" title="All 2 branches missed.">		return (r == null) ? null : r.getFAFile();</span>
+	}
+
+	/**
+	 * Gets a string resource with the given name. Trying to get a nonexisting
+	 * string is an error, but returns a replacement string to prevent crashes.
+	 *
+	 * @param key
+	 *            The name of the resource to query.
+	 * @return The string value.
+	 */
+	public static String getString(final String key) {
+<span class="nc" id="L691">		final StringResource r = getStringResource(key);</span>
+<span class="nc bnc" id="L692" title="All 2 branches missed.">		return (r == null) ? REPLACEMENT_STRING : r.getString();</span>
+	}
 
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

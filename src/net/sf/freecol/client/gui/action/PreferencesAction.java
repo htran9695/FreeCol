@@ -23,33 +23,31 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for editing user preferences.
  */
 public class PreferencesAction extends FreeColAction {
 
-    /** The Constant id. */
-    public static final String id = "preferencesAction";
+	/** The Constant id. */
+	public static final String id = "preferencesAction";
 
+	/**
+	 * Creates a new <code>DeclareIndependenceAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public PreferencesAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>DeclareIndependenceAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public PreferencesAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        getGUI().showClientOptionsDialog();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		getGUI().showClientOptionsDialog();
+	}
 }

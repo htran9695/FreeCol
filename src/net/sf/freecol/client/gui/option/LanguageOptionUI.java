@@ -26,61 +26,59 @@ import net.sf.freecol.client.gui.plaf.FreeColComboBoxRenderer;
 import net.sf.freecol.common.option.LanguageOption;
 import net.sf.freecol.common.option.LanguageOption.Language;
 
-
 /**
  * This class provides visualization for a
- * {@link net.sf.freecol.common.option.LanguageOption} in order to enable
- * values to be both seen and changed.
+ * {@link net.sf.freecol.common.option.LanguageOption} in order to enable values
+ * to be both seen and changed.
  */
-public final class LanguageOptionUI extends OptionUI<LanguageOption>  {
+public final class LanguageOptionUI extends OptionUI<LanguageOption> {
 
-    /** The box. */
-    private final JComboBox<Language> box = new JComboBox<>();
+	/** The box. */
+	private final JComboBox<Language> box = new JComboBox<>();
 
+	/**
+	 * Creates a new <code>LanguageOptionUI</code> for the given
+	 * <code>LanguageOption</code>.
+	 *
+	 * @param option
+	 *            The <code>LanguageOption</code> to make a user interface for.
+	 * @param editable
+	 *            boolean whether user can modify the setting
+	 */
+	public LanguageOptionUI(final LanguageOption option, boolean editable) {
+		super(option, editable);
 
-    /**
-     * Creates a new <code>LanguageOptionUI</code> for the given
-     * <code>LanguageOption</code>.
-     *
-     * @param option The <code>LanguageOption</code> to make a user
-     *     interface for.
-     * @param editable boolean whether user can modify the setting
-     */
-    public LanguageOptionUI(final LanguageOption option, boolean editable) {
-        super(option, editable);
+		Language[] languages = option.getChoices().toArray(new Language[0]);
+		box.setModel(new DefaultComboBoxModel<>(languages));
+		box.setSelectedItem(option.getValue());
+		box.setRenderer(new FreeColComboBoxRenderer<Language>("", false));
 
-        Language[] languages = option.getChoices().toArray(new Language[0]);
-        box.setModel(new DefaultComboBoxModel<>(languages));
-        box.setSelectedItem(option.getValue());
-        box.setRenderer(new FreeColComboBoxRenderer<Language>("", false));
+		initialize();
+	}
 
-        initialize();
-    }
+	// Implement OptionUI
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public JComboBox getComponent() {
+		return box;
+	}
 
-    // Implement OptionUI
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void updateOption() {
+		getOption().setValue((Language) box.getSelectedItem());
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public JComboBox getComponent() {
-        return box;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateOption() {
-        getOption().setValue((Language)box.getSelectedItem());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void reset() {
-        box.setSelectedItem(getOption().getValue());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void reset() {
+		box.setSelectedItem(getOption().getValue());
+	}
 }

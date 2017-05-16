@@ -48,10 +48,9 @@ import net.sf.freecol.common.io.FreeColXMLReader;
 import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
 
-
 /**
- * A network connection.
- * Responsible for both sending and receiving network messages.
+ * A network connection. Responsible for both sending and receiving network
+ * messages.
  *
  * @see #send(Element)
  * @see #sendAndWait(Element)
@@ -59,465 +58,505 @@ import org.xml.sax.SAXException;
  */
 public class Connection implements Closeable {
 
-<span class="fc" id="L62">    private static final Logger logger = Logger.getLogger(Connection.class.getName());</span>
+	/** The Constant logger. */
+<span class="fc" id="L62">	private static final Logger logger = Logger.getLogger(Connection.class.getName());</span>
 
-    public static final String DISCONNECT_TAG = &quot;disconnect&quot;;
-    public static final String NETWORK_REPLY_ID_TAG = &quot;networkReplyId&quot;;
-    public static final String QUESTION_TAG = &quot;question&quot;;
-    public static final String REPLY_TAG = &quot;reply&quot;;
-    public static final String SEND_SUFFIX = &quot;-send\n&quot;;
-    public static final String REPLY_SUFFIX = &quot;-reply\n&quot;;
+	/** The Constant DISCONNECT_TAG. */
+	public static final String DISCONNECT_TAG = &quot;disconnect&quot;;
 
-    private static final int TIMEOUT = 5000; // 5s
+	/** The Constant NETWORK_REPLY_ID_TAG. */
+	public static final String NETWORK_REPLY_ID_TAG = &quot;networkReplyId&quot;;
 
-    private InputStream in;
+	/** The Constant QUESTION_TAG. */
+	public static final String QUESTION_TAG = &quot;question&quot;;
 
-    private Socket socket;
+	/** The Constant REPLY_TAG. */
+	public static final String REPLY_TAG = &quot;reply&quot;;
 
-    private OutputStream out;
+	/** The Constant SEND_SUFFIX. */
+	public static final String SEND_SUFFIX = &quot;-send\n&quot;;
 
-    private final Transformer xmlTransformer;
+	/** The Constant REPLY_SUFFIX. */
+	public static final String REPLY_SUFFIX = &quot;-reply\n&quot;;
 
-    private ReceivingThread thread;
+	/** The Constant TIMEOUT. */
+	private static final int TIMEOUT = 5000; // 5s
 
-    private MessageHandler messageHandler;
+	/** The in. */
+	private InputStream in;
 
-    private String name;
+	/** The socket. */
+	private Socket socket;
 
-    // Logging variables.
-    private final StreamResult logResult;
-    private final Writer logWriter;
+	/** The out. */
+	private OutputStream out;
 
+	/** The xml transformer. */
+	private final Transformer xmlTransformer;
 
-    /**
-     * Trivial constructor.
-     *
-     * @param name The name of the connection.
-     */
-<span class="fc" id="L97">    protected Connection(String name) {</span>
-<span class="fc" id="L98">        this.in = null;</span>
-<span class="fc" id="L99">        this.socket = null;</span>
-<span class="fc" id="L100">        this.out = null;</span>
-<span class="fc" id="L101">        Transformer myTransformer = null;</span>
-        try {
-<span class="fc" id="L103">            TransformerFactory factory = TransformerFactory.newInstance();</span>
-<span class="fc" id="L104">            myTransformer = factory.newTransformer();</span>
-<span class="fc" id="L105">            myTransformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION,</span>
-                                            &quot;yes&quot;);
-<span class="nc" id="L107">        } catch (TransformerException e) {</span>
-<span class="nc" id="L108">            logger.log(Level.WARNING, &quot;Failed to install transformer!&quot;, e);</span>
-<span class="fc" id="L109">        }</span>
-<span class="fc" id="L110">        this.xmlTransformer = myTransformer;</span>
-<span class="fc" id="L111">        this.thread = null;</span>
-<span class="fc" id="L112">        this.messageHandler = null;</span>
-<span class="fc" id="L113">        this.name = name;</span>
-<span class="pc bpc" id="L114" title="1 of 2 branches missed.">        if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.COMMS)) {</span>
-<span class="nc" id="L115">            this.logWriter = new BufferedWriter(new OutputStreamWriter(System.err));</span>
-<span class="nc" id="L116">            this.logResult = new StreamResult(this.logWriter);</span>
-        } else {
-<span class="fc" id="L118">            this.logWriter = null;</span>
-<span class="fc" id="L119">            this.logResult = null;</span>
-        }
-<span class="fc" id="L121">    }</span>
+	/** The thread. */
+	private ReceivingThread thread;
 
-    /**
-     * Sets up a new socket with specified host and port and uses
-     * {@link #Connection(Socket, MessageHandler, String)}.
-     *
-     * @param host The host to connect to.
-     * @param port The port to connect to.
-     * @param messageHandler The MessageHandler to call for each message
-     *     received.
-     * @exception IOException
-     */
-    public Connection(String host, int port, MessageHandler messageHandler,
-                      String name) throws IOException {
-<span class="nc" id="L135">        this(createSocket(host, port), messageHandler, name);</span>
-<span class="nc" id="L136">    }</span>
+	/** The message handler. */
+	private MessageHandler messageHandler;
 
-    /**
-     * Creates a new &lt;code&gt;Connection&lt;/code&gt; with the specified
-     * &lt;code&gt;Socket&lt;/code&gt; and {@link MessageHandler}.
-     *
-     * @param socket The socket to the client.
-     * @param messageHandler The MessageHandler to call for each message
-     *     received.
-     * @exception IOException
-     */
-    public Connection(Socket socket, MessageHandler messageHandler,
-                      String name) throws IOException {
-<span class="nc" id="L149">        this(name);</span>
+	/** The name. */
+	private String name;
 
-<span class="nc" id="L151">        this.socket = socket;</span>
-<span class="nc" id="L152">        this.in = socket.getInputStream();</span>
-<span class="nc" id="L153">        this.out = socket.getOutputStream();</span>
-<span class="nc" id="L154">        this.thread = new ReceivingThread(this, in, name);</span>
-<span class="nc" id="L155">        this.messageHandler = messageHandler;</span>
-<span class="nc" id="L156">        this.name = name;</span>
+	/** The log result. */
+	// Logging variables.
+	private final StreamResult logResult;
 
-<span class="nc" id="L158">        thread.start();</span>
-<span class="nc" id="L159">    }</span>
+	/** The log writer. */
+	private final Writer logWriter;
 
-    /**
-     * Creates a socket to communication with a given host, port pair.
-     *
-     * @param host The host to connect to.
-     * @param port The port to connect to.
-     * @exception IOException on failure to create/connect the socket.
-     * @return A new socket.
-     */
-    private static Socket createSocket(String host, int port)
-        throws IOException {
-<span class="nc" id="L171">        Socket socket = new Socket();</span>
-<span class="nc" id="L172">        SocketAddress addr = new InetSocketAddress(host, port);</span>
-<span class="nc" id="L173">        socket.connect(addr, TIMEOUT);</span>
-<span class="nc" id="L174">        return socket;</span>
-    }
+	/**
+	 * Trivial constructor.
+	 *
+	 * @param name
+	 *            The name of the connection.
+	 */
+<span class="fc" id="L119">	protected Connection(String name) {</span>
+<span class="fc" id="L120">		this.in = null;</span>
+<span class="fc" id="L121">		this.socket = null;</span>
+<span class="fc" id="L122">		this.out = null;</span>
+<span class="fc" id="L123">		Transformer myTransformer = null;</span>
+		try {
+<span class="fc" id="L125">			TransformerFactory factory = TransformerFactory.newInstance();</span>
+<span class="fc" id="L126">			myTransformer = factory.newTransformer();</span>
+<span class="fc" id="L127">			myTransformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, &quot;yes&quot;);</span>
+<span class="nc" id="L128">		} catch (TransformerException e) {</span>
+<span class="nc" id="L129">			logger.log(Level.WARNING, &quot;Failed to install transformer!&quot;, e);</span>
+<span class="fc" id="L130">		}</span>
+<span class="fc" id="L131">		this.xmlTransformer = myTransformer;</span>
+<span class="fc" id="L132">		this.thread = null;</span>
+<span class="fc" id="L133">		this.messageHandler = null;</span>
+<span class="fc" id="L134">		this.name = name;</span>
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">		if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.COMMS)) {</span>
+<span class="nc" id="L136">			this.logWriter = new BufferedWriter(new OutputStreamWriter(System.err));</span>
+<span class="nc" id="L137">			this.logResult = new StreamResult(this.logWriter);</span>
+		} else {
+<span class="fc" id="L139">			this.logWriter = null;</span>
+<span class="fc" id="L140">			this.logResult = null;</span>
+		}
+<span class="fc" id="L142">	}</span>
 
-    /**
-     * Is this connection alive?
-     *
-     * @return True if the connection is alive.
-     */
-    public boolean isAlive() {
-<span class="pc bpc" id="L183" title="1 of 2 branches missed.">        return this.socket != null;</span>
-    }
+	/**
+	 * Sets up a new socket with specified host and port and uses
+	 * {@link #Connection(Socket, MessageHandler, String)}.
+	 *
+	 * @param host
+	 *            The host to connect to.
+	 * @param port
+	 *            The port to connect to.
+	 * @param messageHandler
+	 *            The MessageHandler to call for each message received.
+	 * @param name
+	 *            the name
+	 * @exception IOException
+	 *                Signals that an I/O exception has occurred.
+	 */
+	public Connection(String host, int port, MessageHandler messageHandler, String name) throws IOException {
+<span class="nc" id="L160">		this(createSocket(host, port), messageHandler, name);</span>
+<span class="nc" id="L161">	}</span>
 
-    /**
-     * Gets the socket.
-     *
-     * @return The &lt;code&gt;Socket&lt;/code&gt; used while communicating with
-     *     the other peer.
-     */
-    public Socket getSocket() {
-<span class="fc" id="L193">        return socket;</span>
-    }
+	/**
+	 * Creates a new &lt;code&gt;Connection&lt;/code&gt; with the specified
+	 * &lt;code&gt;Socket&lt;/code&gt; and {@link MessageHandler}.
+	 *
+	 * @param socket
+	 *            The socket to the client.
+	 * @param messageHandler
+	 *            The MessageHandler to call for each message received.
+	 * @param name
+	 *            the name
+	 * @exception IOException
+	 *                Signals that an I/O exception has occurred.
+	 */
+	public Connection(Socket socket, MessageHandler messageHandler, String name) throws IOException {
+<span class="nc" id="L177">		this(name);</span>
 
-    /**
-     * Sets the MessageHandler for this Connection.
-     *
-     * @param mh The new MessageHandler for this Connection.
-     */
-    public void setMessageHandler(MessageHandler mh) {
-<span class="fc" id="L202">        messageHandler = mh;</span>
-<span class="fc" id="L203">    }</span>
+<span class="nc" id="L179">		this.socket = socket;</span>
+<span class="nc" id="L180">		this.in = socket.getInputStream();</span>
+<span class="nc" id="L181">		this.out = socket.getOutputStream();</span>
+<span class="nc" id="L182">		this.thread = new ReceivingThread(this, in, name);</span>
+<span class="nc" id="L183">		this.messageHandler = messageHandler;</span>
+<span class="nc" id="L184">		this.name = name;</span>
 
-    /**
-     * Gets the MessageHandler for this Connection.
-     *
-     * @return The MessageHandler for this Connection.
-     */
-    public MessageHandler getMessageHandler() {
-<span class="fc" id="L211">        return messageHandler;</span>
-    }
+<span class="nc" id="L186">		thread.start();</span>
+<span class="nc" id="L187">	}</span>
 
-    /**
-     * Gets the connection name.
-     *
-     * @return The connection name.
-     */
-    public String getName() {
-<span class="fc" id="L220">        return name;</span>
-    }
+	/**
+	 * Creates a socket to communication with a given host, port pair.
+	 *
+	 * @param host
+	 *            The host to connect to.
+	 * @param port
+	 *            The port to connect to.
+	 * @return A new socket.
+	 * @exception IOException
+	 *                on failure to create/connect the socket.
+	 */
+	private static Socket createSocket(String host, int port) throws IOException {
+<span class="nc" id="L201">		Socket socket = new Socket();</span>
+<span class="nc" id="L202">		SocketAddress addr = new InetSocketAddress(host, port);</span>
+<span class="nc" id="L203">		socket.connect(addr, TIMEOUT);</span>
+<span class="nc" id="L204">		return socket;</span>
+	}
 
-    /**
-     * Get the output stream.
-     *
-     * @return The output stream.
-     */
-    private synchronized OutputStream getOutputStream() {
-<span class="nc" id="L229">        return this.out;</span>
-    }
+	/**
+	 * Is this connection alive?.
+	 *
+	 * @return True if the connection is alive.
+	 */
+	public boolean isAlive() {
+<span class="pc bpc" id="L213" title="1 of 2 branches missed.">		return this.socket != null;</span>
+	}
 
-    /**
-     * Close and clear the output stream.
-     */
-    private synchronized void closeOutputStream() {
-<span class="nc bnc" id="L236" title="All 2 branches missed.">        if (this.out != null) {</span>
-            try {
-<span class="nc" id="L238">                this.out.close();</span>
-<span class="nc" id="L239">            } catch (IOException ioe) {</span>
-<span class="nc" id="L240">                logger.log(Level.WARNING, &quot;Error closing output&quot;, ioe);</span>
-            } finally {
-<span class="nc" id="L242">                this.out = null;</span>
-<span class="nc" id="L243">            }</span>
-        }
-<span class="nc" id="L245">    }</span>
+	/**
+	 * Gets the socket.
+	 *
+	 * @return The &lt;code&gt;Socket&lt;/code&gt; used while communicating with the other
+	 *         peer.
+	 */
+	public Socket getSocket() {
+<span class="fc" id="L223">		return socket;</span>
+	}
 
-    /**
-     * Sends a &quot;disconnect&quot;-message and closes this connection.
-     *
-     * Failure is expected if the other end has closed already.
-     */
-    @Override
-    public void close() {
-        try {
-<span class="nc" id="L255">            send(DOMMessage.createMessage(DISCONNECT_TAG));</span>
-<span class="nc" id="L256">        } catch (IOException ioe) {</span>
-<span class="nc" id="L257">            logger.fine(&quot;Error disconnecting &quot; + this.name</span>
-<span class="nc" id="L258">                + &quot;: &quot; + ioe.getMessage());</span>
-        } finally {
-<span class="nc" id="L260">            reallyClose();</span>
-<span class="nc" id="L261">        }</span>
-<span class="nc" id="L262">    }</span>
+	/**
+	 * Sets the MessageHandler for this Connection.
+	 *
+	 * @param mh
+	 *            The new MessageHandler for this Connection.
+	 */
+	public void setMessageHandler(MessageHandler mh) {
+<span class="fc" id="L233">		messageHandler = mh;</span>
+<span class="fc" id="L234">	}</span>
 
-    /**
-     * Really closes this connection.
-     */
-    public void reallyClose() {
-<span class="nc bnc" id="L268" title="All 2 branches missed.">        if (this.thread != null) thread.askToStop();</span>
+	/**
+	 * Gets the MessageHandler for this Connection.
+	 *
+	 * @return The MessageHandler for this Connection.
+	 */
+	public MessageHandler getMessageHandler() {
+<span class="fc" id="L242">		return messageHandler;</span>
+	}
 
-<span class="nc" id="L270">        closeOutputStream();</span>
-<span class="nc bnc" id="L271" title="All 2 branches missed.">        if (this.in != null) {</span>
-            try {
-<span class="nc" id="L273">                this.in.close();</span>
-<span class="nc" id="L274">            } catch (IOException ioe) {</span>
-<span class="nc" id="L275">                logger.log(Level.WARNING, &quot;Error closing input&quot;, ioe);</span>
-            } finally {
-<span class="nc" id="L277">                this.in = null;</span>
-<span class="nc" id="L278">            }</span>
-        }
-<span class="nc bnc" id="L280" title="All 2 branches missed.">        if (this.socket != null) {</span>
-            try {
-<span class="nc" id="L282">                this.socket.close();</span>
-<span class="nc" id="L283">            } catch (IOException ioe) {</span>
-<span class="nc" id="L284">                logger.log(Level.WARNING, &quot;Error closing socket&quot;, ioe);</span>
-            } finally {
-<span class="nc" id="L286">                this.socket = null;</span>
-<span class="nc" id="L287">            }</span>
-        }
+	/**
+	 * Gets the connection name.
+	 *
+	 * @return The connection name.
+	 */
+	public String getName() {
+<span class="fc" id="L251">		return name;</span>
+	}
 
-<span class="nc" id="L290">        logger.fine(&quot;Connection really closed for &quot; + this.name);</span>
-<span class="nc" id="L291">    }</span>
+	/**
+	 * Get the output stream.
+	 *
+	 * @return The output stream.
+	 */
+	private synchronized OutputStream getOutputStream() {
+<span class="nc" id="L260">		return this.out;</span>
+	}
 
-    /**
-     * Log transfer of an element.
-     *
-     * @param e The &lt;code&gt;Element&lt;/code&gt; to log.
-     * @param send True if sending (else replying).
-     */
-    protected void log(Element e, boolean send) {
-<span class="fc" id="L300">        log(new DOMSource(e), send);</span>
-<span class="fc" id="L301">    }</span>
+	/**
+	 * Close and clear the output stream.
+	 */
+	private synchronized void closeOutputStream() {
+<span class="nc bnc" id="L267" title="All 2 branches missed.">		if (this.out != null) {</span>
+			try {
+<span class="nc" id="L269">				this.out.close();</span>
+<span class="nc" id="L270">			} catch (IOException ioe) {</span>
+<span class="nc" id="L271">				logger.log(Level.WARNING, &quot;Error closing output&quot;, ioe);</span>
+			} finally {
+<span class="nc" id="L273">				this.out = null;</span>
+<span class="nc" id="L274">			}</span>
+		}
+<span class="nc" id="L276">	}</span>
 
-    /**
-     * Log transfer of a DOMSource.
-     *
-     * @param source The &lt;code&gt;DOMSource&lt;/code&gt; to log.
-     * @param send True if sending (else replying).
-     */
-    protected void log(DOMSource source, boolean send) {
-<span class="pc bpc" id="L310" title="1 of 2 branches missed.">        if (this.logResult != null) {</span>
-            try {
-<span class="nc" id="L312">                this.logWriter.write(name, 0, name.length());</span>
-<span class="nc bnc" id="L313" title="All 2 branches missed.">                if (send) {</span>
-<span class="nc" id="L314">                    this.logWriter.write(SEND_SUFFIX, 0, SEND_SUFFIX.length());</span>
-                } else {
-<span class="nc" id="L316">                    this.logWriter.write(REPLY_SUFFIX, 0, REPLY_SUFFIX.length());</span>
-                }
-<span class="nc" id="L318">                this.xmlTransformer.transform(source, this.logResult);</span>
-<span class="nc" id="L319">                this.logWriter.write('\n');</span>
-<span class="nc" id="L320">                this.logWriter.flush();</span>
-<span class="nc" id="L321">            } catch (IOException|TransformerException e) {</span>
-                ; // Ignore logging failure
-<span class="nc" id="L323">            }</span>
-        }
-<span class="fc" id="L325">    }</span>
+	/**
+	 * Sends a &quot;disconnect&quot;-message and closes this connection.
+	 *
+	 * Failure is expected if the other end has closed already.
+	 */
+	@Override
+	public void close() {
+		try {
+<span class="nc" id="L286">			send(DOMMessage.createMessage(DISCONNECT_TAG));</span>
+<span class="nc" id="L287">		} catch (IOException ioe) {</span>
+<span class="nc" id="L288">			logger.fine(&quot;Error disconnecting &quot; + this.name + &quot;: &quot; + ioe.getMessage());</span>
+		} finally {
+<span class="nc" id="L290">			reallyClose();</span>
+<span class="nc" id="L291">		}</span>
+<span class="nc" id="L292">	}</span>
 
-    /**
-     * Low level routine to send a message over this Connection.
-     *
-     * @param element The &lt;code&gt;Element&lt;/code&gt; (root element in a
-     *     DOM-parsed XML tree) that holds all the information
-     * @exception IOException If an error occur while sending the message.
-     */
-    private void sendInternal(Element element) throws IOException {
-<span class="nc" id="L335">        OutputStream os = getOutputStream();</span>
-<span class="nc bnc" id="L336" title="All 2 branches missed.">        if (os != null) {</span>
-<span class="nc" id="L337">            DOMSource source = new DOMSource(element);</span>
-            try {
-<span class="nc" id="L339">                xmlTransformer.transform(source, new StreamResult(os));</span>
-<span class="nc" id="L340">            } catch (TransformerException te) {</span>
-<span class="nc" id="L341">                logger.log(Level.WARNING, &quot;Failed to transform&quot;, te);</span>
-<span class="nc" id="L342">            }</span>
-<span class="nc" id="L343">            os.write('\n');</span>
-<span class="nc" id="L344">            os.flush();</span>
-<span class="nc" id="L345">            log(source, true);</span>
-        }
-<span class="nc" id="L347">    }</span>
+	/**
+	 * Really closes this connection.
+	 */
+	public void reallyClose() {
+<span class="nc bnc" id="L298" title="All 2 branches missed.">		if (this.thread != null)</span>
+<span class="nc" id="L299">			thread.askToStop();</span>
 
-    /**
-     * Low level routine to sends a message and return the reply.
-     *
-     * @param element The question for the other peer.
-     * @return The reply from the other peer.
-     * @exception IOException if an error occur while sending the message.
-     * @see #sendInternal(Element)
-     */
-    private Element askInternal(Element element) throws IOException {
-<span class="nc" id="L358">        int networkReplyId = thread.getNextNetworkReplyId();</span>
-<span class="nc" id="L359">        String tag = element.getTagName();</span>
+<span class="nc" id="L301">		closeOutputStream();</span>
+<span class="nc bnc" id="L302" title="All 2 branches missed.">		if (this.in != null) {</span>
+			try {
+<span class="nc" id="L304">				this.in.close();</span>
+<span class="nc" id="L305">			} catch (IOException ioe) {</span>
+<span class="nc" id="L306">				logger.log(Level.WARNING, &quot;Error closing input&quot;, ioe);</span>
+			} finally {
+<span class="nc" id="L308">				this.in = null;</span>
+<span class="nc" id="L309">			}</span>
+		}
+<span class="nc bnc" id="L311" title="All 2 branches missed.">		if (this.socket != null) {</span>
+			try {
+<span class="nc" id="L313">				this.socket.close();</span>
+<span class="nc" id="L314">			} catch (IOException ioe) {</span>
+<span class="nc" id="L315">				logger.log(Level.WARNING, &quot;Error closing socket&quot;, ioe);</span>
+			} finally {
+<span class="nc" id="L317">				this.socket = null;</span>
+<span class="nc" id="L318">			}</span>
+		}
 
-<span class="nc bnc" id="L361" title="All 2 branches missed.">        if (Thread.currentThread() == thread) {</span>
-<span class="nc" id="L362">            throw new IOException(&quot;wait(ReceivingThread) for: &quot; + tag);</span>
-        }
+<span class="nc" id="L321">		logger.fine(&quot;Connection really closed for &quot; + this.name);</span>
+<span class="nc" id="L322">	}</span>
 
-<span class="nc" id="L365">        Element question = element.getOwnerDocument()</span>
-<span class="nc" id="L366">            .createElement(QUESTION_TAG);</span>
-<span class="nc" id="L367">        question.setAttribute(NETWORK_REPLY_ID_TAG,</span>
-<span class="nc" id="L368">                              Integer.toString(networkReplyId));</span>
-<span class="nc" id="L369">        question.appendChild(element);</span>
+	/**
+	 * Log transfer of an element.
+	 *
+	 * @param e
+	 *            The &lt;code&gt;Element&lt;/code&gt; to log.
+	 * @param send
+	 *            True if sending (else replying).
+	 */
+	protected void log(Element e, boolean send) {
+<span class="fc" id="L333">		log(new DOMSource(e), send);</span>
+<span class="fc" id="L334">	}</span>
 
-<span class="nc" id="L371">        NetworkReplyObject nro = thread.waitForNetworkReply(networkReplyId);</span>
-<span class="nc" id="L372">        sendInternal(question);</span>
-<span class="nc" id="L373">        DOMMessage response = (DOMMessage)nro.getResponse();</span>
-<span class="nc bnc" id="L374" title="All 2 branches missed.">        Element reply = (response == null) ? null</span>
-<span class="nc" id="L375">            : response.getDocument().getDocumentElement();</span>
-<span class="nc" id="L376">        log(reply, false);</span>
+	/**
+	 * Log transfer of a DOMSource.
+	 *
+	 * @param source
+	 *            The &lt;code&gt;DOMSource&lt;/code&gt; to log.
+	 * @param send
+	 *            True if sending (else replying).
+	 */
+	protected void log(DOMSource source, boolean send) {
+<span class="pc bpc" id="L345" title="1 of 2 branches missed.">		if (this.logResult != null) {</span>
+			try {
+<span class="nc" id="L347">				this.logWriter.write(name, 0, name.length());</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">				if (send) {</span>
+<span class="nc" id="L349">					this.logWriter.write(SEND_SUFFIX, 0, SEND_SUFFIX.length());</span>
+				} else {
+<span class="nc" id="L351">					this.logWriter.write(REPLY_SUFFIX, 0, REPLY_SUFFIX.length());</span>
+				}
+<span class="nc" id="L353">				this.xmlTransformer.transform(source, this.logResult);</span>
+<span class="nc" id="L354">				this.logWriter.write('\n');</span>
+<span class="nc" id="L355">				this.logWriter.flush();</span>
+<span class="nc" id="L356">			} catch (IOException | TransformerException e) {</span>
+				; // Ignore logging failure
+<span class="nc" id="L358">			}</span>
+		}
+<span class="fc" id="L360">	}</span>
 
-<span class="nc bnc" id="L378" title="All 2 branches missed.">        Element child = (reply==null) ? null : (Element)reply.getFirstChild();</span>
-<span class="nc" id="L379">        return child;</span>
-    }
+	/**
+	 * Low level routine to send a message over this Connection.
+	 *
+	 * @param element
+	 *            The &lt;code&gt;Element&lt;/code&gt; (root element in a DOM-parsed XML
+	 *            tree) that holds all the information
+	 * @exception IOException
+	 *                If an error occur while sending the message.
+	 */
+	private void sendInternal(Element element) throws IOException {
+<span class="nc" id="L372">		OutputStream os = getOutputStream();</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">		if (os != null) {</span>
+<span class="nc" id="L374">			DOMSource source = new DOMSource(element);</span>
+			try {
+<span class="nc" id="L376">				xmlTransformer.transform(source, new StreamResult(os));</span>
+<span class="nc" id="L377">			} catch (TransformerException te) {</span>
+<span class="nc" id="L378">				logger.log(Level.WARNING, &quot;Failed to transform&quot;, te);</span>
+<span class="nc" id="L379">			}</span>
+<span class="nc" id="L380">			os.write('\n');</span>
+<span class="nc" id="L381">			os.flush();</span>
+<span class="nc" id="L382">			log(source, true);</span>
+		}
+<span class="nc" id="L384">	}</span>
 
+	/**
+	 * Low level routine to sends a message and return the reply.
+	 *
+	 * @param element
+	 *            The question for the other peer.
+	 * @return The reply from the other peer.
+	 * @see #sendInternal(Element)
+	 * @exception IOException
+	 *                if an error occur while sending the message.
+	 */
+	private Element askInternal(Element element) throws IOException {
+<span class="nc" id="L397">		int networkReplyId = thread.getNextNetworkReplyId();</span>
+<span class="nc" id="L398">		String tag = element.getTagName();</span>
 
-    /**
-     * Main public routine to send a message over this connection.
-     *
-     * @param element The &lt;code&gt;Element&lt;/code&gt; (root element in a
-     *     DOM-parsed XML tree) that holds all the information
-     * @exception IOException If an error occur while sending the message.
-     * @see #sendAndWait(Element)
-     * @see #ask(Element)
-     */
-    public void send(Element element) throws IOException {
-<span class="nc" id="L393">        sendInternal(element);</span>
-<span class="nc" id="L394">        logger.fine(&quot;Send: &quot; + element.getTagName());</span>
-<span class="nc" id="L395">    }</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">		if (Thread.currentThread() == thread) {</span>
+<span class="nc" id="L401">			throw new IOException(&quot;wait(ReceivingThread) for: &quot; + tag);</span>
+		}
 
-    /**
-     * Sends the given message over this connection and waits for
-     * confirmation of reception before returning.
-     *
-     * @param element The element (root element in a DOM-parsed XML
-     *     tree) that holds all the information
-     * @exception IOException If an error occur while sending the message.
-     * @see #send(Element)
-     * @see #ask(Element)
-     */
-    public void sendAndWait(Element element) throws IOException {
-<span class="nc" id="L408">        askInternal(element);</span>
-<span class="nc" id="L409">        logger.fine(&quot;SendAndWait: &quot; + element.getTagName());</span>
-<span class="nc" id="L410">    }</span>
+<span class="nc" id="L404">		Element question = element.getOwnerDocument().createElement(QUESTION_TAG);</span>
+<span class="nc" id="L405">		question.setAttribute(NETWORK_REPLY_ID_TAG, Integer.toString(networkReplyId));</span>
+<span class="nc" id="L406">		question.appendChild(element);</span>
 
-    /**
-     * Sends a message to the other peer and returns the reply.
-     *
-     * @param element The question for the peer.
-     * @return The reply from the peer.
-     * @exception IOException if an error occur while sending the message.
-     * @see #send(Element)
-     * @see #sendAndWait(Element)
-     */
-    public Element ask(Element element) throws IOException {
-<span class="nc" id="L422">        Element reply = askInternal(element);</span>
-<span class="nc bnc" id="L423" title="All 2 branches missed.">        logger.fine(&quot;Ask: &quot; + element.getTagName()</span>
-<span class="nc" id="L424">            + &quot;, reply: &quot; + ((reply == null) ? &quot;null&quot; : reply.getTagName()));</span>
-<span class="nc" id="L425">        return reply;</span>
-    }
+<span class="nc" id="L408">		NetworkReplyObject nro = thread.waitForNetworkReply(networkReplyId);</span>
+<span class="nc" id="L409">		sendInternal(question);</span>
+<span class="nc" id="L410">		DOMMessage response = (DOMMessage) nro.getResponse();</span>
+<span class="nc bnc" id="L411" title="All 2 branches missed.">		Element reply = (response == null) ? null : response.getDocument().getDocumentElement();</span>
+<span class="nc" id="L412">		log(reply, false);</span>
 
-    /**
-     * Handles a message using the registered &lt;code&gt;MessageHandler&lt;/code&gt;.
-     *
-     * @param in The stream containing the message.
-     * @exception IOException if the streaming fails.
-     */
-    public void handleAndSendReply(final BufferedInputStream in) 
-        throws IOException {
+<span class="nc bnc" id="L414" title="All 2 branches missed.">		Element child = (reply == null) ? null : (Element) reply.getFirstChild();</span>
+<span class="nc" id="L415">		return child;</span>
+	}
 
-<span class="nc" id="L437">        in.mark(200); // Peek at the reply identifier and tag.</span>
+	/**
+	 * Main public routine to send a message over this connection.
+	 *
+	 * @param element
+	 *            The &lt;code&gt;Element&lt;/code&gt; (root element in a DOM-parsed XML
+	 *            tree) that holds all the information
+	 * @see #sendAndWait(Element)
+	 * @see #ask(Element)
+	 * @exception IOException
+	 *                If an error occur while sending the message.
+	 */
+	public void send(Element element) throws IOException {
+<span class="nc" id="L430">		sendInternal(element);</span>
+<span class="nc" id="L431">		logger.fine(&quot;Send: &quot; + element.getTagName());</span>
+<span class="nc" id="L432">	}</span>
 
-        // Extract the reply id and check if this is a question.
-        final String networkReplyId;
-        final boolean question;
-<span class="nc" id="L442">        FreeColXMLReader xr = null;</span>
-        try {
-<span class="nc" id="L444">            xr = new FreeColXMLReader(in);</span>
-<span class="nc" id="L445">            xr.nextTag();</span>
-<span class="nc" id="L446">            question = QUESTION_TAG.equals(xr.getLocalName());</span>
-<span class="nc" id="L447">            networkReplyId = xr.getAttribute(NETWORK_REPLY_ID_TAG,</span>
-                                             (String)null);
+	/**
+	 * Sends the given message over this connection and waits for confirmation
+	 * of reception before returning.
+	 *
+	 * @param element
+	 *            The element (root element in a DOM-parsed XML tree) that holds
+	 *            all the information
+	 * @see #send(Element)
+	 * @see #ask(Element)
+	 * @exception IOException
+	 *                If an error occur while sending the message.
+	 */
+	public void sendAndWait(Element element) throws IOException {
+<span class="nc" id="L447">		askInternal(element);</span>
+<span class="nc" id="L448">		logger.fine(&quot;SendAndWait: &quot; + element.getTagName());</span>
+<span class="nc" id="L449">	}</span>
 
-<span class="nc" id="L450">        } catch (XMLStreamException xse) {</span>
-<span class="nc" id="L451">            logger.log(Level.WARNING, &quot;XML stream failure&quot;, xse);</span>
-<span class="nc" id="L452">            return;</span>
-<span class="nc" id="L453">        } </span>
+	/**
+	 * Sends a message to the other peer and returns the reply.
+	 *
+	 * @param element
+	 *            The question for the peer.
+	 * @return The reply from the peer.
+	 * @see #send(Element)
+	 * @see #sendAndWait(Element)
+	 * @exception IOException
+	 *                if an error occur while sending the message.
+	 */
+	public Element ask(Element element) throws IOException {
+<span class="nc" id="L463">		Element reply = askInternal(element);</span>
+<span class="nc bnc" id="L464" title="All 2 branches missed.">		logger.fine(&quot;Ask: &quot; + element.getTagName() + &quot;, reply: &quot; + ((reply == null) ? &quot;null&quot; : reply.getTagName()));</span>
+<span class="nc" id="L465">		return reply;</span>
+	}
 
-        // Reset and build a message.
-        final DOMMessage msg;
-<span class="nc" id="L457">        in.reset();</span>
-        try {
-<span class="nc" id="L459">            msg = new DOMMessage(in);</span>
-<span class="nc" id="L460">        } catch (SAXException e) {</span>
-<span class="nc" id="L461">            logger.log(Level.WARNING, &quot;Unable to read message.&quot;, e);</span>
-<span class="nc" id="L462">            return;</span>
-        } finally {
-<span class="nc bnc" id="L464" title="All 6 branches missed.">            if (xr != null) xr.close();</span>
-        }
+	/**
+	 * Handles a message using the registered &lt;code&gt;MessageHandler&lt;/code&gt;.
+	 *
+	 * @param in
+	 *            The stream containing the message.
+	 * @exception IOException
+	 *                if the streaming fails.
+	 */
+	public void handleAndSendReply(final BufferedInputStream in) throws IOException {
 
-        // Process the message in its own thread.
-<span class="nc" id="L468">        final Connection conn = this;</span>
-<span class="nc" id="L469">        Thread t = new Thread(msg.getType()) {</span>
-                @Override
-                public void run() {
-<span class="nc" id="L472">                    Element element = msg.getDocument().getDocumentElement();</span>
-                    Element reply;
-                    try {
-<span class="nc bnc" id="L475" title="All 2 branches missed.">                        if (question) {</span>
-<span class="nc" id="L476">                            reply = (Element)element.getFirstChild();</span>
-<span class="nc" id="L477">                            reply = conn.handle(reply);</span>
-<span class="nc bnc" id="L478" title="All 2 branches missed.">                            if (reply == null) {</span>
-<span class="nc" id="L479">                                reply = DOMMessage.createMessage(REPLY_TAG,</span>
-                                    NETWORK_REPLY_ID_TAG, networkReplyId);
-                            } else {
-<span class="nc" id="L482">                                Element header = reply.getOwnerDocument()</span>
-<span class="nc" id="L483">                                    .createElement(REPLY_TAG);</span>
-<span class="nc" id="L484">                                header.setAttribute(NETWORK_REPLY_ID_TAG,</span>
-                                                    networkReplyId);
-<span class="nc" id="L486">                                header.appendChild(reply);</span>
-<span class="nc" id="L487">                                reply = header;</span>
-<span class="nc" id="L488">                            }</span>
-                        } else {
-<span class="nc" id="L490">                            reply = conn.handle(element);</span>
-                        }
-<span class="nc bnc" id="L492" title="All 2 branches missed.">                        if (reply != null) conn.send(reply);</span>
-<span class="nc" id="L493">                    } catch (Exception e) {</span>
-<span class="nc" id="L494">                        logger.log(Level.WARNING, &quot;Handler failed: &quot;</span>
-                            + element, e);
-<span class="nc" id="L496">                    }</span>
-<span class="nc" id="L497">                }</span>
-            };
-<span class="nc" id="L499">        t.setName(name + &quot;-MessageHandler-&quot; + t.getName());</span>
-<span class="nc" id="L500">        t.start();</span>
-<span class="nc" id="L501">    }</span>
+<span class="nc" id="L478">		in.mark(200); // Peek at the reply identifier and tag.</span>
 
-    /**
-     * Handle a request.
-     *
-     * @param request The request &lt;code&gt;Element&lt;/code&gt; to handle.
-     * @return The reply from the message handler.
-     * @exception FreeColException if there is trouble with the response.
-     */
-    public Element handle(Element request) throws FreeColException {
-<span class="fc" id="L511">        return messageHandler.handle(this, request);</span>
-    }
+		// Extract the reply id and check if this is a question.
+		final String networkReplyId;
+		final boolean question;
+<span class="nc" id="L483">		FreeColXMLReader xr = null;</span>
+		try {
+<span class="nc" id="L485">			xr = new FreeColXMLReader(in);</span>
+<span class="nc" id="L486">			xr.nextTag();</span>
+<span class="nc" id="L487">			question = QUESTION_TAG.equals(xr.getLocalName());</span>
+<span class="nc" id="L488">			networkReplyId = xr.getAttribute(NETWORK_REPLY_ID_TAG, (String) null);</span>
 
+<span class="nc" id="L490">		} catch (XMLStreamException xse) {</span>
+<span class="nc" id="L491">			logger.log(Level.WARNING, &quot;XML stream failure&quot;, xse);</span>
+<span class="nc" id="L492">			return;</span>
+<span class="nc" id="L493">		}</span>
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-<span class="nc" id="L520">        return &quot;[Connection &quot; + name + &quot; (&quot; + socket + &quot;)]&quot;;</span>
-    }
+		// Reset and build a message.
+		final DOMMessage msg;
+<span class="nc" id="L497">		in.reset();</span>
+		try {
+<span class="nc" id="L499">			msg = new DOMMessage(in);</span>
+<span class="nc" id="L500">		} catch (SAXException e) {</span>
+<span class="nc" id="L501">			logger.log(Level.WARNING, &quot;Unable to read message.&quot;, e);</span>
+<span class="nc" id="L502">			return;</span>
+		} finally {
+<span class="nc bnc" id="L504" title="All 6 branches missed.">			if (xr != null)</span>
+<span class="nc" id="L505">				xr.close();</span>
+		}
+
+		// Process the message in its own thread.
+<span class="nc" id="L509">		final Connection conn = this;</span>
+<span class="nc" id="L510">		Thread t = new Thread(msg.getType()) {</span>
+			@Override
+			public void run() {
+<span class="nc" id="L513">				Element element = msg.getDocument().getDocumentElement();</span>
+				Element reply;
+				try {
+<span class="nc bnc" id="L516" title="All 2 branches missed.">					if (question) {</span>
+<span class="nc" id="L517">						reply = (Element) element.getFirstChild();</span>
+<span class="nc" id="L518">						reply = conn.handle(reply);</span>
+<span class="nc bnc" id="L519" title="All 2 branches missed.">						if (reply == null) {</span>
+<span class="nc" id="L520">							reply = DOMMessage.createMessage(REPLY_TAG, NETWORK_REPLY_ID_TAG, networkReplyId);</span>
+						} else {
+<span class="nc" id="L522">							Element header = reply.getOwnerDocument().createElement(REPLY_TAG);</span>
+<span class="nc" id="L523">							header.setAttribute(NETWORK_REPLY_ID_TAG, networkReplyId);</span>
+<span class="nc" id="L524">							header.appendChild(reply);</span>
+<span class="nc" id="L525">							reply = header;</span>
+<span class="nc" id="L526">						}</span>
+					} else {
+<span class="nc" id="L528">						reply = conn.handle(element);</span>
+					}
+<span class="nc bnc" id="L530" title="All 2 branches missed.">					if (reply != null)</span>
+<span class="nc" id="L531">						conn.send(reply);</span>
+<span class="nc" id="L532">				} catch (Exception e) {</span>
+<span class="nc" id="L533">					logger.log(Level.WARNING, &quot;Handler failed: &quot; + element, e);</span>
+<span class="nc" id="L534">				}</span>
+<span class="nc" id="L535">			}</span>
+		};
+<span class="nc" id="L537">		t.setName(name + &quot;-MessageHandler-&quot; + t.getName());</span>
+<span class="nc" id="L538">		t.start();</span>
+<span class="nc" id="L539">	}</span>
+
+	/**
+	 * Handle a request.
+	 *
+	 * @param request
+	 *            The request &lt;code&gt;Element&lt;/code&gt; to handle.
+	 * @return The reply from the message handler.
+	 * @exception FreeColException
+	 *                if there is trouble with the response.
+	 */
+	public Element handle(Element request) throws FreeColException {
+<span class="fc" id="L551">		return messageHandler.handle(this, request);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+<span class="nc" id="L559">		return &quot;[Connection &quot; + name + &quot; (&quot; + socket + &quot;)]&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

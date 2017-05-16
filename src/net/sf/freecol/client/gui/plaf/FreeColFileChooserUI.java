@@ -27,29 +27,45 @@ import javax.swing.JPanel;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.metal.MetalFileChooserUI;
 
-
 /**
  * UI for the file chooser.
  */
 public class FreeColFileChooserUI extends MetalFileChooserUI {
 
-    public static ComponentUI createUI(JComponent c) {
-        return new FreeColFileChooserUI((JFileChooser) c);
-    }
+	/**
+	 * Creates the UI.
+	 *
+	 * @param c
+	 *            the c
+	 * @return the component UI
+	 */
+	public static ComponentUI createUI(JComponent c) {
+		return new FreeColFileChooserUI((JFileChooser) c);
+	}
 
+	/**
+	 * Instantiates a new free col file chooser UI.
+	 *
+	 * @param filechooser
+	 *            the filechooser
+	 */
+	public FreeColFileChooserUI(JFileChooser filechooser) {
+		super(filechooser);
+	}
 
-    public FreeColFileChooserUI(JFileChooser filechooser) {
-        super(filechooser);
-    }
-
-    @Override
-    protected void addControlButtons() {
-        JPanel buttonPanel = getButtonPanel();
-        Component[] buttons = buttonPanel.getComponents();
-        buttonPanel.removeAll();
-        for (int i=buttons.length-1; i>=0; i--) {
-            buttonPanel.add(buttons[i]);
-        }
-        super.addControlButtons();
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.plaf.metal.MetalFileChooserUI#addControlButtons()
+	 */
+	@Override
+	protected void addControlButtons() {
+		JPanel buttonPanel = getButtonPanel();
+		Component[] buttons = buttonPanel.getComponents();
+		buttonPanel.removeAll();
+		for (int i = buttons.length - 1; i >= 0; i--) {
+			buttonPanel.add(buttons[i]);
+		}
+		super.addControlButtons();
+	}
 }

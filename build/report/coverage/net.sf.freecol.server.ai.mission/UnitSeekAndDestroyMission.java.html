@@ -43,536 +43,533 @@ import net.sf.freecol.server.ai.AIMain;
 import net.sf.freecol.server.ai.AIMessage;
 import net.sf.freecol.server.ai.AIUnit;
 
-
 /**
  * Mission for attacking a specific target, be it a Unit or a Settlement.
  */
-<span class="pc bpc" id="L50" title="1 of 2 branches missed.">public class UnitSeekAndDestroyMission extends Mission {</span>
+<span class="pc bpc" id="L49" title="1 of 2 branches missed.">public class UnitSeekAndDestroyMission extends Mission {</span>
 
-<span class="fc" id="L52">    private static final Logger logger = Logger.getLogger(UnitSeekAndDestroyMission.class.getName());</span>
+	/** The Constant logger. */
+<span class="fc" id="L52">	private static final Logger logger = Logger.getLogger(UnitSeekAndDestroyMission.class.getName());</span>
 
-    /** The tag for this mission. */
-    private static final String tag = &quot;AI seek+destroyer&quot;;
+	/** The tag for this mission. */
+	private static final String tag = &quot;AI seek+destroyer&quot;;
 
-    /**
-     * The object we are trying to destroy. This can be a
-     * either &lt;code&gt;Settlement&lt;/code&gt; or a &lt;code&gt;Unit&lt;/code&gt;.
-     */
-    private Location target, transportTarget;
+	/**
+	 * The object we are trying to destroy. This can be a either
+	 * &lt;code&gt;Settlement&lt;/code&gt; or a &lt;code&gt;Unit&lt;/code&gt;.
+	 */
+	private Location target, transportTarget;
 
+	/**
+	 * Creates a mission for the given &lt;code&gt;AIUnit&lt;/code&gt;.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
+	 * @param target
+	 *            The object we are trying to destroy. This can be either a
+	 *            &lt;code&gt;Settlement&lt;/code&gt; or a &lt;code&gt;Unit&lt;/code&gt;.
+	 */
+	public UnitSeekAndDestroyMission(AIMain aiMain, AIUnit aiUnit, Location target) {
+<span class="fc" id="L75">		super(aiMain, aiUnit, target);</span>
+<span class="fc" id="L76">	}</span>
 
-    /**
-     * Creates a mission for the given &lt;code&gt;AIUnit&lt;/code&gt;.
-     *
-     * @param aiMain The main AI-object.
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
-     * @param target The object we are trying to destroy.  This can be
-     *     either a &lt;code&gt;Settlement&lt;/code&gt; or a &lt;code&gt;Unit&lt;/code&gt;.
-     */
-    public UnitSeekAndDestroyMission(AIMain aiMain, AIUnit aiUnit,
-                                     Location target) {
-<span class="fc" id="L74">        super(aiMain, aiUnit, target);</span>
-<span class="fc" id="L75">    }</span>
+	/**
+	 * Creates a new &lt;code&gt;UnitSeekAndDestroyMission&lt;/code&gt; and reads the given
+	 * element.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
+	 * @param xr
+	 *            The input stream containing the XML.
+	 * @throws XMLStreamException
+	 *             if a problem was encountered during parsing.
+	 * @see net.sf.freecol.server.ai.AIObject#readFromXML
+	 */
+	public UnitSeekAndDestroyMission(AIMain aiMain, AIUnit aiUnit, FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L93">		super(aiMain, aiUnit);</span>
 
-    /**
-     * Creates a new &lt;code&gt;UnitSeekAndDestroyMission&lt;/code&gt; and reads
-     * the given element.
-     *
-     * @param aiMain The main AI-object.
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
-     * @param xr The input stream containing the XML.
-     * @throws XMLStreamException if a problem was encountered
-     *      during parsing.
-     * @see net.sf.freecol.server.ai.AIObject#readFromXML
-     */
-    public UnitSeekAndDestroyMission(AIMain aiMain, AIUnit aiUnit,
-                                     FreeColXMLReader xr) throws XMLStreamException {
-<span class="nc" id="L90">        super(aiMain, aiUnit);</span>
+<span class="nc" id="L95">		readFromXML(xr);</span>
+<span class="nc" id="L96">	}</span>
 
-<span class="nc" id="L92">        readFromXML(xr);</span>
-<span class="nc" id="L93">    }</span>
+	/**
+	 * Extract a valid target for this mission from a path.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to perform the mission.
+	 * @param path
+	 *            A &lt;code&gt;PathNode&lt;/code&gt; to extract a target from.
+	 * @return A target for this mission, or null if none found.
+	 */
+	public static Location extractTarget(AIUnit aiUnit, PathNode path) {
+<span class="nc bnc" id="L108" title="All 2 branches missed.">		final Location loc = (path == null) ? null : path.getLastNode().getLocation();</span>
+		Tile t;
+		Unit u;
+<span class="nc bnc" id="L111" title="All 4 branches missed.">		return (loc == null || aiUnit == null</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">				|| aiUnit.getUnit() == null)</span>
+						? null
+<span class="nc bnc" id="L114" title="All 2 branches missed.">						: (invalidReason(aiUnit, loc.getSettlement()) == null) ? loc.getSettlement()</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">								: ((t = loc.getTile()) != null</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">										&amp;&amp; invalidReason(aiUnit, u = t.getDefendingUnit(aiUnit.getUnit())) == null) ? u</span>
+												: null;
+	}
 
+	/**
+	 * Scores a potential attack on a settlement.
+	 *
+	 * Do not cheat and look inside the settlement. Just use visible facts about
+	 * it.
+	 *
+	 * FIXME: if we are the REF and there is a significant Tory population
+	 * inside, assume traitors have briefed us.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to do the mission.
+	 * @param path
+	 *            The &lt;code&gt;PathNode&lt;/code&gt; to take to the settlement.
+	 * @param settlement
+	 *            The &lt;code&gt;Settlement&lt;/code&gt; to attack.
+	 * @return A score of the desirability of the mission.
+	 */
+	private static int scoreSettlementPath(AIUnit aiUnit, PathNode path, Settlement settlement) {
+<span class="nc bnc" id="L138" title="All 2 branches missed.">		if (invalidSettlementReason(aiUnit, settlement) != null) {</span>
+<span class="nc" id="L139">			return Integer.MIN_VALUE;</span>
+		}
+<span class="nc" id="L141">		final Unit unit = aiUnit.getUnit();</span>
+<span class="nc" id="L142">		final CombatModel combatModel = unit.getGame().getCombatModel();</span>
 
-    /**
-     * Extract a valid target for this mission from a path.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to perform the mission.
-     * @param path A &lt;code&gt;PathNode&lt;/code&gt; to extract a target from.
-     * @return A target for this mission, or null if none found.
-     */
-    public static Location extractTarget(AIUnit aiUnit, PathNode path) {
-<span class="nc bnc" id="L104" title="All 2 branches missed.">        final Location loc = (path == null) ? null</span>
-<span class="nc" id="L105">            : path.getLastNode().getLocation();</span>
-        Tile t;
-        Unit u;
-<span class="nc bnc" id="L108" title="All 6 branches missed.">        return (loc == null || aiUnit == null || aiUnit.getUnit() == null) </span>
-            ? null
-<span class="nc bnc" id="L110" title="All 2 branches missed.">            : (invalidReason(aiUnit, loc.getSettlement()) == null)</span>
-<span class="nc" id="L111">            ? loc.getSettlement()</span>
-<span class="nc bnc" id="L112" title="All 2 branches missed.">            : ((t = loc.getTile()) != null</span>
-<span class="nc bnc" id="L113" title="All 2 branches missed.">                &amp;&amp; invalidReason(aiUnit,</span>
-<span class="nc" id="L114">                    u = t.getDefendingUnit(aiUnit.getUnit())) == null)</span>
-            ? u
-            : null;
-    }
+<span class="nc" id="L144">		int value = 1020;</span>
+<span class="nc" id="L145">		value -= path.getTotalTurns() * 100;</span>
 
-    /**
-     * Scores a potential attack on a settlement.
-     *
-     * Do not cheat and look inside the settlement.
-     * Just use visible facts about it.
-     *
-     * FIXME: if we are the REF and there is a significant Tory
-     * population inside, assume traitors have briefed us.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to do the mission.
-     * @param path The &lt;code&gt;PathNode&lt;/code&gt; to take to the settlement.
-     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; to attack.
-     * @return A score of the desirability of the mission.
-     */
-    private static int scoreSettlementPath(AIUnit aiUnit, PathNode path,
-                                           Settlement settlement) {
-<span class="nc bnc" id="L135" title="All 2 branches missed.">        if (invalidSettlementReason(aiUnit, settlement) != null) {</span>
-<span class="nc" id="L136">            return Integer.MIN_VALUE;</span>
-        }
-<span class="nc" id="L138">        final Unit unit = aiUnit.getUnit();</span>
-<span class="nc" id="L139">        final CombatModel combatModel = unit.getGame().getCombatModel();</span>
+<span class="nc" id="L147">		final double off = combatModel.getOffencePower(unit, settlement);</span>
+<span class="nc" id="L148">		value += (int) Math.round(off * 50);</span>
 
-<span class="nc" id="L141">        int value = 1020;</span>
-<span class="nc" id="L142">        value -= path.getTotalTurns() * 100;</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">		if (settlement instanceof Colony) {</span>
+			// Favour high population (more loot:-).
+<span class="nc" id="L152">			Colony colony = (Colony) settlement;</span>
+<span class="nc" id="L153">			value += 50 * colony.getUnitCount();</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">			if (colony.hasStockade()) { // Avoid fortifications.</span>
+<span class="nc" id="L155">				value -= 200 * colony.getStockade().getLevel();</span>
+			}
+<span class="nc bnc" id="L157" title="All 2 branches missed.">		} else if (settlement instanceof IndianSettlement) {</span>
+			// Favour the most hostile settlements
+<span class="nc" id="L159">			IndianSettlement is = (IndianSettlement) settlement;</span>
+<span class="nc" id="L160">			Tension tension = is.getAlarm(unit.getOwner());</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">			if (tension != null)</span>
+<span class="nc" id="L162">				value += tension.getValue() / 2;</span>
+		}
+<span class="nc" id="L164">		return aiUnit.getAIOwner().adjustMission(aiUnit, path, UnitSeekAndDestroyMission.class, value);</span>
+	}
 
-<span class="nc" id="L144">        final double off = combatModel.getOffencePower(unit, settlement);</span>
-<span class="nc" id="L145">        value += (int)Math.round(off * 50);</span>
+	/**
+	 * Scores a potential attack on a unit.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to do the mission.
+	 * @param path
+	 *            The &lt;code&gt;PathNode&lt;/code&gt; to take to the settlement.
+	 * @param defender
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to attack.
+	 * @return A score of the desirability of the mission.
+	 */
+	private static int scoreUnitPath(AIUnit aiUnit, PathNode path, Unit defender) {
+<span class="nc bnc" id="L179" title="All 2 branches missed.">		if (invalidUnitReason(aiUnit, defender) != null) {</span>
+<span class="nc" id="L180">			return Integer.MIN_VALUE;</span>
+		}
+<span class="nc" id="L182">		final Unit unit = aiUnit.getUnit();</span>
+<span class="nc" id="L183">		final Tile tile = path.getLastNode().getTile();</span>
+<span class="nc" id="L184">		final int turns = path.getTotalTurns();</span>
+<span class="nc" id="L185">		final CombatModel combatModel = unit.getGame().getCombatModel();</span>
+<span class="nc" id="L186">		final double off = combatModel.getOffencePower(unit, defender);</span>
+<span class="nc" id="L187">		final double def = combatModel.getDefencePower(unit, defender);</span>
+<span class="nc bnc" id="L188" title="All 4 branches missed.">		if (tile == null || off &lt;= 0)</span>
+<span class="nc" id="L189">			return Integer.MIN_VALUE;</span>
 
-<span class="nc bnc" id="L147" title="All 2 branches missed.">        if (settlement instanceof Colony) {</span>
-            // Favour high population (more loot:-).
-<span class="nc" id="L149">            Colony colony = (Colony) settlement;</span>
-<span class="nc" id="L150">            value += 50 * colony.getUnitCount();</span>
-<span class="nc bnc" id="L151" title="All 2 branches missed.">            if (colony.hasStockade()) { // Avoid fortifications.</span>
-<span class="nc" id="L152">                value -= 200 * colony.getStockade().getLevel();</span>
-            }
-<span class="nc bnc" id="L154" title="All 2 branches missed.">        } else if (settlement instanceof IndianSettlement) {</span>
-            // Favour the most hostile settlements
-<span class="nc" id="L156">            IndianSettlement is = (IndianSettlement) settlement;</span>
-<span class="nc" id="L157">            Tension tension = is.getAlarm(unit.getOwner());</span>
-<span class="nc bnc" id="L158" title="All 2 branches missed.">            if (tension != null) value += tension.getValue() / 2;</span>
-        }
-<span class="nc" id="L160">        return aiUnit.getAIOwner().adjustMission(aiUnit, path, </span>
-            UnitSeekAndDestroyMission.class, value);
-    }
+<span class="nc" id="L191">		int value = 1020 - turns * 100;</span>
+<span class="nc" id="L192">		value += 100 * (off - def);</span>
 
-    /**
-     * Scores a potential attack on a unit.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to do the mission.
-     * @param path The &lt;code&gt;PathNode&lt;/code&gt; to take to the settlement.
-     * @param defender The &lt;code&gt;Unit&lt;/code&gt; to attack.
-     * @return A score of the desirability of the mission.
-     */
-    private static int scoreUnitPath(AIUnit aiUnit, PathNode path,
-                                     Unit defender) {
-<span class="nc bnc" id="L174" title="All 2 branches missed.">        if (invalidUnitReason(aiUnit, defender) != null) {</span>
-<span class="nc" id="L175">            return Integer.MIN_VALUE;</span>
-        }
-<span class="nc" id="L177">        final Unit unit = aiUnit.getUnit();</span>
-<span class="nc" id="L178">        final Tile tile = path.getLastNode().getTile();</span>
-<span class="nc" id="L179">        final int turns = path.getTotalTurns();</span>
-<span class="nc" id="L180">        final CombatModel combatModel = unit.getGame().getCombatModel();</span>
-<span class="nc" id="L181">        final double off = combatModel.getOffencePower(unit, defender);</span>
-<span class="nc" id="L182">        final double def = combatModel.getDefencePower(unit, defender);</span>
-<span class="nc bnc" id="L183" title="All 4 branches missed.">        if (tile == null || off &lt;= 0) return Integer.MIN_VALUE;</span>
+		// Add a big bonus for treasure trains on the tile.
+		// Do not cheat and look at the value.
+<span class="nc" id="L196">		value += 1000</span>
+<span class="nc bnc" id="L197" title="All 4 branches missed.">				* tile.getUnitList().stream().filter(u -&gt; u.canCarryTreasure() &amp;&amp; u.getTreasureAmount() &gt; 0).count();</span>
 
-<span class="nc" id="L185">        int value = 1020 - turns * 100;</span>
-<span class="nc" id="L186">        value += 100 * (off - def);</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">		if (defender.isNaval()) {</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">			if (tile.isLand())</span>
+<span class="nc" id="L201">				value += 500; // Easy win</span>
+		} else {
+<span class="nc bnc" id="L203" title="All 4 branches missed.">			if (defender.hasAbility(Ability.EXPERT_SOLDIER) &amp;&amp; !defender.isArmed())</span>
+<span class="nc" id="L204">				value += 100;</span>
+		}
+<span class="nc" id="L206">		return aiUnit.getAIOwner().adjustMission(aiUnit, path, UnitSeekAndDestroyMission.class, value);</span>
+	}
 
-        // Add a big bonus for treasure trains on the tile.
-        // Do not cheat and look at the value.
-<span class="nc" id="L190">        value += 1000 * tile.getUnitList().stream()</span>
-<span class="nc bnc" id="L191" title="All 4 branches missed.">            .filter(u -&gt; u.canCarryTreasure() &amp;&amp; u.getTreasureAmount() &gt; 0)</span>
-<span class="nc" id="L192">            .count();</span>
+	/**
+	 * Evaluate a potential seek and destroy mission for a given unit to a given
+	 * tile.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to do the mission.
+	 * @param path
+	 *            A &lt;code&gt;PathNode&lt;/code&gt; to take to the target.
+	 * @return A score for the proposed mission.
+	 */
+	public static int scorePath(AIUnit aiUnit, PathNode path) {
+<span class="nc" id="L220">		Location loc = extractTarget(aiUnit, path);</span>
+<span class="nc bnc" id="L221" title="All 4 branches missed.">		return (loc instanceof Settlement) ? scoreSettlementPath(aiUnit, path, (Settlement) loc)</span>
+<span class="nc" id="L222">				: (loc instanceof Unit) ? scoreUnitPath(aiUnit, path, (Unit) loc) : Integer.MIN_VALUE;</span>
+	}
 
-<span class="nc bnc" id="L194" title="All 2 branches missed.">        if (defender.isNaval()) {</span>
-<span class="nc bnc" id="L195" title="All 2 branches missed.">            if (tile.isLand()) value += 500; // Easy win</span>
-        } else {
-<span class="nc bnc" id="L197" title="All 2 branches missed.">            if (defender.hasAbility(Ability.EXPERT_SOLDIER)</span>
-<span class="nc bnc" id="L198" title="All 2 branches missed.">                &amp;&amp; !defender.isArmed()) value += 100;</span>
-        }
-<span class="nc" id="L200">        return aiUnit.getAIOwner().adjustMission(aiUnit, path,</span>
-            UnitSeekAndDestroyMission.class, value);
-    }
+	/**
+	 * Gets a &lt;code&gt;GoalDecider&lt;/code&gt; for finding the best colony
+	 * &lt;code&gt;Tile&lt;/code&gt;, optionally falling back to the nearest colony.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; that is searching.
+	 * @param deferOK
+	 *            Not used in this mission.
+	 * @return A suitable &lt;code&gt;GoalDecider&lt;/code&gt;.
+	 */
+	private static GoalDecider getGoalDecider(final AIUnit aiUnit, boolean deferOK) {
+<span class="nc" id="L236">		return new GoalDecider() {</span>
+<span class="nc" id="L237">			private PathNode bestPath = null;</span>
+<span class="nc" id="L238">			private int bestValue = Integer.MIN_VALUE;</span>
 
-    /**
-     * Evaluate a potential seek and destroy mission for a given unit
-     * to a given tile.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to do the mission.
-     * @param path A &lt;code&gt;PathNode&lt;/code&gt; to take to the target.
-     * @return A score for the proposed mission.
-     */
-    public static int scorePath(AIUnit aiUnit, PathNode path) {
-<span class="nc" id="L213">        Location loc = extractTarget(aiUnit, path);</span>
-<span class="nc bnc" id="L214" title="All 2 branches missed.">        return (loc instanceof Settlement)</span>
-<span class="nc bnc" id="L215" title="All 2 branches missed.">            ? scoreSettlementPath(aiUnit, path, (Settlement)loc)</span>
-            : (loc instanceof Unit)
-<span class="nc" id="L217">            ? scoreUnitPath(aiUnit, path, (Unit)loc)</span>
-            : Integer.MIN_VALUE;
-    }
+			@Override
+			public PathNode getGoal() {
+<span class="nc" id="L242">				return bestPath;</span>
+			}
 
-    /**
-     * Gets a &lt;code&gt;GoalDecider&lt;/code&gt; for finding the best colony
-     * &lt;code&gt;Tile&lt;/code&gt;, optionally falling back to the nearest colony.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; that is searching.
-     * @param deferOK Not used in this mission.
-     * @return A suitable &lt;code&gt;GoalDecider&lt;/code&gt;.
-     */
-    private static GoalDecider getGoalDecider(final AIUnit aiUnit,
-                                              boolean deferOK) {
-<span class="nc" id="L231">        return new GoalDecider() {</span>
-<span class="nc" id="L232">                private PathNode bestPath = null;</span>
-<span class="nc" id="L233">                private int bestValue = Integer.MIN_VALUE;</span>
-            
-                @Override
-<span class="nc" id="L236">                public PathNode getGoal() { return bestPath; }</span>
-                @Override
-<span class="nc" id="L238">                public boolean hasSubGoals() { return true; }</span>
-                @Override
-                public boolean check(Unit u, PathNode path) {
-<span class="nc" id="L241">                    int value = scorePath(aiUnit, path);</span>
-<span class="nc bnc" id="L242" title="All 2 branches missed.">                    if (bestValue &lt; value) {</span>
-<span class="nc" id="L243">                        bestValue = value;</span>
-<span class="nc" id="L244">                        bestPath = path;</span>
-<span class="nc" id="L245">                        return true;</span>
-                    }
-<span class="nc" id="L247">                    return false;</span>
-                }
-            };
-    }
+			@Override
+			public boolean hasSubGoals() {
+<span class="nc" id="L247">				return true;</span>
+			}
 
-    /**
-     * Finds a suitable seek-and-destroy target path for an AI unit.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to find a target for.
-     * @param range An upper bound on the number of moves.
-     * @param deferOK Not implemented in this mission.
-     * @return A path to the target, or null if none found.
-     */
-    public static PathNode findTargetPath(AIUnit aiUnit, int range,
-                                          boolean deferOK) {
-<span class="nc bnc" id="L262" title="All 2 branches missed.">        if (invalidAIUnitReason(aiUnit) != null) return null;</span>
-<span class="nc" id="L263">        final Unit unit = aiUnit.getUnit();</span>
-<span class="nc" id="L264">        final Location start = unit.getPathStartLocation();</span>
+			@Override
+			public boolean check(Unit u, PathNode path) {
+<span class="nc" id="L252">				int value = scorePath(aiUnit, path);</span>
+<span class="nc bnc" id="L253" title="All 2 branches missed.">				if (bestValue &lt; value) {</span>
+<span class="nc" id="L254">					bestValue = value;</span>
+<span class="nc" id="L255">					bestPath = path;</span>
+<span class="nc" id="L256">					return true;</span>
+				}
+<span class="nc" id="L258">				return false;</span>
+			}
+		};
+	}
 
-        // Can the unit legally reach a valid target from where it
-        // currently is?
-<span class="nc" id="L268">        return unit.search(start, getGoalDecider(aiUnit, false),</span>
-<span class="nc" id="L269">            CostDeciders.avoidIllegal(), range, unit.getCarrier());</span>
-    }
+	/**
+	 * Finds a suitable seek-and-destroy target path for an AI unit.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to find a target for.
+	 * @param range
+	 *            An upper bound on the number of moves.
+	 * @param deferOK
+	 *            Not implemented in this mission.
+	 * @return A path to the target, or null if none found.
+	 */
+	public static PathNode findTargetPath(AIUnit aiUnit, int range, boolean deferOK) {
+<span class="nc bnc" id="L275" title="All 2 branches missed.">		if (invalidAIUnitReason(aiUnit) != null)</span>
+<span class="nc" id="L276">			return null;</span>
+<span class="nc" id="L277">		final Unit unit = aiUnit.getUnit();</span>
+<span class="nc" id="L278">		final Location start = unit.getPathStartLocation();</span>
 
-    /**
-     * Finds a suitable seek-and-destroy target for an AI unit.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to find a target for.
-     * @param range An upper bound on the number of moves.
-     * @param deferOK Not implemented in this mission.
-     * @return A suitable target, or null if none found.
-     */
-    public static Location findTarget(AIUnit aiUnit, int range,
-                                      boolean deferOK) {
-<span class="nc" id="L282">        PathNode path = findTargetPath(aiUnit, range, deferOK);</span>
-<span class="nc bnc" id="L283" title="All 2 branches missed.">        return (path != null) ? extractTarget(aiUnit, path)</span>
-            : null;
-    }
+		// Can the unit legally reach a valid target from where it
+		// currently is?
+<span class="nc" id="L282">		return unit.search(start, getGoalDecider(aiUnit, false), CostDeciders.avoidIllegal(), range, unit.getCarrier());</span>
+	}
 
-    /**
-     * Why would a UnitSeekAndDestroyMission be invalid with the given unit.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to test.
-     * @return A reason why the mission would be invalid, or null if
-     *     none found.
-     */
-    private static String invalidMissionReason(AIUnit aiUnit) {
-<span class="fc" id="L295">        String reason = invalidAIUnitReason(aiUnit);</span>
-<span class="pc bpc" id="L296" title="1 of 2 branches missed.">        return (reason != null)</span>
-            ? reason
-<span class="pc bpc" id="L298" title="1 of 2 branches missed.">            : (!aiUnit.getUnit().isOffensiveUnit())</span>
-            ? Mission.UNITNOTOFFENSIVE
-<span class="pc bpc" id="L300" title="1 of 2 branches missed.">            : (aiUnit.getUnit().hasAbility(Ability.SPEAK_WITH_CHIEF))</span>
-            ? &quot;scouts-should-not-seek-and-destroy&quot;
-            : null;
-    }
+	/**
+	 * Finds a suitable seek-and-destroy target for an AI unit.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to find a target for.
+	 * @param range
+	 *            An upper bound on the number of moves.
+	 * @param deferOK
+	 *            Not implemented in this mission.
+	 * @return A suitable target, or null if none found.
+	 */
+	public static Location findTarget(AIUnit aiUnit, int range, boolean deferOK) {
+<span class="nc" id="L297">		PathNode path = findTargetPath(aiUnit, range, deferOK);</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">		return (path != null) ? extractTarget(aiUnit, path) : null;</span>
+	}
 
-    /**
-     * Why would a UnitSeekAndDestroyMission be invalid with the given unit
-     * and settlement.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to seek-and-destroy with.
-     * @param settlement The &lt;code&gt;Settlement&lt;/code&gt; to test.
-     * @return A reason why the mission would be invalid, or null if
-     *     none found.
-     */
-    private static String invalidSettlementReason(AIUnit aiUnit,
-                                                  Settlement settlement) {
-<span class="nc" id="L316">        String reason = invalidTargetReason(settlement);</span>
-<span class="nc bnc" id="L317" title="All 2 branches missed.">        if (reason != null) return reason;</span>
-<span class="nc" id="L318">        final Unit unit = aiUnit.getUnit();</span>
-<span class="nc bnc" id="L319" title="All 2 branches missed.">        return (unit.isNaval())</span>
-            ? &quot;unit-is-naval&quot;
-<span class="nc bnc" id="L321" title="All 2 branches missed.">            : (settlement.getOwner() == unit.getOwner())</span>
-            ? Mission.TARGETOWNERSHIP
-<span class="nc" id="L323">            : invalidAttackReason(aiUnit, settlement.getOwner());</span>
-    }
+	/**
+	 * Why would a UnitSeekAndDestroyMission be invalid with the given unit.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to test.
+	 * @return A reason why the mission would be invalid, or null if none found.
+	 */
+	private static String invalidMissionReason(AIUnit aiUnit) {
+<span class="fc" id="L309">		String reason = invalidAIUnitReason(aiUnit);</span>
+<span class="pc bpc" id="L310" title="1 of 2 branches missed.">		return (reason != null) ? reason</span>
+<span class="pc bpc" id="L311" title="1 of 2 branches missed.">				: (!aiUnit.getUnit().isOffensiveUnit()) ? Mission.UNITNOTOFFENSIVE</span>
+<span class="pc bpc" id="L312" title="1 of 2 branches missed.">						: (aiUnit.getUnit().hasAbility(Ability.SPEAK_WITH_CHIEF)) ? &quot;scouts-should-not-seek-and-destroy&quot;</span>
+								: null;
+	}
 
-    /**
-     * Why would a UnitSeekAndDestroyMission be invalid with the given unit
-     * and target unit.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to seek-and-destroy with.
-     * @param unit The target &lt;code&gt;Unit&lt;/code&gt; to test.
-     * @return A reason why the mission would be invalid, or null if
-     *     none found.
-     */
-    private static String invalidUnitReason(AIUnit aiUnit, Unit unit) {
-<span class="fc" id="L336">        String reason = invalidTargetReason(unit);</span>
-<span class="pc bpc" id="L337" title="1 of 2 branches missed.">        if (reason != null) return reason;</span>
-<span class="fc" id="L338">        final Tile tile = unit.getTile();</span>
-<span class="pc bpc" id="L339" title="1 of 2 branches missed.">        return (tile == null)</span>
-            ? &quot;target-not-on-map&quot;
-<span class="fc bfc" id="L341" title="All 2 branches covered.">            : (aiUnit.getUnit().getOwner() == unit.getOwner())</span>
-            ? Mission.TARGETOWNERSHIP
-<span class="fc bfc" id="L343" title="All 2 branches covered.">            : (tile.hasSettlement())</span>
-            ? &quot;target-in-settlement&quot;
-<span class="fc bfc" id="L345" title="All 2 branches covered.">            : (!aiUnit.getUnit().isTileAccessible(tile))</span>
-            ? &quot;target-incompatible&quot;
-<span class="fc" id="L347">            : invalidAttackReason(aiUnit, unit.getOwner());</span>
-    }
+	/**
+	 * Why would a UnitSeekAndDestroyMission be invalid with the given unit and
+	 * settlement.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to seek-and-destroy with.
+	 * @param settlement
+	 *            The &lt;code&gt;Settlement&lt;/code&gt; to test.
+	 * @return A reason why the mission would be invalid, or null if none found.
+	 */
+	private static String invalidSettlementReason(AIUnit aiUnit, Settlement settlement) {
+<span class="nc" id="L327">		String reason = invalidTargetReason(settlement);</span>
+<span class="nc bnc" id="L328" title="All 2 branches missed.">		if (reason != null)</span>
+<span class="nc" id="L329">			return reason;</span>
+<span class="nc" id="L330">		final Unit unit = aiUnit.getUnit();</span>
+<span class="nc bnc" id="L331" title="All 2 branches missed.">		return (unit.isNaval()) ? &quot;unit-is-naval&quot;</span>
+<span class="nc bnc" id="L332" title="All 2 branches missed.">				: (settlement.getOwner() == unit.getOwner()) ? Mission.TARGETOWNERSHIP</span>
+<span class="nc" id="L333">						: invalidAttackReason(aiUnit, settlement.getOwner());</span>
+	}
 
-    /**
-     * Why would this mission be invalid with the given AI unit?
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @return A reason for mission invalidity, or null if none found.
-     */
-    public static String invalidReason(AIUnit aiUnit) {
-<span class="fc" id="L357">        return invalidMissionReason(aiUnit);</span>
-    }
+	/**
+	 * Why would a UnitSeekAndDestroyMission be invalid with the given unit and
+	 * target unit.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to seek-and-destroy with.
+	 * @param unit
+	 *            The target &lt;code&gt;Unit&lt;/code&gt; to test.
+	 * @return A reason why the mission would be invalid, or null if none found.
+	 */
+	private static String invalidUnitReason(AIUnit aiUnit, Unit unit) {
+<span class="fc" id="L347">		String reason = invalidTargetReason(unit);</span>
+<span class="pc bpc" id="L348" title="1 of 2 branches missed.">		if (reason != null)</span>
+<span class="nc" id="L349">			return reason;</span>
+<span class="fc" id="L350">		final Tile tile = unit.getTile();</span>
+<span class="pc bpc" id="L351" title="1 of 2 branches missed.">		return (tile == null) ? &quot;target-not-on-map&quot;</span>
+<span class="fc bfc" id="L352" title="All 2 branches covered.">				: (aiUnit.getUnit().getOwner() == unit.getOwner()) ? Mission.TARGETOWNERSHIP</span>
+<span class="fc bfc" id="L353" title="All 2 branches covered.">						: (tile.hasSettlement()) ? &quot;target-in-settlement&quot;</span>
+<span class="fc bfc" id="L354" title="All 2 branches covered.">								: (!aiUnit.getUnit().isTileAccessible(tile)) ? &quot;target-incompatible&quot;</span>
+<span class="fc" id="L355">										: invalidAttackReason(aiUnit, unit.getOwner());</span>
+	}
 
-    /**
-     * Why would this mission be invalid with the given AI unit and location?
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @param loc The &lt;code&gt;Location&lt;/code&gt; to check.
-     * @return A reason for invalidity, or null if none found.
-     */
-    public static String invalidReason(AIUnit aiUnit, Location loc) {
-<span class="fc" id="L368">        String reason = invalidMissionReason(aiUnit);</span>
-<span class="pc bpc" id="L369" title="2 of 4 branches missed.">        return (reason != null)</span>
-            ? reason                
-            : (loc instanceof Settlement)
-<span class="pc bpc" id="L372" title="1 of 2 branches missed.">            ? invalidSettlementReason(aiUnit, (Settlement)loc)</span>
-            : (loc instanceof Unit)
-<span class="pc" id="L374">            ? invalidUnitReason(aiUnit, (Unit)loc)</span>
-            : Mission.TARGETINVALID;
-    }
+	/**
+	 * Why would this mission be invalid with the given AI unit?.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @return A reason for mission invalidity, or null if none found.
+	 */
+	public static String invalidReason(AIUnit aiUnit) {
+<span class="fc" id="L366">		return invalidMissionReason(aiUnit);</span>
+	}
 
-    
-    // Implement Mission
-    //   Inherit dispose, isOneTime
+	/**
+	 * Why would this mission be invalid with the given AI unit and location?.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @param loc
+	 *            The &lt;code&gt;Location&lt;/code&gt; to check.
+	 * @return A reason for invalidity, or null if none found.
+	 */
+	public static String invalidReason(AIUnit aiUnit, Location loc) {
+<span class="fc" id="L379">		String reason = invalidMissionReason(aiUnit);</span>
+<span class="pc bpc" id="L380" title="2 of 4 branches missed.">		return (reason != null) ? reason</span>
+<span class="pc bpc" id="L381" title="1 of 2 branches missed.">				: (loc instanceof Settlement) ? invalidSettlementReason(aiUnit, (Settlement) loc)</span>
+<span class="pc" id="L382">						: (loc instanceof Unit) ? invalidUnitReason(aiUnit, (Unit) loc) : Mission.TARGETINVALID;</span>
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getBaseTransportPriority() {
-<span class="fc" id="L387">        return NORMAL_TRANSPORT_PRIORITY - 5;</span>
-    }
+	// Implement Mission
+	// Inherit dispose, isOneTime
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location getTransportDestination() {
-<span class="nc bnc" id="L395" title="All 2 branches missed.">        if (!isValid()) return null;</span>
-<span class="nc bnc" id="L396" title="All 2 branches missed.">        Location loc = (transportTarget != null) ? transportTarget : target;</span>
-<span class="nc bnc" id="L397" title="All 2 branches missed.">        return (getUnit().shouldTakeTransportTo(loc)) ? loc : null;</span>
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getBaseTransportPriority() {
+<span class="fc" id="L393">		return NORMAL_TRANSPORT_PRIORITY - 5;</span>
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location getTarget() {
-<span class="fc" id="L405">        return target;</span>
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location getTransportDestination() {
+<span class="nc bnc" id="L401" title="All 2 branches missed.">		if (!isValid())</span>
+<span class="nc" id="L402">			return null;</span>
+<span class="nc bnc" id="L403" title="All 2 branches missed.">		Location loc = (transportTarget != null) ? transportTarget : target;</span>
+<span class="nc bnc" id="L404" title="All 2 branches missed.">		return (getUnit().shouldTakeTransportTo(loc)) ? loc : null;</span>
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setTarget(Location target) {
-<span class="pc bpc" id="L413" title="4 of 6 branches missed.">        if (target == null</span>
-            || target instanceof Unit || target instanceof Settlement) {
-<span class="fc" id="L415">            this.target = target;</span>
-<span class="fc" id="L416">            Unit unit = getUnit();</span>
-<span class="fc" id="L417">            transportTarget = null;</span>
-<span class="pc bpc" id="L418" title="3 of 4 branches missed.">            if (unit.shouldTakeTransportTo(target)</span>
-                &amp;&amp; (target instanceof Settlement)) {
-<span class="nc" id="L420">                Settlement settlement = (Settlement)target;</span>
-<span class="nc bnc" id="L421" title="All 2 branches missed.">                if (settlement.isConnectedPort()) {</span>
-<span class="nc" id="L422">                    transportTarget = settlement.getTile()</span>
-<span class="nc" id="L423">                        .getBestDisembarkTile(unit.getOwner());</span>
-<span class="nc" id="L424">                    logger.finest(tag + &quot; chose dropoff &quot; + transportTarget</span>
-                        + &quot; for attack on &quot;
-<span class="nc bnc" id="L426" title="All 2 branches missed.">                        + ((settlement.canBombardEnemyShip()) ? &quot;hazardous&quot;</span>
-                            : &quot;normal&quot;)
-<span class="nc" id="L428">                        + &quot; settlement &quot; + settlement.getName()</span>
-                        + &quot;: &quot; + this);
-                }
-            }
-        }
-<span class="fc" id="L433">    }</span>
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location getTarget() {
+<span class="fc" id="L412">		return target;</span>
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location findTarget() {
-<span class="nc" id="L440">        return findTarget(getAIUnit(), 4, false);</span>
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void setTarget(Location target) {
+<span class="pc bpc" id="L420" title="4 of 6 branches missed.">		if (target == null || target instanceof Unit || target instanceof Settlement) {</span>
+<span class="fc" id="L421">			this.target = target;</span>
+<span class="fc" id="L422">			Unit unit = getUnit();</span>
+<span class="fc" id="L423">			transportTarget = null;</span>
+<span class="pc bpc" id="L424" title="3 of 4 branches missed.">			if (unit.shouldTakeTransportTo(target) &amp;&amp; (target instanceof Settlement)) {</span>
+<span class="nc" id="L425">				Settlement settlement = (Settlement) target;</span>
+<span class="nc bnc" id="L426" title="All 2 branches missed.">				if (settlement.isConnectedPort()) {</span>
+<span class="nc" id="L427">					transportTarget = settlement.getTile().getBestDisembarkTile(unit.getOwner());</span>
+<span class="nc" id="L428">					logger.finest(tag + &quot; chose dropoff &quot; + transportTarget + &quot; for attack on &quot;</span>
+<span class="nc bnc" id="L429" title="All 2 branches missed.">							+ ((settlement.canBombardEnemyShip()) ? &quot;hazardous&quot; : &quot;normal&quot;) + &quot; settlement &quot;</span>
+<span class="nc" id="L430">							+ settlement.getName() + &quot;: &quot; + this);</span>
+				}
+			}
+		}
+<span class="fc" id="L434">	}</span>
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String invalidReason() {
-<span class="fc" id="L448">        return invalidReason(getAIUnit(), getTarget());</span>
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location findTarget() {
+<span class="nc" id="L441">		return findTarget(getAIUnit(), 4, false);</span>
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Mission doMission(LogBuilder lb) {
-<span class="nc" id="L456">        lb.add(tag);</span>
-<span class="nc" id="L457">        final AIUnit aiUnit = getAIUnit();</span>
-<span class="nc" id="L458">        String reason = invalidReason();</span>
-<span class="nc bnc" id="L459" title="All 2 branches missed.">        if (isTargetReason(reason)) {</span>
-            Colony colony;
-            Mission m;
-<span class="nc bnc" id="L462" title="All 2 branches missed.">            if (Mission.TARGETOWNERSHIP.equals(reason)</span>
-<span class="nc bnc" id="L463" title="All 2 branches missed.">                &amp;&amp; getTarget() instanceof Colony</span>
-<span class="nc bnc" id="L464" title="All 2 branches missed.">                &amp;&amp; (colony = (Colony)getTarget()) != null</span>
-<span class="nc bnc" id="L465" title="All 2 branches missed.">                &amp;&amp; getPlayer().owns(colony)</span>
-<span class="nc bnc" id="L466" title="All 2 branches missed.">                &amp;&amp; (m = getAIPlayer().getDefendSettlementMission(aiUnit,</span>
-                        colony)) != null) {
-<span class="nc" id="L468">                return lbDone(lb, true, &quot; capturing colony &quot;, colony.getName());</span>
-            }            
-<span class="nc" id="L470">            return retargetMission(reason, lb);</span>
-<span class="nc bnc" id="L471" title="All 2 branches missed.">        } else if (reason != null) {</span>
-<span class="nc" id="L472">            return lbFail(lb, false, reason);</span>
-        }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String invalidReason() {
+<span class="fc" id="L449">		return invalidReason(getAIUnit(), getTarget());</span>
+	}
 
-        // Is there a target-of-opportunity?
-<span class="nc" id="L476">        final Unit unit = getUnit();</span>
-<span class="nc bnc" id="L477" title="All 2 branches missed.">        Location nearbyTarget = (unit.isOnCarrier()) ? null</span>
-<span class="nc" id="L478">            : findTarget(aiUnit, 1, false);</span>
-<span class="nc bnc" id="L479" title="All 2 branches missed.">        if (nearbyTarget != null) {</span>
-<span class="nc bnc" id="L480" title="All 2 branches missed.">            if (getTarget() == null) {</span>
-<span class="nc" id="L481">                setTarget(nearbyTarget);</span>
-<span class="nc" id="L482">                return lbRetarget(lb);</span>
-            }
-<span class="nc bnc" id="L484" title="All 2 branches missed.">            if (nearbyTarget == getTarget()) {</span>
-<span class="nc" id="L485">                nearbyTarget = null;</span>
-            } else {
-<span class="nc" id="L487">                Tile now = unit.getTile();</span>
-<span class="nc" id="L488">                Tile nearbyTile = nearbyTarget.getTile();</span>
-<span class="nc" id="L489">                Tile targetTile = getTarget().getTile();</span>
-<span class="nc bnc" id="L490" title="All 6 branches missed.">                if (now != null &amp;&amp; nearbyTile != null &amp;&amp; targetTile != null</span>
-<span class="nc" id="L491">                    &amp;&amp; (now.getDistanceTo(nearbyTile)</span>
-<span class="nc bnc" id="L492" title="All 2 branches missed.">                        &gt;= now.getDistanceTo(targetTile))) {</span>
-<span class="nc" id="L493">                    nearbyTarget = null;</span>
-                } else {
-<span class="nc" id="L495">                    lb.add(&quot;, found target of opportunity &quot;, nearbyTarget);</span>
-                }
-            }
-        }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Mission doMission(LogBuilder lb) {
+<span class="nc" id="L457">		lb.add(tag);</span>
+<span class="nc" id="L458">		final AIUnit aiUnit = getAIUnit();</span>
+<span class="nc" id="L459">		String reason = invalidReason();</span>
+<span class="nc bnc" id="L460" title="All 2 branches missed.">		if (isTargetReason(reason)) {</span>
+			Colony colony;
+			Mission m;
+<span class="nc bnc" id="L463" title="All 4 branches missed.">			if (Mission.TARGETOWNERSHIP.equals(reason) &amp;&amp; getTarget() instanceof Colony</span>
+<span class="nc bnc" id="L464" title="All 4 branches missed.">					&amp;&amp; (colony = (Colony) getTarget()) != null &amp;&amp; getPlayer().owns(colony)</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">					&amp;&amp; (m = getAIPlayer().getDefendSettlementMission(aiUnit, colony)) != null) {</span>
+<span class="nc" id="L466">				return lbDone(lb, true, &quot; capturing colony &quot;, colony.getName());</span>
+			}
+<span class="nc" id="L468">			return retargetMission(reason, lb);</span>
+<span class="nc bnc" id="L469" title="All 2 branches missed.">		} else if (reason != null) {</span>
+<span class="nc" id="L470">			return lbFail(lb, false, reason);</span>
+		}
 
-        // Go to the target.
-<span class="nc bnc" id="L501" title="All 2 branches missed.">        Location currentTarget = (nearbyTarget != null) ? nearbyTarget</span>
-<span class="nc" id="L502">            : getTarget();</span>
-        // Note avoiding other targets by choice of cost decider.
-<span class="nc" id="L504">        Unit.MoveType mt = travelToTarget(currentTarget,</span>
-<span class="nc" id="L505">            CostDeciders.avoidSettlementsAndBlockingUnits(), lb);</span>
-<span class="nc bnc" id="L506" title="All 4 branches missed.">        switch (mt) {</span>
-        case MOVE_HIGH_SEAS: case MOVE_NO_MOVES:
-        case MOVE_NO_REPAIR: case MOVE_ILLEGAL:
-<span class="nc" id="L509">            return lbWait(lb);</span>
+		// Is there a target-of-opportunity?
+<span class="nc" id="L474">		final Unit unit = getUnit();</span>
+<span class="nc bnc" id="L475" title="All 2 branches missed.">		Location nearbyTarget = (unit.isOnCarrier()) ? null : findTarget(aiUnit, 1, false);</span>
+<span class="nc bnc" id="L476" title="All 2 branches missed.">		if (nearbyTarget != null) {</span>
+<span class="nc bnc" id="L477" title="All 2 branches missed.">			if (getTarget() == null) {</span>
+<span class="nc" id="L478">				setTarget(nearbyTarget);</span>
+<span class="nc" id="L479">				return lbRetarget(lb);</span>
+			}
+<span class="nc bnc" id="L481" title="All 2 branches missed.">			if (nearbyTarget == getTarget()) {</span>
+<span class="nc" id="L482">				nearbyTarget = null;</span>
+			} else {
+<span class="nc" id="L484">				Tile now = unit.getTile();</span>
+<span class="nc" id="L485">				Tile nearbyTile = nearbyTarget.getTile();</span>
+<span class="nc" id="L486">				Tile targetTile = getTarget().getTile();</span>
+<span class="nc bnc" id="L487" title="All 6 branches missed.">				if (now != null &amp;&amp; nearbyTile != null &amp;&amp; targetTile != null</span>
+<span class="nc bnc" id="L488" title="All 2 branches missed.">						&amp;&amp; (now.getDistanceTo(nearbyTile) &gt;= now.getDistanceTo(targetTile))) {</span>
+<span class="nc" id="L489">					nearbyTarget = null;</span>
+				} else {
+<span class="nc" id="L491">					lb.add(&quot;, found target of opportunity &quot;, nearbyTarget);</span>
+				}
+			}
+		}
 
-        case MOVE_NO_ACCESS_EMBARK: case MOVE_NO_TILE:
-<span class="nc" id="L512">            return this;</span>
+		// Go to the target.
+<span class="nc bnc" id="L497" title="All 2 branches missed.">		Location currentTarget = (nearbyTarget != null) ? nearbyTarget : getTarget();</span>
+		// Note avoiding other targets by choice of cost decider.
+<span class="nc" id="L499">		Unit.MoveType mt = travelToTarget(currentTarget, CostDeciders.avoidSettlementsAndBlockingUnits(), lb);</span>
+<span class="nc bnc" id="L500" title="All 4 branches missed.">		switch (mt) {</span>
+		case MOVE_HIGH_SEAS:
+		case MOVE_NO_MOVES:
+		case MOVE_NO_REPAIR:
+		case MOVE_ILLEGAL:
+<span class="nc" id="L505">			return lbWait(lb);</span>
 
-        case ATTACK_UNIT: case ATTACK_SETTLEMENT:
-<span class="nc" id="L515">            Tile unitTile = unit.getTile();</span>
-<span class="nc" id="L516">            Settlement settlement = unitTile.getSettlement();</span>
-<span class="nc bnc" id="L517" title="All 4 branches missed.">            if (settlement != null &amp;&amp; settlement.getUnitCount() &lt; 2) {</span>
-                // Do not risk attacking out of a settlement that
-                // might collapse.  Defend instead.
-<span class="nc" id="L520">                Mission m = getAIPlayer()</span>
-<span class="nc" id="L521">                    .getDefendSettlementMission(aiUnit, settlement);</span>
-<span class="nc bnc" id="L522" title="All 2 branches missed.">                return lbDone(lb, m != null, &quot; desperate defence of &quot;,</span>
-                              settlement);
-            }
-<span class="nc" id="L525">            Direction d = unitTile.getDirection(currentTarget.getTile());</span>
-<span class="nc bnc" id="L526" title="All 4 branches missed.">            assert d != null;</span>
-<span class="nc" id="L527">            AIMessage.askAttack(aiUnit, d);</span>
-<span class="nc" id="L528">            return lbAttack(lb, currentTarget);</span>
+		case MOVE_NO_ACCESS_EMBARK:
+		case MOVE_NO_TILE:
+<span class="nc" id="L509">			return this;</span>
 
-        default:
-<span class="nc" id="L531">            return lbMove(lb, mt);</span>
-        }
-    }
+		case ATTACK_UNIT:
+		case ATTACK_SETTLEMENT:
+<span class="nc" id="L513">			Tile unitTile = unit.getTile();</span>
+<span class="nc" id="L514">			Settlement settlement = unitTile.getSettlement();</span>
+<span class="nc bnc" id="L515" title="All 4 branches missed.">			if (settlement != null &amp;&amp; settlement.getUnitCount() &lt; 2) {</span>
+				// Do not risk attacking out of a settlement that
+				// might collapse. Defend instead.
+<span class="nc" id="L518">				Mission m = getAIPlayer().getDefendSettlementMission(aiUnit, settlement);</span>
+<span class="nc bnc" id="L519" title="All 2 branches missed.">				return lbDone(lb, m != null, &quot; desperate defence of &quot;, settlement);</span>
+			}
+<span class="nc" id="L521">			Direction d = unitTile.getDirection(currentTarget.getTile());</span>
+<span class="nc bnc" id="L522" title="All 4 branches missed.">			assert d != null;</span>
+<span class="nc" id="L523">			AIMessage.askAttack(aiUnit, d);</span>
+<span class="nc" id="L524">			return lbAttack(lb, currentTarget);</span>
 
+		default:
+<span class="nc" id="L527">			return lbMove(lb, mt);</span>
+		}
+	}
 
-    // Serialization
+	// Serialization
 
-    private static final String TARGET_TAG = &quot;target&quot;;
+	/** The Constant TARGET_TAG. */
+	private static final String TARGET_TAG = &quot;target&quot;;
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="nc" id="L541">		super.writeAttributes(xw);</span>
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="nc" id="L546">        super.writeAttributes(xw);</span>
+<span class="nc bnc" id="L543" title="All 2 branches missed.">		if (target != null) {</span>
+<span class="nc" id="L544">			xw.writeAttribute(TARGET_TAG, target.getId());</span>
+		}
+<span class="nc" id="L546">	}</span>
 
-<span class="nc bnc" id="L548" title="All 2 branches missed.">        if (target != null) {</span>
-<span class="nc" id="L549">            xw.writeAttribute(TARGET_TAG, target.getId());</span>
-        }
-<span class="nc" id="L551">    }</span>
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L553">		super.readAttributes(xr);</span>
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-<span class="nc" id="L558">        super.readAttributes(xr);</span>
+<span class="nc" id="L555">		target = xr.getLocationAttribute(getGame(), TARGET_TAG, false);</span>
+<span class="nc" id="L556">	}</span>
 
-<span class="nc" id="L560">        target = xr.getLocationAttribute(getGame(), TARGET_TAG, false);</span>
-<span class="nc" id="L561">    }</span>
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+<span class="nc" id="L563">		return getXMLElementTagName();</span>
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-<span class="nc" id="L567">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return &quot;unitSeekAndDestroyMission&quot;.
-     */
-    public static String getXMLElementTagName() {
-<span class="nc" id="L575">        return &quot;unitSeekAndDestroyMission&quot;;</span>
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return &quot;unitSeekAndDestroyMission&quot;.
+	 */
+	public static String getXMLElementTagName() {
+<span class="nc" id="L572">		return &quot;unitSeekAndDestroyMission&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

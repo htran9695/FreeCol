@@ -22,27 +22,31 @@ package net.sf.freecol.client.gui.panel;
 import javax.swing.JPanel;
 import javax.swing.tree.DefaultMutableTreeNode;
 
-
 /**
  * This panel displays the Colopedia.
+ *
+ * @param <T>
+ *            the generic type
  */
 public interface ColopediaDetailPanel<T> {
 
-    /**
-     * Adds one or several subtrees for all the objects for which this
-     * ColopediaDetailPanel could build a detail panel to the given
-     * root node.
-     *
-     * @param root a <code>DefaultMutableTreeNode</code>
-     */
-    public void addSubTrees(DefaultMutableTreeNode root);
+	/**
+	 * Adds one or several subtrees for all the objects for which this
+	 * ColopediaDetailPanel could build a detail panel to the given root node.
+	 *
+	 * @param root
+	 *            a <code>DefaultMutableTreeNode</code>
+	 */
+	public void addSubTrees(DefaultMutableTreeNode root);
 
-    /**
-     * Builds the details panel for the given identifier.
-     *
-     * @param id The object identifier to display.
-     * @param panel the detail panel to build
-     */
-    public void buildDetail(String id, JPanel panel);
+	/**
+	 * Builds the details panel for the given identifier.
+	 *
+	 * @param id
+	 *            The object identifier to display.
+	 * @param panel
+	 *            the detail panel to build
+	 */
+	public void buildDetail(String id, JPanel panel);
 
 }

@@ -45,162 +45,179 @@ import net.sf.freecol.common.model.Turn;
 
 import static net.sf.freecol.common.util.StringUtils.getBreakingPoint;
 
-
 /**
- * This panel shows the progress of constructing a building or
- * unit in a colony.
+ * This panel shows the progress of constructing a building or unit in a colony.
  */
-public class ConstructionPanel extends MigPanel
-    implements PropertyChangeListener {
+public class ConstructionPanel extends MigPanel implements PropertyChangeListener {
 
-    public static final String EVENT
-        = Colony.ColonyChangeEvent.BUILD_QUEUE_CHANGE.toString();
+	/** The Constant EVENT. */
+	public static final String EVENT = Colony.ColonyChangeEvent.BUILD_QUEUE_CHANGE.toString();
 
-    /** The enclosing client. */
-    private final FreeColClient freeColClient;
+	/** The enclosing client. */
+	private final FreeColClient freeColClient;
 
-    /** Should a mouse click open the build queue? */
-    private final boolean openBuildQueue;
+	/** Should a mouse click open the build queue?. */
+	private final boolean openBuildQueue;
 
-    /** The colony performing the construction. */
-    private Colony colony;
+	/** The colony performing the construction. */
+	private Colony colony;
 
-    /** The text to display if buildable == null. */
-    private StringTemplate defaultLabel
-        = StringTemplate.key("constructionPanel.clickToBuild");
+	/** The text to display if buildable == null. */
+	private StringTemplate defaultLabel = StringTemplate.key("constructionPanel.clickToBuild");
 
+	/**
+	 * Creates a ConstructionPanel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param colony
+	 *            The <code>Colony</code> whose construction is to be modified.
+	 * @param openBuildQueue
+	 *            True if the build queue should be immediately shown.
+	 */
+	public ConstructionPanel(FreeColClient freeColClient, Colony colony, boolean openBuildQueue) {
+		super("ConstructionPanelUI");
 
-    /**
-     * Creates a ConstructionPanel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param colony The <code>Colony</code> whose construction is to be
-     *     modified.
-     * @param openBuildQueue True if the build queue should be immediately
-     *     shown.
-     */
-    public ConstructionPanel(FreeColClient freeColClient,
-                             Colony colony, boolean openBuildQueue) {
-        super("ConstructionPanelUI");
+		this.freeColClient = freeColClient;
+		this.colony = colony;
+		this.openBuildQueue = openBuildQueue;
 
-        this.freeColClient = freeColClient;
-        this.colony = colony;
-        this.openBuildQueue = openBuildQueue;
+		setLayout(new MigLayout("fill, gapy 2:5, wrap 2", "push[]10[center]push"));
+		setOpaque(openBuildQueue);
+	}
 
-        setLayout(new MigLayout("fill, gapy 2:5, wrap 2",
-                "push[]10[center]push"));
-        setOpaque(openBuildQueue);
-    }
+	/**
+	 * Sets the colony.
+	 *
+	 * @param newColony
+	 *            the new colony
+	 */
+	public void setColony(Colony newColony) {
+		if (newColony != colony) {
+			cleanup();
+			this.colony = newColony;
+			initialize();
+		}
+	}
 
+	/**
+	 * Initialize.
+	 */
+	public void initialize() {
+		if (colony != null) {
+			// we are interested in changes to the build queue, as well as
+			// changes to the warehouse and the colony's production bonus
+			colony.addPropertyChangeListener(EVENT, this);
 
-    public void setColony(Colony newColony) {
-        if (newColony != colony) {
-            cleanup();
-            this.colony = newColony;
-            initialize();
-        }
-    }
+			if (openBuildQueue) {
+				addMouseListener(new MouseAdapter() {
+					@Override
+					public void mousePressed(MouseEvent e) {
+						((SwingGUI) freeColClient.getGUI()).showBuildQueuePanel(colony);
+					}
+				});
+			}
+		}
+		update();
+	}
 
-    public void initialize() {
-        if (colony != null) {
-            // we are interested in changes to the build queue, as well as
-            // changes to the warehouse and the colony's production bonus
-            colony.addPropertyChangeListener(EVENT, this);
-                
-            if (openBuildQueue) {
-                addMouseListener(new MouseAdapter() {
-                        @Override
-                        public void mousePressed(MouseEvent e) {
-                            ((SwingGUI)freeColClient.getGUI()).showBuildQueuePanel(colony);
-                        }
-                    });
-            }
-        }
-        update();
-    }
+	/**
+	 * Cleanup.
+	 */
+	public void cleanup() {
+		if (colony != null) {
+			colony.removePropertyChangeListener(EVENT, this);
+		}
+		for (MouseListener listener : getMouseListeners()) {
+			removeMouseListener(listener);
+		}
+	}
 
-    public void cleanup() {
-        if (colony != null) {
-            colony.removePropertyChangeListener(EVENT, this);
-        }
-        for (MouseListener listener : getMouseListeners()) {
-            removeMouseListener(listener);
-        }
-    }
+	/**
+	 * Update.
+	 */
+	public void update() {
+		update((colony == null) ? null : colony.getCurrentlyBuilding());
+	}
 
-    public void update() {
-        update((colony == null) ? null : colony.getCurrentlyBuilding());
-    }
+	/**
+	 * Update.
+	 *
+	 * @param buildable
+	 *            the buildable
+	 */
+	public void update(BuildableType buildable) {
+		removeAll();
+		final ImageLibrary lib = ((SwingGUI) freeColClient.getGUI()).getTileImageLibrary();
+		final Font font = FontLibrary.createFont(FontLibrary.FontType.NORMAL, FontLibrary.FontSize.SMALLER,
+				lib.getScaleFactor());
 
-    public void update(BuildableType buildable) {
-        removeAll();
-        final ImageLibrary lib = ((SwingGUI)freeColClient.getGUI())
-            .getTileImageLibrary();
-        final Font font = FontLibrary.createFont(FontLibrary.FontType.NORMAL,
-            FontLibrary.FontSize.SMALLER, lib.getScaleFactor());
+		if (buildable == null) {
+			String clickToBuild = Messages.message(getDefaultLabel());
+			int breakingPoint = getBreakingPoint(clickToBuild);
+			if (breakingPoint > 0) {
+				JLabel label0 = new JLabel(clickToBuild.substring(0, breakingPoint));
+				label0.setFont(font);
+				add(label0, "span, align center");
+				JLabel label1 = new JLabel(clickToBuild.substring(breakingPoint + 1));
+				label1.setFont(font);
+				add(label1, "span, align center");
+			} else {
+				JLabel label = new JLabel(clickToBuild);
+				label.setFont(font);
+				add(label, "span, align center");
+			}
+		} else {
+			int turns = colony.getTurnsToComplete(buildable);
+			Image image = lib.getSmallBuildableImage(buildable, colony.getOwner());
+			add(new JLabel(new ImageIcon(image)), "spany");
+			JLabel label0 = Utility.localizedLabel(buildable.getCurrentlyBuildingLabel());
+			label0.setFont(font);
+			add(label0);
+			JLabel label1 = Utility.localizedLabel(StringTemplate.template("constructionPanel.turnsToComplete")
+					.addName("%number%", Turn.getTurnsText(turns)));
+			label1.setFont(font);
+			add(label1);
 
-        if (buildable == null) {
-            String clickToBuild = Messages.message(getDefaultLabel());
-            int breakingPoint = getBreakingPoint(clickToBuild);
-            if (breakingPoint > 0) {
-                JLabel label0 = new JLabel(
-                    clickToBuild.substring(0, breakingPoint));
-                label0.setFont(font);
-                add(label0, "span, align center");
-                JLabel label1 = new JLabel(
-                    clickToBuild.substring(breakingPoint + 1));
-                label1.setFont(font);
-                add(label1, "span, align center");
-            } else {
-                JLabel label = new JLabel(clickToBuild);
-                label.setFont(font);
-                add(label, "span, align center");
-            }
-        } else {
-            int turns = colony.getTurnsToComplete(buildable);
-            Image image = lib.getSmallBuildableImage(
-                buildable, colony.getOwner());
-            add(new JLabel(new ImageIcon(image)), "spany");
-            JLabel label0 = Utility.localizedLabel(buildable.getCurrentlyBuildingLabel());
-            label0.setFont(font);
-            add(label0);
-            JLabel label1 = Utility.localizedLabel(StringTemplate
-                .template("constructionPanel.turnsToComplete")
-                .addName("%number%", Turn.getTurnsText(turns)));
-            label1.setFont(font);
-            add(label1);
+			for (AbstractGoods ag : buildable.getRequiredGoods()) {
+				int amountNeeded = ag.getAmount();
+				int amountAvailable = colony.getGoodsCount(ag.getType());
+				int amountProduced = colony.getAdjustedNetProductionOf(ag.getType());
+				add(new FreeColProgressBar(ag.getType(), 0, amountNeeded, amountAvailable, amountProduced),
+						"height 20:");
+			}
+		}
 
-            for (AbstractGoods ag : buildable.getRequiredGoods()) {
-                int amountNeeded = ag.getAmount();
-                int amountAvailable = colony.getGoodsCount(ag.getType());
-                int amountProduced = colony.getAdjustedNetProductionOf(ag.getType());
-                add(new FreeColProgressBar(ag.getType(), 0,
-                                           amountNeeded, amountAvailable, amountProduced),
-                    "height 20:");
-            }
-        }
+		revalidate();
+		repaint();
+	}
 
-        revalidate();
-        repaint();
-    }
+	/**
+	 * Gets the default label.
+	 *
+	 * @return the default label
+	 */
+	public final StringTemplate getDefaultLabel() {
+		return defaultLabel;
+	}
 
+	/**
+	 * Sets the default label.
+	 *
+	 * @param newDefaultLabel
+	 *            the new default label
+	 */
+	public final void setDefaultLabel(final StringTemplate newDefaultLabel) {
+		this.defaultLabel = newDefaultLabel;
+	}
 
-    public final StringTemplate getDefaultLabel() {
-        return defaultLabel;
-    }
+	// Interface PropertyChangeListener
 
-    public final void setDefaultLabel(final StringTemplate newDefaultLabel) {
-        this.defaultLabel = newDefaultLabel;
-    }
-
-
-    // Interface PropertyChangeListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void propertyChange(PropertyChangeEvent event) {
-        update();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void propertyChange(PropertyChangeEvent event) {
+		update();
+	}
 }

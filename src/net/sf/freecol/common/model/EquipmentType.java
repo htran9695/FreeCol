@@ -28,335 +28,347 @@ import javax.xml.stream.XMLStreamException;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 
-
 /**
- * This whole class is now @compat 0.10.x.  We no longer use equipment types.
+ * This whole class is now @compat 0.10.x. We no longer use equipment types.
  *
- * EquipmentTypes are now subsumed by roles.
- * Delete this whole file in due course.
+ * EquipmentTypes are now subsumed by roles. Delete this whole file in due
+ * course.
  *
- * A type of equipment.  Equipment differs from goods (although it is often
+ * A type of equipment. Equipment differs from goods (although it is often
  * derived from it) in that it must be attached to a unit.
  */
 public class EquipmentType extends BuildableType {
 
-    public static final EquipmentType[] NO_EQUIPMENT = new EquipmentType[0];
+	/** The Constant NO_EQUIPMENT. */
+	public static final EquipmentType[] NO_EQUIPMENT = new EquipmentType[0];
 
-    /** The maximum number of equipment items that can be combined. */
-    private int maximumCount = 1;
+	/** The maximum number of equipment items that can be combined. */
+	private int maximumCount = 1;
 
-    /**
-     * Determines which type of Equipment will be lost first if the
-     * Unit carrying it is defeated.  Horses should be lost before
-     * Muskets, for example.
-     */
-    private int combatLossPriority = -1;
+	/**
+	 * Determines which type of Equipment will be lost first if the Unit
+	 * carrying it is defeated. Horses should be lost before Muskets, for
+	 * example.
+	 */
+	private int combatLossPriority = -1;
 
-    /**
-     * What this equipment type becomes if it is captured by Indians
-     * (if captureEquipmentByIndians is true) or Europeans (otherwise).
-     */
-    private String captureEquipmentId = null;
-    private boolean captureEquipmentByIndians = false;
+	/**
+	 * What this equipment type becomes if it is captured by Indians (if
+	 * captureEquipmentByIndians is true) or Europeans (otherwise).
+	 */
+	private String captureEquipmentId = null;
 
-    /** The default Role of the Unit carrying this type of Equipment. */
-    private Role role = null;
+	/** The capture equipment by indians. */
+	private boolean captureEquipmentByIndians = false;
 
-    /** Is this military equipment? */
-    private boolean militaryEquipment = false;
+	/** The default Role of the Unit carrying this type of Equipment. */
+	private Role role = null;
 
-    /**
-     * A list containing the object identifiers of equipment types
-     * compatible with this one.
-     */
-    private List<String> compatibleEquipment = null;
+	/** Is this military equipment?. */
+	private boolean militaryEquipment = false;
 
+	/**
+	 * A list containing the object identifiers of equipment types compatible
+	 * with this one.
+	 */
+	private List<String> compatibleEquipment = null;
 
-    /**
-     * Simple constructor.
-     *
-     * @param id The object identifier.
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public EquipmentType(String id, Specification specification) {
-        super(id, specification);
-    }
+	/**
+	 * Simple constructor.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public EquipmentType(String id, Specification specification) {
+		super(id, specification);
+	}
 
+	/**
+	 * Get the maximum combinable amount of this equipment type.
+	 *
+	 * @return The maximum combinable count.
+	 */
+	public final int getMaximumCount() {
+		return maximumCount;
+	}
 
-    /**
-     * Get the maximum combinable amount of this equipment type.
-     *
-     * @return The maximum combinable count.
-     */
-    public final int getMaximumCount() {
-        return maximumCount;
-    }
+	/**
+	 * Get the combat loss priority.
+	 *
+	 * @return The combat loss priority.
+	 */
+	public final int getCombatLossPriority() {
+		return combatLossPriority;
+	}
 
-    /**
-     * Get the combat loss priority.
-     *
-     * @return The combat loss priority.
-     */
-    public final int getCombatLossPriority() {
-        return combatLossPriority;
-    }
+	/**
+	 * Can this equipment type be captured in combat?.
+	 *
+	 * @return True if this equipment can be captured.
+	 */
+	public boolean canBeCaptured() {
+		return combatLossPriority > 0;
+	}
 
-    /**
-     * Can this equipment type be captured in combat?
-     *
-     * @return True if this equipment can be captured.
-     */
-    public boolean canBeCaptured() {
-        return combatLossPriority > 0;
-    }
+	/**
+	 * Get the type of equipment to capture, handling the case where Europeans
+	 * and Indians use different <code>EquipmentType</code>s for the same
+	 * underlying goods.
+	 *
+	 * @param byIndians
+	 *            Is the capture by the Indians?
+	 * @return The captured <code>EquipmentType</code>.
+	 */
+	public EquipmentType getCaptureEquipment(boolean byIndians) {
+		return (captureEquipmentId != null && byIndians == captureEquipmentByIndians)
+				? getSpecification().getEquipmentType(captureEquipmentId) : this;
+	}
 
-    /**
-     * Get the type of equipment to capture, handling the case where
-     * Europeans and Indians use different <code>EquipmentType</code>s
-     * for the same underlying goods.
-     *
-     * @param byIndians Is the capture by the Indians?
-     * @return The captured <code>EquipmentType</code>.
-     */
-    public EquipmentType getCaptureEquipment(boolean byIndians) {
-        return (captureEquipmentId != null
-                && byIndians == captureEquipmentByIndians)
-            ? getSpecification().getEquipmentType(captureEquipmentId)
-            : this;
-    }
+	/**
+	 * Is this type of equipment compatible with the given type of equipment?.
+	 *
+	 * @param otherType
+	 *            The other <code>EquipmentType</code>.
+	 * @return True if the equipment is compatible.
+	 */
+	public boolean isCompatibleWith(EquipmentType otherType) {
+		if (this.getId().equals(otherType.getId())) {
+			// model.equipment.tools for example
+			return true;
+		}
+		return compatibleEquipment != null && compatibleEquipment.contains(otherType.getId())
+				&& otherType.compatibleEquipment.contains(getId());
+	}
 
-    /**
-     * Is this type of equipment compatible with the given type of equipment?
-     *
-     * @param otherType The other <code>EquipmentType</code>.
-     * @return True if the equipment is compatible.
-     */
-    public boolean isCompatibleWith(EquipmentType otherType) {
-        if (this.getId().equals(otherType.getId())) {
-            // model.equipment.tools for example
-            return true;
-        }
-        return compatibleEquipment != null
-            && compatibleEquipment.contains(otherType.getId())
-            && otherType.compatibleEquipment.contains(getId());
-    }
+	/**
+	 * Add a compatible equipment identifier.
+	 *
+	 * @param equipmentId
+	 *            The equipment identifier.
+	 */
+	private void addCompatibleEquipment(String equipmentId) {
+		if (compatibleEquipment == null)
+			compatibleEquipment = new ArrayList<>();
+		compatibleEquipment.add(equipmentId);
+	}
 
-    /**
-     * Add a compatible equipment identifier.
-     *
-     * @param equipmentId The equipment identifier.
-     */
-    private void addCompatibleEquipment(String equipmentId) {
-        if (compatibleEquipment == null) compatibleEquipment = new ArrayList<>();
-        compatibleEquipment.add(equipmentId);
-    }
+	/**
+	 * Get the role for this equipment type.
+	 *
+	 * @return The equipment related role.
+	 */
+	public final Role getRole() {
+		return role;
+	}
 
-    /**
-     * Get the role for this equipment type.
-     *
-     * @return The equipment related role.
-     */
-    public final Role getRole() {
-        return role;
-    }
+	/**
+	 * Set the role for this equipment type.
+	 *
+	 * @param role
+	 *            The new equipment related <code>Role</code>.
+	 */
+	public void setRole(Role role) {
+		this.role = role;
+	}
 
-    /**
-     * Set the role for this equipment type.
-     *
-     * @param role The new equipment related <code>Role</code>.
-     */
-    public void setRole(Role role) {
-        this.role = role;
-    }
+	/**
+	 * Is this military equiment? (True if it grants an offensive or defensive
+	 * bonus).
+	 *
+	 * @return True if this is military equipment.
+	 */
+	public final boolean isMilitaryEquipment() {
+		return militaryEquipment;
+	}
 
-    /**
-     * Is this military equiment?
-     * (True if it grants an offensive or defensive bonus)
-     *
-     * @return True if this is military equipment.
-     */
-    public final boolean isMilitaryEquipment() {
-        return militaryEquipment;
-    }
+	// Override Object
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int hashCode() {
+		int result = 1;
+		result = 37 * result + ((compatibleEquipment == null) ? 0 : compatibleEquipment.hashCode());
+		return 37 * result + ((getId() == null) ? 0 : getId().hashCode());
+	}
 
-    // Override Object
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		EquipmentType other = (EquipmentType) obj;
+		if (compatibleEquipment == null) {
+			if (other.compatibleEquipment != null)
+				return false;
+		} else if (!compatibleEquipment.equals(other.compatibleEquipment))
+			return false;
+		if (getId() == null) {
+			if (other.getId() != null)
+				return false;
+		} else if (!getId().equals(other.getId()))
+			return false;
+		return true;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int hashCode() {
-        int result = 1;
-        result = 37 * result
-            + ((compatibleEquipment == null) ? 0 : compatibleEquipment
-               .hashCode());
-        return 37 * result + ((getId() == null) ? 0 : getId().hashCode());
-    }
+	// Serialization
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        EquipmentType other = (EquipmentType) obj;
-        if (compatibleEquipment == null) {
-            if (other.compatibleEquipment != null)
-                return false;
-        } else if (!compatibleEquipment.equals(other.compatibleEquipment))
-            return false;
-        if (getId() == null) {
-            if (other.getId() != null)
-                return false;
-        } else if (!getId().equals(other.getId()))
-            return false;
-        return true;
-    }
+	/** The Constant BY_INDIANS_TAG. */
+	private static final String BY_INDIANS_TAG = "by-indians";
 
+	/** The Constant CAPTURE_EQUIPMENT_TAG. */
+	private static final String CAPTURE_EQUIPMENT_TAG = "capture-equipment";
 
-    // Serialization
+	/** The Constant COMBAT_LOSS_PRIORITY_TAG. */
+	private static final String COMBAT_LOSS_PRIORITY_TAG = "combat-loss-priority";
 
-    private static final String BY_INDIANS_TAG = "by-indians";
-    private static final String CAPTURE_EQUIPMENT_TAG = "capture-equipment";
-    private static final String COMBAT_LOSS_PRIORITY_TAG = "combat-loss-priority";
-    private static final String COMPATIBLE_EQUIPMENT_TAG = "compatible-equipment";
-    private static final String MAXIMUM_COUNT_TAG = "maximum-count";
-    private static final String ROLE_TAG = "role";
-    // @compat 0.10.0
-    private static final String REQUIRED_LOCATION_ABILITY_TAG = "required-location-ability";
-    // end @compat
+	/** The Constant COMPATIBLE_EQUIPMENT_TAG. */
+	private static final String COMPATIBLE_EQUIPMENT_TAG = "compatible-equipment";
 
+	/** The Constant MAXIMUM_COUNT_TAG. */
+	private static final String MAXIMUM_COUNT_TAG = "maximum-count";
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
+	/** The Constant ROLE_TAG. */
+	private static final String ROLE_TAG = "role";
 
-        xw.writeAttribute(MAXIMUM_COUNT_TAG, maximumCount);
+	/** The Constant REQUIRED_LOCATION_ABILITY_TAG. */
+	// @compat 0.10.0
+	private static final String REQUIRED_LOCATION_ABILITY_TAG = "required-location-ability";
+	// end @compat
 
-        xw.writeAttribute(COMBAT_LOSS_PRIORITY_TAG, combatLossPriority);
-        
-        xw.writeAttribute(ROLE_TAG, role);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeChildren(xw);
+		xw.writeAttribute(MAXIMUM_COUNT_TAG, maximumCount);
 
-        if (captureEquipmentId != null) {
-            xw.writeStartElement(CAPTURE_EQUIPMENT_TAG);
+		xw.writeAttribute(COMBAT_LOSS_PRIORITY_TAG, combatLossPriority);
 
-            xw.writeAttribute(ID_ATTRIBUTE_TAG, captureEquipmentId);
+		xw.writeAttribute(ROLE_TAG, role);
+	}
 
-            xw.writeAttribute(BY_INDIANS_TAG, captureEquipmentByIndians);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeChildren(xw);
 
-            xw.writeEndElement();
-        }
+		if (captureEquipmentId != null) {
+			xw.writeStartElement(CAPTURE_EQUIPMENT_TAG);
 
-        if (compatibleEquipment != null) {
-            for (String compatible : compatibleEquipment) {
-                xw.writeStartElement(COMPATIBLE_EQUIPMENT_TAG);
-                
-                xw.writeAttribute(ID_ATTRIBUTE_TAG, compatible);
-                
-                xw.writeEndElement();
-            }
-        }
-    }
+			xw.writeAttribute(ID_ATTRIBUTE_TAG, captureEquipmentId);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        super.readAttributes(xr);
+			xw.writeAttribute(BY_INDIANS_TAG, captureEquipmentByIndians);
 
-        maximumCount = xr.getAttribute(MAXIMUM_COUNT_TAG, 1);
+			xw.writeEndElement();
+		}
 
-        combatLossPriority = xr.getAttribute(COMBAT_LOSS_PRIORITY_TAG, -1);
+		if (compatibleEquipment != null) {
+			for (String compatible : compatibleEquipment) {
+				xw.writeStartElement(COMPATIBLE_EQUIPMENT_TAG);
 
-        role = xr.getRole(getSpecification(), ROLE_TAG, Role.class,
-                          getSpecification().getDefaultRole());
-    }
+				xw.writeAttribute(ID_ATTRIBUTE_TAG, compatible);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
-        // Clear containers.
-        if (xr.shouldClearContainers()) {
-            captureEquipmentId = null;
-            captureEquipmentByIndians = false;
-            compatibleEquipment = null;
-        }
+				xw.writeEndElement();
+			}
+		}
+	}
 
-        super.readChildren(xr);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		super.readAttributes(xr);
 
-        for (Modifier modifier : getModifiers()) {
-            if (Modifier.OFFENCE.equals(modifier.getId())
-                || Modifier.DEFENCE.equals(modifier.getId())) {
-                militaryEquipment = true;
-                break;
-            }
-        }
-    }
+		maximumCount = xr.getAttribute(MAXIMUM_COUNT_TAG, 1);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
-        final Specification spec = getSpecification();
-        final String tag = xr.getLocalName();
+		combatLossPriority = xr.getAttribute(COMBAT_LOSS_PRIORITY_TAG, -1);
 
-        if (CAPTURE_EQUIPMENT_TAG.equals(tag)) {
-            captureEquipmentId = xr.readId();
-            captureEquipmentByIndians = xr.getAttribute(BY_INDIANS_TAG, false);
-            xr.closeTag(CAPTURE_EQUIPMENT_TAG);
+		role = xr.getRole(getSpecification(), ROLE_TAG, Role.class, getSpecification().getDefaultRole());
+	}
 
-        } else if (COMPATIBLE_EQUIPMENT_TAG.equals(tag)) {
-            addCompatibleEquipment(xr.readId());
-            xr.closeTag(COMPATIBLE_EQUIPMENT_TAG);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+		// Clear containers.
+		if (xr.shouldClearContainers()) {
+			captureEquipmentId = null;
+			captureEquipmentByIndians = false;
+			compatibleEquipment = null;
+		}
 
-        // @compat 0.10.0
-        } else if (REQUIRED_LOCATION_ABILITY_TAG.equals(tag)) {
-            String abilityId = xr.readId();
-            Map<String, Boolean> required = getRequiredAbilities();
-            required.put(abilityId, xr.getAttribute(VALUE_TAG, true));
-            setRequiredAbilities(required);
-            spec.addAbility(abilityId);
-            xr.closeTag(REQUIRED_LOCATION_ABILITY_TAG);
-        // end @compat
+		super.readChildren(xr);
 
-        } else {
-            super.readChild(xr);
-        }
-    }
+		for (Modifier modifier : getModifiers()) {
+			if (Modifier.OFFENCE.equals(modifier.getId()) || Modifier.DEFENCE.equals(modifier.getId())) {
+				militaryEquipment = true;
+				break;
+			}
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+		final Specification spec = getSpecification();
+		final String tag = xr.getLocalName();
 
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "equipment-type".
-     */
-    public static String getXMLElementTagName() {
-        return "equipment-type";
-    }
+		if (CAPTURE_EQUIPMENT_TAG.equals(tag)) {
+			captureEquipmentId = xr.readId();
+			captureEquipmentByIndians = xr.getAttribute(BY_INDIANS_TAG, false);
+			xr.closeTag(CAPTURE_EQUIPMENT_TAG);
+
+		} else if (COMPATIBLE_EQUIPMENT_TAG.equals(tag)) {
+			addCompatibleEquipment(xr.readId());
+			xr.closeTag(COMPATIBLE_EQUIPMENT_TAG);
+
+			// @compat 0.10.0
+		} else if (REQUIRED_LOCATION_ABILITY_TAG.equals(tag)) {
+			String abilityId = xr.readId();
+			Map<String, Boolean> required = getRequiredAbilities();
+			required.put(abilityId, xr.getAttribute(VALUE_TAG, true));
+			setRequiredAbilities(required);
+			spec.addAbility(abilityId);
+			xr.closeTag(REQUIRED_LOCATION_ABILITY_TAG);
+			// end @compat
+
+		} else {
+			super.readChild(xr);
+		}
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "equipment-type".
+	 */
+	public static String getXMLElementTagName() {
+		return "equipment-type";
+	}
 }

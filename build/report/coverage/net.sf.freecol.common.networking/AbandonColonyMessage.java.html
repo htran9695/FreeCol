@@ -27,91 +27,89 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent when the client requests abandoning of a colony.
  */
 public class AbandonColonyMessage extends DOMMessage {
 
-    /** The identifier of the colony to abandon. */
-    private final String colonyId;
+	/** The identifier of the colony to abandon. */
+	private final String colonyId;
 
+	/**
+	 * Create a new &lt;code&gt;AbandonColonyMessage&lt;/code&gt; with the specified colony.
+	 *
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; to abandon.
+	 */
+	public AbandonColonyMessage(Colony colony) {
+<span class="nc" id="L45">		super(getXMLElementTagName());</span>
 
-    /**
-     * Create a new &lt;code&gt;AbandonColonyMessage&lt;/code&gt; with the specified
-     * colony.
-     *
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to abandon.
-     */
-    public AbandonColonyMessage(Colony colony) {
-<span class="nc" id="L47">        super(getXMLElementTagName());</span>
+<span class="nc" id="L47">		this.colonyId = colony.getId();</span>
+<span class="nc" id="L48">	}</span>
 
-<span class="nc" id="L49">        this.colonyId = colony.getId();</span>
-<span class="nc" id="L50">    }</span>
+	/**
+	 * Create a new &lt;code&gt;AbandonColonyMessage&lt;/code&gt; from a supplied element.
+	 *
+	 * @param game
+	 *            The &lt;code&gt;Game&lt;/code&gt; this message belongs to.
+	 * @param element
+	 *            The &lt;code&gt;Element&lt;/code&gt; to use to create the message.
+	 */
+	public AbandonColonyMessage(Game game, Element element) {
+<span class="nc" id="L59">		super(getXMLElementTagName());</span>
 
-    /**
-     * Create a new &lt;code&gt;AbandonColonyMessage&lt;/code&gt; from a supplied element.
-     *
-     * @param game The &lt;code&gt;Game&lt;/code&gt; this message belongs to.
-     * @param element The &lt;code&gt;Element&lt;/code&gt; to use to create the message.
-     */
-    public AbandonColonyMessage(Game game, Element element) {
-<span class="nc" id="L59">        super(getXMLElementTagName());</span>
+<span class="nc" id="L61">		this.colonyId = element.getAttribute(&quot;colony&quot;);</span>
+<span class="nc" id="L62">	}</span>
 
-<span class="nc" id="L61">        this.colonyId = element.getAttribute(&quot;colony&quot;);</span>
-<span class="nc" id="L62">    }</span>
+	/**
+	 * Handle a &quot;abandonColony&quot;-message.
+	 *
+	 * @param server
+	 *            The &lt;code&gt;FreeColServer&lt;/code&gt; handling the request.
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; abandoning the colony.
+	 * @param connection
+	 *            The &lt;code&gt;Connection&lt;/code&gt; the message is from.
+	 * @return An update &lt;code&gt;Element&lt;/code&gt; defining the new colony and
+	 *         updating its surrounding tiles, or an error &lt;code&gt;Element&lt;/code&gt;
+	 *         on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+<span class="nc" id="L78">		final ServerPlayer serverPlayer = server.getPlayer(connection);</span>
 
+		Colony colony;
+		try {
+<span class="nc" id="L82">			colony = player.getOurFreeColGameObject(colonyId, Colony.class);</span>
+<span class="nc" id="L83">		} catch (Exception e) {</span>
+<span class="nc" id="L84">			return DOMMessage.clientError(e.getMessage());</span>
+<span class="nc" id="L85">		}</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">		if (colony.getUnitCount() != 0) {</span>
+<span class="nc" id="L87">			return DOMMessage.clientError(&quot;Attempt to abandon colony &quot; + colonyId + &quot; with non-zero unit count &quot;</span>
+<span class="nc" id="L88">					+ Integer.toString(colony.getUnitCount()));</span>
+		}
 
-    /**
-     * Handle a &quot;abandonColony&quot;-message.
-     *
-     * @param server The &lt;code&gt;FreeColServer&lt;/code&gt; handling the request.
-     * @param player The &lt;code&gt;Player&lt;/code&gt; abandoning the colony.
-     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the message is from.
-     * @return An update &lt;code&gt;Element&lt;/code&gt; defining the new colony
-     *     and updating its surrounding tiles, or an error
-     *     &lt;code&gt;Element&lt;/code&gt; on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-<span class="nc" id="L77">        final ServerPlayer serverPlayer = server.getPlayer(connection);</span>
+		// Proceed to abandon
+		// FIXME: Player.settlements is still being fixed on the client side.
+<span class="nc" id="L93">		return server.getInGameController().abandonSettlement(serverPlayer, colony);</span>
+	}
 
-        Colony colony;
-        try {
-<span class="nc" id="L81">            colony = player.getOurFreeColGameObject(colonyId, Colony.class);</span>
-<span class="nc" id="L82">        } catch (Exception e) {</span>
-<span class="nc" id="L83">            return DOMMessage.clientError(e.getMessage());</span>
-<span class="nc" id="L84">        }</span>
-<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (colony.getUnitCount() != 0) {</span>
-<span class="nc" id="L86">            return DOMMessage.clientError(&quot;Attempt to abandon colony &quot;</span>
-                + colonyId + &quot; with non-zero unit count &quot;
-<span class="nc" id="L88">                + Integer.toString(colony.getUnitCount()));</span>
-        }
+	/**
+	 * Convert this AbandonColonyMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+<span class="nc" id="L103">		return createMessage(getXMLElementTagName(), &quot;colony&quot;, colonyId);</span>
+	}
 
-        // Proceed to abandon
-        // FIXME: Player.settlements is still being fixed on the client side.
-<span class="nc" id="L93">        return server.getInGameController()</span>
-<span class="nc" id="L94">            .abandonSettlement(serverPlayer, colony);</span>
-    }
-
-    /**
-     * Convert this AbandonColonyMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-<span class="nc" id="L104">        return createMessage(getXMLElementTagName(),</span>
-            &quot;colony&quot;, colonyId);
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return &quot;abandonColony&quot;.
-     */
-    public static String getXMLElementTagName() {
-<span class="fc" id="L114">        return &quot;abandonColony&quot;;</span>
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return &quot;abandonColony&quot;.
+	 */
+	public static String getXMLElementTagName() {
+<span class="fc" id="L112">		return &quot;abandonColony&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

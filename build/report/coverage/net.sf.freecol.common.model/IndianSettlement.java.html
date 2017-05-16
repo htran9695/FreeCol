@@ -38,1567 +38,1585 @@ import net.sf.freecol.common.io.FreeColXMLWriter;
 import static net.sf.freecol.common.util.CollectionUtils.*;
 import static net.sf.freecol.common.util.RandomUtils.*;
 
-
 /**
  * Represents an Indian settlement.
  */
 public class IndianSettlement extends Settlement implements TradeLocation {
 
-<span class="fc" id="L47">    private static final Logger logger = Logger.getLogger(IndianSettlement.class.getName());</span>
-
-    /** The level of contact between a player and this settlement. */
-<span class="pc" id="L50">    public static enum ContactLevel {</span>
-<span class="fc" id="L51">        UNCONTACTED,     // Nothing known other than location?</span>
-<span class="fc" id="L52">        CONTACTED,       // Name, wanted-goods now visible</span>
-<span class="fc" id="L53">        VISITED,         // Skill now known</span>
-<span class="fc" id="L54">        SCOUTED          // Scouting bonus consumed</span>
-    };
-
-    // When choosing what goods to sell, sort goods with new world
-    // goods first, then by price, then amount.
-<span class="fc" id="L59">    private final Comparator&lt;Goods&gt; exportGoodsComparator</span>
-<span class="fc" id="L60">        = new Comparator&lt;Goods&gt;() {</span>
-            @Override
-            public int compare(Goods goods1, Goods goods2) {
-                int cmp;
-<span class="nc" id="L64">                GoodsType t1 = goods1.getType();</span>
-<span class="nc" id="L65">                GoodsType t2 = goods2.getType();</span>
-<span class="nc bnc" id="L66" title="All 2 branches missed.">                cmp = (((t2.isNewWorldGoodsType()) ? 1 : 0)</span>
-<span class="nc bnc" id="L67" title="All 2 branches missed.">                    - ((t1.isNewWorldGoodsType()) ? 1 : 0));</span>
-<span class="nc bnc" id="L68" title="All 2 branches missed.">                if (cmp == 0) {</span>
-<span class="nc" id="L69">                    int a1 = Math.min(goods2.getAmount(),</span>
-                        GoodsContainer.CARGO_SIZE);
-<span class="nc" id="L71">                    int a2 = Math.min(goods1.getAmount(),</span>
-                        GoodsContainer.CARGO_SIZE);
-<span class="nc" id="L73">                    cmp = getPriceToSell(t2, a2) - getPriceToSell(t1, a1);</span>
-<span class="nc bnc" id="L74" title="All 2 branches missed.">                    if (cmp == 0) {</span>
-<span class="nc" id="L75">                        cmp = a2 - a1;</span>
-                    }
-                }
-<span class="nc" id="L78">                return cmp;</span>
-            }
-        };
-
-    /** The production fudge factor. */
-    public static final double NATIVE_PRODUCTION_EFFICIENCY = 0.67;
-
-    /** The maximum number of wanted goods. */
-    public static final int WANTED_GOODS_COUNT = 3;
-
-    /** Radius of native tales map reveal. */
-    public static final int TALES_RADIUS = 6;
-
-    /** Do not sell less than this amount of goods. */
-    public static final int TRADE_MINIMUM_SIZE = 20;
-
-    /** Do not buy goods when the price is this low. */
-    public static final int TRADE_MINIMUM_PRICE = 3;
-
-    public static final int GOODS_BASE_PRICE = 12;
-
-    /** The amount of goods a brave can produce a single turn. */
-    //private static final int WORK_AMOUNT = 5;
-
-    /**
-     * The amount of raw material that should be available before
-     * producing manufactured goods.
-     */
-    public static final int KEEP_RAW_MATERIAL = 50;
-
-    /**
-     * Generate gifts from goods that exceed KEEP_RAW_MATERIAL +
-     * GIFT_THRESHOLD.
-     */
-    public static final int GIFT_THRESHOLD = 25;
-
-    /** The minimum gift amount. */
-    public static final int GIFT_MINIMUM = 10;
-
-    /** The maximum gift amount. */
-    public static final int GIFT_MAXIMUM = 80;
-
-    /**
-     * This is the skill that can be learned by Europeans at this
-     * settlement.  At the server side its value will be null when the
-     * skill has already been taught to a European.  At the client
-     * side the value null is also possible in case the player hasn't
-     * checked out the settlement yet.
-     */
-<span class="fc" id="L127">    protected UnitType learnableSkill = null;</span>
-
-    /** The goods this settlement wants. */
-<span class="fc" id="L130">    protected GoodsType[] wantedGoods = { null, null, null };</span>
-
-    /**
-     * A map that tells if a player has spoken to the chief of this settlement.
-     *
-     * At the client side, only the information regarding the player
-     * on that client should be included.
-     */
-<span class="fc" id="L138">    protected final java.util.Map&lt;Player, ContactLevel&gt; contactLevels = new HashMap&lt;&gt;();</span>
-
-    /** Units that belong to this settlement. */
-<span class="fc" id="L141">    protected final List&lt;Unit&gt; ownedUnits = new ArrayList&lt;&gt;();</span>
-
-    /** The missionary at this settlement. */
-<span class="fc" id="L144">    protected Unit missionary = null;</span>
-
-    /** Used for monitoring the progress towards creating a convert. */
-<span class="fc" id="L147">    protected int convertProgress = 0;</span>
-
-    /** The number of the turn during which the last tribute was paid. */
-<span class="fc" id="L150">    protected int lastTribute = 0;</span>
-
-    /** The most hated nation. */
-<span class="fc" id="L153">    protected Player mostHated = null;</span>
-
-    /**
-     * Stores the alarm levels. &lt;b&gt;Only used by AI.&lt;/b&gt;
-     * &quot;Alarm&quot; means: Tension with respect to a player from an
-     *      IndianSettlement.
-     * Alarm is overloaded with the concept of &quot;contact&quot;.  If a settlement
-     * has never been contacted by a player, alarm.get(player) will be null.
-     * Acts causing contact initialize this variable.
-     */
-<span class="fc" id="L163">    protected final java.util.Map&lt;Player, Tension&gt; alarm = new HashMap&lt;&gt;();</span>
-
-
-    /**
-     * Constructor for ServerIndianSettlement.
-     *
-     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
-     * @param owner The &lt;code&gt;Player&lt;/code&gt; owning this settlement.
-     * @param name The name for this settlement.
-     * @param tile The containing &lt;code&gt;Tile&lt;/code&gt;.
-     */
-    protected IndianSettlement(Game game, Player owner, String name,
-                               Tile tile) {
-<span class="fc" id="L176">        super(game, owner, name, tile);</span>
-<span class="fc" id="L177">    }</span>
-
-    /**
-     * Creates a new &lt;code&gt;IndianSettlement&lt;/code&gt; with the given
-     * identifier.  The object should later be initialized by calling either
-     * {@link #readFromXML(FreeColXMLReader)}.
-     *
-     * @param game The &lt;code&gt;Game&lt;/code&gt; in which this object belong.
-     * @param id The object identifier.
-     */
-    public IndianSettlement(Game game, String id) {
-<span class="fc" id="L188">        super(game, id);</span>
-<span class="fc" id="L189">    }</span>
-
-
-    /**
-     * Adds the given &lt;code&gt;Unit&lt;/code&gt; to the list of units that
-     * belongs to this &lt;code&gt;IndianSettlement&lt;/code&gt;.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to be added.
-     */
-    public void addOwnedUnit(Unit unit) {
-<span class="pc bpc" id="L199" title="1 of 2 branches missed.">        if (unit == null) {</span>
-<span class="nc" id="L200">            throw new IllegalArgumentException(&quot;Parameter 'unit' must not be 'null'.&quot;);</span>
-        }
-
-<span class="fc bfc" id="L203" title="All 2 branches covered.">        if (!ownedUnits.contains(unit)) {</span>
-<span class="fc" id="L204">            ownedUnits.add(unit);</span>
-        }
-<span class="fc" id="L206">    }</span>
-
-    /**
-     * Gets a list of the units native to this settlement.
-     *
-     * @return The list of units native to this settlement.
-     */
-    public List&lt;Unit&gt; getOwnedUnits() {
-<span class="fc" id="L214">        return new ArrayList&lt;&gt;(ownedUnits);</span>
-    }
-
-    /**
-     * Gets an iterator over all the units this
-     * &lt;code&gt;IndianSettlement&lt;/code&gt; is owning.
-     *
-     * @return The &lt;code&gt;Iterator&lt;/code&gt;.
-     */
-    public Iterator&lt;Unit&gt; getOwnedUnitsIterator() {
-<span class="fc" id="L224">        return ownedUnits.iterator();</span>
-    }
-
-    /**
-     * Removes the given &lt;code&gt;Unit&lt;/code&gt; to the list of units that
-     * belongs to this &lt;code&gt;IndianSettlement&lt;/code&gt;. Returns true if
-     * the Unit was removed.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to be removed from the
-     *       list of the units this &lt;code&gt;IndianSettlement&lt;/code&gt;
-     *       owns.
-     * @return a &lt;code&gt;boolean&lt;/code&gt; value
-     */
-    public boolean removeOwnedUnit(Unit unit) {
-<span class="pc bpc" id="L238" title="1 of 2 branches missed.">        if (unit == null) {</span>
-<span class="nc" id="L239">            throw new IllegalArgumentException(&quot;Parameter 'unit' must not be 'null'.&quot;);</span>
-        }
-<span class="fc" id="L241">        return ownedUnits.remove(unit);</span>
-    }
-
-    /**
-     * Get the year of the last tribute.
-     *
-     * @return The year of the last tribute.
-     */
-    public int getLastTribute() {
-<span class="nc" id="L250">        return lastTribute;</span>
-    }
-
-    /**
-     * Set the year of the last tribute.
-     *
-     * @param lastTribute The new last tribute year.
-     */
-    public void setLastTribute(int lastTribute) {
-<span class="nc" id="L259">        this.lastTribute = lastTribute;</span>
-<span class="nc" id="L260">    }</span>
-
-    /**
-     * Gets the skill that can be learned at this settlement.
-     *
-     * @return The skill that can be learned at this settlement.
-     */
-    public UnitType getLearnableSkill() {
-<span class="fc" id="L268">        return learnableSkill;</span>
-    }
-
-    /**
-     * Sets the learnable skill for this Indian settlement.
-     *
-     * @param skill The new learnable skill for this Indian settlement.
-     */
-    public void setLearnableSkill(UnitType skill) {
-<span class="fc" id="L277">        learnableSkill = skill;</span>
-<span class="fc" id="L278">    }</span>
-
-    /**
-     * Get a label appropriate to the current learnable skill
-     * and whether the requestor has visited this settlement.
-     *
-     * @param visited The visiting status.
-     * @return A &lt;code&gt;StringTemplate&lt;/code&gt; describing the perceived skill.
-     */
-    public StringTemplate getLearnableSkillLabel(boolean visited) {
-<span class="nc bnc" id="L288" title="All 4 branches missed.">        return StringTemplate.key((visited)</span>
-            ? ((learnableSkill == null)
-                ? &quot;model.indianSettlement.skillNone&quot;
-<span class="nc" id="L291">                : learnableSkill.getNameKey())</span>
-            : &quot;model.indianSettlement.skillUnknown&quot;);
-    }
-            
-    /**
-     * Gets the missionary from this settlement.
-     *
-     * @return The missionary at this settlement, or null if there is none.
-     */
-    public Unit getMissionary() {
-<span class="fc" id="L301">        return missionary;</span>
-    }
-
-    /**
-     * Does this settlement have a missionary?
-     *
-     * @return True if there is a missionary at this settlement.
-     */
-    public boolean hasMissionary() {
-<span class="fc bfc" id="L310" title="All 2 branches covered.">        return missionary != null;</span>
-    }
-
-    /**
-     * Does this settlement have a missionary from the given player?
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to test.
-     * @return True if there is a suitable missionary present.
-     */
-    public boolean hasMissionary(Player player) {
-<span class="pc bpc" id="L320" title="2 of 6 branches missed.">        return missionary != null &amp;&amp; player != null &amp;&amp; player.owns(missionary);</span>
-    }
-
-    /**
-     * Sets the missionary for this settlement.
-     *
-     * -vis: This routine has visibility implications when enhanced
-     * missionaries are enabled.
-     * -til: This changes the tile appearance.
-     *
-     * @param missionary The missionary for this settlement.
-     */
-    public void setMissionary(Unit missionary) {
-<span class="fc" id="L333">        this.missionary = missionary;</span>
-<span class="fc" id="L334">    }</span>
-
-    /**
-     * Get the line of sight used by a missionary at this settlement.
-     *
-     * @return The missionary line of sight.
-     */
-    public int getMissionaryLineOfSight() {
-<span class="fc" id="L342">        final boolean enhanced = getSpecification() </span>
-<span class="fc" id="L343">            .getBoolean(GameOptions.ENHANCED_MISSIONARIES);</span>
-<span class="pc bpc" id="L344" title="1 of 2 branches missed.">        return (enhanced) ? getLineOfSight() : 1;</span>
-    }
-
-    /**
-     * Gets the convert progress status for this settlement.
-     *
-     * @return The convert progress status.
-     */
-    public int getConvertProgress() {
-<span class="nc" id="L353">        return convertProgress;</span>
-    }
-
-    /**
-     * Sets the convert progress status for this settlement.
-     *
-     * @param progress The new convert progress status.
-     */
-    public void setConvertProgress(int progress) {
-<span class="fc" id="L362">        convertProgress = progress;</span>
-<span class="fc" id="L363">    }</span>
-
-    /**
-     * Gets the goods wanted by this settlement.
-     *
-     * @return The wanted goods list.
-     */
-    public GoodsType[] getWantedGoods() {
-<span class="fc" id="L371">        return wantedGoods;</span>
-    }
-
-    /**
-     * Sets the goods wanted by this Settlement.
-     *
-     * @param wantedGoods a &lt;code&gt;GoodsType&lt;/code&gt; value
-     */
-    public void setWantedGoods(GoodsType[] wantedGoods) {
-<span class="nc" id="L380">        this.wantedGoods = wantedGoods;</span>
-<span class="nc" id="L381">    }</span>
-
-    /**
-     * Sets the goods wanted by this settlement.
-     *
-     * @param index Which of the (usually 3) goods to set.
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; wanted.
-     */
-    public void setWantedGoods(int index, GoodsType type) {
-<span class="pc bpc" id="L390" title="2 of 4 branches missed.">        if (0 &lt;= index &amp;&amp; index &lt; wantedGoods.length) {</span>
-<span class="fc" id="L391">            wantedGoods[index] = type;</span>
-        }
-<span class="fc" id="L393">    }</span>
-
-    /**
-     * Get the number of wanted goods.  If any members of the array
-     * are null, we assume that subsequent ones are too.
-     *
-     * @return The number of wanted goods.
-     */
-    public int getWantedGoodsAmount() {
-<span class="nc" id="L402">        int n = 0;</span>
-<span class="nc bnc" id="L403" title="All 4 branches missed.">        for (GoodsType gt : wantedGoods) if (gt != null) n++;</span>
-<span class="nc" id="L404">        return n;</span>
-    }
-
-    /**
-     * Get a label for one of the wanted goods.
-     *
-     * @param index The index into the wanted goods.
-     * @param player The requesting &lt;code&gt;Player&lt;/code&gt;.
-     * @return A suitable &lt;code&gt;StringTemplate&lt;/code&gt;.
-     */
-    public StringTemplate getWantedGoodsLabel(int index, Player player) {
-        StringTemplate ret;
-<span class="nc bnc" id="L416" title="All 6 branches missed.">        if (hasVisited(player) &amp;&amp; 0 &lt;= index &amp;&amp; index &lt; wantedGoods.length) {</span>
-<span class="nc bnc" id="L417" title="All 2 branches missed.">            if (wantedGoods[index] == null) {</span>
-<span class="nc" id="L418">                ret = StringTemplate.key(&quot;model.indianSettlement.wantedGoodsNone&quot;);</span>
-            } else {
-<span class="nc" id="L420">                ret = StringTemplate.label(&quot;&quot;)</span>
-<span class="nc" id="L421">                    .add(Messages.nameKey(wantedGoods[index]));</span>
-<span class="nc" id="L422">                String sale = player.getLastSaleString(this, wantedGoods[index]);</span>
-<span class="nc bnc" id="L423" title="All 2 branches missed.">                if (sale != null) ret.addName(&quot; &quot; + sale);</span>
-<span class="nc" id="L424">            }</span>
-        } else {
-<span class="nc" id="L426">            ret = StringTemplate.key(&quot;model.indianSettlement.wantedGoodsUnknown&quot;);</span>
-        }
-<span class="nc" id="L428">        return ret;</span>
-    }                
-            
-    /**
-     * Gets the most hated nation of this settlement.
-     *
-     * @return The most hated nation.
-     */
-    public Player getMostHated() {
-<span class="fc" id="L437">        return mostHated;</span>
-    }
-
-    /**
-     * Sets the most hated nation of this settlement.
-     *
-     * -til: Changes the tile appearance.
-     *
-     * @param mostHated The new most hated nation.
-     */
-    public void setMostHated(Player mostHated) {
-<span class="nc" id="L448">        this.mostHated = mostHated;</span>
-<span class="nc" id="L449">    }</span>
-
-    /**
-     * Get a template for the current most hated nation, depending
-     * whether the requestor has contacted this settlement.
-     *
-     * @param contacted The contact status.
-     * @return A &lt;code&gt;StringTemplate&lt;/code&gt; describing the perceived
-     *     most hated nation.
-     */
-    public StringTemplate getMostHatedLabel(boolean contacted) {
-<span class="nc bnc" id="L460" title="All 4 branches missed.">        return (contacted)</span>
-            ? ((mostHated == null)
-<span class="nc" id="L462">                ? StringTemplate.key(&quot;model.indianSettlement.mostHatedNone&quot;)</span>
-<span class="nc" id="L463">                : mostHated.getCountryLabel())</span>
-<span class="nc" id="L464">            : StringTemplate.key(&quot;model.indianSettlement.mostHatedUnknown&quot;);</span>
-    }
-            
-    /**
-     * Gets the contact level between this settlement and a player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to check.
-     * @return The contact level.
-     */
-    public ContactLevel getContactLevel(Player player) {
-<span class="fc" id="L474">        ContactLevel cl = contactLevels.get(player);</span>
-<span class="fc bfc" id="L475" title="All 2 branches covered.">        return (cl == null) ? ContactLevel.UNCONTACTED : cl;</span>
-    }
-
-    /**
-     * Make contact with this settlement (if it has not been
-     * previously contacted).  Initialize tension level to the general
-     * level with respect to the contacting player--- effectively the
-     * average reputation of this player with the overall tribe.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; making contact.
-     * @return True if this was indeed the first contact between settlement
-     *     and player.
-     */
-    public boolean setContacted(Player player) {
-<span class="fc bfc" id="L489" title="All 2 branches covered.">        if (!hasContacted(player)) {</span>
-<span class="fc" id="L490">            contactLevels.put(player, ContactLevel.CONTACTED);</span>
-<span class="fc" id="L491">            initializeAlarm(player);</span>
-<span class="fc" id="L492">            return true;</span>
-        }
-<span class="fc" id="L494">        return false;</span>
-    }
-
-    /**
-     * Has a player visited this settlement?
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to check.
-     * @return True if the player has contacted this settlement.
-     */
-    public boolean hasVisited(Player player) {
-<span class="fc" id="L504">        return getContactLevel(player).ordinal()</span>
-<span class="pc bpc" id="L505" title="1 of 2 branches missed.">            &gt;= ContactLevel.VISITED.ordinal();</span>
-    }
-
-    /**
-     * Sets the contact level of this settlement to indicate
-     * that a European player has visited the settlement.
-     *
-     * @param player The visiting &lt;code&gt;Player&lt;/code&gt;.
-     * @return True if this was the first time the settlement was visited
-     *     by the player.
-     */
-    public boolean setVisited(Player player) {
-<span class="pc bpc" id="L517" title="1 of 2 branches missed.">        if (!hasVisited(player)) {</span>
-<span class="pc bpc" id="L518" title="1 of 2 branches missed.">            if (!hasContacted(player)) initializeAlarm(player);</span>
-<span class="fc" id="L519">            contactLevels.put(player, ContactLevel.VISITED);</span>
-<span class="fc" id="L520">            return true;</span>
-        }
-<span class="nc" id="L522">        return false;</span>
-    }
-
-    /**
-     * Has a player has spoken with the chief of this settlement.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to check.
-     * @return True if the player has visited this settlement to speak
-     *     with the chief.
-     */
-    public boolean hasScouted(Player player) {
-<span class="fc bfc" id="L533" title="All 2 branches covered.">        return getContactLevel(player) == ContactLevel.SCOUTED;</span>
-    }
-
-    /**
-     * Sets the contact level of this settlement to indicate
-     * that a European player has had a chat with the chief.
-     *
-     * @param player The visiting &lt;code&gt;Player&lt;/code&gt;.
-     * @return True if this was the first time the settlement was scouted
-     *     by the player.
-     */
-    public boolean setScouted(Player player) {
-<span class="pc bpc" id="L545" title="1 of 2 branches missed.">        if (!hasScouted(player)) {</span>
-<span class="pc bpc" id="L546" title="1 of 2 branches missed.">            if (!hasContacted(player)) initializeAlarm(player);</span>
-<span class="fc" id="L547">            contactLevels.put(player, ContactLevel.SCOUTED);</span>
-<span class="fc" id="L548">            return true;</span>
-        }
-<span class="nc" id="L550">        return false;</span>
-    }
-
-    /**
-     * Has any European player spoken with the chief of this settlement.
-     *
-     * @return True if any European player has spoken with the chief.
-     */
-    public boolean hasAnyScouted() {
-<span class="nc" id="L559">        return any(contactLevels.keySet(), p -&gt; hasScouted(p));</span>
-    }
-
-    /**
-     * Is this settlement worth scouting?
-     * That is, has it been contacted, but not scouted already, or
-     * visited when the &quot;Chief contact&quot; option is set.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; contemplating scouting.
-     * @return Whether it might be worth the player scouting this settlement.
-     */
-    public boolean worthScouting(Player player) {
-<span class="nc" id="L571">        ContactLevel cl = getContactLevel(player);</span>
-<span class="nc bnc" id="L572" title="All 3 branches missed.">        switch (cl) {</span>
-        case CONTACTED:
-<span class="nc" id="L574">            return true;</span>
-        case VISITED:
-<span class="nc" id="L576">            return !getSpecification()</span>
-<span class="nc bnc" id="L577" title="All 2 branches missed.">                .getBoolean(GameOptions.SETTLEMENT_ACTIONS_CONTACT_CHIEF);</span>
-        case UNCONTACTED: case SCOUTED: default:
-            break;
-        }
-<span class="nc" id="L581">        return false;</span>
-    }
-
-    /**
-     * Gets the alarm level towards the given player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to get the alarm level for.
-     * @return The current alarm level or null if the settlement has not
-     *     encoutered the player.
-     */
-    public Tension getAlarm(Player player) {
-<span class="fc" id="L592">        return alarm.get(player);</span>
-    }
-
-    /**
-     * Sets alarm towards the given player.
-     *
-     * -til: Might change tile appearance through most hated state
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to set the alarm level for.
-     * @param newAlarm The new alarm value.
-     */
-    public void setAlarm(Player player, Tension newAlarm) {
-<span class="fc" id="L604">        alarm.put(player, newAlarm);</span>
-<span class="fc" id="L605">    }</span>
-
-    /**
-     * Initialize the alarm at this settlement with respect to a
-     * player with the current national tension.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to set the alarm level for.
-     */
-    protected void initializeAlarm(Player player) {
-<span class="fc" id="L614">        Tension tension = owner.getTension(player);</span>
-<span class="fc" id="L615">        setAlarm(player, new Tension(tension.getValue()));</span>
-<span class="fc" id="L616">    }</span>
-
-    /**
-     * Gets a message key for a short alarm message associated with the
-     * alarm level of this player.
-     *
-     * @param player The other &lt;code&gt;Player&lt;/code&gt;.
-     * @return The alarm message key.
-     */
-    public String getAlarmLevelKey(Player player) {
-<span class="nc bnc" id="L626" title="All 2 branches missed.">        return (!player.hasContacted(owner))</span>
-            ? &quot;model.indianSettlement.tension.wary&quot;
-<span class="nc bnc" id="L628" title="All 2 branches missed.">            : (!hasContacted(player))</span>
-            ? &quot;model.indianSettlement.tension.unknown&quot;
-<span class="nc" id="L630">            : getAlarm(player).getNameKey();</span>
-    }
-
-    /**
-     * Is a unit permitted to make contact with this settlement?
-     * The unit must be from a nation that has already made contact,
-     * or in the first instance, must be arriving by land, with the
-     * exception of trading ships.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that proposes to contact this
-     *             settlement.
-     * @return True if the settlement accepts such contact.
-     */
-    public boolean allowContact(Unit unit) {
-<span class="nc bnc" id="L644" title="All 2 branches missed.">        return unit.getOwner().hasContacted(owner)</span>
-<span class="nc bnc" id="L645" title="All 2 branches missed.">            || !unit.isNaval()</span>
-<span class="nc bnc" id="L646" title="All 2 branches missed.">            || unit.hasGoodsCargo();</span>
-    }
-
-    /**
-     * Gets the amount of gold this &lt;code&gt;IndianSettlment&lt;/code&gt;
-     * is willing to pay for the given &lt;code&gt;Goods&lt;/code&gt;.
-     *
-     * It is only meaningful to call this method from the
-     * server, since the settlement's {@link GoodsContainer}
-     * is hidden from the clients.
-     *
-     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to price.
-     * @return The price.
-     */
-    public int getPriceToBuy(Goods goods) {
-<span class="nc" id="L661">        return getPriceToBuy(goods.getType(), goods.getAmount());</span>
-    }
-
-    /**
-     * Gets the amount of gold this &lt;code&gt;IndianSettlment&lt;/code&gt;
-     * is willing to pay for the given &lt;code&gt;Goods&lt;/code&gt;.
-     *
-     * It is only meaningful to call this method from the server,
-     * since the settlement's {@link GoodsContainer} is hidden from
-     * the clients.  The AI uses it though so it stays here for now.
-     * Note that it takes no account of whether the native player
-     * actually has the gold.
-     *
-     * FIXME: this is rancid with magic numbers.
-     *
-     * @param type The type of &lt;code&gt;Goods&lt;/code&gt; to price.
-     * @param amount The amount of &lt;code&gt;Goods&lt;/code&gt; to price.
-     * @return The price.
-     */
-    public int getPriceToBuy(GoodsType type, int amount) {
-<span class="pc bpc" id="L681" title="1 of 2 branches missed.">        if (amount &gt; GoodsContainer.CARGO_SIZE) {</span>
-<span class="nc" id="L682">            throw new IllegalArgumentException(&quot;Amount &gt; &quot;</span>
-                + GoodsContainer.CARGO_SIZE);
-        }
-
-<span class="fc" id="L686">        int price = 0;</span>
-<span class="fc bfc" id="L687" title="All 2 branches covered.">        if (type.isMilitaryGoods()) {</span>
-            // Might return zero if a surplus is present
-<span class="fc" id="L689">            price = getMilitaryGoodsPriceToBuy(type, amount);</span>
-        }
-<span class="fc bfc" id="L691" title="All 2 branches covered.">        if (price == 0) {</span>
-<span class="fc" id="L692">            price = getNormalGoodsPriceToBuy(type, amount);</span>
-        }
-
-        // Apply wanted bonus
-<span class="fc" id="L696">        final int wantedBase = 100; // Granularity for wanted bonus</span>
-<span class="fc bfc" id="L697" title="All 6 branches covered.">        final int wantedBonus // Premium paid for wanted goods types</span>
-            = (type == wantedGoods[0]) ? 150
-            : (type == wantedGoods[1]) ? 125
-            : (type == wantedGoods[2]) ? 110
-            : 100;
-        // Do not simplify with *=, we want the integer truncation.
-<span class="fc" id="L703">        price = wantedBonus * price / wantedBase;</span>
-
-<span class="fc" id="L705">        logger.finest(&quot;Full price(&quot; + amount + &quot; &quot; + type + &quot;)&quot;</span>
-                      + &quot; -&gt; &quot; + price);
-<span class="fc" id="L707">        return price;</span>
-    }
-
-    /**
-     * Price some goods according to the amount present in the settlement.
-     *
-     * @param type The type of goods for sale.
-     * @param amount The amount of goods for sale.
-     * @return A price for the goods.
-     */
-    private int getNormalGoodsPriceToBuy(GoodsType type, int amount) {
-<span class="fc" id="L718">        final int tradeGoodsAdd = 20; // Fake additional trade goods present</span>
-<span class="fc" id="L719">        final int capacity = getGoodsCapacity();</span>
-<span class="fc" id="L720">        int current = getGoodsCount(type);</span>
-
-        // Increase effective stock if its raw material is produced here.
-<span class="fc" id="L723">        GoodsType rawType = type.getInputType();</span>
-<span class="fc bfc" id="L724" title="All 2 branches covered.">        if (rawType != null) {</span>
-<span class="fc" id="L725">            int rawProduction = getMaximumProduction(rawType);</span>
-<span class="fc bfc" id="L726" title="All 6 branches covered.">            int add = (rawProduction &lt; 5) ? 10 * rawProduction</span>
-                : (rawProduction &lt; 10) ? 5 * rawProduction + 25
-                : (rawProduction &lt; 20) ? 2 * rawProduction + 55
-                : 100;
-            // Decrease bonus in proportion to current stock, up to capacity.
-<span class="fc" id="L731">            add = add * Math.max(0, capacity - current) / capacity;</span>
-<span class="fc" id="L732">            current += add;</span>
-<span class="fc bfc" id="L733" title="All 2 branches covered.">        } else if (type.isTradeGoods()) {</span>
-            // Small artificial increase of the trade goods stored.
-<span class="fc" id="L735">            current += tradeGoodsAdd;</span>
-        }
-
-        // Only interested in the amount of goods that keeps the
-        // total under the threshold.
-<span class="fc" id="L740">        int retain = Math.min(getWantedGoodsAmount(type), capacity);</span>
-<span class="fc bfc" id="L741" title="All 2 branches covered.">        int valued = (retain &lt;= current) ? 0</span>
-<span class="fc" id="L742">            : Math.min(amount, retain - current);</span>
-
-        // Unit price then is maximum price plus the bonus for the
-        // settlement type, reduced by the proportion of goods present.
-<span class="fc" id="L746">        int unitPrice = (GOODS_BASE_PRICE + getType().getTradeBonus())</span>
-<span class="fc" id="L747">            * Math.max(0, capacity - current) / capacity;</span>
-
-        // But farmed goods are always less interesting.
-        // and small settlements are not interested in building.
-<span class="pc bpc" id="L751" title="1 of 4 branches missed.">        if (type.isFarmed() || type.isRawBuildingMaterial()) unitPrice /= 2;</span>
-
-        // Only pay for the portion that is valued.
-<span class="pc bpc" id="L754" title="1 of 2 branches missed.">        return (unitPrice &lt; 0) ? 0 : valued * unitPrice;</span>
-    }
-
-    /**
-     * Calculates how much of the given goods type this settlement
-     * wants and should retain.
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt;.
-     * @return The amount of goods wanted.
-     */
-    protected int getWantedGoodsAmount(GoodsType type) {
-<span class="fc bfc" id="L765" title="All 2 branches covered.">        if (getUnitCount() &lt;= 0) return 0;</span>
-
-<span class="fc" id="L767">        final Specification spec = getSpecification();</span>
-<span class="fc" id="L768">        final UnitType unitType = getFirstUnit().getType();</span>
-<span class="fc" id="L769">        final List&lt;Role&gt; militaryRoles = Role.getAvailableRoles(getOwner(),</span>
-<span class="fc" id="L770">            unitType, spec.getMilitaryRoles());</span>
-
-<span class="fc bfc" id="L772" title="All 2 branches covered.">        if (type.isMilitaryGoods()) { // Retain enough goods to fully arm</span>
-<span class="fc" id="L773">            return ownedUnits.stream()</span>
-<span class="pc bpc" id="L774" title="1 of 2 branches missed.">                .filter(u -&gt; !militaryRoles.contains(u.getRole()))</span>
-<span class="fc" id="L775">                .mapToInt(u -&gt; AbstractGoods.getCount(type, </span>
-<span class="fc" id="L776">                        u.getGoodsDifference(militaryRoles.get(0), 1))).sum();</span>
-        }
-
-<span class="fc" id="L779">        int consumption = getConsumptionOf(type);</span>
-<span class="fc bfc" id="L780" title="All 2 branches covered.">        if (type == spec.getPrimaryFoodType()) {</span>
-            // Food is perishable, do not try to retain that much
-<span class="fc" id="L782">            return Math.max(40, consumption * 3);</span>
-        }
-<span class="fc bfc" id="L784" title="All 4 branches covered.">        if (type.isTradeGoods() || type.isNewWorldLuxuryType()</span>
-<span class="fc bfc" id="L785" title="All 2 branches covered.">            || type.isRefined()) {</span>
-            // Aim for 10 years supply, resupply is doubtful
-<span class="fc" id="L787">            return Math.max(80, consumption * 20);</span>
-        }
-        // Just keep some around
-<span class="fc" id="L790">        return 2 * getUnitCount();</span>
-    }
-
-    /**
-     * Price some goods that have military value to the settlement.
-     *
-     * @param type The type of goods for sale.
-     * @param amount The amount of goods for sale.
-     * @return A price for the goods.
-     */
-    private int getMilitaryGoodsPriceToBuy(GoodsType type, int amount) {
-<span class="fc" id="L801">        final int full = GOODS_BASE_PRICE + getType().getTradeBonus();</span>
-<span class="fc" id="L802">        int required = getWantedGoodsAmount(type);</span>
-<span class="pc bpc" id="L803" title="1 of 2 branches missed.">        if (required == 0) return 0; // Do not pay military price</span>
-
-        // If the settlement can use more than half of the goods on offer,
-        // then pay top dollar for the lot.  Otherwise only pay the premium
-        // price for the part they need and refer the remaining amount to
-        // the normal goods pricing.
-<span class="fc" id="L809">        int valued = Math.max(0, required - getGoodsCount(type));</span>
-<span class="fc bfc" id="L810" title="All 2 branches covered.">        int price = (valued &gt; amount / 2) ? full * amount</span>
-<span class="fc" id="L811">            : valued * full + getNormalGoodsPriceToBuy(type, amount - valued);</span>
-<span class="fc" id="L812">        logger.finest(&quot;Military price(&quot; + amount + &quot; &quot; + type + &quot;)&quot;</span>
-                      + &quot; valued=&quot; + valued
-                      + &quot; -&gt; &quot; + price);
-<span class="fc" id="L815">        return price;</span>
-    }
-
-    /**
-     * Gets the amount of gold this &lt;code&gt;IndianSettlment&lt;/code&gt;
-     * is willing to sell the given &lt;code&gt;Goods&lt;/code&gt; for.
-     *
-     * It is only meaningful to call this method from the
-     * server, since the settlement's {@link GoodsContainer}
-     * is hidden from the clients.
-     *
-     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to price.
-     * @return The price.
-     */
-    public int getPriceToSell(Goods goods) {
-<span class="nc" id="L830">        return getPriceToSell(goods.getType(), goods.getAmount());</span>
-    }
-
-    /**
-     * Gets the amount of gold this &lt;code&gt;IndianSettlment&lt;/code&gt;
-     * is willing to sell the given &lt;code&gt;Goods&lt;/code&gt; for.
-     *
-     * It is only meaningful to call this method from the
-     * server, since the settlement's {@link GoodsContainer}
-     * is hidden from the clients.
-     *
-     * @param type The type of &lt;code&gt;Goods&lt;/code&gt; to price.
-     * @param amount The amount of &lt;code&gt;Goods&lt;/code&gt; to price.
-     * @return The price.
-     */
-    public int getPriceToSell(GoodsType type, int amount) {
-<span class="nc bnc" id="L846" title="All 2 branches missed.">        if (amount &gt; GoodsContainer.CARGO_SIZE) {</span>
-<span class="nc" id="L847">            throw new IllegalArgumentException(&quot;Amount &gt; &quot;</span>
-                + GoodsContainer.CARGO_SIZE);
-        }
-<span class="nc" id="L850">        final int full = GOODS_BASE_PRICE + getType().getTradeBonus();</span>
-
-        // Base price is purchase price plus delta.
-        // - military goods at double value
-        // - trade goods at +50%
-<span class="nc" id="L855">        int price = amount + Math.max(0, 11 * getPriceToBuy(type, amount) / 10);</span>
-<span class="nc bnc" id="L856" title="All 2 branches missed.">        if (type.isMilitaryGoods()) {</span>
-<span class="nc" id="L857">            price = Math.max(price, amount * full * 2);</span>
-<span class="nc bnc" id="L858" title="All 2 branches missed.">        } else if (type.isTradeGoods()) {</span>
-<span class="nc" id="L859">            price = Math.max(price, 150 * amount * full / 100);</span>
-        }
-<span class="nc" id="L861">        return price;</span>
-    }
-
-    /**
-     * Will this settlement sell a type of goods.
-     * Placeholder until we have a spec-configured blacklist.
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to consider.
-     * @return True if the settlement would sell the goods.
-     */
-    public boolean willSell(GoodsType type) {
-<span class="nc bnc" id="L872" title="All 2 branches missed.">        return !type.isTradeGoods();</span>
-    }
-
-    /**
-     * Gets the goods this settlement is willing to sell.
-     *
-     * @param limit The maximum number of goods required.
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is trading.
-     * @return A list of goods to sell.
-     */
-    public List&lt;Goods&gt; getSellGoods(int limit, Unit unit) {
-<span class="nc" id="L883">        List&lt;Goods&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L884">        List&lt;Goods&gt; settlementGoods = getCompactGoods();</span>
-<span class="nc" id="L885">        Collections.sort(settlementGoods, exportGoodsComparator);</span>
-
-<span class="nc" id="L887">        int count = 0;</span>
-<span class="nc bnc" id="L888" title="All 2 branches missed.">        for (Goods goods : settlementGoods) {</span>
-<span class="nc bnc" id="L889" title="All 2 branches missed.">            if (!willSell(goods.getType())) continue;</span>
-<span class="nc" id="L890">            int amount = goods.getAmount();</span>
-<span class="nc" id="L891">            int retain = getWantedGoodsAmount(goods.getType());</span>
-<span class="nc bnc" id="L892" title="All 2 branches missed.">            if (retain &gt;= amount) continue;</span>
-<span class="nc" id="L893">            amount -= retain;</span>
-<span class="nc bnc" id="L894" title="All 2 branches missed.">            if (amount &gt; GoodsContainer.CARGO_SIZE) {</span>
-<span class="nc" id="L895">                amount = GoodsContainer.CARGO_SIZE;</span>
-            }
-<span class="nc bnc" id="L897" title="All 2 branches missed.">            if (unit != null) {</span>
-<span class="nc" id="L898">                amount = Math.round(applyModifiers((float)amount,</span>
-<span class="nc" id="L899">                        getGame().getTurn(),</span>
-<span class="nc" id="L900">                        unit.getModifiers(Modifier.TRADE_VOLUME_PENALTY)));</span>
-            }
-<span class="nc bnc" id="L902" title="All 2 branches missed.">            if (amount &lt; TRADE_MINIMUM_SIZE) continue;</span>
-<span class="nc" id="L903">            result.add(new Goods(getGame(), this, goods.getType(), amount));</span>
-<span class="nc" id="L904">            count++;</span>
-<span class="nc bnc" id="L905" title="All 2 branches missed.">            if (count &gt;= limit) break;</span>
-<span class="nc" id="L906">        }</span>
-<span class="nc" id="L907">        return result;</span>
-    }
-
-
-    /**
-     * Allows spread of horses and arms between settlements
-     *
-     * FIXME: the hardwired goods/equipment types are a wart.
-     *
-     * @param settlement The other &lt;code&gt;IndianSettlement&lt;/code&gt; to trade with.
-     */
-    public void tradeGoodsWithSettlement(IndianSettlement settlement) {
-<span class="fc" id="L919">        GoodsType armsType = getSpecification().getGoodsType(&quot;model.goods.muskets&quot;);</span>
-<span class="fc" id="L920">        GoodsType horsesType = getSpecification().getGoodsType(&quot;model.goods.horses&quot;);</span>
-<span class="fc" id="L921">        List&lt;GoodsType&gt; goodsToTrade = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L922">        goodsToTrade.add(armsType);</span>
-<span class="fc" id="L923">        goodsToTrade.add(horsesType);</span>
-
-<span class="fc bfc" id="L925" title="All 2 branches covered.">        for(GoodsType goods : goodsToTrade){</span>
-<span class="fc" id="L926">            int goodsInStock = getGoodsCount(goods);</span>
-<span class="fc bfc" id="L927" title="All 2 branches covered.">            if(goodsInStock &lt;= 50){</span>
-<span class="fc" id="L928">                continue;</span>
-            }
-<span class="fc" id="L930">            int goodsTraded = goodsInStock / 2;</span>
-<span class="fc" id="L931">            settlement.addGoods(goods, goodsTraded);</span>
-<span class="fc" id="L932">            removeGoods(goods, goodsTraded);</span>
-<span class="fc" id="L933">        }</span>
-<span class="fc" id="L934">    }</span>
-
-    /**
-     * Gets the maximum possible production of the given type of goods.
-     *
-     * @param goodsType The type of goods to check.
-     * @return The maximum amount, of the given type of goods, that can
-     *         be produced in one turn.
-     */
-    public int getMaximumProduction(GoodsType goodsType) {
-<span class="fc" id="L944">        return getTile().getSurroundingTiles(0, getRadius()).stream()</span>
-<span class="fc bfc" id="L945" title="All 2 branches covered.">            .filter(t -&gt; t.getOwningSettlement() == null</span>
-<span class="fc bfc" id="L946" title="All 2 branches covered.">                    || t.getOwningSettlement() == this)</span>
-            // FIXME: make unitType brave
-<span class="fc" id="L948">            .mapToInt(t -&gt; t.getPotentialProduction(goodsType, null)).sum();</span>
-    }
-
-
-    /**
-     * Updates the goods wanted by this settlement.
-     *
-     * It is only meaningful to call this method from the
-     * server, since the settlement's {@link GoodsContainer}
-     * is hidden from the clients.
-     */
-    public void updateWantedGoods() {
-<span class="fc" id="L960">        final Specification spec = getSpecification();</span>
-<span class="fc" id="L961">        final java.util.Map&lt;GoodsType, Integer&gt; prices = new HashMap&lt;&gt;();</span>
-<span class="fc bfc" id="L962" title="All 2 branches covered.">        for (GoodsType gt : spec.getGoodsTypeList()) {</span>
-            // The natives do not trade military or non-storable goods.
-<span class="fc bfc" id="L964" title="All 4 branches covered.">            if (gt.isMilitaryGoods() || !gt.isStorable()) continue;</span>
-<span class="fc" id="L965">            prices.put(gt, getNormalGoodsPriceToBuy(gt, GoodsContainer.CARGO_SIZE));</span>
-<span class="fc" id="L966">        }</span>
-<span class="fc" id="L967">        int wantedIndex = 0;</span>
-        for (Entry&lt;GoodsType, Integer&gt; e
-<span class="pc bpc" id="L969" title="1 of 2 branches missed.">                 : mapEntriesByValue(prices, descendingIntegerComparator)) {</span>
-<span class="fc" id="L970">            GoodsType goodsType = e.getKey();</span>
-<span class="fc bfc" id="L971" title="All 4 branches covered.">            if (e.getValue() &lt;= GoodsContainer.CARGO_SIZE * TRADE_MINIMUM_PRICE</span>
-<span class="fc" id="L972">                || wantedIndex &gt;= wantedGoods.length) break;</span>
-<span class="fc" id="L973">            wantedGoods[wantedIndex] = goodsType;</span>
-<span class="fc" id="L974">            wantedIndex++;</span>
-<span class="fc" id="L975">        }</span>
-<span class="fc bfc" id="L976" title="All 2 branches covered.">        for (; wantedIndex &lt; wantedGoods.length; wantedIndex++) {</span>
-<span class="fc" id="L977">            wantedGoods[wantedIndex] = null;</span>
-        }
-<span class="fc" id="L979">    }</span>
-
-    /**
-     * Chooses a type of goods for some of the natives in a settlement
-     * to manufacture.
-     * Simple rule: choose the refined goods that is the greatest shortage
-     * for which there is a surplus of the raw material.
-     *
-     * @return A &lt;code&gt;GoodsType&lt;/code&gt; to manufacture, or null if
-     *      none suitable.
-     */
-    private GoodsType goodsToMake() {
-<span class="fc" id="L991">        GoodsType wantGoods = null;</span>
-<span class="fc" id="L992">        int diff, wantAmount = -1;</span>
-<span class="fc bfc" id="L993" title="All 2 branches covered.">        for (GoodsType g : getSpecification().getGoodsTypeList()) {</span>
-            GoodsType produced;
-<span class="fc bfc" id="L995" title="All 2 branches covered.">            if (g.isRawMaterial()</span>
-<span class="pc bpc" id="L996" title="1 of 2 branches missed.">                &amp;&amp; (produced = g.getOutputType()) != null</span>
-<span class="fc bfc" id="L997" title="All 2 branches covered.">                &amp;&amp; !produced.isBreedable()</span>
-<span class="fc bfc" id="L998" title="All 2 branches covered.">                &amp;&amp; produced.isStorable()</span>
-<span class="fc bfc" id="L999" title="All 2 branches covered.">                &amp;&amp; getGoodsCount(g) &gt; getWantedGoodsAmount(g)</span>
-<span class="fc" id="L1000">                &amp;&amp; (diff = getWantedGoodsAmount(produced)</span>
-<span class="pc bpc" id="L1001" title="1 of 2 branches missed.">                    - getGoodsCount(produced)) &gt; wantAmount) {</span>
-<span class="fc" id="L1002">                wantGoods = produced;</span>
-<span class="fc" id="L1003">                wantAmount = diff;</span>
-            }
-<span class="fc" id="L1005">        }</span>
-<span class="fc" id="L1006">        return wantGoods;</span>
-    }
-
-    /**
-     * Gets a random goods gift from this settlement.
-     *
-     * @param random A pseudo random number source.
-     * @return A random goods gift, or null if none found.
-     */
-    public Goods getRandomGift(Random random) {
-<span class="nc" id="L1016">        List&lt;Goods&gt; goodsList = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L1017" title="All 2 branches missed.">        for (GoodsType type : getSpecification().getNewWorldGoodsTypeList()) {</span>
-<span class="nc" id="L1018">            int n = getGoodsCount(type) - KEEP_RAW_MATERIAL;</span>
-<span class="nc bnc" id="L1019" title="All 2 branches missed.">            if (n &gt;= GIFT_THRESHOLD) {</span>
-<span class="nc" id="L1020">                n -= GIFT_MINIMUM;</span>
-<span class="nc" id="L1021">                Goods goods = new Goods(getGame(), this, type,</span>
-<span class="nc" id="L1022">                    Math.min(randomInt(logger, &quot;Gift amount&quot;, random, n)</span>
-                        + GIFT_MINIMUM, GIFT_MAXIMUM));
-<span class="nc" id="L1024">                goodsList.add(goods);</span>
-            }
-
-<span class="nc" id="L1027">        }</span>
-<span class="nc bnc" id="L1028" title="All 2 branches missed.">        return (goodsList.isEmpty()) ? null</span>
-<span class="nc" id="L1029">            : getRandomMember(logger, &quot;Gift type&quot;, goodsList, random);</span>
-    }
-
-
-    /**
-     * Add some initial goods to a newly generated settlement.
-     * After all, they have been here for some time.
-     *
-     * @param random A pseudo-random number source.
-     */
-    public void addRandomGoods(Random random) {
-<span class="fc" id="L1040">        HashMap&lt;GoodsType, Integer&gt; goodsMap = new HashMap&lt;&gt;();</span>
-<span class="fc bfc" id="L1041" title="All 2 branches covered.">        for (Tile t : getOwnedTiles()) {</span>
-<span class="fc bfc" id="L1042" title="All 2 branches covered.">            for (AbstractGoods ag : t.getSortedPotential()) {</span>
-<span class="fc" id="L1043">                GoodsType type = ag.getType().getStoredAs();</span>
-<span class="fc" id="L1044">                Integer i = goodsMap.get(type);</span>
-<span class="fc bfc" id="L1045" title="All 2 branches covered.">                int value = (i == null) ? 0 : i;</span>
-<span class="fc" id="L1046">                goodsMap.put(type, value + ag.getAmount());</span>
-<span class="fc" id="L1047">            }</span>
-<span class="fc" id="L1048">        }</span>
-<span class="fc" id="L1049">        double d = randomInt(logger, &quot;Goods at &quot; + getName(), random, 10)</span>
-            * 0.1 + 1.0;
-<span class="fc bfc" id="L1051" title="All 2 branches covered.">        for (Entry&lt;GoodsType, Integer&gt; e : goodsMap.entrySet()) {</span>
-<span class="fc" id="L1052">            int i = e.getValue();</span>
-<span class="fc bfc" id="L1053" title="All 2 branches covered.">            if (!e.getKey().isFoodType()) i = (int)Math.round(d * e.getValue());</span>
-<span class="fc" id="L1054">            i = Math.min(i, GoodsContainer.CARGO_SIZE);</span>
-<span class="pc bpc" id="L1055" title="1 of 2 branches missed.">            if (i &gt; 0) addGoods(e.getKey(), i);</span>
-<span class="fc" id="L1056">        }</span>
-<span class="fc" id="L1057">    }</span>
-
-    /**
-     * Get the number of braves expected to be present for the settlement
-     * not to be &quot;badly defended&quot;.
-     *
-     * @return The required defender number.
-     */
-    public int getRequiredDefenders() {
-<span class="nc" id="L1066">        return getType().getMinimumSize() - 1;</span>
-    }
-
-
-    // Override FreeColGameObject
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void disposeResources() {
-        // Orphan the units whose home settlement this is.
-<span class="pc bpc" id="L1078" title="1 of 2 branches missed.">        while (!ownedUnits.isEmpty()) {</span>
-<span class="nc" id="L1079">            ownedUnits.remove(0).setHomeIndianSettlement(null);</span>
-        }
-<span class="fc" id="L1081">        super.disposeResources();</span>
-<span class="fc" id="L1082">    }</span>
-
-
-    // Interface Location (from Settlement via GoodsLocation via UnitLocation)
-    // Inherits
-    //   FreeColObject.getId()
-    //   Settlement.getTile
-    //   Settlement.getLocationLabel
-    //   GoodsLocation.remove
-    //   GoodsLocation.contains
-    //   UnitLocation.canAdd
-    //   UnitLocation.getUnitCount
-    //   UnitLocation.getUnitList
-    //   Settlement.getSettlement
-    //   final Settlement.getRank
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public StringTemplate getLocationLabelFor(Player player) {
-<span class="pc bpc" id="L1103" title="1 of 2 branches missed.">        return (hasContacted(player)) ? StringTemplate.name(getName())</span>
-<span class="nc" id="L1104">            : StringTemplate.key(&quot;model.indianSettlement.nameUnknown&quot;);</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean add(Locatable locatable) {
-<span class="fc" id="L1112">        boolean result = super.add(locatable);</span>
-<span class="pc bpc" id="L1113" title="2 of 4 branches missed.">        if (result &amp;&amp; locatable instanceof Unit) {</span>
-<span class="fc" id="L1114">            Unit indian = (Unit)locatable;</span>
-<span class="pc bpc" id="L1115" title="1 of 2 branches missed.">            if (indian.getHomeIndianSettlement() == null) {</span>
-                // Adopt homeless Indians
-<span class="fc" id="L1117">                indian.setHomeIndianSettlement(this);</span>
-            }
-        }
-<span class="fc" id="L1120">        return result;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location up() {
-<span class="fc" id="L1128">        return this;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toShortString() {
-<span class="nc" id="L1136">        return getName();</span>
-    }
-
-    
-    // UnitLocation
-    // Inherits
-    //   UnitLocation.getSpaceTaken
-    //   UnitLocation.moveToFront
-    //   UnitLocation.clearUnitList
-    //   Settlement.getNoAddReason
-    //   UnitLocation.getUnitCapacity
-
-
-    // GoodsLocation
-    // Inherits
-    //   GoodsLocation.addGoods
-    //   GoodsLocation.removeGoods
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getGoodsCapacity() {
-<span class="fc" id="L1159">        return getType().getWarehouseCapacity();</span>
-    }
-
-
-    // Settlement
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getImageKey() {
-<span class="nc" id="L1170">        String key = getType().getId();</span>
-<span class="nc bnc" id="L1171" title="All 2 branches missed.">        if(hasMissionary()) key += &quot;.mission&quot;;</span>
-<span class="nc" id="L1172">        return &quot;image.tileitem.&quot; + key;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Unit getDefendingUnit(Unit attacker) {
-<span class="fc" id="L1180">        Unit defender = null;</span>
-<span class="fc" id="L1181">        double defencePower = -1.0;</span>
-<span class="fc bfc" id="L1182" title="All 2 branches covered.">        for (Unit nextUnit : getUnitList()) {</span>
-<span class="fc" id="L1183">            double unitPower = attacker.getGame().getCombatModel()</span>
-<span class="fc" id="L1184">                .getDefencePower(attacker, nextUnit);</span>
-<span class="fc bfc" id="L1185" title="All 2 branches covered.">            if (Unit.betterDefender(defender, defencePower,</span>
-                    nextUnit, unitPower)) {
-<span class="fc" id="L1187">                defender = nextUnit;</span>
-<span class="fc" id="L1188">                defencePower = unitPower;</span>
-            }
-<span class="fc" id="L1190">        }</span>
-<span class="fc" id="L1191">        return defender;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public double getDefenceRatio() {
-<span class="nc" id="L1199">        return getUnitCount() * 2.0 / (getType().getMinimumSize()</span>
-<span class="nc" id="L1200">            + getType().getMaximumSize());</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isBadlyDefended() {
-<span class="nc bnc" id="L1208" title="All 2 branches missed.">        return getUnitCount() &lt; getRequiredDefenders();</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public RandomRange getPlunderRange(Unit attacker) {
-<span class="nc" id="L1216">        return getType().getPlunderRange(attacker);</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getSoL() {
-        // Native settlements do not generate SoL.
-<span class="fc" id="L1225">        return 0;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getUpkeep() {
-        // Native settlements do not require upkeep.
-<span class="nc" id="L1234">        return 0;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getTotalProductionOf(GoodsType type) {
-<span class="fc bfc" id="L1242" title="All 2 branches covered.">        if (type.isRefined()) {</span>
-<span class="fc bfc" id="L1243" title="All 2 branches covered.">            if (type != goodsToMake()) return 0;</span>
-            // Pretend 1/3 of the units present make the item with
-            // basic production of 3.
-<span class="fc" id="L1246">            return getUnitCount();</span>
-        }
-
-<span class="fc" id="L1249">        int tiles = 0;</span>
-<span class="fc" id="L1250">        int potential = 0;</span>
-<span class="fc bfc" id="L1251" title="All 2 branches covered.">        for (Tile workTile : getOwnedTiles()) {</span>
-<span class="pc bpc" id="L1252" title="1 of 4 branches missed.">            if (workTile != getTile() &amp;&amp; !workTile.isOccupied()) {</span>
-                // FIXME: make unitType brave
-<span class="fc" id="L1254">                potential += workTile.getPotentialProduction(type, null);</span>
-<span class="fc" id="L1255">                tiles++;</span>
-            }
-<span class="fc" id="L1257">        }</span>
-
-        // When a native settlement has more tiles than units, pretend
-        // that they produce from their entire area at reduced
-        // efficiency.
-<span class="fc bfc" id="L1262" title="All 2 branches covered.">        if (tiles &gt; getUnitCount()) {</span>
-<span class="fc" id="L1263">            potential *= (float) getUnitCount() / tiles;</span>
-        }
-
-        // Raw production is too generous, apply a fudge factor to reduce it
-        // a bit for the non-food cases.
-<span class="fc bfc" id="L1268" title="All 2 branches covered.">        if (!type.isFoodType()) {</span>
-<span class="fc" id="L1269">            potential = (int)Math.round(potential</span>
-                * NATIVE_PRODUCTION_EFFICIENCY);
-        }
-
-        // But always add full potential of the center tile.
-<span class="fc" id="L1274">        potential += getTile().getPotentialProduction(type, null);</span>
-<span class="fc" id="L1275">        return potential;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public boolean hasContacted(Player player) {
-<span class="pc bpc" id="L1282" title="1 of 2 branches missed.">        return player != null</span>
-<span class="fc bfc" id="L1283" title="All 2 branches covered.">            &amp;&amp; (player.isIndian()</span>
-<span class="fc bfc" id="L1284" title="All 2 branches covered.">                || getContactLevel(player) != ContactLevel.UNCONTACTED);</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public StringTemplate getAlarmLevelLabel(Player player) {
-<span class="nc bnc" id="L1291" title="All 2 branches missed.">        String key = (!player.hasContacted(owner))</span>
-            ? &quot;model.indianSettlement.tension.wary&quot;
-<span class="nc bnc" id="L1293" title="All 2 branches missed.">            : (!hasContacted(player))</span>
-            ? &quot;model.indianSettlement.tension.unknown&quot;
-<span class="nc" id="L1295">            : &quot;model.indianSettlement.&quot; + getAlarm(player).getKey();</span>
-<span class="nc" id="L1296">        return StringTemplate.template(key)</span>
-<span class="nc" id="L1297">            .addStringTemplate(&quot;%nation%&quot;, getOwner().getNationLabel());</span>
-    }
-
-
-    // Interface TradeLocation
-    //   getGoodsCount provided by GoodsLocation
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getExportAmount(GoodsType goodsType, int turns) {
-<span class="nc" id="L1309">        int present = Math.max(0, getGoodsCount(goodsType)</span>
-<span class="nc" id="L1310">            + turns * getTotalProductionOf(goodsType));</span>
-<span class="nc" id="L1311">        int wanted = getWantedGoodsAmount(goodsType);</span>
-<span class="nc" id="L1312">        return present - wanted;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getImportAmount(GoodsType goodsType, int turns) {
-<span class="nc bnc" id="L1320" title="All 2 branches missed.">        if (goodsType.limitIgnored()) return Integer.MAX_VALUE;</span>
-
-<span class="nc" id="L1322">        int present = Math.max(0, getGoodsCount(goodsType)</span>
-<span class="nc" id="L1323">            - turns * getTotalProductionOf(goodsType));</span>
-<span class="nc" id="L1324">        int capacity = getWarehouseCapacity();</span>
-<span class="nc" id="L1325">        return capacity - present;</span>
-    }
-
-
-    // Override FreeColGameObject
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int checkIntegrity(boolean fix) {
-<span class="fc" id="L1336">        return super.checkIntegrity(fix);</span>
-    }
-
-
-    // Serialization
-
-    private static final String ALARM_TAG = &quot;alarm&quot;;
-    private static final String CONTACT_LEVEL_TAG = &quot;contactLevel&quot;;
-    private static final String CONVERT_PROGRESS_TAG = &quot;convertProgress&quot;;
-    private static final String IS_VISITED_TAG = &quot;isVisited&quot;;
-    private static final String LAST_TRIBUTE_TAG = &quot;lastTribute&quot;;
-    private static final String LEVEL_TAG = &quot;level&quot;;
-    private static final String MISSIONARY_TAG = &quot;missionary&quot;;
-    private static final String MOST_HATED_TAG = &quot;mostHated&quot;;
-    private static final String NAME_TAG = &quot;name&quot;;
-    private static final String OWNED_UNITS_TAG = &quot;ownedUnits&quot;;
-    private static final String PLAYER_TAG = &quot;player&quot;;
-    // Public for now while 0.10.7 backward compatibility code in Tile
-    // for PlayerExploredTile needs to check these.
-    public static final String LEARNABLE_SKILL_TAG = &quot;learnableSkill&quot;;
-    public static final String WANTED_GOODS_TAG = &quot;wantedGoods&quot;;
-    // @compat 0.10.1
-    public static final String OLD_UNITS_TAG = &quot;units&quot;;
-    // end @compat
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="fc" id="L1367">        super.writeAttributes(xw);</span>
-
-<span class="fc" id="L1369">        final Player hated = getMostHated();</span>
-
-<span class="pc bpc" id="L1371" title="1 of 2 branches missed.">        if (getName() != null) { // Delegated from Settlement</span>
-<span class="fc" id="L1372">            xw.writeAttribute(NAME_TAG, getName());</span>
-        }
-
-<span class="fc bfc" id="L1375" title="All 2 branches covered.">        if (xw.validFor(getOwner())) {</span>
-
-<span class="fc" id="L1377">            xw.writeAttribute(LAST_TRIBUTE_TAG, lastTribute);</span>
-
-<span class="fc" id="L1379">            xw.writeAttribute(CONVERT_PROGRESS_TAG, convertProgress);</span>
-        }
-
-<span class="fc bfc" id="L1382" title="All 2 branches covered.">        if (learnableSkill != null) {</span>
-<span class="fc" id="L1383">            xw.writeAttribute(LEARNABLE_SKILL_TAG, learnableSkill);</span>
-        }
-
-<span class="fc bfc" id="L1386" title="All 2 branches covered.">        for (int i = 0; i &lt; wantedGoods.length; i++) {</span>
-<span class="pc bpc" id="L1387" title="1 of 2 branches missed.">            if (wantedGoods[i] != null) {</span>
-<span class="nc" id="L1388">                xw.writeAttribute(WANTED_GOODS_TAG + i, wantedGoods[i]);</span>
-            }
-        }
-
-<span class="fc bfc" id="L1392" title="All 2 branches covered.">        if (hated != null) xw.writeAttribute(MOST_HATED_TAG, hated);</span>
-<span class="fc" id="L1393">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="fc" id="L1400">        super.writeChildren(xw);</span>
-
-<span class="fc bfc" id="L1402" title="All 2 branches covered.">        if (missionary != null) {</span>
-<span class="fc" id="L1403">            xw.writeStartElement(MISSIONARY_TAG);</span>
-            
-<span class="fc" id="L1405">            missionary.toXML(xw);</span>
-
-<span class="fc" id="L1407">            xw.writeEndElement();</span>
-        }
-
-<span class="fc bfc" id="L1410" title="All 2 branches covered.">        if (xw.validFor(getOwner())) {</span>
-
-<span class="fc bfc" id="L1412" title="All 2 branches covered.">            for (Player p : getSortedCopy(contactLevels.keySet())) {</span>
-<span class="fc" id="L1413">                xw.writeStartElement(CONTACT_LEVEL_TAG);</span>
-
-<span class="fc" id="L1415">                xw.writeAttribute(LEVEL_TAG, contactLevels.get(p));</span>
-
-<span class="fc" id="L1417">                xw.writeAttribute(PLAYER_TAG, p);</span>
-
-<span class="fc" id="L1419">                xw.writeEndElement();</span>
-<span class="fc" id="L1420">            }</span>
-
-<span class="fc bfc" id="L1422" title="All 2 branches covered.">            for (Player p : getSortedCopy(alarm.keySet())) {</span>
-<span class="fc" id="L1423">                xw.writeStartElement(ALARM_TAG);</span>
-
-<span class="fc" id="L1425">                xw.writeAttribute(PLAYER_TAG, p);</span>
-
-<span class="fc" id="L1427">                xw.writeAttribute(VALUE_TAG, alarm.get(p).getValue());</span>
-
-<span class="fc" id="L1429">                xw.writeEndElement();</span>
-<span class="fc" id="L1430">            }</span>
-
-<span class="fc bfc" id="L1432" title="All 2 branches covered.">            for (Unit unit : getSortedCopy(ownedUnits)) {</span>
-<span class="fc" id="L1433">                xw.writeStartElement(OWNED_UNITS_TAG);</span>
-
-<span class="fc" id="L1435">                xw.writeAttribute(ID_ATTRIBUTE_TAG, unit);</span>
-
-<span class="fc" id="L1437">                xw.writeEndElement();</span>
-<span class="fc" id="L1438">            }</span>
-
-        } else {
-<span class="fc" id="L1441">            Player client = xw.getClientPlayer();</span>
-
-<span class="fc" id="L1443">            ContactLevel cl = contactLevels.get(client);</span>
-<span class="fc bfc" id="L1444" title="All 2 branches covered.">            if (cl != null) {</span>
-<span class="fc" id="L1445">                xw.writeStartElement(CONTACT_LEVEL_TAG);</span>
-
-<span class="fc" id="L1447">                xw.writeAttribute(LEVEL_TAG, cl);</span>
-
-<span class="fc" id="L1449">                xw.writeAttribute(PLAYER_TAG, client);</span>
-
-<span class="fc" id="L1451">                xw.writeEndElement();</span>
-            }
-
-<span class="fc" id="L1454">            Tension alarm = getAlarm(client);</span>
-<span class="fc bfc" id="L1455" title="All 2 branches covered.">            if (alarm != null) {</span>
-<span class="fc" id="L1456">                xw.writeStartElement(ALARM_TAG);</span>
-
-<span class="fc" id="L1458">                xw.writeAttribute(PLAYER_TAG, client);</span>
-
-<span class="fc" id="L1460">                xw.writeAttribute(VALUE_TAG, alarm.getValue());</span>
-
-<span class="fc" id="L1462">                xw.writeEndElement();</span>
-            }
-        }
-<span class="fc" id="L1465">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-<span class="fc" id="L1472">        super.readAttributes(xr);</span>
-
-<span class="fc" id="L1474">        final Specification spec = getSpecification();</span>
-
-<span class="fc" id="L1476">        lastTribute = xr.getAttribute(LAST_TRIBUTE_TAG, 0);</span>
-
-<span class="fc" id="L1478">        convertProgress = xr.getAttribute(CONVERT_PROGRESS_TAG, 0);</span>
-
-<span class="fc" id="L1480">        learnableSkill = xr.getType(spec, LEARNABLE_SKILL_TAG,</span>
-                                    UnitType.class, (UnitType)null);
-
-<span class="fc" id="L1483">        mostHated = xr.findFreeColGameObject(getGame(), MOST_HATED_TAG,</span>
-                                             Player.class, (Player)null, false);
-
-<span class="fc bfc" id="L1486" title="All 2 branches covered.">        for (int i = 0; i &lt; wantedGoods.length; i++) {</span>
-<span class="fc" id="L1487">            wantedGoods[i] = xr.getType(spec, WANTED_GOODS_TAG + i,</span>
-                                        GoodsType.class, (GoodsType)null);
-        }
-<span class="fc" id="L1490">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
-        // Clear containers.
-<span class="fc" id="L1498">        contactLevels.clear();</span>
-<span class="fc" id="L1499">        alarm.clear();</span>
-<span class="fc" id="L1500">        missionary = null;</span>
-<span class="fc" id="L1501">        ownedUnits.clear();</span>
-
-<span class="fc" id="L1503">        super.readChildren(xr);</span>
-
-        // @compat 0.10.1
-<span class="fc bfc" id="L1506" title="All 2 branches covered.">        for (Unit u : getUnitList()) {</span>
-<span class="pc bpc" id="L1507" title="1 of 2 branches missed.">            if (u.getLocation() != this) {</span>
-<span class="nc" id="L1508">                u.setLocationNoUpdate(this);</span>
-<span class="nc" id="L1509">                logger.warning(&quot;Fixing unit location&quot;</span>
-<span class="nc" id="L1510">                    + &quot; from &quot; + u.getLocation()</span>
-<span class="nc" id="L1511">                    + &quot; to &quot; + this.getId());</span>
-            }
-<span class="fc" id="L1513">        }</span>
-        // end @compat
-<span class="fc" id="L1515">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
-<span class="fc" id="L1522">        final Game game = getGame();</span>
-<span class="fc" id="L1523">        final String tag = xr.getLocalName();</span>
-
-<span class="fc bfc" id="L1525" title="All 2 branches covered.">        if (ALARM_TAG.equals(tag)) {</span>
-<span class="fc" id="L1526">            Player player = xr.findFreeColGameObject(game, PLAYER_TAG,</span>
-                Player.class, (Player)null, true);
-            // @compat 0.10.5
-<span class="pc bpc" id="L1529" title="1 of 2 branches missed.">            if (getName() != null) {</span>
-                // Alarm used to imply contact, but only set contacted if
-                // we also have a valid name for the settlement.
-<span class="fc" id="L1532">                setContacted(player);</span>
-            }
-            // end @compat
-<span class="fc" id="L1535">            alarm.put(player, new Tension(xr.getAttribute(VALUE_TAG, 0)));</span>
-<span class="fc" id="L1536">            xr.closeTag(ALARM_TAG);</span>
-
-<span class="fc bfc" id="L1538" title="All 2 branches covered.">        } else if (CONTACT_LEVEL_TAG.equals(tag)) {</span>
-<span class="fc" id="L1539">            ContactLevel cl = xr.getAttribute(LEVEL_TAG,</span>
-                ContactLevel.class, ContactLevel.UNCONTACTED);
-<span class="fc" id="L1541">            Player player = xr.findFreeColGameObject(game, PLAYER_TAG,</span>
-                Player.class, (Player)null, true);
-<span class="fc" id="L1543">            contactLevels.put(player, cl);</span>
-<span class="fc" id="L1544">            xr.closeTag(CONTACT_LEVEL_TAG);</span>
-
-        // @compat 0.10.5
-<span class="pc bpc" id="L1547" title="1 of 2 branches missed.">        } else if (IS_VISITED_TAG.equals(tag)) {</span>
-<span class="nc" id="L1548">            Player player = xr.findFreeColGameObject(game, PLAYER_TAG,</span>
-                Player.class, (Player)null, true);
-<span class="nc" id="L1550">            setScouted(player);</span>
-<span class="nc" id="L1551">            xr.closeTag(IS_VISITED_TAG);</span>
-        // end @compat
-
-<span class="pc bpc" id="L1554" title="1 of 2 branches missed.">        } else if (MISSIONARY_TAG.equals(tag)) {</span>
-<span class="nc" id="L1555">            xr.nextTag();</span>
-<span class="nc" id="L1556">            missionary = xr.readFreeColGameObject(game, Unit.class);</span>
-<span class="nc" id="L1557">            missionary.setLocationNoUpdate(this);</span>
-<span class="nc" id="L1558">            xr.closeTag(MISSIONARY_TAG);</span>
-
-        // @compat 0.10.1
-<span class="fc bfc" id="L1561" title="All 2 branches covered.">        } else if (OLD_UNITS_TAG.equals(tag)) {</span>
-<span class="fc bfc" id="L1562" title="All 2 branches covered.">            while (xr.nextTag() != XMLStreamConstants.END_ELEMENT) {</span>
-<span class="fc" id="L1563">                super.readChild(xr);</span>
-            }
-        // end @compat
-
-<span class="fc bfc" id="L1567" title="All 2 branches covered.">        } else if (OWNED_UNITS_TAG.equals(tag)) {</span>
-<span class="fc" id="L1568">            Unit unit = xr.makeFreeColGameObject(game, ID_ATTRIBUTE_TAG,</span>
-                                                 Unit.class, true);
-<span class="fc" id="L1570">            addOwnedUnit(unit);</span>
-<span class="fc" id="L1571">            xr.closeTag(OWNED_UNITS_TAG);</span>
-
-<span class="fc" id="L1573">        } else {</span>
-<span class="fc" id="L1574">            super.readChild(xr);</span>
-        }
-<span class="fc" id="L1576">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-<span class="fc" id="L1583">        StringBuilder sb = new StringBuilder(64);</span>
-<span class="fc" id="L1584">        sb.append(getName()).append(&quot; at (&quot;).append(tile.getX())</span>
-<span class="fc" id="L1585">            .append(&quot;,&quot;).append(tile.getY()).append(&quot;)&quot;);</span>
-<span class="fc" id="L1586">        return sb.toString();</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-<span class="fc" id="L1593">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return &quot;indianSettlement&quot;.
-     */
-    public static String getXMLElementTagName() {
-<span class="fc" id="L1601">        return &quot;indianSettlement&quot;;</span>
-    }
+	/** The Constant logger. */
+<span class="fc" id="L47">	private static final Logger logger = Logger.getLogger(IndianSettlement.class.getName());</span>
+
+	/** The level of contact between a player and this settlement. */
+<span class="pc" id="L50">	public static enum ContactLevel {</span>
+
+		/** The uncontacted. */
+<span class="fc" id="L53">		UNCONTACTED,</span>
+		/** The contacted. */
+		// Nothing known other than location?
+<span class="fc" id="L56">		CONTACTED,</span>
+		/** The visited. */
+		// Name, wanted-goods now visible
+<span class="fc" id="L59">		VISITED,</span>
+		/** The scouted. */
+		// Skill now known
+<span class="fc" id="L62">		SCOUTED // Scouting bonus consumed</span>
+	};
+
+	// When choosing what goods to sell, sort goods with new world
+	/** The export goods comparator. */
+	// goods first, then by price, then amount.
+<span class="fc" id="L68">	private final Comparator&lt;Goods&gt; exportGoodsComparator = new Comparator&lt;Goods&gt;() {</span>
+		@Override
+		public int compare(Goods goods1, Goods goods2) {
+			int cmp;
+<span class="nc" id="L72">			GoodsType t1 = goods1.getType();</span>
+<span class="nc" id="L73">			GoodsType t2 = goods2.getType();</span>
+<span class="nc bnc" id="L74" title="All 4 branches missed.">			cmp = (((t2.isNewWorldGoodsType()) ? 1 : 0) - ((t1.isNewWorldGoodsType()) ? 1 : 0));</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">			if (cmp == 0) {</span>
+<span class="nc" id="L76">				int a1 = Math.min(goods2.getAmount(), GoodsContainer.CARGO_SIZE);</span>
+<span class="nc" id="L77">				int a2 = Math.min(goods1.getAmount(), GoodsContainer.CARGO_SIZE);</span>
+<span class="nc" id="L78">				cmp = getPriceToSell(t2, a2) - getPriceToSell(t1, a1);</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">				if (cmp == 0) {</span>
+<span class="nc" id="L80">					cmp = a2 - a1;</span>
+				}
+			}
+<span class="nc" id="L83">			return cmp;</span>
+		}
+	};
+
+	/** The production fudge factor. */
+	public static final double NATIVE_PRODUCTION_EFFICIENCY = 0.67;
+
+	/** The maximum number of wanted goods. */
+	public static final int WANTED_GOODS_COUNT = 3;
+
+	/** Radius of native tales map reveal. */
+	public static final int TALES_RADIUS = 6;
+
+	/** Do not sell less than this amount of goods. */
+	public static final int TRADE_MINIMUM_SIZE = 20;
+
+	/** Do not buy goods when the price is this low. */
+	public static final int TRADE_MINIMUM_PRICE = 3;
+
+	/** The Constant GOODS_BASE_PRICE. */
+	public static final int GOODS_BASE_PRICE = 12;
+
+	/** The amount of goods a brave can produce a single turn. */
+	// private static final int WORK_AMOUNT = 5;
+
+	/**
+	 * The amount of raw material that should be available before producing
+	 * manufactured goods.
+	 */
+	public static final int KEEP_RAW_MATERIAL = 50;
+
+	/**
+	 * Generate gifts from goods that exceed KEEP_RAW_MATERIAL + GIFT_THRESHOLD.
+	 */
+	public static final int GIFT_THRESHOLD = 25;
+
+	/** The minimum gift amount. */
+	public static final int GIFT_MINIMUM = 10;
+
+	/** The maximum gift amount. */
+	public static final int GIFT_MAXIMUM = 80;
+
+	/**
+	 * This is the skill that can be learned by Europeans at this settlement. At
+	 * the server side its value will be null when the skill has already been
+	 * taught to a European. At the client side the value null is also possible
+	 * in case the player hasn't checked out the settlement yet.
+	 */
+<span class="fc" id="L131">	protected UnitType learnableSkill = null;</span>
+
+	/** The goods this settlement wants. */
+<span class="fc" id="L134">	protected GoodsType[] wantedGoods = { null, null, null };</span>
+
+	/**
+	 * A map that tells if a player has spoken to the chief of this settlement.
+	 *
+	 * At the client side, only the information regarding the player on that
+	 * client should be included.
+	 */
+<span class="fc" id="L142">	protected final java.util.Map&lt;Player, ContactLevel&gt; contactLevels = new HashMap&lt;&gt;();</span>
+
+	/** Units that belong to this settlement. */
+<span class="fc" id="L145">	protected final List&lt;Unit&gt; ownedUnits = new ArrayList&lt;&gt;();</span>
+
+	/** The missionary at this settlement. */
+<span class="fc" id="L148">	protected Unit missionary = null;</span>
+
+	/** Used for monitoring the progress towards creating a convert. */
+<span class="fc" id="L151">	protected int convertProgress = 0;</span>
+
+	/** The number of the turn during which the last tribute was paid. */
+<span class="fc" id="L154">	protected int lastTribute = 0;</span>
+
+	/** The most hated nation. */
+<span class="fc" id="L157">	protected Player mostHated = null;</span>
+
+	/**
+	 * Stores the alarm levels. &lt;b&gt;Only used by AI.&lt;/b&gt; &quot;Alarm&quot; means: Tension
+	 * with respect to a player from an IndianSettlement. Alarm is overloaded
+	 * with the concept of &quot;contact&quot;. If a settlement has never been contacted
+	 * by a player, alarm.get(player) will be null. Acts causing contact
+	 * initialize this variable.
+	 */
+<span class="fc" id="L166">	protected final java.util.Map&lt;Player, Tension&gt; alarm = new HashMap&lt;&gt;();</span>
+
+	/**
+	 * Constructor for ServerIndianSettlement.
+	 *
+	 * @param game
+	 *            The enclosing &lt;code&gt;Game&lt;/code&gt;.
+	 * @param owner
+	 *            The &lt;code&gt;Player&lt;/code&gt; owning this settlement.
+	 * @param name
+	 *            The name for this settlement.
+	 * @param tile
+	 *            The containing &lt;code&gt;Tile&lt;/code&gt;.
+	 */
+	protected IndianSettlement(Game game, Player owner, String name, Tile tile) {
+<span class="fc" id="L181">		super(game, owner, name, tile);</span>
+<span class="fc" id="L182">	}</span>
+
+	/**
+	 * Creates a new &lt;code&gt;IndianSettlement&lt;/code&gt; with the given identifier.
+	 * The object should later be initialized by calling either
+	 * {@link #readFromXML(FreeColXMLReader)}.
+	 *
+	 * @param game
+	 *            The &lt;code&gt;Game&lt;/code&gt; in which this object belong.
+	 * @param id
+	 *            The object identifier.
+	 */
+	public IndianSettlement(Game game, String id) {
+<span class="fc" id="L195">		super(game, id);</span>
+<span class="fc" id="L196">	}</span>
+
+	/**
+	 * Adds the given &lt;code&gt;Unit&lt;/code&gt; to the list of units that belongs to
+	 * this &lt;code&gt;IndianSettlement&lt;/code&gt;.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to be added.
+	 */
+	public void addOwnedUnit(Unit unit) {
+<span class="pc bpc" id="L206" title="1 of 2 branches missed.">		if (unit == null) {</span>
+<span class="nc" id="L207">			throw new IllegalArgumentException(&quot;Parameter 'unit' must not be 'null'.&quot;);</span>
+		}
+
+<span class="fc bfc" id="L210" title="All 2 branches covered.">		if (!ownedUnits.contains(unit)) {</span>
+<span class="fc" id="L211">			ownedUnits.add(unit);</span>
+		}
+<span class="fc" id="L213">	}</span>
+
+	/**
+	 * Gets a list of the units native to this settlement.
+	 *
+	 * @return The list of units native to this settlement.
+	 */
+	public List&lt;Unit&gt; getOwnedUnits() {
+<span class="fc" id="L221">		return new ArrayList&lt;&gt;(ownedUnits);</span>
+	}
+
+	/**
+	 * Gets an iterator over all the units this &lt;code&gt;IndianSettlement&lt;/code&gt; is
+	 * owning.
+	 *
+	 * @return The &lt;code&gt;Iterator&lt;/code&gt;.
+	 */
+	public Iterator&lt;Unit&gt; getOwnedUnitsIterator() {
+<span class="fc" id="L231">		return ownedUnits.iterator();</span>
+	}
+
+	/**
+	 * Removes the given &lt;code&gt;Unit&lt;/code&gt; to the list of units that belongs to
+	 * this &lt;code&gt;IndianSettlement&lt;/code&gt;. Returns true if the Unit was removed.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to be removed from the list of the units
+	 *            this &lt;code&gt;IndianSettlement&lt;/code&gt; owns.
+	 * @return a &lt;code&gt;boolean&lt;/code&gt; value
+	 */
+	public boolean removeOwnedUnit(Unit unit) {
+<span class="pc bpc" id="L244" title="1 of 2 branches missed.">		if (unit == null) {</span>
+<span class="nc" id="L245">			throw new IllegalArgumentException(&quot;Parameter 'unit' must not be 'null'.&quot;);</span>
+		}
+<span class="fc" id="L247">		return ownedUnits.remove(unit);</span>
+	}
+
+	/**
+	 * Get the year of the last tribute.
+	 *
+	 * @return The year of the last tribute.
+	 */
+	public int getLastTribute() {
+<span class="nc" id="L256">		return lastTribute;</span>
+	}
+
+	/**
+	 * Set the year of the last tribute.
+	 *
+	 * @param lastTribute
+	 *            The new last tribute year.
+	 */
+	public void setLastTribute(int lastTribute) {
+<span class="nc" id="L266">		this.lastTribute = lastTribute;</span>
+<span class="nc" id="L267">	}</span>
+
+	/**
+	 * Gets the skill that can be learned at this settlement.
+	 *
+	 * @return The skill that can be learned at this settlement.
+	 */
+	public UnitType getLearnableSkill() {
+<span class="fc" id="L275">		return learnableSkill;</span>
+	}
+
+	/**
+	 * Sets the learnable skill for this Indian settlement.
+	 *
+	 * @param skill
+	 *            The new learnable skill for this Indian settlement.
+	 */
+	public void setLearnableSkill(UnitType skill) {
+<span class="fc" id="L285">		learnableSkill = skill;</span>
+<span class="fc" id="L286">	}</span>
+
+	/**
+	 * Get a label appropriate to the current learnable skill and whether the
+	 * requestor has visited this settlement.
+	 *
+	 * @param visited
+	 *            The visiting status.
+	 * @return A &lt;code&gt;StringTemplate&lt;/code&gt; describing the perceived skill.
+	 */
+	public StringTemplate getLearnableSkillLabel(boolean visited) {
+<span class="nc bnc" id="L297" title="All 4 branches missed.">		return StringTemplate.key((visited)</span>
+<span class="nc" id="L298">				? ((learnableSkill == null) ? &quot;model.indianSettlement.skillNone&quot; : learnableSkill.getNameKey())</span>
+				: &quot;model.indianSettlement.skillUnknown&quot;);
+	}
+
+	/**
+	 * Gets the missionary from this settlement.
+	 *
+	 * @return The missionary at this settlement, or null if there is none.
+	 */
+	public Unit getMissionary() {
+<span class="fc" id="L308">		return missionary;</span>
+	}
+
+	/**
+	 * Does this settlement have a missionary?.
+	 *
+	 * @return True if there is a missionary at this settlement.
+	 */
+	public boolean hasMissionary() {
+<span class="fc bfc" id="L317" title="All 2 branches covered.">		return missionary != null;</span>
+	}
+
+	/**
+	 * Does this settlement have a missionary from the given player?.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to test.
+	 * @return True if there is a suitable missionary present.
+	 */
+	public boolean hasMissionary(Player player) {
+<span class="pc bpc" id="L328" title="2 of 6 branches missed.">		return missionary != null &amp;&amp; player != null &amp;&amp; player.owns(missionary);</span>
+	}
+
+	/**
+	 * Sets the missionary for this settlement.
+	 *
+	 * -vis: This routine has visibility implications when enhanced missionaries
+	 * are enabled. -til: This changes the tile appearance.
+	 *
+	 * @param missionary
+	 *            The missionary for this settlement.
+	 */
+	public void setMissionary(Unit missionary) {
+<span class="fc" id="L341">		this.missionary = missionary;</span>
+<span class="fc" id="L342">	}</span>
+
+	/**
+	 * Get the line of sight used by a missionary at this settlement.
+	 *
+	 * @return The missionary line of sight.
+	 */
+	public int getMissionaryLineOfSight() {
+<span class="fc" id="L350">		final boolean enhanced = getSpecification().getBoolean(GameOptions.ENHANCED_MISSIONARIES);</span>
+<span class="pc bpc" id="L351" title="1 of 2 branches missed.">		return (enhanced) ? getLineOfSight() : 1;</span>
+	}
+
+	/**
+	 * Gets the convert progress status for this settlement.
+	 *
+	 * @return The convert progress status.
+	 */
+	public int getConvertProgress() {
+<span class="nc" id="L360">		return convertProgress;</span>
+	}
+
+	/**
+	 * Sets the convert progress status for this settlement.
+	 *
+	 * @param progress
+	 *            The new convert progress status.
+	 */
+	public void setConvertProgress(int progress) {
+<span class="fc" id="L370">		convertProgress = progress;</span>
+<span class="fc" id="L371">	}</span>
+
+	/**
+	 * Gets the goods wanted by this settlement.
+	 *
+	 * @return The wanted goods list.
+	 */
+	public GoodsType[] getWantedGoods() {
+<span class="fc" id="L379">		return wantedGoods;</span>
+	}
+
+	/**
+	 * Sets the goods wanted by this Settlement.
+	 *
+	 * @param wantedGoods
+	 *            a &lt;code&gt;GoodsType&lt;/code&gt; value
+	 */
+	public void setWantedGoods(GoodsType[] wantedGoods) {
+<span class="nc" id="L389">		this.wantedGoods = wantedGoods;</span>
+<span class="nc" id="L390">	}</span>
+
+	/**
+	 * Sets the goods wanted by this settlement.
+	 *
+	 * @param index
+	 *            Which of the (usually 3) goods to set.
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; wanted.
+	 */
+	public void setWantedGoods(int index, GoodsType type) {
+<span class="pc bpc" id="L401" title="2 of 4 branches missed.">		if (0 &lt;= index &amp;&amp; index &lt; wantedGoods.length) {</span>
+<span class="fc" id="L402">			wantedGoods[index] = type;</span>
+		}
+<span class="fc" id="L404">	}</span>
+
+	/**
+	 * Get the number of wanted goods. If any members of the array are null, we
+	 * assume that subsequent ones are too.
+	 *
+	 * @return The number of wanted goods.
+	 */
+	public int getWantedGoodsAmount() {
+<span class="nc" id="L413">		int n = 0;</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">		for (GoodsType gt : wantedGoods)</span>
+<span class="nc bnc" id="L415" title="All 2 branches missed.">			if (gt != null)</span>
+<span class="nc" id="L416">				n++;</span>
+<span class="nc" id="L417">		return n;</span>
+	}
+
+	/**
+	 * Get a label for one of the wanted goods.
+	 *
+	 * @param index
+	 *            The index into the wanted goods.
+	 * @param player
+	 *            The requesting &lt;code&gt;Player&lt;/code&gt;.
+	 * @return A suitable &lt;code&gt;StringTemplate&lt;/code&gt;.
+	 */
+	public StringTemplate getWantedGoodsLabel(int index, Player player) {
+		StringTemplate ret;
+<span class="nc bnc" id="L431" title="All 6 branches missed.">		if (hasVisited(player) &amp;&amp; 0 &lt;= index &amp;&amp; index &lt; wantedGoods.length) {</span>
+<span class="nc bnc" id="L432" title="All 2 branches missed.">			if (wantedGoods[index] == null) {</span>
+<span class="nc" id="L433">				ret = StringTemplate.key(&quot;model.indianSettlement.wantedGoodsNone&quot;);</span>
+			} else {
+<span class="nc" id="L435">				ret = StringTemplate.label(&quot;&quot;).add(Messages.nameKey(wantedGoods[index]));</span>
+<span class="nc" id="L436">				String sale = player.getLastSaleString(this, wantedGoods[index]);</span>
+<span class="nc bnc" id="L437" title="All 2 branches missed.">				if (sale != null)</span>
+<span class="nc" id="L438">					ret.addName(&quot; &quot; + sale);</span>
+<span class="nc" id="L439">			}</span>
+		} else {
+<span class="nc" id="L441">			ret = StringTemplate.key(&quot;model.indianSettlement.wantedGoodsUnknown&quot;);</span>
+		}
+<span class="nc" id="L443">		return ret;</span>
+	}
+
+	/**
+	 * Gets the most hated nation of this settlement.
+	 *
+	 * @return The most hated nation.
+	 */
+	public Player getMostHated() {
+<span class="fc" id="L452">		return mostHated;</span>
+	}
+
+	/**
+	 * Sets the most hated nation of this settlement.
+	 *
+	 * -til: Changes the tile appearance.
+	 *
+	 * @param mostHated
+	 *            The new most hated nation.
+	 */
+	public void setMostHated(Player mostHated) {
+<span class="nc" id="L464">		this.mostHated = mostHated;</span>
+<span class="nc" id="L465">	}</span>
+
+	/**
+	 * Get a template for the current most hated nation, depending whether the
+	 * requestor has contacted this settlement.
+	 *
+	 * @param contacted
+	 *            The contact status.
+	 * @return A &lt;code&gt;StringTemplate&lt;/code&gt; describing the perceived most hated
+	 *         nation.
+	 */
+	public StringTemplate getMostHatedLabel(boolean contacted) {
+<span class="nc bnc" id="L477" title="All 4 branches missed.">		return (contacted) ? ((mostHated == null) ? StringTemplate.key(&quot;model.indianSettlement.mostHatedNone&quot;)</span>
+<span class="nc" id="L478">				: mostHated.getCountryLabel()) : StringTemplate.key(&quot;model.indianSettlement.mostHatedUnknown&quot;);</span>
+	}
+
+	/**
+	 * Gets the contact level between this settlement and a player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to check.
+	 * @return The contact level.
+	 */
+	public ContactLevel getContactLevel(Player player) {
+<span class="fc" id="L489">		ContactLevel cl = contactLevels.get(player);</span>
+<span class="fc bfc" id="L490" title="All 2 branches covered.">		return (cl == null) ? ContactLevel.UNCONTACTED : cl;</span>
+	}
+
+	/**
+	 * Make contact with this settlement (if it has not been previously
+	 * contacted). Initialize tension level to the general level with respect to
+	 * the contacting player--- effectively the average reputation of this
+	 * player with the overall tribe.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; making contact.
+	 * @return True if this was indeed the first contact between settlement and
+	 *         player.
+	 */
+	public boolean setContacted(Player player) {
+<span class="fc bfc" id="L505" title="All 2 branches covered.">		if (!hasContacted(player)) {</span>
+<span class="fc" id="L506">			contactLevels.put(player, ContactLevel.CONTACTED);</span>
+<span class="fc" id="L507">			initializeAlarm(player);</span>
+<span class="fc" id="L508">			return true;</span>
+		}
+<span class="fc" id="L510">		return false;</span>
+	}
+
+	/**
+	 * Has a player visited this settlement?.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to check.
+	 * @return True if the player has contacted this settlement.
+	 */
+	public boolean hasVisited(Player player) {
+<span class="pc bpc" id="L521" title="1 of 2 branches missed.">		return getContactLevel(player).ordinal() &gt;= ContactLevel.VISITED.ordinal();</span>
+	}
+
+	/**
+	 * Sets the contact level of this settlement to indicate that a European
+	 * player has visited the settlement.
+	 *
+	 * @param player
+	 *            The visiting &lt;code&gt;Player&lt;/code&gt;.
+	 * @return True if this was the first time the settlement was visited by the
+	 *         player.
+	 */
+	public boolean setVisited(Player player) {
+<span class="pc bpc" id="L534" title="1 of 2 branches missed.">		if (!hasVisited(player)) {</span>
+<span class="pc bpc" id="L535" title="1 of 2 branches missed.">			if (!hasContacted(player))</span>
+<span class="nc" id="L536">				initializeAlarm(player);</span>
+<span class="fc" id="L537">			contactLevels.put(player, ContactLevel.VISITED);</span>
+<span class="fc" id="L538">			return true;</span>
+		}
+<span class="nc" id="L540">		return false;</span>
+	}
+
+	/**
+	 * Has a player has spoken with the chief of this settlement.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to check.
+	 * @return True if the player has visited this settlement to speak with the
+	 *         chief.
+	 */
+	public boolean hasScouted(Player player) {
+<span class="fc bfc" id="L552" title="All 2 branches covered.">		return getContactLevel(player) == ContactLevel.SCOUTED;</span>
+	}
+
+	/**
+	 * Sets the contact level of this settlement to indicate that a European
+	 * player has had a chat with the chief.
+	 *
+	 * @param player
+	 *            The visiting &lt;code&gt;Player&lt;/code&gt;.
+	 * @return True if this was the first time the settlement was scouted by the
+	 *         player.
+	 */
+	public boolean setScouted(Player player) {
+<span class="pc bpc" id="L565" title="1 of 2 branches missed.">		if (!hasScouted(player)) {</span>
+<span class="pc bpc" id="L566" title="1 of 2 branches missed.">			if (!hasContacted(player))</span>
+<span class="fc" id="L567">				initializeAlarm(player);</span>
+<span class="fc" id="L568">			contactLevels.put(player, ContactLevel.SCOUTED);</span>
+<span class="fc" id="L569">			return true;</span>
+		}
+<span class="nc" id="L571">		return false;</span>
+	}
+
+	/**
+	 * Has any European player spoken with the chief of this settlement.
+	 *
+	 * @return True if any European player has spoken with the chief.
+	 */
+	public boolean hasAnyScouted() {
+<span class="nc" id="L580">		return any(contactLevels.keySet(), p -&gt; hasScouted(p));</span>
+	}
+
+	/**
+	 * Is this settlement worth scouting? That is, has it been contacted, but
+	 * not scouted already, or visited when the &quot;Chief contact&quot; option is set.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; contemplating scouting.
+	 * @return Whether it might be worth the player scouting this settlement.
+	 */
+	public boolean worthScouting(Player player) {
+<span class="nc" id="L592">		ContactLevel cl = getContactLevel(player);</span>
+<span class="nc bnc" id="L593" title="All 3 branches missed.">		switch (cl) {</span>
+		case CONTACTED:
+<span class="nc" id="L595">			return true;</span>
+		case VISITED:
+<span class="nc bnc" id="L597" title="All 2 branches missed.">			return !getSpecification().getBoolean(GameOptions.SETTLEMENT_ACTIONS_CONTACT_CHIEF);</span>
+		case UNCONTACTED:
+		case SCOUTED:
+		default:
+			break;
+		}
+<span class="nc" id="L603">		return false;</span>
+	}
+
+	/**
+	 * Gets the alarm level towards the given player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to get the alarm level for.
+	 * @return The current alarm level or null if the settlement has not
+	 *         encoutered the player.
+	 */
+	public Tension getAlarm(Player player) {
+<span class="fc" id="L615">		return alarm.get(player);</span>
+	}
+
+	/**
+	 * Sets alarm towards the given player.
+	 *
+	 * -til: Might change tile appearance through most hated state
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to set the alarm level for.
+	 * @param newAlarm
+	 *            The new alarm value.
+	 */
+	public void setAlarm(Player player, Tension newAlarm) {
+<span class="fc" id="L629">		alarm.put(player, newAlarm);</span>
+<span class="fc" id="L630">	}</span>
+
+	/**
+	 * Initialize the alarm at this settlement with respect to a player with the
+	 * current national tension.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to set the alarm level for.
+	 */
+	protected void initializeAlarm(Player player) {
+<span class="fc" id="L640">		Tension tension = owner.getTension(player);</span>
+<span class="fc" id="L641">		setAlarm(player, new Tension(tension.getValue()));</span>
+<span class="fc" id="L642">	}</span>
+
+	/**
+	 * Gets a message key for a short alarm message associated with the alarm
+	 * level of this player.
+	 *
+	 * @param player
+	 *            The other &lt;code&gt;Player&lt;/code&gt;.
+	 * @return The alarm message key.
+	 */
+	public String getAlarmLevelKey(Player player) {
+<span class="nc bnc" id="L653" title="All 2 branches missed.">		return (!player.hasContacted(owner)) ? &quot;model.indianSettlement.tension.wary&quot;</span>
+<span class="nc bnc" id="L654" title="All 2 branches missed.">				: (!hasContacted(player)) ? &quot;model.indianSettlement.tension.unknown&quot; : getAlarm(player).getNameKey();</span>
+	}
+
+	/**
+	 * Is a unit permitted to make contact with this settlement? The unit must
+	 * be from a nation that has already made contact, or in the first instance,
+	 * must be arriving by land, with the exception of trading ships.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that proposes to contact this
+	 *            settlement.
+	 * @return True if the settlement accepts such contact.
+	 */
+	public boolean allowContact(Unit unit) {
+<span class="nc bnc" id="L668" title="All 6 branches missed.">		return unit.getOwner().hasContacted(owner) || !unit.isNaval() || unit.hasGoodsCargo();</span>
+	}
+
+	/**
+	 * Gets the amount of gold this &lt;code&gt;IndianSettlment&lt;/code&gt; is willing to
+	 * pay for the given &lt;code&gt;Goods&lt;/code&gt;.
+	 *
+	 * It is only meaningful to call this method from the server, since the
+	 * settlement's {@link GoodsContainer} is hidden from the clients.
+	 *
+	 * @param goods
+	 *            The &lt;code&gt;Goods&lt;/code&gt; to price.
+	 * @return The price.
+	 */
+	public int getPriceToBuy(Goods goods) {
+<span class="nc" id="L683">		return getPriceToBuy(goods.getType(), goods.getAmount());</span>
+	}
+
+	/**
+	 * Gets the amount of gold this &lt;code&gt;IndianSettlment&lt;/code&gt; is willing to
+	 * pay for the given &lt;code&gt;Goods&lt;/code&gt;.
+	 *
+	 * It is only meaningful to call this method from the server, since the
+	 * settlement's {@link GoodsContainer} is hidden from the clients. The AI
+	 * uses it though so it stays here for now. Note that it takes no account of
+	 * whether the native player actually has the gold.
+	 *
+	 * FIXME: this is rancid with magic numbers.
+	 *
+	 * @param type
+	 *            The type of &lt;code&gt;Goods&lt;/code&gt; to price.
+	 * @param amount
+	 *            The amount of &lt;code&gt;Goods&lt;/code&gt; to price.
+	 * @return The price.
+	 */
+	public int getPriceToBuy(GoodsType type, int amount) {
+<span class="pc bpc" id="L704" title="1 of 2 branches missed.">		if (amount &gt; GoodsContainer.CARGO_SIZE) {</span>
+<span class="nc" id="L705">			throw new IllegalArgumentException(&quot;Amount &gt; &quot; + GoodsContainer.CARGO_SIZE);</span>
+		}
+
+<span class="fc" id="L708">		int price = 0;</span>
+<span class="fc bfc" id="L709" title="All 2 branches covered.">		if (type.isMilitaryGoods()) {</span>
+			// Might return zero if a surplus is present
+<span class="fc" id="L711">			price = getMilitaryGoodsPriceToBuy(type, amount);</span>
+		}
+<span class="fc bfc" id="L713" title="All 2 branches covered.">		if (price == 0) {</span>
+<span class="fc" id="L714">			price = getNormalGoodsPriceToBuy(type, amount);</span>
+		}
+
+		// Apply wanted bonus
+<span class="fc" id="L718">		final int wantedBase = 100; // Granularity for wanted bonus</span>
+<span class="fc bfc" id="L719" title="All 6 branches covered.">		final int wantedBonus // Premium paid for wanted goods types</span>
+				= (type == wantedGoods[0]) ? 150
+						: (type == wantedGoods[1]) ? 125 : (type == wantedGoods[2]) ? 110 : 100;
+		// Do not simplify with *=, we want the integer truncation.
+<span class="fc" id="L723">		price = wantedBonus * price / wantedBase;</span>
+
+<span class="fc" id="L725">		logger.finest(&quot;Full price(&quot; + amount + &quot; &quot; + type + &quot;)&quot; + &quot; -&gt; &quot; + price);</span>
+<span class="fc" id="L726">		return price;</span>
+	}
+
+	/**
+	 * Price some goods according to the amount present in the settlement.
+	 *
+	 * @param type
+	 *            The type of goods for sale.
+	 * @param amount
+	 *            The amount of goods for sale.
+	 * @return A price for the goods.
+	 */
+	private int getNormalGoodsPriceToBuy(GoodsType type, int amount) {
+<span class="fc" id="L739">		final int tradeGoodsAdd = 20; // Fake additional trade goods present</span>
+<span class="fc" id="L740">		final int capacity = getGoodsCapacity();</span>
+<span class="fc" id="L741">		int current = getGoodsCount(type);</span>
+
+		// Increase effective stock if its raw material is produced here.
+<span class="fc" id="L744">		GoodsType rawType = type.getInputType();</span>
+<span class="fc bfc" id="L745" title="All 2 branches covered.">		if (rawType != null) {</span>
+<span class="fc" id="L746">			int rawProduction = getMaximumProduction(rawType);</span>
+<span class="fc bfc" id="L747" title="All 6 branches covered.">			int add = (rawProduction &lt; 5) ? 10 * rawProduction</span>
+					: (rawProduction &lt; 10) ? 5 * rawProduction + 25
+							: (rawProduction &lt; 20) ? 2 * rawProduction + 55 : 100;
+			// Decrease bonus in proportion to current stock, up to capacity.
+<span class="fc" id="L751">			add = add * Math.max(0, capacity - current) / capacity;</span>
+<span class="fc" id="L752">			current += add;</span>
+<span class="fc bfc" id="L753" title="All 2 branches covered.">		} else if (type.isTradeGoods()) {</span>
+			// Small artificial increase of the trade goods stored.
+<span class="fc" id="L755">			current += tradeGoodsAdd;</span>
+		}
+
+		// Only interested in the amount of goods that keeps the
+		// total under the threshold.
+<span class="fc" id="L760">		int retain = Math.min(getWantedGoodsAmount(type), capacity);</span>
+<span class="fc bfc" id="L761" title="All 2 branches covered.">		int valued = (retain &lt;= current) ? 0 : Math.min(amount, retain - current);</span>
+
+		// Unit price then is maximum price plus the bonus for the
+		// settlement type, reduced by the proportion of goods present.
+<span class="fc" id="L765">		int unitPrice = (GOODS_BASE_PRICE + getType().getTradeBonus()) * Math.max(0, capacity - current) / capacity;</span>
+
+		// But farmed goods are always less interesting.
+		// and small settlements are not interested in building.
+<span class="pc bpc" id="L769" title="1 of 4 branches missed.">		if (type.isFarmed() || type.isRawBuildingMaterial())</span>
+<span class="fc" id="L770">			unitPrice /= 2;</span>
+
+		// Only pay for the portion that is valued.
+<span class="pc bpc" id="L773" title="1 of 2 branches missed.">		return (unitPrice &lt; 0) ? 0 : valued * unitPrice;</span>
+	}
+
+	/**
+	 * Calculates how much of the given goods type this settlement wants and
+	 * should retain.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt;.
+	 * @return The amount of goods wanted.
+	 */
+	protected int getWantedGoodsAmount(GoodsType type) {
+<span class="fc bfc" id="L785" title="All 2 branches covered.">		if (getUnitCount() &lt;= 0)</span>
+<span class="fc" id="L786">			return 0;</span>
+
+<span class="fc" id="L788">		final Specification spec = getSpecification();</span>
+<span class="fc" id="L789">		final UnitType unitType = getFirstUnit().getType();</span>
+<span class="fc" id="L790">		final List&lt;Role&gt; militaryRoles = Role.getAvailableRoles(getOwner(), unitType, spec.getMilitaryRoles());</span>
+
+<span class="fc bfc" id="L792" title="All 2 branches covered.">		if (type.isMilitaryGoods()) { // Retain enough goods to fully arm</span>
+<span class="pc bpc" id="L793" title="1 of 2 branches missed.">			return ownedUnits.stream().filter(u -&gt; !militaryRoles.contains(u.getRole()))</span>
+<span class="fc" id="L794">					.mapToInt(u -&gt; AbstractGoods.getCount(type, u.getGoodsDifference(militaryRoles.get(0), 1))).sum();</span>
+		}
+
+<span class="fc" id="L797">		int consumption = getConsumptionOf(type);</span>
+<span class="fc bfc" id="L798" title="All 2 branches covered.">		if (type == spec.getPrimaryFoodType()) {</span>
+			// Food is perishable, do not try to retain that much
+<span class="fc" id="L800">			return Math.max(40, consumption * 3);</span>
+		}
+<span class="fc bfc" id="L802" title="All 6 branches covered.">		if (type.isTradeGoods() || type.isNewWorldLuxuryType() || type.isRefined()) {</span>
+			// Aim for 10 years supply, resupply is doubtful
+<span class="fc" id="L804">			return Math.max(80, consumption * 20);</span>
+		}
+		// Just keep some around
+<span class="fc" id="L807">		return 2 * getUnitCount();</span>
+	}
+
+	/**
+	 * Price some goods that have military value to the settlement.
+	 *
+	 * @param type
+	 *            The type of goods for sale.
+	 * @param amount
+	 *            The amount of goods for sale.
+	 * @return A price for the goods.
+	 */
+	private int getMilitaryGoodsPriceToBuy(GoodsType type, int amount) {
+<span class="fc" id="L820">		final int full = GOODS_BASE_PRICE + getType().getTradeBonus();</span>
+<span class="fc" id="L821">		int required = getWantedGoodsAmount(type);</span>
+<span class="pc bpc" id="L822" title="1 of 2 branches missed.">		if (required == 0)</span>
+<span class="nc" id="L823">			return 0; // Do not pay military price</span>
+
+		// If the settlement can use more than half of the goods on offer,
+		// then pay top dollar for the lot. Otherwise only pay the premium
+		// price for the part they need and refer the remaining amount to
+		// the normal goods pricing.
+<span class="fc" id="L829">		int valued = Math.max(0, required - getGoodsCount(type));</span>
+<span class="fc bfc" id="L830" title="All 2 branches covered.">		int price = (valued &gt; amount / 2) ? full * amount</span>
+<span class="fc" id="L831">				: valued * full + getNormalGoodsPriceToBuy(type, amount - valued);</span>
+<span class="fc" id="L832">		logger.finest(&quot;Military price(&quot; + amount + &quot; &quot; + type + &quot;)&quot; + &quot; valued=&quot; + valued + &quot; -&gt; &quot; + price);</span>
+<span class="fc" id="L833">		return price;</span>
+	}
+
+	/**
+	 * Gets the amount of gold this &lt;code&gt;IndianSettlment&lt;/code&gt; is willing to
+	 * sell the given &lt;code&gt;Goods&lt;/code&gt; for.
+	 *
+	 * It is only meaningful to call this method from the server, since the
+	 * settlement's {@link GoodsContainer} is hidden from the clients.
+	 *
+	 * @param goods
+	 *            The &lt;code&gt;Goods&lt;/code&gt; to price.
+	 * @return The price.
+	 */
+	public int getPriceToSell(Goods goods) {
+<span class="nc" id="L848">		return getPriceToSell(goods.getType(), goods.getAmount());</span>
+	}
+
+	/**
+	 * Gets the amount of gold this &lt;code&gt;IndianSettlment&lt;/code&gt; is willing to
+	 * sell the given &lt;code&gt;Goods&lt;/code&gt; for.
+	 *
+	 * It is only meaningful to call this method from the server, since the
+	 * settlement's {@link GoodsContainer} is hidden from the clients.
+	 *
+	 * @param type
+	 *            The type of &lt;code&gt;Goods&lt;/code&gt; to price.
+	 * @param amount
+	 *            The amount of &lt;code&gt;Goods&lt;/code&gt; to price.
+	 * @return The price.
+	 */
+	public int getPriceToSell(GoodsType type, int amount) {
+<span class="nc bnc" id="L865" title="All 2 branches missed.">		if (amount &gt; GoodsContainer.CARGO_SIZE) {</span>
+<span class="nc" id="L866">			throw new IllegalArgumentException(&quot;Amount &gt; &quot; + GoodsContainer.CARGO_SIZE);</span>
+		}
+<span class="nc" id="L868">		final int full = GOODS_BASE_PRICE + getType().getTradeBonus();</span>
+
+		// Base price is purchase price plus delta.
+		// - military goods at double value
+		// - trade goods at +50%
+<span class="nc" id="L873">		int price = amount + Math.max(0, 11 * getPriceToBuy(type, amount) / 10);</span>
+<span class="nc bnc" id="L874" title="All 2 branches missed.">		if (type.isMilitaryGoods()) {</span>
+<span class="nc" id="L875">			price = Math.max(price, amount * full * 2);</span>
+<span class="nc bnc" id="L876" title="All 2 branches missed.">		} else if (type.isTradeGoods()) {</span>
+<span class="nc" id="L877">			price = Math.max(price, 150 * amount * full / 100);</span>
+		}
+<span class="nc" id="L879">		return price;</span>
+	}
+
+	/**
+	 * Will this settlement sell a type of goods. Placeholder until we have a
+	 * spec-configured blacklist.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to consider.
+	 * @return True if the settlement would sell the goods.
+	 */
+	public boolean willSell(GoodsType type) {
+<span class="nc bnc" id="L891" title="All 2 branches missed.">		return !type.isTradeGoods();</span>
+	}
+
+	/**
+	 * Gets the goods this settlement is willing to sell.
+	 *
+	 * @param limit
+	 *            The maximum number of goods required.
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is trading.
+	 * @return A list of goods to sell.
+	 */
+	public List&lt;Goods&gt; getSellGoods(int limit, Unit unit) {
+<span class="nc" id="L904">		List&lt;Goods&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L905">		List&lt;Goods&gt; settlementGoods = getCompactGoods();</span>
+<span class="nc" id="L906">		Collections.sort(settlementGoods, exportGoodsComparator);</span>
+
+<span class="nc" id="L908">		int count = 0;</span>
+<span class="nc bnc" id="L909" title="All 2 branches missed.">		for (Goods goods : settlementGoods) {</span>
+<span class="nc bnc" id="L910" title="All 2 branches missed.">			if (!willSell(goods.getType()))</span>
+<span class="nc" id="L911">				continue;</span>
+<span class="nc" id="L912">			int amount = goods.getAmount();</span>
+<span class="nc" id="L913">			int retain = getWantedGoodsAmount(goods.getType());</span>
+<span class="nc bnc" id="L914" title="All 2 branches missed.">			if (retain &gt;= amount)</span>
+<span class="nc" id="L915">				continue;</span>
+<span class="nc" id="L916">			amount -= retain;</span>
+<span class="nc bnc" id="L917" title="All 2 branches missed.">			if (amount &gt; GoodsContainer.CARGO_SIZE) {</span>
+<span class="nc" id="L918">				amount = GoodsContainer.CARGO_SIZE;</span>
+			}
+<span class="nc bnc" id="L920" title="All 2 branches missed.">			if (unit != null) {</span>
+<span class="nc" id="L921">				amount = Math.round(applyModifiers((float) amount, getGame().getTurn(),</span>
+<span class="nc" id="L922">						unit.getModifiers(Modifier.TRADE_VOLUME_PENALTY)));</span>
+			}
+<span class="nc bnc" id="L924" title="All 2 branches missed.">			if (amount &lt; TRADE_MINIMUM_SIZE)</span>
+<span class="nc" id="L925">				continue;</span>
+<span class="nc" id="L926">			result.add(new Goods(getGame(), this, goods.getType(), amount));</span>
+<span class="nc" id="L927">			count++;</span>
+<span class="nc bnc" id="L928" title="All 2 branches missed.">			if (count &gt;= limit)</span>
+<span class="nc" id="L929">				break;</span>
+<span class="nc" id="L930">		}</span>
+<span class="nc" id="L931">		return result;</span>
+	}
+
+	/**
+	 * Allows spread of horses and arms between settlements
+	 *
+	 * FIXME: the hardwired goods/equipment types are a wart.
+	 *
+	 * @param settlement
+	 *            The other &lt;code&gt;IndianSettlement&lt;/code&gt; to trade with.
+	 */
+	public void tradeGoodsWithSettlement(IndianSettlement settlement) {
+<span class="fc" id="L943">		GoodsType armsType = getSpecification().getGoodsType(&quot;model.goods.muskets&quot;);</span>
+<span class="fc" id="L944">		GoodsType horsesType = getSpecification().getGoodsType(&quot;model.goods.horses&quot;);</span>
+<span class="fc" id="L945">		List&lt;GoodsType&gt; goodsToTrade = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L946">		goodsToTrade.add(armsType);</span>
+<span class="fc" id="L947">		goodsToTrade.add(horsesType);</span>
+
+<span class="fc bfc" id="L949" title="All 2 branches covered.">		for (GoodsType goods : goodsToTrade) {</span>
+<span class="fc" id="L950">			int goodsInStock = getGoodsCount(goods);</span>
+<span class="fc bfc" id="L951" title="All 2 branches covered.">			if (goodsInStock &lt;= 50) {</span>
+<span class="fc" id="L952">				continue;</span>
+			}
+<span class="fc" id="L954">			int goodsTraded = goodsInStock / 2;</span>
+<span class="fc" id="L955">			settlement.addGoods(goods, goodsTraded);</span>
+<span class="fc" id="L956">			removeGoods(goods, goodsTraded);</span>
+<span class="fc" id="L957">		}</span>
+<span class="fc" id="L958">	}</span>
+
+	/**
+	 * Gets the maximum possible production of the given type of goods.
+	 *
+	 * @param goodsType
+	 *            The type of goods to check.
+	 * @return The maximum amount, of the given type of goods, that can be
+	 *         produced in one turn.
+	 */
+	public int getMaximumProduction(GoodsType goodsType) {
+<span class="fc" id="L969">		return getTile().getSurroundingTiles(0, getRadius()).stream()</span>
+<span class="fc bfc" id="L970" title="All 4 branches covered.">				.filter(t -&gt; t.getOwningSettlement() == null || t.getOwningSettlement() == this)</span>
+				// FIXME: make unitType brave
+<span class="fc" id="L972">				.mapToInt(t -&gt; t.getPotentialProduction(goodsType, null)).sum();</span>
+	}
+
+	/**
+	 * Updates the goods wanted by this settlement.
+	 *
+	 * It is only meaningful to call this method from the server, since the
+	 * settlement's {@link GoodsContainer} is hidden from the clients.
+	 */
+	public void updateWantedGoods() {
+<span class="fc" id="L982">		final Specification spec = getSpecification();</span>
+<span class="fc" id="L983">		final java.util.Map&lt;GoodsType, Integer&gt; prices = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L984" title="All 2 branches covered.">		for (GoodsType gt : spec.getGoodsTypeList()) {</span>
+			// The natives do not trade military or non-storable goods.
+<span class="fc bfc" id="L986" title="All 4 branches covered.">			if (gt.isMilitaryGoods() || !gt.isStorable())</span>
+<span class="fc" id="L987">				continue;</span>
+<span class="fc" id="L988">			prices.put(gt, getNormalGoodsPriceToBuy(gt, GoodsContainer.CARGO_SIZE));</span>
+<span class="fc" id="L989">		}</span>
+<span class="fc" id="L990">		int wantedIndex = 0;</span>
+<span class="pc bpc" id="L991" title="1 of 2 branches missed.">		for (Entry&lt;GoodsType, Integer&gt; e : mapEntriesByValue(prices, descendingIntegerComparator)) {</span>
+<span class="fc" id="L992">			GoodsType goodsType = e.getKey();</span>
+<span class="fc bfc" id="L993" title="All 4 branches covered.">			if (e.getValue() &lt;= GoodsContainer.CARGO_SIZE * TRADE_MINIMUM_PRICE || wantedIndex &gt;= wantedGoods.length)</span>
+<span class="fc" id="L994">				break;</span>
+<span class="fc" id="L995">			wantedGoods[wantedIndex] = goodsType;</span>
+<span class="fc" id="L996">			wantedIndex++;</span>
+<span class="fc" id="L997">		}</span>
+<span class="fc bfc" id="L998" title="All 2 branches covered.">		for (; wantedIndex &lt; wantedGoods.length; wantedIndex++) {</span>
+<span class="fc" id="L999">			wantedGoods[wantedIndex] = null;</span>
+		}
+<span class="fc" id="L1001">	}</span>
+
+	/**
+	 * Chooses a type of goods for some of the natives in a settlement to
+	 * manufacture. Simple rule: choose the refined goods that is the greatest
+	 * shortage for which there is a surplus of the raw material.
+	 *
+	 * @return A &lt;code&gt;GoodsType&lt;/code&gt; to manufacture, or null if none
+	 *         suitable.
+	 */
+	private GoodsType goodsToMake() {
+<span class="fc" id="L1012">		GoodsType wantGoods = null;</span>
+<span class="fc" id="L1013">		int diff, wantAmount = -1;</span>
+<span class="fc bfc" id="L1014" title="All 2 branches covered.">		for (GoodsType g : getSpecification().getGoodsTypeList()) {</span>
+			GoodsType produced;
+<span class="pc bpc" id="L1016" title="1 of 6 branches missed.">			if (g.isRawMaterial() &amp;&amp; (produced = g.getOutputType()) != null &amp;&amp; !produced.isBreedable()</span>
+<span class="fc bfc" id="L1017" title="All 4 branches covered.">					&amp;&amp; produced.isStorable() &amp;&amp; getGoodsCount(g) &gt; getWantedGoodsAmount(g)</span>
+<span class="pc bpc" id="L1018" title="1 of 2 branches missed.">					&amp;&amp; (diff = getWantedGoodsAmount(produced) - getGoodsCount(produced)) &gt; wantAmount) {</span>
+<span class="fc" id="L1019">				wantGoods = produced;</span>
+<span class="fc" id="L1020">				wantAmount = diff;</span>
+			}
+<span class="fc" id="L1022">		}</span>
+<span class="fc" id="L1023">		return wantGoods;</span>
+	}
+
+	/**
+	 * Gets a random goods gift from this settlement.
+	 *
+	 * @param random
+	 *            A pseudo random number source.
+	 * @return A random goods gift, or null if none found.
+	 */
+	public Goods getRandomGift(Random random) {
+<span class="nc" id="L1034">		List&lt;Goods&gt; goodsList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L1035" title="All 2 branches missed.">		for (GoodsType type : getSpecification().getNewWorldGoodsTypeList()) {</span>
+<span class="nc" id="L1036">			int n = getGoodsCount(type) - KEEP_RAW_MATERIAL;</span>
+<span class="nc bnc" id="L1037" title="All 2 branches missed.">			if (n &gt;= GIFT_THRESHOLD) {</span>
+<span class="nc" id="L1038">				n -= GIFT_MINIMUM;</span>
+<span class="nc" id="L1039">				Goods goods = new Goods(getGame(), this, type,</span>
+<span class="nc" id="L1040">						Math.min(randomInt(logger, &quot;Gift amount&quot;, random, n) + GIFT_MINIMUM, GIFT_MAXIMUM));</span>
+<span class="nc" id="L1041">				goodsList.add(goods);</span>
+			}
+
+<span class="nc" id="L1044">		}</span>
+<span class="nc bnc" id="L1045" title="All 2 branches missed.">		return (goodsList.isEmpty()) ? null : getRandomMember(logger, &quot;Gift type&quot;, goodsList, random);</span>
+	}
+
+	/**
+	 * Add some initial goods to a newly generated settlement. After all, they
+	 * have been here for some time.
+	 *
+	 * @param random
+	 *            A pseudo-random number source.
+	 */
+	public void addRandomGoods(Random random) {
+<span class="fc" id="L1056">		HashMap&lt;GoodsType, Integer&gt; goodsMap = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L1057" title="All 2 branches covered.">		for (Tile t : getOwnedTiles()) {</span>
+<span class="fc bfc" id="L1058" title="All 2 branches covered.">			for (AbstractGoods ag : t.getSortedPotential()) {</span>
+<span class="fc" id="L1059">				GoodsType type = ag.getType().getStoredAs();</span>
+<span class="fc" id="L1060">				Integer i = goodsMap.get(type);</span>
+<span class="fc bfc" id="L1061" title="All 2 branches covered.">				int value = (i == null) ? 0 : i;</span>
+<span class="fc" id="L1062">				goodsMap.put(type, value + ag.getAmount());</span>
+<span class="fc" id="L1063">			}</span>
+<span class="fc" id="L1064">		}</span>
+<span class="fc" id="L1065">		double d = randomInt(logger, &quot;Goods at &quot; + getName(), random, 10) * 0.1 + 1.0;</span>
+<span class="fc bfc" id="L1066" title="All 2 branches covered.">		for (Entry&lt;GoodsType, Integer&gt; e : goodsMap.entrySet()) {</span>
+<span class="fc" id="L1067">			int i = e.getValue();</span>
+<span class="fc bfc" id="L1068" title="All 2 branches covered.">			if (!e.getKey().isFoodType())</span>
+<span class="fc" id="L1069">				i = (int) Math.round(d * e.getValue());</span>
+<span class="fc" id="L1070">			i = Math.min(i, GoodsContainer.CARGO_SIZE);</span>
+<span class="pc bpc" id="L1071" title="1 of 2 branches missed.">			if (i &gt; 0)</span>
+<span class="fc" id="L1072">				addGoods(e.getKey(), i);</span>
+<span class="fc" id="L1073">		}</span>
+<span class="fc" id="L1074">	}</span>
+
+	/**
+	 * Get the number of braves expected to be present for the settlement not to
+	 * be &quot;badly defended&quot;.
+	 *
+	 * @return The required defender number.
+	 */
+	public int getRequiredDefenders() {
+<span class="nc" id="L1083">		return getType().getMinimumSize() - 1;</span>
+	}
+
+	// Override FreeColGameObject
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void disposeResources() {
+		// Orphan the units whose home settlement this is.
+<span class="pc bpc" id="L1094" title="1 of 2 branches missed.">		while (!ownedUnits.isEmpty()) {</span>
+<span class="nc" id="L1095">			ownedUnits.remove(0).setHomeIndianSettlement(null);</span>
+		}
+<span class="fc" id="L1097">		super.disposeResources();</span>
+<span class="fc" id="L1098">	}</span>
+
+	// Interface Location (from Settlement via GoodsLocation via UnitLocation)
+	// Inherits
+	// FreeColObject.getId()
+	// Settlement.getTile
+	// Settlement.getLocationLabel
+	// GoodsLocation.remove
+	// GoodsLocation.contains
+	// UnitLocation.canAdd
+	// UnitLocation.getUnitCount
+	// UnitLocation.getUnitList
+	// Settlement.getSettlement
+	// final Settlement.getRank
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public StringTemplate getLocationLabelFor(Player player) {
+<span class="pc bpc" id="L1118" title="1 of 2 branches missed.">		return (hasContacted(player)) ? StringTemplate.name(getName())</span>
+<span class="nc" id="L1119">				: StringTemplate.key(&quot;model.indianSettlement.nameUnknown&quot;);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean add(Locatable locatable) {
+<span class="fc" id="L1127">		boolean result = super.add(locatable);</span>
+<span class="pc bpc" id="L1128" title="2 of 4 branches missed.">		if (result &amp;&amp; locatable instanceof Unit) {</span>
+<span class="fc" id="L1129">			Unit indian = (Unit) locatable;</span>
+<span class="pc bpc" id="L1130" title="1 of 2 branches missed.">			if (indian.getHomeIndianSettlement() == null) {</span>
+				// Adopt homeless Indians
+<span class="fc" id="L1132">				indian.setHomeIndianSettlement(this);</span>
+			}
+		}
+<span class="fc" id="L1135">		return result;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location up() {
+<span class="fc" id="L1143">		return this;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toShortString() {
+<span class="nc" id="L1151">		return getName();</span>
+	}
+
+	// UnitLocation
+	// Inherits
+	// UnitLocation.getSpaceTaken
+	// UnitLocation.moveToFront
+	// UnitLocation.clearUnitList
+	// Settlement.getNoAddReason
+	// UnitLocation.getUnitCapacity
+
+	// GoodsLocation
+	// Inherits
+	// GoodsLocation.addGoods
+	// GoodsLocation.removeGoods
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getGoodsCapacity() {
+<span class="fc" id="L1172">		return getType().getWarehouseCapacity();</span>
+	}
+
+	// Settlement
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getImageKey() {
+<span class="nc" id="L1182">		String key = getType().getId();</span>
+<span class="nc bnc" id="L1183" title="All 2 branches missed.">		if (hasMissionary())</span>
+<span class="nc" id="L1184">			key += &quot;.mission&quot;;</span>
+<span class="nc" id="L1185">		return &quot;image.tileitem.&quot; + key;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Unit getDefendingUnit(Unit attacker) {
+<span class="fc" id="L1193">		Unit defender = null;</span>
+<span class="fc" id="L1194">		double defencePower = -1.0;</span>
+<span class="fc bfc" id="L1195" title="All 2 branches covered.">		for (Unit nextUnit : getUnitList()) {</span>
+<span class="fc" id="L1196">			double unitPower = attacker.getGame().getCombatModel().getDefencePower(attacker, nextUnit);</span>
+<span class="fc bfc" id="L1197" title="All 2 branches covered.">			if (Unit.betterDefender(defender, defencePower, nextUnit, unitPower)) {</span>
+<span class="fc" id="L1198">				defender = nextUnit;</span>
+<span class="fc" id="L1199">				defencePower = unitPower;</span>
+			}
+<span class="fc" id="L1201">		}</span>
+<span class="fc" id="L1202">		return defender;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public double getDefenceRatio() {
+<span class="nc" id="L1210">		return getUnitCount() * 2.0 / (getType().getMinimumSize() + getType().getMaximumSize());</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean isBadlyDefended() {
+<span class="nc bnc" id="L1218" title="All 2 branches missed.">		return getUnitCount() &lt; getRequiredDefenders();</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public RandomRange getPlunderRange(Unit attacker) {
+<span class="nc" id="L1226">		return getType().getPlunderRange(attacker);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getSoL() {
+		// Native settlements do not generate SoL.
+<span class="fc" id="L1235">		return 0;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getUpkeep() {
+		// Native settlements do not require upkeep.
+<span class="nc" id="L1244">		return 0;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getTotalProductionOf(GoodsType type) {
+<span class="fc bfc" id="L1252" title="All 2 branches covered.">		if (type.isRefined()) {</span>
+<span class="fc bfc" id="L1253" title="All 2 branches covered.">			if (type != goodsToMake())</span>
+<span class="fc" id="L1254">				return 0;</span>
+			// Pretend 1/3 of the units present make the item with
+			// basic production of 3.
+<span class="fc" id="L1257">			return getUnitCount();</span>
+		}
+
+<span class="fc" id="L1260">		int tiles = 0;</span>
+<span class="fc" id="L1261">		int potential = 0;</span>
+<span class="fc bfc" id="L1262" title="All 2 branches covered.">		for (Tile workTile : getOwnedTiles()) {</span>
+<span class="pc bpc" id="L1263" title="1 of 4 branches missed.">			if (workTile != getTile() &amp;&amp; !workTile.isOccupied()) {</span>
+				// FIXME: make unitType brave
+<span class="fc" id="L1265">				potential += workTile.getPotentialProduction(type, null);</span>
+<span class="fc" id="L1266">				tiles++;</span>
+			}
+<span class="fc" id="L1268">		}</span>
+
+		// When a native settlement has more tiles than units, pretend
+		// that they produce from their entire area at reduced
+		// efficiency.
+<span class="fc bfc" id="L1273" title="All 2 branches covered.">		if (tiles &gt; getUnitCount()) {</span>
+<span class="fc" id="L1274">			potential *= (float) getUnitCount() / tiles;</span>
+		}
+
+		// Raw production is too generous, apply a fudge factor to reduce it
+		// a bit for the non-food cases.
+<span class="fc bfc" id="L1279" title="All 2 branches covered.">		if (!type.isFoodType()) {</span>
+<span class="fc" id="L1280">			potential = (int) Math.round(potential * NATIVE_PRODUCTION_EFFICIENCY);</span>
+		}
+
+		// But always add full potential of the center tile.
+<span class="fc" id="L1284">		potential += getTile().getPotentialProduction(type, null);</span>
+<span class="fc" id="L1285">		return potential;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	public boolean hasContacted(Player player) {
+<span class="pc bpc" id="L1292" title="1 of 6 branches missed.">		return player != null &amp;&amp; (player.isIndian() || getContactLevel(player) != ContactLevel.UNCONTACTED);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	public StringTemplate getAlarmLevelLabel(Player player) {
+<span class="nc bnc" id="L1299" title="All 2 branches missed.">		String key = (!player.hasContacted(owner)) ? &quot;model.indianSettlement.tension.wary&quot;</span>
+<span class="nc bnc" id="L1300" title="All 2 branches missed.">				: (!hasContacted(player)) ? &quot;model.indianSettlement.tension.unknown&quot;</span>
+<span class="nc" id="L1301">						: &quot;model.indianSettlement.&quot; + getAlarm(player).getKey();</span>
+<span class="nc" id="L1302">		return StringTemplate.template(key).addStringTemplate(&quot;%nation%&quot;, getOwner().getNationLabel());</span>
+	}
+
+	// Interface TradeLocation
+	// getGoodsCount provided by GoodsLocation
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getExportAmount(GoodsType goodsType, int turns) {
+<span class="nc" id="L1313">		int present = Math.max(0, getGoodsCount(goodsType) + turns * getTotalProductionOf(goodsType));</span>
+<span class="nc" id="L1314">		int wanted = getWantedGoodsAmount(goodsType);</span>
+<span class="nc" id="L1315">		return present - wanted;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getImportAmount(GoodsType goodsType, int turns) {
+<span class="nc bnc" id="L1323" title="All 2 branches missed.">		if (goodsType.limitIgnored())</span>
+<span class="nc" id="L1324">			return Integer.MAX_VALUE;</span>
+
+<span class="nc" id="L1326">		int present = Math.max(0, getGoodsCount(goodsType) - turns * getTotalProductionOf(goodsType));</span>
+<span class="nc" id="L1327">		int capacity = getWarehouseCapacity();</span>
+<span class="nc" id="L1328">		return capacity - present;</span>
+	}
+
+	// Override FreeColGameObject
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int checkIntegrity(boolean fix) {
+<span class="fc" id="L1338">		return super.checkIntegrity(fix);</span>
+	}
+
+	// Serialization
+
+	/** The Constant ALARM_TAG. */
+	private static final String ALARM_TAG = &quot;alarm&quot;;
+
+	/** The Constant CONTACT_LEVEL_TAG. */
+	private static final String CONTACT_LEVEL_TAG = &quot;contactLevel&quot;;
+
+	/** The Constant CONVERT_PROGRESS_TAG. */
+	private static final String CONVERT_PROGRESS_TAG = &quot;convertProgress&quot;;
+
+	/** The Constant IS_VISITED_TAG. */
+	private static final String IS_VISITED_TAG = &quot;isVisited&quot;;
+
+	/** The Constant LAST_TRIBUTE_TAG. */
+	private static final String LAST_TRIBUTE_TAG = &quot;lastTribute&quot;;
+
+	/** The Constant LEVEL_TAG. */
+	private static final String LEVEL_TAG = &quot;level&quot;;
+
+	/** The Constant MISSIONARY_TAG. */
+	private static final String MISSIONARY_TAG = &quot;missionary&quot;;
+
+	/** The Constant MOST_HATED_TAG. */
+	private static final String MOST_HATED_TAG = &quot;mostHated&quot;;
+
+	/** The Constant NAME_TAG. */
+	private static final String NAME_TAG = &quot;name&quot;;
+
+	/** The Constant OWNED_UNITS_TAG. */
+	private static final String OWNED_UNITS_TAG = &quot;ownedUnits&quot;;
+
+	/** The Constant PLAYER_TAG. */
+	private static final String PLAYER_TAG = &quot;player&quot;;
+	// Public for now while 0.10.7 backward compatibility code in Tile
+	/** The Constant LEARNABLE_SKILL_TAG. */
+	// for PlayerExploredTile needs to check these.
+	public static final String LEARNABLE_SKILL_TAG = &quot;learnableSkill&quot;;
+
+	/** The Constant WANTED_GOODS_TAG. */
+	public static final String WANTED_GOODS_TAG = &quot;wantedGoods&quot;;
+
+	/** The Constant OLD_UNITS_TAG. */
+	// @compat 0.10.1
+	public static final String OLD_UNITS_TAG = &quot;units&quot;;
+	// end @compat
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L1393">		super.writeAttributes(xw);</span>
+
+<span class="fc" id="L1395">		final Player hated = getMostHated();</span>
+
+<span class="pc bpc" id="L1397" title="1 of 2 branches missed.">		if (getName() != null) { // Delegated from Settlement</span>
+<span class="fc" id="L1398">			xw.writeAttribute(NAME_TAG, getName());</span>
+		}
+
+<span class="fc bfc" id="L1401" title="All 2 branches covered.">		if (xw.validFor(getOwner())) {</span>
+
+<span class="fc" id="L1403">			xw.writeAttribute(LAST_TRIBUTE_TAG, lastTribute);</span>
+
+<span class="fc" id="L1405">			xw.writeAttribute(CONVERT_PROGRESS_TAG, convertProgress);</span>
+		}
+
+<span class="fc bfc" id="L1408" title="All 2 branches covered.">		if (learnableSkill != null) {</span>
+<span class="fc" id="L1409">			xw.writeAttribute(LEARNABLE_SKILL_TAG, learnableSkill);</span>
+		}
+
+<span class="fc bfc" id="L1412" title="All 2 branches covered.">		for (int i = 0; i &lt; wantedGoods.length; i++) {</span>
+<span class="pc bpc" id="L1413" title="1 of 2 branches missed.">			if (wantedGoods[i] != null) {</span>
+<span class="nc" id="L1414">				xw.writeAttribute(WANTED_GOODS_TAG + i, wantedGoods[i]);</span>
+			}
+		}
+
+<span class="fc bfc" id="L1418" title="All 2 branches covered.">		if (hated != null)</span>
+<span class="fc" id="L1419">			xw.writeAttribute(MOST_HATED_TAG, hated);</span>
+<span class="fc" id="L1420">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L1427">		super.writeChildren(xw);</span>
+
+<span class="fc bfc" id="L1429" title="All 2 branches covered.">		if (missionary != null) {</span>
+<span class="fc" id="L1430">			xw.writeStartElement(MISSIONARY_TAG);</span>
+
+<span class="fc" id="L1432">			missionary.toXML(xw);</span>
+
+<span class="fc" id="L1434">			xw.writeEndElement();</span>
+		}
+
+<span class="fc bfc" id="L1437" title="All 2 branches covered.">		if (xw.validFor(getOwner())) {</span>
+
+<span class="fc bfc" id="L1439" title="All 2 branches covered.">			for (Player p : getSortedCopy(contactLevels.keySet())) {</span>
+<span class="fc" id="L1440">				xw.writeStartElement(CONTACT_LEVEL_TAG);</span>
+
+<span class="fc" id="L1442">				xw.writeAttribute(LEVEL_TAG, contactLevels.get(p));</span>
+
+<span class="fc" id="L1444">				xw.writeAttribute(PLAYER_TAG, p);</span>
+
+<span class="fc" id="L1446">				xw.writeEndElement();</span>
+<span class="fc" id="L1447">			}</span>
+
+<span class="fc bfc" id="L1449" title="All 2 branches covered.">			for (Player p : getSortedCopy(alarm.keySet())) {</span>
+<span class="fc" id="L1450">				xw.writeStartElement(ALARM_TAG);</span>
+
+<span class="fc" id="L1452">				xw.writeAttribute(PLAYER_TAG, p);</span>
+
+<span class="fc" id="L1454">				xw.writeAttribute(VALUE_TAG, alarm.get(p).getValue());</span>
+
+<span class="fc" id="L1456">				xw.writeEndElement();</span>
+<span class="fc" id="L1457">			}</span>
+
+<span class="fc bfc" id="L1459" title="All 2 branches covered.">			for (Unit unit : getSortedCopy(ownedUnits)) {</span>
+<span class="fc" id="L1460">				xw.writeStartElement(OWNED_UNITS_TAG);</span>
+
+<span class="fc" id="L1462">				xw.writeAttribute(ID_ATTRIBUTE_TAG, unit);</span>
+
+<span class="fc" id="L1464">				xw.writeEndElement();</span>
+<span class="fc" id="L1465">			}</span>
+
+		} else {
+<span class="fc" id="L1468">			Player client = xw.getClientPlayer();</span>
+
+<span class="fc" id="L1470">			ContactLevel cl = contactLevels.get(client);</span>
+<span class="fc bfc" id="L1471" title="All 2 branches covered.">			if (cl != null) {</span>
+<span class="fc" id="L1472">				xw.writeStartElement(CONTACT_LEVEL_TAG);</span>
+
+<span class="fc" id="L1474">				xw.writeAttribute(LEVEL_TAG, cl);</span>
+
+<span class="fc" id="L1476">				xw.writeAttribute(PLAYER_TAG, client);</span>
+
+<span class="fc" id="L1478">				xw.writeEndElement();</span>
+			}
+
+<span class="fc" id="L1481">			Tension alarm = getAlarm(client);</span>
+<span class="fc bfc" id="L1482" title="All 2 branches covered.">			if (alarm != null) {</span>
+<span class="fc" id="L1483">				xw.writeStartElement(ALARM_TAG);</span>
+
+<span class="fc" id="L1485">				xw.writeAttribute(PLAYER_TAG, client);</span>
+
+<span class="fc" id="L1487">				xw.writeAttribute(VALUE_TAG, alarm.getValue());</span>
+
+<span class="fc" id="L1489">				xw.writeEndElement();</span>
+			}
+		}
+<span class="fc" id="L1492">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L1499">		super.readAttributes(xr);</span>
+
+<span class="fc" id="L1501">		final Specification spec = getSpecification();</span>
+
+<span class="fc" id="L1503">		lastTribute = xr.getAttribute(LAST_TRIBUTE_TAG, 0);</span>
+
+<span class="fc" id="L1505">		convertProgress = xr.getAttribute(CONVERT_PROGRESS_TAG, 0);</span>
+
+<span class="fc" id="L1507">		learnableSkill = xr.getType(spec, LEARNABLE_SKILL_TAG, UnitType.class, (UnitType) null);</span>
+
+<span class="fc" id="L1509">		mostHated = xr.findFreeColGameObject(getGame(), MOST_HATED_TAG, Player.class, (Player) null, false);</span>
+
+<span class="fc bfc" id="L1511" title="All 2 branches covered.">		for (int i = 0; i &lt; wantedGoods.length; i++) {</span>
+<span class="fc" id="L1512">			wantedGoods[i] = xr.getType(spec, WANTED_GOODS_TAG + i, GoodsType.class, (GoodsType) null);</span>
+		}
+<span class="fc" id="L1514">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+		// Clear containers.
+<span class="fc" id="L1522">		contactLevels.clear();</span>
+<span class="fc" id="L1523">		alarm.clear();</span>
+<span class="fc" id="L1524">		missionary = null;</span>
+<span class="fc" id="L1525">		ownedUnits.clear();</span>
+
+<span class="fc" id="L1527">		super.readChildren(xr);</span>
+
+		// @compat 0.10.1
+<span class="fc bfc" id="L1530" title="All 2 branches covered.">		for (Unit u : getUnitList()) {</span>
+<span class="pc bpc" id="L1531" title="1 of 2 branches missed.">			if (u.getLocation() != this) {</span>
+<span class="nc" id="L1532">				u.setLocationNoUpdate(this);</span>
+<span class="nc" id="L1533">				logger.warning(&quot;Fixing unit location&quot; + &quot; from &quot; + u.getLocation() + &quot; to &quot; + this.getId());</span>
+			}
+<span class="fc" id="L1535">		}</span>
+		// end @compat
+<span class="fc" id="L1537">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L1544">		final Game game = getGame();</span>
+<span class="fc" id="L1545">		final String tag = xr.getLocalName();</span>
+
+<span class="fc bfc" id="L1547" title="All 2 branches covered.">		if (ALARM_TAG.equals(tag)) {</span>
+<span class="fc" id="L1548">			Player player = xr.findFreeColGameObject(game, PLAYER_TAG, Player.class, (Player) null, true);</span>
+			// @compat 0.10.5
+<span class="pc bpc" id="L1550" title="1 of 2 branches missed.">			if (getName() != null) {</span>
+				// Alarm used to imply contact, but only set contacted if
+				// we also have a valid name for the settlement.
+<span class="fc" id="L1553">				setContacted(player);</span>
+			}
+			// end @compat
+<span class="fc" id="L1556">			alarm.put(player, new Tension(xr.getAttribute(VALUE_TAG, 0)));</span>
+<span class="fc" id="L1557">			xr.closeTag(ALARM_TAG);</span>
+
+<span class="fc bfc" id="L1559" title="All 2 branches covered.">		} else if (CONTACT_LEVEL_TAG.equals(tag)) {</span>
+<span class="fc" id="L1560">			ContactLevel cl = xr.getAttribute(LEVEL_TAG, ContactLevel.class, ContactLevel.UNCONTACTED);</span>
+<span class="fc" id="L1561">			Player player = xr.findFreeColGameObject(game, PLAYER_TAG, Player.class, (Player) null, true);</span>
+<span class="fc" id="L1562">			contactLevels.put(player, cl);</span>
+<span class="fc" id="L1563">			xr.closeTag(CONTACT_LEVEL_TAG);</span>
+
+			// @compat 0.10.5
+<span class="pc bpc" id="L1566" title="1 of 2 branches missed.">		} else if (IS_VISITED_TAG.equals(tag)) {</span>
+<span class="nc" id="L1567">			Player player = xr.findFreeColGameObject(game, PLAYER_TAG, Player.class, (Player) null, true);</span>
+<span class="nc" id="L1568">			setScouted(player);</span>
+<span class="nc" id="L1569">			xr.closeTag(IS_VISITED_TAG);</span>
+			// end @compat
+
+<span class="pc bpc" id="L1572" title="1 of 2 branches missed.">		} else if (MISSIONARY_TAG.equals(tag)) {</span>
+<span class="nc" id="L1573">			xr.nextTag();</span>
+<span class="nc" id="L1574">			missionary = xr.readFreeColGameObject(game, Unit.class);</span>
+<span class="nc" id="L1575">			missionary.setLocationNoUpdate(this);</span>
+<span class="nc" id="L1576">			xr.closeTag(MISSIONARY_TAG);</span>
+
+			// @compat 0.10.1
+<span class="fc bfc" id="L1579" title="All 2 branches covered.">		} else if (OLD_UNITS_TAG.equals(tag)) {</span>
+<span class="fc bfc" id="L1580" title="All 2 branches covered.">			while (xr.nextTag() != XMLStreamConstants.END_ELEMENT) {</span>
+<span class="fc" id="L1581">				super.readChild(xr);</span>
+			}
+			// end @compat
+
+<span class="fc bfc" id="L1585" title="All 2 branches covered.">		} else if (OWNED_UNITS_TAG.equals(tag)) {</span>
+<span class="fc" id="L1586">			Unit unit = xr.makeFreeColGameObject(game, ID_ATTRIBUTE_TAG, Unit.class, true);</span>
+<span class="fc" id="L1587">			addOwnedUnit(unit);</span>
+<span class="fc" id="L1588">			xr.closeTag(OWNED_UNITS_TAG);</span>
+
+<span class="fc" id="L1590">		} else {</span>
+<span class="fc" id="L1591">			super.readChild(xr);</span>
+		}
+<span class="fc" id="L1593">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+<span class="fc" id="L1600">		StringBuilder sb = new StringBuilder(64);</span>
+<span class="fc" id="L1601">		sb.append(getName()).append(&quot; at (&quot;).append(tile.getX()).append(&quot;,&quot;).append(tile.getY()).append(&quot;)&quot;);</span>
+<span class="fc" id="L1602">		return sb.toString();</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+<span class="fc" id="L1610">		return getXMLElementTagName();</span>
+	}
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return &quot;indianSettlement&quot;.
+	 */
+	public static String getXMLElementTagName() {
+<span class="fc" id="L1619">		return &quot;indianSettlement&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

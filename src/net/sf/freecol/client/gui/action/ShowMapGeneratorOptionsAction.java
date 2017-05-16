@@ -23,32 +23,31 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for displaying the Map Generator Options.
  */
 public class ShowMapGeneratorOptionsAction extends FreeColAction {
 
-    public static final String id = "mapGeneratorOptionsAction";
+	/** The Constant id. */
+	public static final String id = "mapGeneratorOptionsAction";
 
+	/**
+	 * Creates a new <code>ShowMapGeneratorOptionsAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ShowMapGeneratorOptionsAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>ShowMapGeneratorOptionsAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ShowMapGeneratorOptionsAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        getGUI().showMapGeneratorOptionsDialog(false);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		getGUI().showMapGeneratorOptionsDialog(false);
+	}
 }

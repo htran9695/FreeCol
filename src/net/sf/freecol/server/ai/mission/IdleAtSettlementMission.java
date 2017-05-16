@@ -31,171 +31,176 @@ import net.sf.freecol.common.util.LogBuilder;
 import net.sf.freecol.server.ai.AIMain;
 import net.sf.freecol.server.ai.AIUnit;
 
-
 /**
  * Mission for idling in a settlement.
  */
 public class IdleAtSettlementMission extends Mission {
 
-    private static final Logger logger = Logger.getLogger(IdleAtSettlementMission.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(IdleAtSettlementMission.class.getName());
 
-    /** The tag for this mission. */
-    private static final String tag = "AI idler";
+	/** The tag for this mission. */
+	private static final String tag = "AI idler";
 
+	/**
+	 * Creates a mission for the given <code>AIUnit</code>.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param aiUnit
+	 *            The <code>AIUnit</code> this mission is created for.
+	 */
+	public IdleAtSettlementMission(AIMain aiMain, AIUnit aiUnit) {
+		super(aiMain, aiUnit, null);
+	}
 
-    /**
-     * Creates a mission for the given <code>AIUnit</code>.
-     *
-     * @param aiMain The main AI-object.
-     * @param aiUnit The <code>AIUnit</code> this mission is created for.
-     */
-    public IdleAtSettlementMission(AIMain aiMain, AIUnit aiUnit) {
-        super(aiMain, aiUnit, null);
-    }
+	/**
+	 * Creates a new <code>IdleAtSettlementMission</code> and reads the given
+	 * element.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param aiUnit
+	 *            The <code>AIUnit</code> this mission is created for.
+	 * @param xr
+	 *            The input stream containing the XML.
+	 * @throws XMLStreamException
+	 *             if a problem was encountered during parsing.
+	 * @see net.sf.freecol.server.ai.AIObject#readFromXML
+	 */
+	public IdleAtSettlementMission(AIMain aiMain, AIUnit aiUnit, FreeColXMLReader xr) throws XMLStreamException {
+		super(aiMain, aiUnit);
 
-    /**
-     * Creates a new <code>IdleAtSettlementMission</code> and reads the
-     * given element.
-     *
-     * @param aiMain The main AI-object.
-     * @param aiUnit The <code>AIUnit</code> this mission is created for.
-     * @param xr The input stream containing the XML.
-     * @throws XMLStreamException if a problem was encountered
-     *      during parsing.
-     * @see net.sf.freecol.server.ai.AIObject#readFromXML
-     */
-    public IdleAtSettlementMission(AIMain aiMain, AIUnit aiUnit,
-                                   FreeColXMLReader xr) throws XMLStreamException {
-        super(aiMain, aiUnit);
+		readFromXML(xr);
+	}
 
-        readFromXML(xr);
-    }
+	/**
+	 * Is the unit in a safe location where it can idle, or should it move?.
+	 *
+	 * @return True if the unit is safe.
+	 */
+	private boolean isSafe() {
+		final Unit unit = getUnit();
+		return unit.isInEurope() || !unit.hasTile() || unit.getTile().hasSettlement();
+	}
 
+	// Implement Mission
+	// Inherit dispose, getTransportDestination
 
-    /**
-     * Is the unit in a safe location where it can idle, or should it move?
-     *
-     * @return True if the unit is safe.
-     */
-    private boolean isSafe() {
-        final Unit unit = getUnit();
-        return unit.isInEurope() || !unit.hasTile()
-            || unit.getTile().hasSettlement();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getBaseTransportPriority() {
+		return MINIMUM_TRANSPORT_PRIORITY;
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location getTarget() {
+		return (isSafe()) ? null : findTarget();
+	}
 
-    // Implement Mission
-    //   Inherit dispose, getTransportDestination
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void setTarget(Location target) {
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getBaseTransportPriority() {
-        return MINIMUM_TRANSPORT_PRIORITY;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location findTarget() {
+		if (isSafe())
+			return null;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location getTarget() {
-        return (isSafe()) ? null : findTarget();
-    }
+		final Unit unit = getAIUnit().getUnit();
+		PathNode path = unit.findOurNearestOtherSettlement();
+		return (path == null) ? null : Location.upLoc(path.getLastNode().getLocation());
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setTarget(Location target) {}
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean isOneTime() {
+		return true;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location findTarget() {
-        if (isSafe()) return null;
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String invalidReason() {
+		return invalidAIUnitReason(getAIUnit());
+	}
 
-        final Unit unit = getAIUnit().getUnit();
-        PathNode path = unit.findOurNearestOtherSettlement();
-        return (path == null) ? null
-            : Location.upLoc(path.getLastNode().getLocation());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Mission doMission(LogBuilder lb) {
+		lb.add(tag);
+		String reason = invalidReason();
+		if (reason != null)
+			return lbFail(lb, false, reason);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isOneTime() {
-        return true;
-    }
+		// If safe, do nothing but do not use lbWait in case a useful
+		// mission is found.
+		if (isSafe()) {
+			lb.add(", idling");
+			return lbAt(lb);
+		}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String invalidReason() {
-        return invalidAIUnitReason(getAIUnit());
-    }
+		Location target = getTarget();
+		if (target == null) {
+			// Just make a random moves if no target can be found.
+			moveRandomlyTurn(tag);
+			return lbWait(lb);
+		}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Mission doMission(LogBuilder lb) {
-        lb.add(tag);
-        String reason = invalidReason();
-        if (reason != null) return lbFail(lb, false, reason);
+		Unit.MoveType mt = travelToTarget(getTarget(), null, lb);
+		switch (mt) {
+		case MOVE: // Arrived
+			break;
 
-        // If safe, do nothing but do not use lbWait in case a useful
-        // mission is found.
-        if (isSafe()) {
-            lb.add(", idling");
-            return lbAt(lb);
-        }
+		case MOVE_HIGH_SEAS:
+		case MOVE_NO_MOVES:
+		case MOVE_NO_REPAIR:
+		case MOVE_ILLEGAL:
+			return lbWait(lb);
 
-        Location target = getTarget();
-        if (target == null) {
-            // Just make a random moves if no target can be found.
-            moveRandomlyTurn(tag);
-            return lbWait(lb);
-        }
+		case MOVE_NO_ACCESS_EMBARK:
+		case MOVE_NO_TILE:
+			return this;
 
-        Unit.MoveType mt = travelToTarget(getTarget(), null, lb);
-        switch (mt) {
-        case MOVE: // Arrived
-            break;
+		default:
+			return lbMove(lb, mt);
+		}
 
-        case MOVE_HIGH_SEAS: case MOVE_NO_MOVES:
-        case MOVE_NO_REPAIR: case MOVE_ILLEGAL:
-            return lbWait(lb);
+		return lbAt(lb);
+	}
 
-        case MOVE_NO_ACCESS_EMBARK: case MOVE_NO_TILE:
-            return this;
+	// Serialization
 
-        default:
-            return lbMove(lb, mt);
-        }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-        return lbAt(lb);
-    }
-
-
-    // Serialization
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "idleAtSettlementMission".
-     */
-    public static String getXMLElementTagName() {
-        return "idleAtSettlementMission";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "idleAtSettlementMission".
+	 */
+	public static String getXMLElementTagName() {
+		return "idleAtSettlementMission";
+	}
 }

@@ -32,781 +32,803 @@ import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 import static net.sf.freecol.common.util.CollectionUtils.*;
 
-
 /**
- * The super class of all settlements on the map (that is colonies and
- * indian settlements).
+ * The super class of all settlements on the map (that is colonies and indian
+ * settlements).
  */
-public abstract class Settlement extends GoodsLocation
-    implements Nameable, Ownable {
-
-<span class="fc" id="L43">    private static final Logger logger = Logger.getLogger(Settlement.class.getName());</span>
-
-    public static final int FOOD_PER_COLONIST = 200;
-
-    /** The &lt;code&gt;Player&lt;/code&gt; owning this &lt;code&gt;Settlement&lt;/code&gt;. */
-    protected Player owner;
-
-    /** The name of the Settlement. */
-    private String name;
-
-    /** The &lt;code&gt;Tile&lt;/code&gt; where this &lt;code&gt;Settlement&lt;/code&gt; is located. */
-    protected Tile tile;
-
-    /** The type of settlement. */
-<span class="fc" id="L57">    private SettlementType type = null;</span>
-
-    /** The tiles this settlement owns. */
-<span class="fc" id="L60">    private final Set&lt;Tile&gt; ownedTiles = new HashSet&lt;&gt;();</span>
-
-    /** Contains the abilities and modifiers of this Settlement. */
-<span class="fc" id="L63">    private final FeatureContainer featureContainer = new FeatureContainer();</span>
-
-
-    /**
-     * Create a new &lt;code&gt;Settlement&lt;/code&gt;.
-     *
-     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
-     * @param owner The owning &lt;code&gt;Player&lt;/code&gt;.
-     * @param name The settlement name.
-     * @param tile The containing &lt;code&gt;Tile&lt;/code&gt;.
-     */
-    public Settlement(Game game, Player owner, String name, Tile tile) {
-<span class="fc" id="L75">        super(game);</span>
-
-<span class="fc" id="L77">        this.owner = owner;</span>
-<span class="fc" id="L78">        this.name = name;</span>
-<span class="fc" id="L79">        this.tile = tile;</span>
-<span class="fc" id="L80">        changeType(owner.getNationType().getSettlementType(false));</span>
-<span class="fc" id="L81">    }</span>
-
-    /**
-     * Initiates a new &lt;code&gt;Settlement&lt;/code&gt; with the given identifier.
-     * The object should later be initialized by calling either
-     * {@link #readFromXML(FreeColXMLReader)} or
-     * {@link #readFromXMLElement(Element)}.
-     *
-     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
-     * @param id The object identifier.
-     */
-    public Settlement(Game game, String id) {
-<span class="fc" id="L93">        super(game, id);</span>
-<span class="fc" id="L94">    }</span>
-
-
-    /**
-     * Get the type of this settlement.
-     *
-     * @return The settlement type.
-     */
-    public final SettlementType getType() {
-<span class="fc" id="L103">        return type;</span>
-    }
-
-    /**
-     * Set the settlement type.
-     *
-     * @param newType The new &lt;code&gt;SettlementType&lt;/code&gt;.
-     */
-    public void setType(final SettlementType newType) {
-<span class="fc" id="L112">        this.type = newType;</span>
-<span class="fc" id="L113">    }</span>
-
-    /**
-     * Is this settlement landlocked?
-     *
-     * @return True if no adjacent tiles are water.
-     */
-    public boolean isLandLocked() {
-<span class="fc" id="L121">        return tile.isLandLocked();</span>
-    }
-
-    /**
-     * Change the settlement type, setting the consequent features.
-     *
-     * @param newType The new &lt;code&gt;SettlementType&lt;/code&gt;.
-     */
-    private final void changeType(final SettlementType newType) {
-<span class="fc bfc" id="L130" title="All 2 branches covered.">        if (type != null) removeFeatures(type);</span>
-<span class="fc" id="L131">        setType(newType);</span>
-<span class="pc bpc" id="L132" title="1 of 2 branches missed.">        if (newType != null) addFeatures(newType);</span>
-<span class="fc" id="L133">    }</span>
-
-    /**
-     * Is this a national capital?
-     *
-     * @return True if this is a national capital.
-     */
-    public boolean isCapital() {
-<span class="fc" id="L141">        return getType().isCapital();</span>
-    }
-
-    public void setCapital(boolean capital) {
-<span class="fc bfc" id="L145" title="All 2 branches covered.">        if (isCapital() != capital) {</span>
-<span class="fc" id="L146">            changeType(owner.getNationType().getSettlementType(capital));</span>
-        }
-<span class="fc" id="L148">    }</span>
-
-    /**
-     * Get the tiles this settlement owns.
-     *
-     * @return A list of tiles.
-     */
-    public Set&lt;Tile&gt; getOwnedTiles() {
-<span class="fc" id="L156">        return new HashSet&lt;&gt;(ownedTiles);</span>
-    }
-
-    /**
-     * Adds a tile to this settlement.
-     *
-     * We can not clear the settlement owned tiles container when the
-     * settlement is read because this is called when the Tile is
-     * read, and tiles can appear before and after the settlement in
-     * the map definition.  So we just accumulate and defend against
-     * duplicates.
-     *
-     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to add.
-     */
-    public void addTile(Tile tile) {
-<span class="fc bfc" id="L171" title="All 2 branches covered.">        if (!ownedTiles.contains(tile)) ownedTiles.add(tile);</span>
-<span class="fc" id="L172">    }</span>
-
-    /**
-     * Removes a tile from this settlement.
-     *
-     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to remove.
-     */
-    public void removeTile(Tile tile) {
-<span class="fc" id="L180">        ownedTiles.remove(tile);</span>
-<span class="fc" id="L181">    }</span>
-
-    /**
-     * Gets the radius of what the &lt;code&gt;Settlement&lt;/code&gt; considers
-     * as it's own land.
-     *
-     * @return Settlement radius
-     */
-    public int getRadius() {
-<span class="fc" id="L190">        return getType().getClaimableRadius();</span>
-    }
-
-    /**
-     * Gets this settlement's line of sight value.
-     *
-     * @return The line of sight value.
-     */
-    public int getLineOfSight() {
-<span class="fc" id="L199">        return (int)applyModifiers((float)getType().getVisibleRadius(),</span>
-<span class="fc" id="L200">            getGame().getTurn(), Modifier.LINE_OF_SIGHT_BONUS);</span>
-    }
-
-    /**
-     * Gets an amount of plunder when this settlement is taken.
-     *
-     * @param attacker The &lt;code&gt;Unit&lt;/code&gt; that takes the settlement.
-     * @param random A pseudo-random number source.
-     * @return An amount of gold plundered.
-     */
-    public int getPlunder(Unit attacker, Random random) {
-<span class="fc" id="L211">        RandomRange range = getPlunderRange(attacker);</span>
-<span class="fc bfc" id="L212" title="All 2 branches covered.">        return (range == null) ? 0</span>
-<span class="fc" id="L213">            : range.getAmount(&quot;Plunder &quot; + getName(), random, false);</span>
-    }
-
-    /**
-     * Put a prepared settlement onto the map.
-     *
-     * -vis: Several visibility issues accumulated here.
-     * -til: Several tile appearance issues accumulated here.
-     *
-     * @param maximal If true, also claim all the tiles possible.
-     */
-    public void placeSettlement(boolean maximal) {
-        List&lt;Tile&gt; tiles;
-<span class="pc bpc" id="L226" title="1 of 2 branches missed.">        if (maximal) {</span>
-<span class="fc" id="L227">            tiles = owner.getClaimableTiles(tile, getRadius());</span>
-        } else {
-<span class="nc" id="L229">            tiles = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L230">            tiles.add(tile);</span>
-        }
-
-<span class="fc" id="L233">        tile.setSettlement(this);//-vis(owner),-til</span>
-<span class="fc bfc" id="L234" title="All 2 branches covered.">        for (Tile t : tiles) {</span>
-<span class="fc" id="L235">            t.changeOwnership(owner, this);//-vis(owner,this),-til</span>
-<span class="fc" id="L236">        }</span>
-<span class="fc bfc" id="L237" title="All 2 branches covered.">        if (!tile.hasRoad()) {</span>
-<span class="fc" id="L238">            TileImprovement road = tile.addRoad();</span>
-<span class="fc" id="L239">            road.setTurnsToComplete(0);</span>
-<span class="fc" id="L240">            road.setVirtual(true);</span>
-<span class="fc" id="L241">            road.updateRoadConnections(true);</span>
-        }
-<span class="fc" id="L243">    }</span>
-
-    /**
-     * Remove a settlement from the map.
-     *
-     * -vis: Visibility reduced when settlement goes away.
-     * -til: Several tile appearance issues accumulated here.
-     *
-     * Several visibility issues accumulated here.
-     */
-    public void exciseSettlement() {
-<span class="fc" id="L254">        Tile settlementTile = getTile();</span>
-<span class="fc bfc" id="L255" title="All 2 branches covered.">        for (Tile tile : getOwnedTiles()) {</span>
-<span class="fc" id="L256">            tile.changeOwnership(null, null);//-til</span>
-<span class="fc" id="L257">        }</span>
-<span class="fc" id="L258">        settlementTile.setSettlement(null);//-vis(owner),-til</span>
-<span class="fc" id="L259">        settlementTile.changeOwnership(null, null);//-til</span>
-<span class="fc" id="L260">        TileImprovement road = settlementTile.getRoad();</span>
-<span class="pc bpc" id="L261" title="2 of 4 branches missed.">        if (road != null &amp;&amp; road.isVirtual()) {</span>
-<span class="fc" id="L262">            settlementTile.removeRoad();//-til</span>
-        }
-<span class="fc" id="L264">    }</span>
-
-    /**
-     * Change the owner of this &lt;code&gt;Settlement&lt;/code&gt;.
-     *
-     * Does not fix up the units!  That is handled in the server.
-     *
-     * -vis: Changes visibility.
-     * -til: Changes tile appearance.
-     *
-     * @param newOwner The &lt;code&gt;Player&lt;/code&gt; that shall own this
-     *            &lt;code&gt;Settlement&lt;/code&gt;.
-     * @see #getOwner
-     */
-    public void changeOwner(Player newOwner) {
-<span class="fc" id="L279">        final Player oldOwner = this.owner;</span>
-<span class="pc bpc" id="L280" title="1 of 2 branches missed.">        if (newOwner.isIndian() != oldOwner.isIndian()) {</span>
-<span class="nc" id="L281">            throw new IllegalArgumentException(&quot;Can not transfer settlements between native and European players.&quot;);</span>
-        }
-<span class="fc" id="L283">        setOwner(newOwner);//-til,-vis</span>
-
-<span class="fc" id="L285">        getGame().checkOwners(this, oldOwner);</span>
-
-<span class="fc bfc" id="L287" title="All 2 branches covered.">        for (Tile t : getOwnedTiles()) {</span>
-<span class="fc" id="L288">            t.changeOwnership(newOwner, this);//-til</span>
-<span class="fc" id="L289">        }</span>
-
-<span class="fc" id="L291">        getGame().notifyOwnerChanged(this, oldOwner, newOwner);</span>
-<span class="fc" id="L292">    }</span>
-
-    /**
-     * Gets whether this settlement is connected to the high seas.
-     * This is more than merely non-landlocked, because the settlement
-     * could be on an inland lake.
-     *
-     * @return True if the settlement is connected to the high seas.
-     */
-    public boolean isConnectedPort() {
-<span class="fc" id="L302">        return any(getTile().getSurroundingTiles(1, 1),</span>
-<span class="fc bfc" id="L303" title="All 4 branches covered.">            t -&gt; !t.isLand() &amp;&amp; t.isHighSeasConnected());</span>
-    }
-
-    /**
-     * Gets the minimum high seas count of the adjacent high-seas-connected
-     * tiles.  This is a measure of how close this settlement is to Europe.
-     *
-     * @return A high seas count, INFINITY if not connected.
-     */
-    public int getHighSeasCount() {
-<span class="nc" id="L313">        int best = INFINITY;</span>
-<span class="nc bnc" id="L314" title="All 2 branches missed.">        for (Tile t : getTile().getSurroundingTiles(1)) {</span>
-<span class="nc bnc" id="L315" title="All 4 branches missed.">            if (t.isLand() || t.getHighSeasCount() &lt; 0) continue;</span>
-<span class="nc bnc" id="L316" title="All 2 branches missed.">            if (best &gt; t.getHighSeasCount()) {</span>
-<span class="nc" id="L317">                best = t.getHighSeasCount();</span>
-            }
-<span class="nc" id="L319">        }</span>
-<span class="nc" id="L320">        return best;</span>
-    }
-
-    /**
-     * Returns the number of goods of a given type used by the settlement
-     * each turn.
-     *
-     * @param goodsType a &lt;code&gt;GoodsType&lt;/code&gt; value
-     * @return an &lt;code&gt;int&lt;/code&gt; value
-     */
-    public int getConsumptionOf(GoodsType goodsType) {
-<span class="fc" id="L331">        return Math.max(0, getUnitList().stream()</span>
-<span class="fc" id="L332">                .mapToInt(u -&gt; u.getType().getConsumptionOf(goodsType)).sum());</span>
-    }
-
-    /**
-     * Returns the number of goods of all given types used by the
-     * settlement each turn.
-     *
-     * @param goodsTypes &lt;code&gt;GoodsType&lt;/code&gt; values
-     * @return an &lt;code&gt;int&lt;/code&gt; value
-     */
-    public int getConsumptionOf(List&lt;GoodsType&gt; goodsTypes) {
-<span class="pc bpc" id="L343" title="1 of 2 branches missed.">        return (goodsTypes == null) ? 0</span>
-<span class="fc" id="L344">            : goodsTypes.stream()</span>
-<span class="fc" id="L345">                .mapToInt(gt -&gt; getConsumptionOf(gt)).sum();</span>
-    }
-
-    /**
-     * Gives the food needed to keep all units alive in this Settlement.
-     *
-     * @return The amount of food eaten in this colony each this turn.
-     */
-    public int getFoodConsumption() {
-<span class="fc" id="L354">        return getConsumptionOf(getSpecification().getFoodGoodsTypeList());</span>
-    }
-
-    /**
-     * Determines if this settlement can build the given type of
-     * equipment.  Unlike priceGoods, this takes goods &quot;reserved&quot; for
-     * other purposes into account (e.g. breeding).
-     *
-     * @param goods A list of &lt;code&gt;AbstractGoods&lt;/code&gt;
-     * @return True if the settlement can provide the equipment.
-     */
-    public boolean canProvideGoods(List&lt;AbstractGoods&gt; goods) {
-<span class="fc" id="L366">        return all(goods, ag -&gt; {</span>
-<span class="fc" id="L367">                int available = getGoodsCount(ag.getType());</span>
-<span class="fc" id="L368">                int breedingNumber = ag.getType().getBreedingNumber();</span>
-<span class="fc bfc" id="L369" title="All 2 branches covered.">                if (breedingNumber != GoodsType.INFINITY) {</span>
-<span class="fc" id="L370">                    available -= breedingNumber;</span>
-                }
-<span class="fc bfc" id="L372" title="All 2 branches covered.">                return available &gt;= ag.getAmount();</span>
-            });
-    }
-
-    /**
-     * Gets the storage capacity of this settlement.
-     *
-     * @return The storage capacity of this settlement.
-     * @see #getGoodsCapacity
-     */
-    public int getWarehouseCapacity() {
-<span class="fc" id="L383">        return getGoodsCapacity();</span>
-    }
-
-    /**
-     * Check if colony has the ability to bombard an enemy ship
-     * adjacent to it.  Only sea-side colonies can bombard.  Does it
-     * have the buildings that give such abilities?
-     *
-     * @return True if bombarding is allowed.
-     */
-    public boolean canBombardEnemyShip() {
-<span class="nc bnc" id="L394" title="All 2 branches missed.">        return (isLandLocked()) ? false</span>
-<span class="nc" id="L395">            : hasAbility(Ability.BOMBARD_SHIPS);</span>
-    }
-
-    /**
-     * Can this settlement provide the goods to improve a given unit's
-     * role?
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to check.
-     * @return The &lt;code&gt;Role&lt;/code&gt; that this settlement could provide.
-     */
-    public Role canImproveUnitMilitaryRole(Unit unit) {
-<span class="fc" id="L406">        final Specification spec = getSpecification();</span>
-<span class="fc" id="L407">        final Role role = unit.getRole();</span>
-
-        // Get the military roles that are superior to the current role
-<span class="fc" id="L410">        List&lt;Role&gt; military = spec.getMilitaryRoles();</span>
-<span class="fc" id="L411">        int index = military.indexOf(role);</span>
-<span class="fc bfc" id="L412" title="All 2 branches covered.">        if (index &gt;= 0) military = military.subList(0, index);</span>
-
-        // To succeed, there must exist an available role for the unit
-        // where the extra equipment for the role is present.
-<span class="fc" id="L416">        return find(unit.getAvailableRoles(military),</span>
-<span class="fc" id="L417">            r -&gt; canProvideGoods(unit.getGoodsDifference(r, 1)));</span>
-    }
-
-
-    // Override FreeColGameObject
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public FreeColGameObject getLinkTarget(Player player) {
-<span class="nc bnc" id="L428" title="All 2 branches missed.">        return (player == getOwner()) ? this : getTile();</span>
-    }
-
-    // Override FreeColObject
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public FeatureContainer getFeatureContainer() {
-<span class="fc" id="L438">        return featureContainer;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * -vis: Visibility changes when the settlement is removed.
-     */
-    @Override
-    public void disposeResources() {
-<span class="pc bpc" id="L448" title="1 of 2 branches missed.">        if (owner != null) {</span>
-<span class="fc" id="L449">            owner.removeSettlement(this);</span>
-            // It is not safe to setOwner(null).  When a settlement is
-            // destroyed there is a race between this code and some
-            // display routines that still need to know who owned the
-            // dead settlement.
-        }
-<span class="fc" id="L455">        super.disposeResources();</span>
-<span class="fc" id="L456">    }</span>
-
-
-    // Interface Nameable
-
-    /**
-     * Get the name of this &lt;code&gt;Settlement&lt;/code&gt;.
-     *
-     * @return The settlement name.
-     */
-    @Override
-    public String getName() {
-<span class="fc" id="L468">        return name;</span>
-    }
-
-    /**
-     * Sets the name of this &lt;code&gt;Settlement&lt;/code&gt;.
-     *
-     * -til: Changes the tile appearance.
-     *
-     * @param newName The new name.
-     */
-    @Override
-    public void setName(String newName) {
-<span class="fc" id="L480">        this.name = newName;</span>
-<span class="fc" id="L481">    }</span>
-
-
-    // Interface Ownable
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Player getOwner() {
-<span class="fc" id="L491">        return owner;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * -vis: Changes visibility.
-     * -til: Changes tile appearance.
-     */
-    @Override
-    public void setOwner(Player player) {
-<span class="fc" id="L502">        this.owner = player;</span>
-<span class="fc" id="L503">    }</span>
-
-
-    // Interface Location (from GoodsLocation via UnitLocation)
-    // Inherits
-    //   FreeColObject.getId
-    //   UnitLocation.getLocationFor
-    //   GoodsLocation.add
-    //   GoodsLocation.remove
-    //   GoodsLocation.contains
-    //   UnitLocation.canAdd
-    //   UnitLocation.getUnitCount
-    //   UnitLocation.getUnitList
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final Tile getTile() {
-<span class="fc" id="L522">        return tile;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public StringTemplate getLocationLabel() {
-<span class="fc" id="L530">        return StringTemplate.name(getName());</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final Settlement getSettlement() {
-<span class="fc" id="L538">        return this;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final int getRank() {
-<span class="nc" id="L546">        return Location.getRank(getTile());</span>
-    }
-
-
-    // Interface UnitLocation
-    // Inherits
-    //   UnitLocation.getSpaceTaken
-    //   UnitLocation.moveToFront
-    //   UnitLocation.clearUnitList
-    //   UnitLocation.getUnitCapacity
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public NoAddReason getNoAddReason(Locatable locatable) {
-<span class="pc bpc" id="L562" title="1 of 2 branches missed.">        if (locatable instanceof Unit) {</span>
-            // Tighter ownership test now possible.
-<span class="pc bpc" id="L564" title="1 of 2 branches missed.">            if (((Unit)locatable).getOwner() != getOwner()) {</span>
-<span class="nc" id="L565">                return NoAddReason.OWNED_BY_ENEMY;</span>
-            }
-<span class="nc bnc" id="L567" title="All 2 branches missed.">        } else if (locatable instanceof Goods) {</span>
-            // Goods can always be added to settlements.  Any
-            // excess Goods will be removed during end-of-turn
-            // processing.
-<span class="nc" id="L571">            return NoAddReason.NONE;</span>
-        }
-<span class="fc" id="L573">        return super.getNoAddReason(locatable);</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int priceGoods(List&lt;AbstractGoods&gt; goods) {
-<span class="fc bfc" id="L581" title="All 2 branches covered.">        return (any(goods,</span>
-<span class="fc bfc" id="L582" title="All 2 branches covered.">                ag -&gt; getGoodsCount(ag.getType()) &lt; ag.getAmount())) ? -1</span>
-            : 0;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean equipForRole(Unit unit, Role role, int roleCount) {
-<span class="pc bpc" id="L591" title="1 of 2 branches missed.">        if (!unit.roleIsAvailable(role)) return false;</span>
-
-        // Get the change in goods
-<span class="fc" id="L594">        List&lt;AbstractGoods&gt; required = unit.getGoodsDifference(role, roleCount);</span>
-
-        // Check if the required goods are available
-<span class="fc bfc" id="L597" title="All 2 branches covered.">        if (priceGoods(required) &lt; 0) return false;</span>
-
-        // Make the change
-<span class="fc bfc" id="L600" title="All 2 branches covered.">        for (AbstractGoods ag : required) {</span>
-<span class="fc" id="L601">            addGoods(ag.getType(), -ag.getAmount());</span>
-<span class="fc" id="L602">        }</span>
-
-<span class="fc" id="L604">        unit.changeRole(role, roleCount);</span>
-<span class="fc" id="L605">        return true;</span>
-    }
-
-
-    // Interface GoodsLocation
-    // Inherits
-    //   GoodsLocation.addGoods
-    //   GoodsLocation.removeGoods
-
-    // No need to implement abstract getGoodsCapacity here, yet.
-
-
-    // Settlement routines to be implemented by subclasses.
-
-    /**
-     * Gets an image key for this settlement.
-     *
-     * @return An image key
-     */
-    public abstract String getImageKey();
-
-    /**
-     * Gets the &lt;code&gt;Unit&lt;/code&gt; that is currently defending this
-     * &lt;code&gt;Settlement&lt;/code&gt;.
-     *
-     * @param attacker The &lt;code&gt;Unit&lt;/code&gt; that is attacking this
-     *     &lt;code&gt;Settlement&lt;/code&gt;.
-     * @return The &lt;code&gt;Unit&lt;/code&gt; that has been chosen to defend
-     *     this &lt;code&gt;Settlement&lt;/code&gt;.
-     */
-    public abstract Unit getDefendingUnit(Unit attacker);
-
-    /**
-     * Get the ratio between defence at this settlement, and the
-     * general settlement size.
-     *
-     * @return A ratio of defence power to settlement size.
-     */
-    public abstract double getDefenceRatio();
-
-    /**
-     * Is this settlement insufficiently defended?
-     *
-     * @return True if this settlement needs more defence.
-     */
-    public abstract boolean isBadlyDefended();
-        
-    /**
-     * Gets the range of gold plunderable when this settlement is captured.
-     *
-     * @param attacker The &lt;code&gt;Unit&lt;/code&gt; that takes the settlement.
-     * @return A &lt;code&gt;RandomRange&lt;/code&gt; encapsulating the range of plunder
-     *     available.
-     */
-    public abstract RandomRange getPlunderRange(Unit attacker);
-
-    /**
-     * Gets the current Sons of Liberty in this settlement.
-     *
-     * @return The current SoL.
-     */
-    public abstract int getSoL();
-
-    /**
-     * Get the amount of gold necessary to maintain all of the
-     * settlement's buildings.
-     *
-     * @return The gold required for upkeep.
-     */
-    public abstract int getUpkeep();
-
-    /**
-     * Gets the total production of the given type of goods in this settlement.
-     *
-     * @param goodsType The type of goods to get the production for.
-     * @return The total production of the given type of goods.
-     */
-    public abstract int getTotalProductionOf(GoodsType goodsType);
-
-    /**
-     * Has this settlement contacted a given player?
-     *
-     * Allow player == null as this is true in the map editor where
-     * the user player is moot.
-     *
-     * @param player The other &lt;code&gt;Player&lt;/code&gt; to check.
-     * @return True if the settlement has contacted the player.
-     */
-    public abstract boolean hasContacted(Player player);
-
-    /**
-     * Gets a label indicating the alarm level at this settlement with
-     * respect to another player.
-     *
-     * @param player The other &lt;code&gt;Player&lt;/code&gt;.
-     * @return A &lt;code&gt;StringTemplate&lt;/code&gt; describing the alarm.
-     */
-    public abstract StringTemplate getAlarmLevelLabel(Player player);
-
-    
-
-    // Serialization
-
-    private static final String NAME_TAG = &quot;name&quot;;
-    private static final String OWNER_TAG = &quot;owner&quot;;
-    private static final String SETTLEMENT_TYPE_TAG = &quot;settlementType&quot;;
-    private static final String TILE_TAG = &quot;tile&quot;;
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="fc" id="L719">        super.writeAttributes(xw);</span>
-
-        // Delegate writing of name to subclass, as it is not
-        // available for uncontacted native settlements.
-
-<span class="fc" id="L724">        xw.writeAttribute(OWNER_TAG, owner);</span>
-
-<span class="fc" id="L726">        xw.writeAttribute(TILE_TAG, tile);</span>
-
-<span class="fc" id="L728">        xw.writeAttribute(SETTLEMENT_TYPE_TAG, getType());</span>
-<span class="fc" id="L729">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="fc bfc" id="L736" title="All 2 branches covered.">        if (xw.validFor(getOwner())) {</span>
-
-            // Settlement contents only visible to the owner by default.
-<span class="fc" id="L739">            super.writeChildren(xw);</span>
-
-<span class="fc bfc" id="L741" title="All 2 branches covered.">            for (Ability ability : getSortedAbilities()) {</span>
-<span class="fc bfc" id="L742" title="All 2 branches covered.">                if (ability.isIndependent()) ability.toXML(xw);</span>
-<span class="fc" id="L743">            }</span>
-
-<span class="fc" id="L745">            final Turn turn = getGame().getTurn();</span>
-<span class="fc bfc" id="L746" title="All 2 branches covered.">            for (Modifier modifier : getSortedModifiers()) {</span>
-<span class="pc bpc" id="L747" title="1 of 2 branches missed.">                if (modifier.hasIncrement()</span>
-<span class="nc bnc" id="L748" title="All 2 branches missed.">                    &amp;&amp; modifier.isOutOfDate(turn)) continue;</span>
-<span class="pc bpc" id="L749" title="1 of 2 branches missed.">                if (modifier.isIndependent()) modifier.toXML(xw);</span>
-<span class="fc" id="L750">            }</span>
-        }
-<span class="fc" id="L752">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-<span class="fc" id="L759">        super.readAttributes(xr);</span>
-
-<span class="fc" id="L761">        final Game game = getGame();</span>
-
-<span class="fc" id="L763">        name = xr.getAttribute(NAME_TAG, (String)null);</span>
-
-<span class="fc" id="L765">        Player oldOwner = owner;</span>
-<span class="fc" id="L766">        owner = xr.findFreeColGameObject(game, OWNER_TAG,</span>
-                                         Player.class, (Player)null, true);
-<span class="fc bfc" id="L768" title="All 2 branches covered.">        if (xr.shouldIntern()) game.checkOwners(this, oldOwner);</span>
-
-<span class="fc" id="L770">        tile = xr.findFreeColGameObject(game, TILE_TAG,</span>
-                                        Tile.class, (Tile)null, true);
-
-<span class="fc" id="L773">        String newType = xr.getAttribute(SETTLEMENT_TYPE_TAG, (String)null);</span>
-<span class="fc" id="L774">        type = owner.getNationType().getSettlementType(newType);</span>
-<span class="fc" id="L775">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
-        // Clear containers.
-<span class="fc" id="L783">        featureContainer.clear();</span>
-
-<span class="fc" id="L785">        super.readChildren(xr);</span>
-
-        // Add back the type-derived features.
-<span class="fc" id="L788">        addFeatures(type);</span>
-<span class="fc" id="L789">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
-<span class="fc" id="L796">        final Specification spec = getSpecification();</span>
-<span class="fc" id="L797">        final String tag = xr.getLocalName();</span>
-
-<span class="pc bpc" id="L799" title="1 of 2 branches missed.">        if (Ability.getXMLElementTagName().equals(tag)) {</span>
-<span class="nc" id="L800">            Ability ability = new Ability(xr, spec);</span>
-<span class="nc bnc" id="L801" title="All 2 branches missed.">            if (ability.isIndependent()) addAbility(ability);</span>
-
-<span class="pc bpc" id="L803" title="1 of 2 branches missed.">        } else if (Modifier.getXMLElementTagName().equals(tag)) {</span>
-<span class="nc" id="L804">            Modifier modifier = new Modifier(xr, spec);</span>
-<span class="nc bnc" id="L805" title="All 2 branches missed.">            if (modifier.isIndependent()) addModifier(modifier);</span>
-
-<span class="nc" id="L807">        } else {</span>
-<span class="fc" id="L808">            super.readChild(xr);</span>
-        }
-<span class="fc" id="L810">    }</span>
+public abstract class Settlement extends GoodsLocation implements Nameable, Ownable {
+
+	/** The Constant logger. */
+<span class="fc" id="L42">	private static final Logger logger = Logger.getLogger(Settlement.class.getName());</span>
+
+	/** The Constant FOOD_PER_COLONIST. */
+	public static final int FOOD_PER_COLONIST = 200;
+
+	/** The &lt;code&gt;Player&lt;/code&gt; owning this &lt;code&gt;Settlement&lt;/code&gt;. */
+	protected Player owner;
+
+	/** The name of the Settlement. */
+	private String name;
+
+	/** The &lt;code&gt;Tile&lt;/code&gt; where this &lt;code&gt;Settlement&lt;/code&gt; is located. */
+	protected Tile tile;
+
+	/** The type of settlement. */
+<span class="fc" id="L57">	private SettlementType type = null;</span>
+
+	/** The tiles this settlement owns. */
+<span class="fc" id="L60">	private final Set&lt;Tile&gt; ownedTiles = new HashSet&lt;&gt;();</span>
+
+	/** Contains the abilities and modifiers of this Settlement. */
+<span class="fc" id="L63">	private final FeatureContainer featureContainer = new FeatureContainer();</span>
+
+	/**
+	 * Create a new &lt;code&gt;Settlement&lt;/code&gt;.
+	 *
+	 * @param game
+	 *            The enclosing &lt;code&gt;Game&lt;/code&gt;.
+	 * @param owner
+	 *            The owning &lt;code&gt;Player&lt;/code&gt;.
+	 * @param name
+	 *            The settlement name.
+	 * @param tile
+	 *            The containing &lt;code&gt;Tile&lt;/code&gt;.
+	 */
+	public Settlement(Game game, Player owner, String name, Tile tile) {
+<span class="fc" id="L78">		super(game);</span>
+
+<span class="fc" id="L80">		this.owner = owner;</span>
+<span class="fc" id="L81">		this.name = name;</span>
+<span class="fc" id="L82">		this.tile = tile;</span>
+<span class="fc" id="L83">		changeType(owner.getNationType().getSettlementType(false));</span>
+<span class="fc" id="L84">	}</span>
+
+	/**
+	 * Initiates a new &lt;code&gt;Settlement&lt;/code&gt; with the given identifier. The
+	 * object should later be initialized by calling either
+	 * {@link #readFromXML(FreeColXMLReader)} or
+	 * {@link #readFromXMLElement(Element)}.
+	 *
+	 * @param game
+	 *            The enclosing &lt;code&gt;Game&lt;/code&gt;.
+	 * @param id
+	 *            The object identifier.
+	 */
+	public Settlement(Game game, String id) {
+<span class="fc" id="L98">		super(game, id);</span>
+<span class="fc" id="L99">	}</span>
+
+	/**
+	 * Get the type of this settlement.
+	 *
+	 * @return The settlement type.
+	 */
+	public final SettlementType getType() {
+<span class="fc" id="L107">		return type;</span>
+	}
+
+	/**
+	 * Set the settlement type.
+	 *
+	 * @param newType
+	 *            The new &lt;code&gt;SettlementType&lt;/code&gt;.
+	 */
+	public void setType(final SettlementType newType) {
+<span class="fc" id="L117">		this.type = newType;</span>
+<span class="fc" id="L118">	}</span>
+
+	/**
+	 * Is this settlement landlocked?.
+	 *
+	 * @return True if no adjacent tiles are water.
+	 */
+	public boolean isLandLocked() {
+<span class="fc" id="L126">		return tile.isLandLocked();</span>
+	}
+
+	/**
+	 * Change the settlement type, setting the consequent features.
+	 *
+	 * @param newType
+	 *            The new &lt;code&gt;SettlementType&lt;/code&gt;.
+	 */
+	private final void changeType(final SettlementType newType) {
+<span class="fc bfc" id="L136" title="All 2 branches covered.">		if (type != null)</span>
+<span class="fc" id="L137">			removeFeatures(type);</span>
+<span class="fc" id="L138">		setType(newType);</span>
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">		if (newType != null)</span>
+<span class="fc" id="L140">			addFeatures(newType);</span>
+<span class="fc" id="L141">	}</span>
+
+	/**
+	 * Is this a national capital?.
+	 *
+	 * @return True if this is a national capital.
+	 */
+	public boolean isCapital() {
+<span class="fc" id="L149">		return getType().isCapital();</span>
+	}
+
+	/**
+	 * Sets the capital.
+	 *
+	 * @param capital
+	 *            the new capital
+	 */
+	public void setCapital(boolean capital) {
+<span class="fc bfc" id="L159" title="All 2 branches covered.">		if (isCapital() != capital) {</span>
+<span class="fc" id="L160">			changeType(owner.getNationType().getSettlementType(capital));</span>
+		}
+<span class="fc" id="L162">	}</span>
+
+	/**
+	 * Get the tiles this settlement owns.
+	 *
+	 * @return A list of tiles.
+	 */
+	public Set&lt;Tile&gt; getOwnedTiles() {
+<span class="fc" id="L170">		return new HashSet&lt;&gt;(ownedTiles);</span>
+	}
+
+	/**
+	 * Adds a tile to this settlement.
+	 *
+	 * We can not clear the settlement owned tiles container when the settlement
+	 * is read because this is called when the Tile is read, and tiles can
+	 * appear before and after the settlement in the map definition. So we just
+	 * accumulate and defend against duplicates.
+	 *
+	 * @param tile
+	 *            The &lt;code&gt;Tile&lt;/code&gt; to add.
+	 */
+	public void addTile(Tile tile) {
+<span class="fc bfc" id="L185" title="All 2 branches covered.">		if (!ownedTiles.contains(tile))</span>
+<span class="fc" id="L186">			ownedTiles.add(tile);</span>
+<span class="fc" id="L187">	}</span>
+
+	/**
+	 * Removes a tile from this settlement.
+	 *
+	 * @param tile
+	 *            The &lt;code&gt;Tile&lt;/code&gt; to remove.
+	 */
+	public void removeTile(Tile tile) {
+<span class="fc" id="L196">		ownedTiles.remove(tile);</span>
+<span class="fc" id="L197">	}</span>
+
+	/**
+	 * Gets the radius of what the &lt;code&gt;Settlement&lt;/code&gt; considers as it's own
+	 * land.
+	 *
+	 * @return Settlement radius
+	 */
+	public int getRadius() {
+<span class="fc" id="L206">		return getType().getClaimableRadius();</span>
+	}
+
+	/**
+	 * Gets this settlement's line of sight value.
+	 *
+	 * @return The line of sight value.
+	 */
+	public int getLineOfSight() {
+<span class="fc" id="L215">		return (int) applyModifiers((float) getType().getVisibleRadius(), getGame().getTurn(),</span>
+				Modifier.LINE_OF_SIGHT_BONUS);
+	}
+
+	/**
+	 * Gets an amount of plunder when this settlement is taken.
+	 *
+	 * @param attacker
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that takes the settlement.
+	 * @param random
+	 *            A pseudo-random number source.
+	 * @return An amount of gold plundered.
+	 */
+	public int getPlunder(Unit attacker, Random random) {
+<span class="fc" id="L229">		RandomRange range = getPlunderRange(attacker);</span>
+<span class="fc bfc" id="L230" title="All 2 branches covered.">		return (range == null) ? 0 : range.getAmount(&quot;Plunder &quot; + getName(), random, false);</span>
+	}
+
+	/**
+	 * Put a prepared settlement onto the map.
+	 *
+	 * -vis: Several visibility issues accumulated here. -til: Several tile
+	 * appearance issues accumulated here.
+	 *
+	 * @param maximal
+	 *            If true, also claim all the tiles possible.
+	 */
+	public void placeSettlement(boolean maximal) {
+		List&lt;Tile&gt; tiles;
+<span class="pc bpc" id="L244" title="1 of 2 branches missed.">		if (maximal) {</span>
+<span class="fc" id="L245">			tiles = owner.getClaimableTiles(tile, getRadius());</span>
+		} else {
+<span class="nc" id="L247">			tiles = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L248">			tiles.add(tile);</span>
+		}
+
+<span class="fc" id="L251">		tile.setSettlement(this);// -vis(owner),-til</span>
+<span class="fc bfc" id="L252" title="All 2 branches covered.">		for (Tile t : tiles) {</span>
+<span class="fc" id="L253">			t.changeOwnership(owner, this);// -vis(owner,this),-til</span>
+<span class="fc" id="L254">		}</span>
+<span class="fc bfc" id="L255" title="All 2 branches covered.">		if (!tile.hasRoad()) {</span>
+<span class="fc" id="L256">			TileImprovement road = tile.addRoad();</span>
+<span class="fc" id="L257">			road.setTurnsToComplete(0);</span>
+<span class="fc" id="L258">			road.setVirtual(true);</span>
+<span class="fc" id="L259">			road.updateRoadConnections(true);</span>
+		}
+<span class="fc" id="L261">	}</span>
+
+	/**
+	 * Remove a settlement from the map.
+	 *
+	 * -vis: Visibility reduced when settlement goes away. -til: Several tile
+	 * appearance issues accumulated here.
+	 *
+	 * Several visibility issues accumulated here.
+	 */
+	public void exciseSettlement() {
+<span class="fc" id="L272">		Tile settlementTile = getTile();</span>
+<span class="fc bfc" id="L273" title="All 2 branches covered.">		for (Tile tile : getOwnedTiles()) {</span>
+<span class="fc" id="L274">			tile.changeOwnership(null, null);// -til</span>
+<span class="fc" id="L275">		}</span>
+<span class="fc" id="L276">		settlementTile.setSettlement(null);// -vis(owner),-til</span>
+<span class="fc" id="L277">		settlementTile.changeOwnership(null, null);// -til</span>
+<span class="fc" id="L278">		TileImprovement road = settlementTile.getRoad();</span>
+<span class="pc bpc" id="L279" title="2 of 4 branches missed.">		if (road != null &amp;&amp; road.isVirtual()) {</span>
+<span class="fc" id="L280">			settlementTile.removeRoad();// -til</span>
+		}
+<span class="fc" id="L282">	}</span>
+
+	/**
+	 * Change the owner of this &lt;code&gt;Settlement&lt;/code&gt;.
+	 *
+	 * Does not fix up the units! That is handled in the server.
+	 *
+	 * -vis: Changes visibility. -til: Changes tile appearance.
+	 *
+	 * @param newOwner
+	 *            The &lt;code&gt;Player&lt;/code&gt; that shall own this
+	 *            &lt;code&gt;Settlement&lt;/code&gt;.
+	 * @see #getOwner
+	 */
+	public void changeOwner(Player newOwner) {
+<span class="fc" id="L297">		final Player oldOwner = this.owner;</span>
+<span class="pc bpc" id="L298" title="1 of 2 branches missed.">		if (newOwner.isIndian() != oldOwner.isIndian()) {</span>
+<span class="nc" id="L299">			throw new IllegalArgumentException(&quot;Can not transfer settlements between native and European players.&quot;);</span>
+		}
+<span class="fc" id="L301">		setOwner(newOwner);// -til,-vis</span>
+
+<span class="fc" id="L303">		getGame().checkOwners(this, oldOwner);</span>
+
+<span class="fc bfc" id="L305" title="All 2 branches covered.">		for (Tile t : getOwnedTiles()) {</span>
+<span class="fc" id="L306">			t.changeOwnership(newOwner, this);// -til</span>
+<span class="fc" id="L307">		}</span>
+
+<span class="fc" id="L309">		getGame().notifyOwnerChanged(this, oldOwner, newOwner);</span>
+<span class="fc" id="L310">	}</span>
+
+	/**
+	 * Gets whether this settlement is connected to the high seas. This is more
+	 * than merely non-landlocked, because the settlement could be on an inland
+	 * lake.
+	 *
+	 * @return True if the settlement is connected to the high seas.
+	 */
+	public boolean isConnectedPort() {
+<span class="fc bfc" id="L320" title="All 4 branches covered.">		return any(getTile().getSurroundingTiles(1, 1), t -&gt; !t.isLand() &amp;&amp; t.isHighSeasConnected());</span>
+	}
+
+	/**
+	 * Gets the minimum high seas count of the adjacent high-seas-connected
+	 * tiles. This is a measure of how close this settlement is to Europe.
+	 *
+	 * @return A high seas count, INFINITY if not connected.
+	 */
+	public int getHighSeasCount() {
+<span class="nc" id="L330">		int best = INFINITY;</span>
+<span class="nc bnc" id="L331" title="All 2 branches missed.">		for (Tile t : getTile().getSurroundingTiles(1)) {</span>
+<span class="nc bnc" id="L332" title="All 4 branches missed.">			if (t.isLand() || t.getHighSeasCount() &lt; 0)</span>
+<span class="nc" id="L333">				continue;</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">			if (best &gt; t.getHighSeasCount()) {</span>
+<span class="nc" id="L335">				best = t.getHighSeasCount();</span>
+			}
+<span class="nc" id="L337">		}</span>
+<span class="nc" id="L338">		return best;</span>
+	}
+
+	/**
+	 * Returns the number of goods of a given type used by the settlement each
+	 * turn.
+	 *
+	 * @param goodsType
+	 *            a &lt;code&gt;GoodsType&lt;/code&gt; value
+	 * @return an &lt;code&gt;int&lt;/code&gt; value
+	 */
+	public int getConsumptionOf(GoodsType goodsType) {
+<span class="fc" id="L350">		return Math.max(0, getUnitList().stream().mapToInt(u -&gt; u.getType().getConsumptionOf(goodsType)).sum());</span>
+	}
+
+	/**
+	 * Returns the number of goods of all given types used by the settlement
+	 * each turn.
+	 *
+	 * @param goodsTypes
+	 *            &lt;code&gt;GoodsType&lt;/code&gt; values
+	 * @return an &lt;code&gt;int&lt;/code&gt; value
+	 */
+	public int getConsumptionOf(List&lt;GoodsType&gt; goodsTypes) {
+<span class="pc bpc" id="L362" title="1 of 2 branches missed.">		return (goodsTypes == null) ? 0 : goodsTypes.stream().mapToInt(gt -&gt; getConsumptionOf(gt)).sum();</span>
+	}
+
+	/**
+	 * Gives the food needed to keep all units alive in this Settlement.
+	 *
+	 * @return The amount of food eaten in this colony each this turn.
+	 */
+	public int getFoodConsumption() {
+<span class="fc" id="L371">		return getConsumptionOf(getSpecification().getFoodGoodsTypeList());</span>
+	}
+
+	/**
+	 * Determines if this settlement can build the given type of equipment.
+	 * Unlike priceGoods, this takes goods &quot;reserved&quot; for other purposes into
+	 * account (e.g. breeding).
+	 *
+	 * @param goods
+	 *            A list of &lt;code&gt;AbstractGoods&lt;/code&gt;
+	 * @return True if the settlement can provide the equipment.
+	 */
+	public boolean canProvideGoods(List&lt;AbstractGoods&gt; goods) {
+<span class="fc" id="L384">		return all(goods, ag -&gt; {</span>
+<span class="fc" id="L385">			int available = getGoodsCount(ag.getType());</span>
+<span class="fc" id="L386">			int breedingNumber = ag.getType().getBreedingNumber();</span>
+<span class="fc bfc" id="L387" title="All 2 branches covered.">			if (breedingNumber != GoodsType.INFINITY) {</span>
+<span class="fc" id="L388">				available -= breedingNumber;</span>
+			}
+<span class="fc bfc" id="L390" title="All 2 branches covered.">			return available &gt;= ag.getAmount();</span>
+		});
+	}
+
+	/**
+	 * Gets the storage capacity of this settlement.
+	 *
+	 * @return The storage capacity of this settlement.
+	 * @see #getGoodsCapacity
+	 */
+	public int getWarehouseCapacity() {
+<span class="fc" id="L401">		return getGoodsCapacity();</span>
+	}
+
+	/**
+	 * Check if colony has the ability to bombard an enemy ship adjacent to it.
+	 * Only sea-side colonies can bombard. Does it have the buildings that give
+	 * such abilities?
+	 *
+	 * @return True if bombarding is allowed.
+	 */
+	public boolean canBombardEnemyShip() {
+<span class="nc bnc" id="L412" title="All 2 branches missed.">		return (isLandLocked()) ? false : hasAbility(Ability.BOMBARD_SHIPS);</span>
+	}
+
+	/**
+	 * Can this settlement provide the goods to improve a given unit's role?.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to check.
+	 * @return The &lt;code&gt;Role&lt;/code&gt; that this settlement could provide.
+	 */
+	public Role canImproveUnitMilitaryRole(Unit unit) {
+<span class="fc" id="L423">		final Specification spec = getSpecification();</span>
+<span class="fc" id="L424">		final Role role = unit.getRole();</span>
+
+		// Get the military roles that are superior to the current role
+<span class="fc" id="L427">		List&lt;Role&gt; military = spec.getMilitaryRoles();</span>
+<span class="fc" id="L428">		int index = military.indexOf(role);</span>
+<span class="fc bfc" id="L429" title="All 2 branches covered.">		if (index &gt;= 0)</span>
+<span class="fc" id="L430">			military = military.subList(0, index);</span>
+
+		// To succeed, there must exist an available role for the unit
+		// where the extra equipment for the role is present.
+<span class="fc" id="L434">		return find(unit.getAvailableRoles(military), r -&gt; canProvideGoods(unit.getGoodsDifference(r, 1)));</span>
+	}
+
+	// Override FreeColGameObject
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public FreeColGameObject getLinkTarget(Player player) {
+<span class="nc bnc" id="L444" title="All 2 branches missed.">		return (player == getOwner()) ? this : getTile();</span>
+	}
+
+	// Override FreeColObject
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public FeatureContainer getFeatureContainer() {
+<span class="fc" id="L454">		return featureContainer;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * -vis: Visibility changes when the settlement is removed.
+	 */
+	@Override
+	public void disposeResources() {
+<span class="pc bpc" id="L464" title="1 of 2 branches missed.">		if (owner != null) {</span>
+<span class="fc" id="L465">			owner.removeSettlement(this);</span>
+			// It is not safe to setOwner(null). When a settlement is
+			// destroyed there is a race between this code and some
+			// display routines that still need to know who owned the
+			// dead settlement.
+		}
+<span class="fc" id="L471">		super.disposeResources();</span>
+<span class="fc" id="L472">	}</span>
+
+	// Interface Nameable
+
+	/**
+	 * Get the name of this &lt;code&gt;Settlement&lt;/code&gt;.
+	 *
+	 * @return The settlement name.
+	 */
+	@Override
+	public String getName() {
+<span class="fc" id="L483">		return name;</span>
+	}
+
+	/**
+	 * Sets the name of this &lt;code&gt;Settlement&lt;/code&gt;.
+	 *
+	 * -til: Changes the tile appearance.
+	 *
+	 * @param newName
+	 *            The new name.
+	 */
+	@Override
+	public void setName(String newName) {
+<span class="fc" id="L496">		this.name = newName;</span>
+<span class="fc" id="L497">	}</span>
+
+	// Interface Ownable
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Player getOwner() {
+<span class="fc" id="L506">		return owner;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * -vis: Changes visibility. -til: Changes tile appearance.
+	 */
+	@Override
+	public void setOwner(Player player) {
+<span class="fc" id="L516">		this.owner = player;</span>
+<span class="fc" id="L517">	}</span>
+
+	// Interface Location (from GoodsLocation via UnitLocation)
+	// Inherits
+	// FreeColObject.getId
+	// UnitLocation.getLocationFor
+	// GoodsLocation.add
+	// GoodsLocation.remove
+	// GoodsLocation.contains
+	// UnitLocation.canAdd
+	// UnitLocation.getUnitCount
+	// UnitLocation.getUnitList
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public final Tile getTile() {
+<span class="fc" id="L535">		return tile;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public StringTemplate getLocationLabel() {
+<span class="fc" id="L543">		return StringTemplate.name(getName());</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public final Settlement getSettlement() {
+<span class="fc" id="L551">		return this;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public final int getRank() {
+<span class="nc" id="L559">		return Location.getRank(getTile());</span>
+	}
+
+	// Interface UnitLocation
+	// Inherits
+	// UnitLocation.getSpaceTaken
+	// UnitLocation.moveToFront
+	// UnitLocation.clearUnitList
+	// UnitLocation.getUnitCapacity
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public NoAddReason getNoAddReason(Locatable locatable) {
+<span class="pc bpc" id="L574" title="1 of 2 branches missed.">		if (locatable instanceof Unit) {</span>
+			// Tighter ownership test now possible.
+<span class="pc bpc" id="L576" title="1 of 2 branches missed.">			if (((Unit) locatable).getOwner() != getOwner()) {</span>
+<span class="nc" id="L577">				return NoAddReason.OWNED_BY_ENEMY;</span>
+			}
+<span class="nc bnc" id="L579" title="All 2 branches missed.">		} else if (locatable instanceof Goods) {</span>
+			// Goods can always be added to settlements. Any
+			// excess Goods will be removed during end-of-turn
+			// processing.
+<span class="nc" id="L583">			return NoAddReason.NONE;</span>
+		}
+<span class="fc" id="L585">		return super.getNoAddReason(locatable);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int priceGoods(List&lt;AbstractGoods&gt; goods) {
+<span class="fc bfc" id="L593" title="All 4 branches covered.">		return (any(goods, ag -&gt; getGoodsCount(ag.getType()) &lt; ag.getAmount())) ? -1 : 0;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean equipForRole(Unit unit, Role role, int roleCount) {
+<span class="pc bpc" id="L601" title="1 of 2 branches missed.">		if (!unit.roleIsAvailable(role))</span>
+<span class="nc" id="L602">			return false;</span>
+
+		// Get the change in goods
+<span class="fc" id="L605">		List&lt;AbstractGoods&gt; required = unit.getGoodsDifference(role, roleCount);</span>
+
+		// Check if the required goods are available
+<span class="fc bfc" id="L608" title="All 2 branches covered.">		if (priceGoods(required) &lt; 0)</span>
+<span class="fc" id="L609">			return false;</span>
+
+		// Make the change
+<span class="fc bfc" id="L612" title="All 2 branches covered.">		for (AbstractGoods ag : required) {</span>
+<span class="fc" id="L613">			addGoods(ag.getType(), -ag.getAmount());</span>
+<span class="fc" id="L614">		}</span>
+
+<span class="fc" id="L616">		unit.changeRole(role, roleCount);</span>
+<span class="fc" id="L617">		return true;</span>
+	}
+
+	// Interface GoodsLocation
+	// Inherits
+	// GoodsLocation.addGoods
+	// GoodsLocation.removeGoods
+
+	// No need to implement abstract getGoodsCapacity here, yet.
+
+	// Settlement routines to be implemented by subclasses.
+
+	/**
+	 * Gets an image key for this settlement.
+	 *
+	 * @return An image key
+	 */
+	public abstract String getImageKey();
+
+	/**
+	 * Gets the &lt;code&gt;Unit&lt;/code&gt; that is currently defending this
+	 * &lt;code&gt;Settlement&lt;/code&gt;.
+	 *
+	 * @param attacker
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is attacking this
+	 *            &lt;code&gt;Settlement&lt;/code&gt;.
+	 * @return The &lt;code&gt;Unit&lt;/code&gt; that has been chosen to defend this
+	 *         &lt;code&gt;Settlement&lt;/code&gt;.
+	 */
+	public abstract Unit getDefendingUnit(Unit attacker);
+
+	/**
+	 * Get the ratio between defence at this settlement, and the general
+	 * settlement size.
+	 *
+	 * @return A ratio of defence power to settlement size.
+	 */
+	public abstract double getDefenceRatio();
+
+	/**
+	 * Is this settlement insufficiently defended?.
+	 *
+	 * @return True if this settlement needs more defence.
+	 */
+	public abstract boolean isBadlyDefended();
+
+	/**
+	 * Gets the range of gold plunderable when this settlement is captured.
+	 *
+	 * @param attacker
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that takes the settlement.
+	 * @return A &lt;code&gt;RandomRange&lt;/code&gt; encapsulating the range of plunder
+	 *         available.
+	 */
+	public abstract RandomRange getPlunderRange(Unit attacker);
+
+	/**
+	 * Gets the current Sons of Liberty in this settlement.
+	 *
+	 * @return The current SoL.
+	 */
+	public abstract int getSoL();
+
+	/**
+	 * Get the amount of gold necessary to maintain all of the settlement's
+	 * buildings.
+	 *
+	 * @return The gold required for upkeep.
+	 */
+	public abstract int getUpkeep();
+
+	/**
+	 * Gets the total production of the given type of goods in this settlement.
+	 *
+	 * @param goodsType
+	 *            The type of goods to get the production for.
+	 * @return The total production of the given type of goods.
+	 */
+	public abstract int getTotalProductionOf(GoodsType goodsType);
+
+	/**
+	 * Has this settlement contacted a given player?
+	 *
+	 * Allow player == null as this is true in the map editor where the user
+	 * player is moot.
+	 *
+	 * @param player
+	 *            The other &lt;code&gt;Player&lt;/code&gt; to check.
+	 * @return True if the settlement has contacted the player.
+	 */
+	public abstract boolean hasContacted(Player player);
+
+	/**
+	 * Gets a label indicating the alarm level at this settlement with respect
+	 * to another player.
+	 *
+	 * @param player
+	 *            The other &lt;code&gt;Player&lt;/code&gt;.
+	 * @return A &lt;code&gt;StringTemplate&lt;/code&gt; describing the alarm.
+	 */
+	public abstract StringTemplate getAlarmLevelLabel(Player player);
+
+	// Serialization
+
+	/** The Constant NAME_TAG. */
+	private static final String NAME_TAG = &quot;name&quot;;
+
+	/** The Constant OWNER_TAG. */
+	private static final String OWNER_TAG = &quot;owner&quot;;
+
+	/** The Constant SETTLEMENT_TYPE_TAG. */
+	private static final String SETTLEMENT_TYPE_TAG = &quot;settlementType&quot;;
+
+	/** The Constant TILE_TAG. */
+	private static final String TILE_TAG = &quot;tile&quot;;
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L738">		super.writeAttributes(xw);</span>
+
+		// Delegate writing of name to subclass, as it is not
+		// available for uncontacted native settlements.
+
+<span class="fc" id="L743">		xw.writeAttribute(OWNER_TAG, owner);</span>
+
+<span class="fc" id="L745">		xw.writeAttribute(TILE_TAG, tile);</span>
+
+<span class="fc" id="L747">		xw.writeAttribute(SETTLEMENT_TYPE_TAG, getType());</span>
+<span class="fc" id="L748">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc bfc" id="L755" title="All 2 branches covered.">		if (xw.validFor(getOwner())) {</span>
+
+			// Settlement contents only visible to the owner by default.
+<span class="fc" id="L758">			super.writeChildren(xw);</span>
+
+<span class="fc bfc" id="L760" title="All 2 branches covered.">			for (Ability ability : getSortedAbilities()) {</span>
+<span class="fc bfc" id="L761" title="All 2 branches covered.">				if (ability.isIndependent())</span>
+<span class="fc" id="L762">					ability.toXML(xw);</span>
+<span class="fc" id="L763">			}</span>
+
+<span class="fc" id="L765">			final Turn turn = getGame().getTurn();</span>
+<span class="fc bfc" id="L766" title="All 2 branches covered.">			for (Modifier modifier : getSortedModifiers()) {</span>
+<span class="pc bpc" id="L767" title="3 of 4 branches missed.">				if (modifier.hasIncrement() &amp;&amp; modifier.isOutOfDate(turn))</span>
+<span class="nc" id="L768">					continue;</span>
+<span class="pc bpc" id="L769" title="1 of 2 branches missed.">				if (modifier.isIndependent())</span>
+<span class="nc" id="L770">					modifier.toXML(xw);</span>
+<span class="fc" id="L771">			}</span>
+		}
+<span class="fc" id="L773">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L780">		super.readAttributes(xr);</span>
+
+<span class="fc" id="L782">		final Game game = getGame();</span>
+
+<span class="fc" id="L784">		name = xr.getAttribute(NAME_TAG, (String) null);</span>
+
+<span class="fc" id="L786">		Player oldOwner = owner;</span>
+<span class="fc" id="L787">		owner = xr.findFreeColGameObject(game, OWNER_TAG, Player.class, (Player) null, true);</span>
+<span class="fc bfc" id="L788" title="All 2 branches covered.">		if (xr.shouldIntern())</span>
+<span class="fc" id="L789">			game.checkOwners(this, oldOwner);</span>
+
+<span class="fc" id="L791">		tile = xr.findFreeColGameObject(game, TILE_TAG, Tile.class, (Tile) null, true);</span>
+
+<span class="fc" id="L793">		String newType = xr.getAttribute(SETTLEMENT_TYPE_TAG, (String) null);</span>
+<span class="fc" id="L794">		type = owner.getNationType().getSettlementType(newType);</span>
+<span class="fc" id="L795">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+		// Clear containers.
+<span class="fc" id="L803">		featureContainer.clear();</span>
+
+<span class="fc" id="L805">		super.readChildren(xr);</span>
+
+		// Add back the type-derived features.
+<span class="fc" id="L808">		addFeatures(type);</span>
+<span class="fc" id="L809">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L816">		final Specification spec = getSpecification();</span>
+<span class="fc" id="L817">		final String tag = xr.getLocalName();</span>
+
+<span class="pc bpc" id="L819" title="1 of 2 branches missed.">		if (Ability.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L820">			Ability ability = new Ability(xr, spec);</span>
+<span class="nc bnc" id="L821" title="All 2 branches missed.">			if (ability.isIndependent())</span>
+<span class="nc" id="L822">				addAbility(ability);</span>
+
+<span class="pc bpc" id="L824" title="1 of 2 branches missed.">		} else if (Modifier.getXMLElementTagName().equals(tag)) {</span>
+<span class="nc" id="L825">			Modifier modifier = new Modifier(xr, spec);</span>
+<span class="nc bnc" id="L826" title="All 2 branches missed.">			if (modifier.isIndependent())</span>
+<span class="nc" id="L827">				addModifier(modifier);</span>
+
+<span class="nc" id="L829">		} else {</span>
+<span class="fc" id="L830">			super.readChild(xr);</span>
+		}
+<span class="fc" id="L832">	}</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

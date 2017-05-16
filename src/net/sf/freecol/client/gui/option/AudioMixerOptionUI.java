@@ -34,117 +34,129 @@ import net.sf.freecol.client.gui.panel.Utility;
 import net.sf.freecol.common.option.AudioMixerOption;
 import net.sf.freecol.common.option.AudioMixerOption.MixerWrapper;
 
-
 /**
  * This class provides visualization for an
- * {@link net.sf.freecol.common.option.AudioMixerOption}
- * in order to enable values to be both seen and changed.
+ * {@link net.sf.freecol.common.option.AudioMixerOption} in order to enable
+ * values to be both seen and changed.
  */
 public final class AudioMixerOptionUI extends OptionUI<AudioMixerOption> {
 
-    private final GUI gui;
-    private final JPanel panel = new JPanel();
-    private final JComboBox<MixerWrapper> cbox;
-    private final JButton button1;
-    private final JButton button2;
-    private final JLabel currentMixerLabel;
+	/** The gui. */
+	private final GUI gui;
 
+	/** The panel. */
+	private final JPanel panel = new JPanel();
 
-    /**
-     * Creates a new <code>AudioMixerOptionUI</code> for the given
-     * <code>AudioMixerOption</code>.
-     *
-     * @param gui The GUI.
-     * @param option The <code>AudioMixerOption</code> to make a user
-     *      interface for.
-     * @param editable boolean whether user can modify the setting
-     */
-    public AudioMixerOptionUI(GUI gui, final AudioMixerOption option,
-                              boolean editable) {
-        super(option, editable);
+	/** The cbox. */
+	private final JComboBox<MixerWrapper> cbox;
 
-        this.gui = gui;
+	/** The button 1. */
+	private final JButton button1;
 
-        BorderLayout layout = new BorderLayout();
-        layout.setHgap(15);
-        panel.setLayout(layout);
+	/** The button 2. */
+	private final JButton button2;
 
-        cbox = new JComboBox<>();
-        panel.add(cbox, BorderLayout.WEST);
+	/** The current mixer label. */
+	private final JLabel currentMixerLabel;
 
-        currentMixerLabel = new JLabel();
-        panel.add(currentMixerLabel, BorderLayout.EAST);
-        updateMixerLabel();
+	/**
+	 * Creates a new <code>AudioMixerOptionUI</code> for the given
+	 * <code>AudioMixerOption</code>.
+	 *
+	 * @param gui
+	 *            The GUI.
+	 * @param option
+	 *            The <code>AudioMixerOption</code> to make a user interface
+	 *            for.
+	 * @param editable
+	 *            boolean whether user can modify the setting
+	 */
+	public AudioMixerOptionUI(GUI gui, final AudioMixerOption option, boolean editable) {
+		super(option, editable);
 
-        button1 = Utility.localizedButton("test");
-        panel.add(button1);
+		this.gui = gui;
 
-        button2 = Utility.localizedButton("music");
-        panel.add(button2);
+		BorderLayout layout = new BorderLayout();
+		layout.setHgap(15);
+		panel.setLayout(layout);
 
-        cbox.add(super.getJLabel());
-        cbox.setModel(new DefaultComboBoxModel<>(getOption().getChoices()
-                .toArray(new MixerWrapper[0])));
-        reset();
-        cbox.setEnabled(editable);
+		cbox = new JComboBox<>();
+		panel.add(cbox, BorderLayout.WEST);
 
-        ActionListener aHandler = (ActionEvent ae) -> {
-            if (ae.getSource() == button1) {
-                gui.playSound("sound.event.buildingComplete");
-            } else if (ae.getSource() == button2) {
-                gui.playSound("sound.intro.general");
-            } else if (ae.getSource() == cbox) {
-                MixerWrapper value = (MixerWrapper) cbox.getSelectedItem();
-                if (getOption().getValue() != value) {
-                    getOption().setValue(value);
-                    updateMixerLabel();
-                }
-            }
-        };
-        button1.addActionListener(aHandler);
-        button2.addActionListener(aHandler);
-        cbox.addActionListener(aHandler);
+		currentMixerLabel = new JLabel();
+		panel.add(currentMixerLabel, BorderLayout.EAST);
+		updateMixerLabel();
 
-        initialize();
-    }
+		button1 = Utility.localizedButton("test");
+		panel.add(button1);
 
-    private void updateMixerLabel() {
-        currentMixerLabel.setText(gui.getSoundMixerLabelText());
-    }
+		button2 = Utility.localizedButton("music");
+		panel.add(button2);
 
+		cbox.add(super.getJLabel());
+		cbox.setModel(new DefaultComboBoxModel<>(getOption().getChoices().toArray(new MixerWrapper[0])));
+		reset();
+		cbox.setEnabled(editable);
 
-    // Implement OptionUI
+		ActionListener aHandler = (ActionEvent ae) -> {
+			if (ae.getSource() == button1) {
+				gui.playSound("sound.event.buildingComplete");
+			} else if (ae.getSource() == button2) {
+				gui.playSound("sound.intro.general");
+			} else if (ae.getSource() == cbox) {
+				MixerWrapper value = (MixerWrapper) cbox.getSelectedItem();
+				if (getOption().getValue() != value) {
+					getOption().setValue(value);
+					updateMixerLabel();
+				}
+			}
+		};
+		button1.addActionListener(aHandler);
+		button2.addActionListener(aHandler);
+		cbox.addActionListener(aHandler);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final JLabel getJLabel() {
-        return null;
-    }
+		initialize();
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public JPanel getComponent() {
-        return panel;
-    }
+	/**
+	 * Update mixer label.
+	 */
+	private void updateMixerLabel() {
+		currentMixerLabel.setText(gui.getSoundMixerLabelText());
+	}
 
-    /**
-     * Updates the value of the
-     * {@link net.sf.freecol.common.option.Option} this object keeps.
-     */
-    @Override
-    public void updateOption() {
-        getOption().setValue((MixerWrapper)cbox.getSelectedItem());
-    }
+	// Implement OptionUI
 
-    /**
-     * Reset with the value from the option.
-     */
-    @Override
-    public void reset() {
-        cbox.setSelectedItem(getOption().getValue());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public final JLabel getJLabel() {
+		return null;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public JPanel getComponent() {
+		return panel;
+	}
+
+	/**
+	 * Updates the value of the {@link net.sf.freecol.common.option.Option} this
+	 * object keeps.
+	 */
+	@Override
+	public void updateOption() {
+		getOption().setValue((MixerWrapper) cbox.getSelectedItem());
+	}
+
+	/**
+	 * Reset with the value from the option.
+	 */
+	@Override
+	public void reset() {
+		cbox.setSelectedItem(getOption().getValue());
+	}
 }

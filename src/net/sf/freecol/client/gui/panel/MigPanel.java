@@ -23,61 +23,60 @@ import java.awt.LayoutManager;
 
 import javax.swing.JPanel;
 
-
 /**
- * A panel that clears its layout on close, working around a bug in
- * some versions of MigLayout.
+ * A panel that clears its layout on close, working around a bug in some
+ * versions of MigLayout.
  */
 public class MigPanel extends JPanel {
 
-    /** The ui class id. */
-    private String uiClassId = null;
+	/** The ui class id. */
+	private String uiClassId = null;
 
+	/**
+	 * Instantiates a new mig panel.
+	 */
+	public MigPanel() {
+	}
 
-    /**
-     * Instantiates a new mig panel.
-     */
-    public MigPanel() {}
+	/**
+	 * Instantiates a new mig panel.
+	 *
+	 * @param uiClassId
+	 *            the ui class id
+	 */
+	public MigPanel(String uiClassId) {
+		this.uiClassId = uiClassId;
+	}
 
-    /**
-     * Instantiates a new mig panel.
-     *
-     * @param uiClassId the ui class id
-     */
-    public MigPanel(String uiClassId) {
-        this.uiClassId = uiClassId;
-    }
+	/**
+	 * Instantiates a new mig panel.
+	 *
+	 * @param layout
+	 *            the layout
+	 */
+	public MigPanel(LayoutManager layout) {
+		super(layout);
+	}
 
-    /**
-     * Instantiates a new mig panel.
-     *
-     * @param layout the layout
-     */
-    public MigPanel(LayoutManager layout) {
-        super(layout);
-    }
+	// Override JPanel
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getUIClassID() {
+		return (uiClassId != null) ? uiClassId : super.getUIClassID();
+	}
 
-    // Override JPanel
+	// Override Component
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getUIClassID() {
-        return (uiClassId != null) ? uiClassId : super.getUIClassID();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void removeNotify() {
+		super.removeNotify();
 
-
-    // Override Component
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void removeNotify() {
-        super.removeNotify();
-
-        setLayout(null);
-    }
+		setLayout(null);
+	}
 }

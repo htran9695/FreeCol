@@ -27,104 +27,100 @@ import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Tile;
 
-
 /**
  * An action for scaling a map. This action is a part of the map editor.
  */
 public class ScaleMapAction extends FreeColAction {
 
-    public static final String id = "scaleMapAction";
+	/** The Constant id. */
+	public static final String id = "scaleMapAction";
 
+	/**
+	 * Creates a new <code>ScaleMapAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ScaleMapAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>ScaleMapAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ScaleMapAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	/**
+	 * Scales the current map into the specified size. The current map is given
+	 * by freeColClient.getGame().getMap().
+	 *
+	 * @param width
+	 *            The width of the resulting map.
+	 * @param height
+	 *            The height of the resulting map.
+	 */
+	private void scaleMapTo(final int width, final int height) {
+		/*
+		 * This implementation uses a simple linear scaling, and the isometric
+		 * shape is not taken into account.
+		 *
+		 * FIXME: Find a better method for choosing a group of adjacent tiles.
+		 * This group can then be merged into a common tile by using the average
+		 * value (for example: are there a majority of ocean tiles?).
+		 */
 
+		final Game game = getGame();
+		final Map oldMap = game.getMap();
 
-    /**
-     * Scales the current map into the specified size. The current
-     * map is given by freeColClient.getGame().getMap().
-     *
-     * @param width The width of the resulting map.
-     * @param height The height of the resulting map.
-     */
-    private void scaleMapTo(final int width, final int height) {
-        /*
-         * This implementation uses a simple linear scaling, and
-         * the isometric shape is not taken into account.
-         *
-         * FIXME: Find a better method for choosing a group of
-         * adjacent tiles.  This group can then be merged into a
-         * common tile by using the average value (for example: are
-         * there a majority of ocean tiles?).
-         */
+		final int oldWidth = oldMap.getWidth();
+		final int oldHeight = oldMap.getHeight();
 
-        final Game game = getGame();
-        final Map oldMap = game.getMap();
+		Map map = new Map(game, width, height);
+		for (int x = 0; x < width; x++) {
+			for (int y = 0; y < height; y++) {
+				final int oldX = (x * oldWidth) / width;
+				final int oldY = (y * oldHeight) / height;
+				// FIXME: This tile should be based on the average as
+				// mentioned at the top of this method.
+				Tile importTile = oldMap.getTile(oldX, oldY);
+				Tile t = new Tile(game, importTile.getType(), x, y);
+				if (importTile.getMoveToEurope() != null) {
+					t.setMoveToEurope(importTile.getMoveToEurope());
+				}
+				if (t.getTileItemContainer() != null) {
+					t.getTileItemContainer().copyFrom(importTile.getTileItemContainer());
+				}
+				map.setTile(t, x, y);
+			}
+		}
+		game.setMap(map);
 
-        final int oldWidth = oldMap.getWidth();
-        final int oldHeight = oldMap.getHeight();
+		/*
+		 * Commented because it doesn't appear to do anything valuable // Update
+		 * river directions for (Tile t : map.getAllTiles()) {
+		 * t.getTileItemContainer().updateRiver(); }
+		 */
 
-        Map map = new Map(game, width, height);
-        for (int x = 0; x < width; x++) {
-            for (int y = 0; y < height; y++) {
-                final int oldX = (x * oldWidth) / width;
-                final int oldY = (y * oldHeight) / height;
-                // FIXME: This tile should be based on the average as
-                // mentioned at the top of this method.
-                Tile importTile = oldMap.getTile(oldX, oldY);
-                Tile t = new Tile(game, importTile.getType(), x, y);
-                if (importTile.getMoveToEurope() != null) {
-                    t.setMoveToEurope(importTile.getMoveToEurope());
-                }
-                if (t.getTileItemContainer() != null) {
-                    t.getTileItemContainer().copyFrom(importTile.getTileItemContainer());
-                }
-                map.setTile(t, x, y);
-            }
-        }
-        game.setMap(map);
+		getGUI().setSelectedTile(map.getTile(0, 0));
+		getGUI().refresh();
+	}
 
-        /* Commented because it doesn't appear to do anything valuable
-        // Update river directions
-        for (Tile t : map.getAllTiles()) {
-            t.getTileItemContainer().updateRiver();
-        }*/
+	// Override FreeColAction
 
-        getGUI().setSelectedTile(map.getTile(0, 0));
-        getGUI().refresh();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		return super.shouldBeEnabled() && freeColClient.isMapEditor() && getGame() != null
+				&& getGame().getMap() != null;
+	}
 
+	// Interface ActionListener
 
-    // Override FreeColAction
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        return super.shouldBeEnabled()
-            && freeColClient.isMapEditor()
-            && getGame() != null
-            && getGame().getMap() != null;
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        Dimension ms = getGUI().showScaleMapSizeDialog();
-        if (ms != null) {
-            scaleMapTo(ms.width, ms.height);
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		Dimension ms = getGUI().showScaleMapSizeDialog();
+		if (ms != null) {
+			scaleMapTo(ms.width, ms.height);
+		}
+	}
 }

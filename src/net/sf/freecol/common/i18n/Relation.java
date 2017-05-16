@@ -21,121 +21,151 @@ package net.sf.freecol.common.i18n;
 
 import java.util.List;
 
-
 /**
  * A grammatical relationship.
  */
 public class Relation {
 
-    int low, high, mod = 1;
-    boolean negated = false;
-    boolean integer = true;
+	/** The mod. */
+	int low, high, mod = 1;
 
-    public Relation(List<String> tokens) {
-        parse(tokens);
-    }
+	/** The negated. */
+	boolean negated = false;
 
-    public Relation(int low, int high) {
-        this.low = low;
-        this.high = high;
-    }
+	/** The integer. */
+	boolean integer = true;
 
-    /**
-     * Sets the divisor for a modulo operation (defaults to 1).
-     *
-     * @param mod an <code>int</code> value
-     */
-    public void setMod(int mod) {
-        this.mod = mod;
-    }
+	/**
+	 * Instantiates a new relation.
+	 *
+	 * @param tokens
+	 *            the tokens
+	 */
+	public Relation(List<String> tokens) {
+		parse(tokens);
+	}
 
-    /**
-     * Negates the return value of the relation (defaults to false).
-     *
-     * @param value a <code>boolean</code> value
-     */
-    public void setNegated(boolean value) {
-        this.negated = value;
-    }
+	/**
+	 * Instantiates a new relation.
+	 *
+	 * @param low
+	 *            the low
+	 * @param high
+	 *            the high
+	 */
+	public Relation(int low, int high) {
+		this.low = low;
+		this.high = high;
+	}
 
-    /**
-     * Determines whether this relation only matches integers
-     * (defaults to true).
-     *
-     * @param value a <code>boolean</code> value
-     */
-    public void setInteger(boolean value) {
-        this.integer = value;
-    }
+	/**
+	 * Sets the divisor for a modulo operation (defaults to 1).
+	 *
+	 * @param mod
+	 *            an <code>int</code> value
+	 */
+	public void setMod(int mod) {
+		this.mod = mod;
+	}
 
-    /**
-     * Returns true if the given number matches this relation.
-     *
-     * @param number a <code>double</code> value
-     * @return a <code>boolean</code> value
-     */
-    public boolean matches(double number) {
-        double value = (mod == 1) ? number : number % mod;
-        if (integer && value != (int) value) {
-            return false;
-        }
-        return (low <= value && value <= high) != negated;
-    }
+	/**
+	 * Negates the return value of the relation (defaults to false).
+	 *
+	 * @param value
+	 *            a <code>boolean</code> value
+	 */
+	public void setNegated(boolean value) {
+		this.negated = value;
+	}
 
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(32);
-        sb.append("n ");
-        if (mod != 1) {
-            sb.append("mod ").append(mod).append(" ");
-        }
-        if (low == high) {
-            sb.append("is ");
-            if (negated) sb.append("not ");
-            sb.append(low);
-        } else {
-            if (negated) sb.append("not ");
-            if (!integer) sb.append("with");
-            sb.append("in ").append(low).append("..").append(high);
-        }
-        return sb.toString();
-    }
+	/**
+	 * Determines whether this relation only matches integers (defaults to
+	 * true).
+	 *
+	 * @param value
+	 *            a <code>boolean</code> value
+	 */
+	public void setInteger(boolean value) {
+		this.integer = value;
+	}
 
+	/**
+	 * Returns true if the given number matches this relation.
+	 *
+	 * @param number
+	 *            a <code>double</code> value
+	 * @return a <code>boolean</code> value
+	 */
+	public boolean matches(double number) {
+		double value = (mod == 1) ? number : number % mod;
+		if (integer && value != (int) value) {
+			return false;
+		}
+		return (low <= value && value <= high) != negated;
+	}
 
-    /**
-     * Parses a list of string tokens.
-     *
-     * @param input a list of string tokens
-     */
-    private void parse(List<String> input) {
-        String token = input.remove(0);
-        if ("n".equals(token)) {
-            token = input.remove(0);
-        } else {
-            throw new IllegalArgumentException("Relation must start with 'n'.");
-        }
-        if ("mod".equals(token)) {
-            mod = Integer.parseInt(input.remove(0));
-            token = input.remove(0);
-        }
-        if ("not".equals(token)) {
-            negated = true;
-            token = input.remove(0);
-        }
-        if ("is".equals(token)) {
-            token = input.remove(0);
-            if ("not".equals(token)) {
-                negated = true;
-                token = input.remove(0);
-            }
-            low = high = Integer.parseInt(token);
-        } else {
-            if ("within".equals(token)) {
-                integer = false;
-            }
-            low = Integer.parseInt(input.remove(0));
-            high = Integer.parseInt(input.remove(0));
-        }
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder(32);
+		sb.append("n ");
+		if (mod != 1) {
+			sb.append("mod ").append(mod).append(" ");
+		}
+		if (low == high) {
+			sb.append("is ");
+			if (negated)
+				sb.append("not ");
+			sb.append(low);
+		} else {
+			if (negated)
+				sb.append("not ");
+			if (!integer)
+				sb.append("with");
+			sb.append("in ").append(low).append("..").append(high);
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * Parses a list of string tokens.
+	 *
+	 * @param input
+	 *            a list of string tokens
+	 */
+	private void parse(List<String> input) {
+		String token = input.remove(0);
+		if ("n".equals(token)) {
+			token = input.remove(0);
+		} else {
+			throw new IllegalArgumentException("Relation must start with 'n'.");
+		}
+		if ("mod".equals(token)) {
+			mod = Integer.parseInt(input.remove(0));
+			token = input.remove(0);
+		}
+		if ("not".equals(token)) {
+			negated = true;
+			token = input.remove(0);
+		}
+		if ("is".equals(token)) {
+			token = input.remove(0);
+			if ("not".equals(token)) {
+				negated = true;
+				token = input.remove(0);
+			}
+			low = high = Integer.parseInt(token);
+		} else {
+			if ("within".equals(token)) {
+				integer = false;
+			}
+			low = Integer.parseInt(input.remove(0));
+			high = Integer.parseInt(input.remove(0));
+		}
+	}
 
 }

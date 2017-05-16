@@ -49,275 +49,287 @@ import net.sf.freecol.server.FreeColServer;
 import net.sf.freecol.server.generator.MapGenerator;
 import net.sf.freecol.server.model.ServerPlayer;
 
-
 /**
  * The map editor controller.
  */
 public final class MapEditorController {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(MapEditorController.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(MapEditorController.class.getName());
 
+	/** The free col client. */
+	private final FreeColClient freeColClient;
 
-    private final FreeColClient freeColClient;
+	/** The gui. */
+	private final GUI gui;
 
-    private final GUI gui;
+	/**
+	 * The Interface IMapTransform.
+	 */
+	public interface IMapTransform {
 
-    public interface IMapTransform {
+		/**
+		 * Applies this transformation to the given tile.
+		 * 
+		 * @param t
+		 *            The <code>Tile</code> to be transformed,
+		 */
+		public abstract void transform(Tile t);
 
-        /**
-         * Applies this transformation to the given tile.
-         * @param t The <code>Tile</code> to be transformed,
-         */
-        public abstract void transform(Tile t);
+	}
 
-    }
+	/**
+	 * The transform that should be applied to a <code>Tile</code> that is
+	 * clicked on the map.
+	 */
+	private IMapTransform currentMapTransform = null;
 
-    /**
-     * The transform that should be applied to a <code>Tile</code>
-     * that is clicked on the map.
-     */
-    private IMapTransform currentMapTransform = null;
+	/**
+	 * Creates a new <code>MapEditorController</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public MapEditorController(FreeColClient freeColClient) {
+		this.freeColClient = freeColClient;
+		this.gui = freeColClient.getGUI();
+	}
 
+	/**
+	 * Enters map editor modus.
+	 *
+	 * FIXME: The TC and difficulty level can now be set at the command line,
+	 * but we should do better.
+	 */
+	public void startMapEditor() {
+		try {
+			Specification specification = getDefaultSpecification();
+			freeColClient.setMapEditor(true);
+			final FreeColServer freeColServer = new FreeColServer(false, false, specification, 0, null);
+			freeColClient.setFreeColServer(freeColServer);
+			Game game = freeColServer.getGame();
+			requireNativeNations(game);
+			freeColClient.setGame(game);
+			freeColClient.setMyPlayer(null);
+			freeColClient.getSoundController().playSound(null);
 
-    /**
-     * Creates a new <code>MapEditorController</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public MapEditorController(FreeColClient freeColClient) {
-        this.freeColClient = freeColClient;
-        this.gui = freeColClient.getGUI();
-    }
+			gui.closeMainPanel();
+			gui.closeMenus();
+			freeColClient.setInGame(true);
+			gui.changeViewMode(GUI.VIEW_TERRAIN_MODE);
+			gui.startMapEditorGUI();
+		} catch (IOException e) {
+			gui.showErrorMessage("server.initialize");
+			return;
+		}
+	}
 
+	/**
+	 * Get the default specification from the default TC.
+	 *
+	 * @return A <code>Specification</code> to use in the map editor.
+	 * @throws IOException
+	 *             on failure to find the spec.
+	 */
+	public Specification getDefaultSpecification() throws IOException {
+		return FreeCol.loadSpecification(FreeCol.getTCFile(), FreeCol.getAdvantages(), FreeCol.getDifficulty());
+	}
 
-    /**
-     * Enters map editor modus.
-     *
-     * FIXME: The TC and difficulty level can now be set at the
-     * command line, but we should do better.
-     */
-    public void startMapEditor() {
-        try {
-            Specification specification = getDefaultSpecification();
-            freeColClient.setMapEditor(true);
-            final FreeColServer freeColServer
-                = new FreeColServer(false, false, specification, 0, null);
-            freeColClient.setFreeColServer(freeColServer);
-            Game game = freeColServer.getGame();
-            requireNativeNations(game);
-            freeColClient.setGame(game);
-            freeColClient.setMyPlayer(null);
-            freeColClient.getSoundController().playSound(null);
+	/**
+	 * Sets the currently chosen <code>MapTransform</code>.
+	 * 
+	 * @param mt
+	 *            The transform that should be applied to a <code>Tile</code>
+	 *            that is clicked on the map.
+	 */
+	public void setMapTransform(IMapTransform mt) {
+		currentMapTransform = mt;
+		gui.updateMapControls();
+	}
 
-            gui.closeMainPanel();
-            gui.closeMenus();
-            freeColClient.setInGame(true);
-            gui.changeViewMode(GUI.VIEW_TERRAIN_MODE);
-            gui.startMapEditorGUI();
-        } catch (IOException e) {
-            gui.showErrorMessage("server.initialize");
-            return;
-        }
-    }
+	/**
+	 * Gets the current <code>MapTransform</code>.
+	 * 
+	 * @return The transform that should be applied to a <code>Tile</code> that
+	 *         is clicked on the map.
+	 */
+	public IMapTransform getMapTransform() {
+		return currentMapTransform;
+	}
 
-    /**
-     * Get the default specification from the default TC.
-     *
-     * @return A <code>Specification</code> to use in the map editor.
-     * @throws IOException on failure to find the spec.
-     */
-    public Specification getDefaultSpecification() throws IOException {
-        return FreeCol.loadSpecification(FreeCol.getTCFile(), 
-            FreeCol.getAdvantages(), FreeCol.getDifficulty());
-    }
-        
-    /**
-     * Sets the currently chosen <code>MapTransform</code>.
-     * @param mt The transform that should be applied to a
-     *      <code>Tile</code> that is clicked on the map.
-     */
-    public void setMapTransform(IMapTransform mt) {
-        currentMapTransform = mt;
-        gui.updateMapControls();
-    }
+	/**
+	 * Transforms the given <code>Tile</code> using the
+	 * {@link #getMapTransform() current <code>MapTransform</code>}.
+	 *
+	 * @param t
+	 *            The <code>Tile</code> to be modified.
+	 */
+	public void transform(Tile t) {
+		if (currentMapTransform != null) {
+			currentMapTransform.transform(t);
+		}
+	}
 
-    /**
-     * Gets the current <code>MapTransform</code>.
-     * @return The transform that should be applied to a
-     *      <code>Tile</code> that is clicked on the map.
-     */
-    public IMapTransform getMapTransform() {
-        return currentMapTransform;
-    }
+	/**
+	 * Creates a new map using a <code>MapGenerator</code>. A panel with the
+	 * <code>MapGeneratorOptions</code> is first displayed.
+	 *
+	 * @see MapGenerator
+	 * @see MapGeneratorOptions
+	 */
+	public void newMap() {
+		final Game game = freeColClient.getGame();
+		final Specification spec = game.getSpecification();
 
-    /**
-     * Transforms the given <code>Tile</code> using the
-     * {@link #getMapTransform() current <code>MapTransform</code>}.
-     *
-     * @param t The <code>Tile</code> to be modified.
-     */
-    public void transform(Tile t) {
-        if (currentMapTransform != null) {
-            currentMapTransform.transform(t);
-        }
-    }
+		gui.removeInGameComponents();
+		OptionGroup mgo = gui.showMapGeneratorOptionsDialog(true);
+		if (mgo == null)
+			return;
+		game.setMapGeneratorOptions(mgo);
+		Map map = freeColClient.getFreeColServer().getMapGenerator().createMap(new LogBuilder(-1));
+		requireNativeNations(game);
+		gui.setFocus(game.getMap().getTile(1, 1));
+		gui.updateMenuBar();
+		gui.refresh();
+	}
 
-    /**
-     * Creates a new map using a <code>MapGenerator</code>. A panel
-     * with the <code>MapGeneratorOptions</code> is first displayed.
-     *
-     * @see MapGenerator
-     * @see MapGeneratorOptions
-     */
-    public void newMap() {
-        final Game game = freeColClient.getGame();
-        final Specification spec = game.getSpecification();
+	/**
+	 * Opens a dialog where the user should specify the filename and saves the
+	 * game.
+	 */
+	public void saveGame() {
+		File file = gui.showSaveDialog(FreeColDirectories.getSaveDirectory(), FreeColDirectories.MAP_FILE_NAME);
+		if (file != null)
+			saveGame(file);
+	}
 
-        gui.removeInGameComponents();
-        OptionGroup mgo = gui.showMapGeneratorOptionsDialog(true);
-        if (mgo == null) return;
-        game.setMapGeneratorOptions(mgo);
-        Map map = freeColClient.getFreeColServer().getMapGenerator()
-            .createMap(new LogBuilder(-1));
-        requireNativeNations(game);
-        gui.setFocus(game.getMap().getTile(1,1));
-        gui.updateMenuBar();
-        gui.refresh();
-    }
+	/**
+	 * Saves the game to the given file.
+	 *
+	 * @param file
+	 *            The <code>File</code>.
+	 */
+	public void saveGame(final File file) {
+		final Game game = freeColClient.getGame();
+		Map map = game.getMap();
+		map.resetContiguity();
+		map.resetHighSeasCount();
+		map.resetLayers();
 
-    /**
-     * Opens a dialog where the user should specify the filename
-     * and saves the game.
-     */
-    public void saveGame() {
-        File file = gui.showSaveDialog(FreeColDirectories.getSaveDirectory(),
-                                       FreeColDirectories.MAP_FILE_NAME);
-        if (file != null) saveGame(file);
-    }
+		gui.showStatusPanel(Messages.message("status.savingGame"));
+		Thread t = new Thread(FreeCol.CLIENT_THREAD + "Saving Map") {
+			@Override
+			public void run() {
+				try {
+					BufferedImage thumb = gui.createMiniMapThumbNail();
+					freeColClient.getFreeColServer().saveMapEditorGame(file, thumb);
+					SwingUtilities.invokeLater(() -> {
+						gui.closeStatusPanel();
+						gui.requestFocusInWindow();
+					});
+				} catch (IOException e) {
+					SwingUtilities.invokeLater(() -> {
+						gui.showErrorMessage(FreeCol.badSave(file));
+					});
+				}
+			}
+		};
+		t.start();
+	}
 
-    /**
-     * Saves the game to the given file.
-     *
-     * @param file The <code>File</code>.
-     */
-    public void saveGame(final File file) {
-        final Game game = freeColClient.getGame();
-        Map map = game.getMap();
-        map.resetContiguity();
-        map.resetHighSeasCount();
-        map.resetLayers();
+	/**
+	 * Opens a dialog where the user should specify the filename and loads the
+	 * game.
+	 */
+	public void loadGame() {
+		File file = gui.showLoadSaveFileDialog();
+		if (file != null)
+			loadGame(file);
+	}
 
-        gui.showStatusPanel(Messages.message("status.savingGame"));
-        Thread t = new Thread(FreeCol.CLIENT_THREAD+"Saving Map") {
-                @Override
-                public void run() {
-                    try {
-                        BufferedImage thumb = gui.createMiniMapThumbNail();
-                        freeColClient.getFreeColServer()
-                            .saveMapEditorGame(file, thumb);
-                        SwingUtilities.invokeLater(() -> {
-                                gui.closeStatusPanel();
-                                gui.requestFocusInWindow();
-                            });
-                    } catch (IOException e) {
-                        SwingUtilities.invokeLater(() -> {
-                                gui.showErrorMessage(FreeCol.badSave(file));
-                            });
-                    }
-                }
-            };
-        t.start();
-    }
+	/**
+	 * Require all native nation players to be present in a game.
+	 *
+	 * @param game
+	 *            The <code>Game</code> to add native nations to.
+	 */
+	public void requireNativeNations(Game game) {
+		final Specification spec = game.getSpecification();
+		for (Nation n : spec.getIndianNations()) {
+			Player p = game.getPlayerByNation(n);
+			if (p == null) {
+				p = new ServerPlayer(game, false, n, null, null);
+				game.addPlayer(p);
+			}
+		}
+	}
 
-    /**
-     * Opens a dialog where the user should specify the filename and loads the
-     * game.
-     */
-    public void loadGame() {
-        File file = gui.showLoadSaveFileDialog();
-        if (file != null) loadGame(file);
-    }
+	/**
+	 * Loads a game from the given file.
+	 *
+	 * @param file
+	 *            The <code>File</code>.
+	 */
+	public void loadGame(File file) {
+		final File theFile = file;
 
-    /**
-     * Require all native nation players to be present in a game.
-     *
-     * @param game The <code>Game</code> to add native nations to.
-     */
-    public void requireNativeNations(Game game) {
-        final Specification spec = game.getSpecification();
-        for (Nation n : spec.getIndianNations()) {
-            Player p = game.getPlayerByNation(n);
-            if (p == null) {
-                p = new ServerPlayer(game, false, n, null, null);
-                game.addPlayer(p);
-            }
-        }
-    }
+		freeColClient.setMapEditor(true);
 
-    /**
-     * Loads a game from the given file.
-     *
-     * @param file The <code>File</code>.
-     */
-    public void loadGame(File file) {
-        final File theFile = file;
+		class ErrorJob implements Runnable {
+			private final StringTemplate template;
 
-        freeColClient.setMapEditor(true);
+			ErrorJob(StringTemplate template) {
+				this.template = template;
+			}
 
-        class ErrorJob implements Runnable {
-            private final StringTemplate template;
+			@Override
+			public void run() {
+				gui.closeMenus();
+				gui.showErrorMessage(template);
+			}
+		}
 
-            ErrorJob(StringTemplate template) {
-                this.template = template;
-            }
+		gui.showStatusPanel(Messages.message("status.loadingGame"));
 
-            @Override
-            public void run() {
-                gui.closeMenus();
-                gui.showErrorMessage(template);
-            }
-        }
+		Runnable loadGameJob = () -> {
+			FreeColServer freeColServer = freeColClient.getFreeColServer();
+			try {
+				Specification spec = getDefaultSpecification();
+				Game game = FreeColServer.readGame(new FreeColSavegameFile(theFile), spec, freeColServer);
+				freeColClient.setGame(game);
+				requireNativeNations(game);
+				SwingUtilities.invokeLater(() -> {
+					gui.closeStatusPanel();
+					gui.setFocus(freeColClient.getGame().getMap().getTile(1, 1));
+					gui.updateMenuBar();
+					gui.refresh();
+				});
+			} catch (FreeColException e) {
+				reloadMainPanel();
+				SwingUtilities.invokeLater(new ErrorJob(StringTemplate.name(e.getMessage())));
+			} catch (FileNotFoundException e) {
+				reloadMainPanel();
+				SwingUtilities.invokeLater(new ErrorJob(StringTemplate.key("server.fileNotFound")));
+			} catch (IOException e) {
+				reloadMainPanel();
+				SwingUtilities.invokeLater(new ErrorJob(StringTemplate.key("server.initialize")));
+			} catch (XMLStreamException e) {
+				reloadMainPanel();
+				SwingUtilities.invokeLater(new ErrorJob(FreeCol.badLoad(theFile)));
+			}
+		};
+		freeColClient.setWork(loadGameJob);
+	}
 
-        gui.showStatusPanel(Messages.message("status.loadingGame"));
-
-        Runnable loadGameJob = () -> {
-            FreeColServer freeColServer = freeColClient.getFreeColServer();
-            try {
-                Specification spec = getDefaultSpecification();
-                Game game = FreeColServer.readGame(new FreeColSavegameFile(theFile),
-                                                   spec, freeColServer);
-                freeColClient.setGame(game);
-                requireNativeNations(game);
-                SwingUtilities.invokeLater(() -> {
-                        gui.closeStatusPanel();
-                        gui.setFocus(freeColClient.getGame().getMap().getTile(1,1));
-                        gui.updateMenuBar();
-                        gui.refresh();
-                    });
-            } catch (FreeColException e) {
-                reloadMainPanel();
-                SwingUtilities.invokeLater(new ErrorJob(StringTemplate.name(e.getMessage())));
-            } catch (FileNotFoundException e) {
-                reloadMainPanel();
-                SwingUtilities.invokeLater(new ErrorJob(StringTemplate.key("server.fileNotFound")));
-            } catch (IOException e) {
-                reloadMainPanel();
-                SwingUtilities.invokeLater(new ErrorJob(StringTemplate.key("server.initialize")));
-            } catch (XMLStreamException e) {
-                reloadMainPanel();
-                SwingUtilities.invokeLater(new ErrorJob(FreeCol.badLoad(theFile)));
-            }
-        };
-        freeColClient.setWork(loadGameJob);
-    }
-
-    private void reloadMainPanel () {
-        SwingUtilities.invokeLater(() -> {
-                gui.closeMainPanel();
-                gui.showMainPanel(null);
-                freeColClient.getSoundController()
-                    .playSound("sound.intro.general");
-            });
-    }
+	/**
+	 * Reload main panel.
+	 */
+	private void reloadMainPanel() {
+		SwingUtilities.invokeLater(() -> {
+			gui.closeMainPanel();
+			gui.showMainPanel(null);
+			freeColClient.getSoundController().playSound("sound.intro.general");
+		});
+	}
 }

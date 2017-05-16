@@ -25,51 +25,47 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.panel.Parameters;
 import net.sf.freecol.common.model.Map;
 
-
 /**
  * An action for determining the high seas tiles.
  */
 public class DetermineHighSeasAction extends FreeColAction {
 
-    public static final String id = "determineHighSeasAction";
+	/** The Constant id. */
+	public static final String id = "determineHighSeasAction";
 
+	/**
+	 * Creates a new <code>DetermineHighSeasAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public DetermineHighSeasAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>DetermineHighSeasAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public DetermineHighSeasAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		return super.shouldBeEnabled() && freeColClient.isMapEditor() && getGame() != null
+				&& getGame().getMap() != null;
+	}
 
-    // Override FreeColAction
+	// Interface ActionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        return super.shouldBeEnabled()
-            && freeColClient.isMapEditor()
-            && getGame() != null
-            && getGame().getMap() != null;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		final Map map = getGame().getMap();
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        final Map map = getGame().getMap();
-        
-        Parameters p = getGUI().showParametersDialog();
-        if (p != null) {
-            map.resetHighSeas(p.distToLandFromHighSeas, p.maxDistanceToEdge);
-        }
-    }
+		Parameters p = getGUI().showParametersDialog();
+		if (p != null) {
+			map.resetHighSeas(p.distToLandFromHighSeas, p.maxDistanceToEdge);
+		}
+	}
 }

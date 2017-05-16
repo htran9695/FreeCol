@@ -32,107 +32,119 @@ import net.sf.freecol.client.gui.FontLibrary;
 import net.sf.freecol.client.gui.action.ActionManager;
 import net.sf.freecol.common.resources.ResourceManager;
 
-
 /**
- * A collection of panels and buttons that are used to provide
- * the user with a more detailed view of certain elements on the
- * map and also to provide a means of input in case the user
- * can't use the keyboard.
+ * A collection of panels and buttons that are used to provide the user with a
+ * more detailed view of certain elements on the map and also to provide a means
+ * of input in case the user can't use the keyboard.
  *
- * The MapControls are useless by themselves, this object needs to
- * be placed on a JComponent in order to be usable.
+ * The MapControls are useless by themselves, this object needs to be placed on
+ * a JComponent in order to be usable.
  */
 public final class ClassicMapControls extends MapControls {
 
-    private final JPanel panel;
-    private final Font arrowFont;
-    private final ActionManager am;
+	/** The panel. */
+	private final JPanel panel;
 
+	/** The arrow font. */
+	private final Font arrowFont;
 
-    /**
-     * The basic constructor.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ClassicMapControls(final FreeColClient freeColClient) {
-        super(freeColClient, false);
+	/** The am. */
+	private final ActionManager am;
 
-        am = freeColClient.getActionManager();
-        arrowFont = FontLibrary.createFont(FontLibrary.FontType.SIMPLE,
-            FontLibrary.FontSize.SMALL, Font.BOLD);
+	/**
+	 * The basic constructor.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ClassicMapControls(final FreeColClient freeColClient) {
+		super(freeColClient, false);
 
-        panel = new MigPanel();
-        panel.setLayout(new MigLayout("wrap 3"));
-        panel.add(miniMap, "span, width " + MAP_WIDTH
-                           + ", height " + MAP_HEIGHT);
+		am = freeColClient.getActionManager();
+		arrowFont = FontLibrary.createFont(FontLibrary.FontType.SIMPLE, FontLibrary.FontSize.SMALL, Font.BOLD);
 
-        panel.add(miniMapZoomInButton, "newline 10");
-        panel.add(miniMapZoomOutButton, "skip");
+		panel = new MigPanel();
+		panel.setLayout(new MigLayout("wrap 3"));
+		panel.add(miniMap, "span, width " + MAP_WIDTH + ", height " + MAP_HEIGHT);
 
-        panel.add(makeButton("NW", ResourceManager.getString("arrow.NW")),
-                  "newline 20");
-        panel.add(makeButton("N",  ResourceManager.getString("arrow.N")));
-        panel.add(makeButton("NE", ResourceManager.getString("arrow.NE")));
-        panel.add(makeButton("W",  ResourceManager.getString("arrow.W")));
-        panel.add(makeButton("E",  ResourceManager.getString("arrow.E")),
-                  "skip");
-        panel.add(makeButton("SW", ResourceManager.getString("arrow.SW")));
-        panel.add(makeButton("S",  ResourceManager.getString("arrow.S")));
-        panel.add(makeButton("SE", ResourceManager.getString("arrow.SE")),
-                  "wrap 20");
+		panel.add(miniMapZoomInButton, "newline 10");
+		panel.add(miniMapZoomOutButton, "skip");
 
-        for (UnitButton button : unitButtons) {
-            panel.add(button);
-        }
+		panel.add(makeButton("NW", ResourceManager.getString("arrow.NW")), "newline 20");
+		panel.add(makeButton("N", ResourceManager.getString("arrow.N")));
+		panel.add(makeButton("NE", ResourceManager.getString("arrow.NE")));
+		panel.add(makeButton("W", ResourceManager.getString("arrow.W")));
+		panel.add(makeButton("E", ResourceManager.getString("arrow.E")), "skip");
+		panel.add(makeButton("SW", ResourceManager.getString("arrow.SW")));
+		panel.add(makeButton("S", ResourceManager.getString("arrow.S")));
+		panel.add(makeButton("SE", ResourceManager.getString("arrow.SE")), "wrap 20");
 
-        panel.add(infoPanel, "newline push, span, width "
-            + infoPanel.getWidth() + ", height " + infoPanel.getHeight());
-    }
+		for (UnitButton button : unitButtons) {
+			panel.add(button);
+		}
 
-    /**
-     * Adds the map controls to the given component.
-     * @param component The component to add the map controls to.
-     */
-    @Override
-    public void addToComponent(Canvas component) {
-        if (freeColClient.getGame() == null
-            || freeColClient.getGame().getMap() == null) {
-            return;
-        }
-        int width = (int) panel.getPreferredSize().getWidth();
-        panel.setSize(width, component.getHeight());
-        panel.setLocation(component.getWidth() - width, 0);
-        component.add(panel, CONTROLS_LAYER);
-    }
+		panel.add(infoPanel, "newline push, span, width " + infoPanel.getWidth() + ", height " + infoPanel.getHeight());
+	}
 
-    @Override
-    public boolean isShowing() {
-        return panel.getParent() != null;
-    }
+	/**
+	 * Adds the map controls to the given component.
+	 * 
+	 * @param component
+	 *            The component to add the map controls to.
+	 */
+	@Override
+	public void addToComponent(Canvas component) {
+		if (freeColClient.getGame() == null || freeColClient.getGame().getMap() == null) {
+			return;
+		}
+		int width = (int) panel.getPreferredSize().getWidth();
+		panel.setSize(width, component.getHeight());
+		panel.setLocation(component.getWidth() - width, 0);
+		component.add(panel, CONTROLS_LAYER);
+	}
 
-    /**
-     * Removes the map controls from the parent canvas component.
-     *
-     * @param canvas <code>Canvas</code> parent
-     */
-    @Override
-    public void removeFromComponent(Canvas canvas) {
-        canvas.removeFromCanvas(panel);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see net.sf.freecol.client.gui.panel.MapControls#isShowing()
+	 */
+	@Override
+	public boolean isShowing() {
+		return panel.getParent() != null;
+	}
 
-    /**
-     * Repaint
-     */
-    @Override
-    public void repaint() {
-        panel.repaint();
-    }
+	/**
+	 * Removes the map controls from the parent canvas component.
+	 *
+	 * @param canvas
+	 *            <code>Canvas</code> parent
+	 */
+	@Override
+	public void removeFromComponent(Canvas canvas) {
+		canvas.removeFromCanvas(panel);
+	}
 
-    private JButton makeButton(String direction, String arrow) {
-        JButton button
-            = new JButton(am.getFreeColAction("moveAction." + direction));
-        button.setFont(arrowFont);
-        button.setText(arrow);
-        return button;
-    }
+	/**
+	 * Repaint.
+	 */
+	@Override
+	public void repaint() {
+		panel.repaint();
+	}
+
+	/**
+	 * Make button.
+	 *
+	 * @param direction
+	 *            the direction
+	 * @param arrow
+	 *            the arrow
+	 * @return the j button
+	 */
+	private JButton makeButton(String direction, String arrow) {
+		JButton button = new JButton(am.getFreeColAction("moveAction." + direction));
+		button.setFont(arrowFont);
+		button.setText(arrow);
+		return button;
+	}
 }

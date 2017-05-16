@@ -26,126 +26,126 @@ import net.sf.freecol.common.model.WorkLocation;
 
 import org.w3c.dom.Element;
 
-
 /**
  * Objects of this class contains AI-information for a single
  * {@link net.sf.freecol.common.model.WorkLocation}.
  */
 public class WorkLocationPlan extends AIObject {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(WorkLocationPlan.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(WorkLocationPlan.class.getName());
 
-    /** The work location the plan is for. */
-    private WorkLocation workLocation;
+	/** The work location the plan is for. */
+	private WorkLocation workLocation;
 
-    /** The goods to produce. */
-    private GoodsType goodsType;
+	/** The goods to produce. */
+	private GoodsType goodsType;
 
+	/**
+	 * Creates a new <code>WorkLocationPlan</code>.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param workLocation
+	 *            The <code>WorkLocation</code> to create a plan for.
+	 * @param goodsType
+	 *            The goodsType to be produced on the <code>workLocation</code>
+	 *            using this plan.
+	 */
+	public WorkLocationPlan(AIMain aiMain, WorkLocation workLocation, GoodsType goodsType) {
+		super(aiMain);
 
-    /**
-     * Creates a new <code>WorkLocationPlan</code>.
-     *
-     * @param aiMain The main AI-object.
-     * @param workLocation The <code>WorkLocation</code> to create
-     *      a plan for.
-     * @param goodsType The goodsType to be produced on the
-     *      <code>workLocation</code> using this plan.
-     */
-    public WorkLocationPlan(AIMain aiMain, WorkLocation workLocation,
-                            GoodsType goodsType) {
-        super(aiMain);
+		this.workLocation = workLocation;
+		this.goodsType = goodsType;
 
-        this.workLocation = workLocation;
-        this.goodsType = goodsType;
+		uninitialized = false;
+	}
 
-        uninitialized = false;
-    }
+	/**
+	 * Creates a new <code>WorkLocationPlan</code>.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param element
+	 *            An <code>Element</code> containing an XML-representation of
+	 *            this object.
+	 */
+	public WorkLocationPlan(AIMain aiMain, Element element) {
+		super(aiMain, element);
+	}
 
-    /**
-     * Creates a new <code>WorkLocationPlan</code>.
-     *
-     * @param aiMain The main AI-object.
-     * @param element An <code>Element</code> containing an
-     *      XML-representation of this object.
-     */
-    public WorkLocationPlan(AIMain aiMain, Element element) {
-        super(aiMain, element);
-    }
+	/**
+	 * Gets the <code>WorkLocation</code> this <code>WorkLocationPlan</code>
+	 * controls.
+	 *
+	 * @return The <code>WorkLocation</code>.
+	 */
+	public WorkLocation getWorkLocation() {
+		return workLocation;
+	}
 
+	/**
+	 * Gets the type of goods which should be produced at the
+	 * <code>WorkLocation</code>.
+	 *
+	 * @return The type of goods.
+	 * @see net.sf.freecol.common.model.Goods
+	 * @see net.sf.freecol.common.model.WorkLocation
+	 */
+	public GoodsType getGoodsType() {
+		return goodsType;
+	}
 
-    /**
-     * Gets the <code>WorkLocation</code> this
-     * <code>WorkLocationPlan</code> controls.
-     *
-     * @return The <code>WorkLocation</code>.
-     */
-    public WorkLocation getWorkLocation() {
-        return workLocation;
-    }
+	/**
+	 * Sets the type of goods to be produced at the <code>WorkLocation</code>.
+	 *
+	 * @param goodsType
+	 *            The type of goods.
+	 * @see net.sf.freecol.common.model.Goods
+	 * @see net.sf.freecol.common.model.WorkLocation
+	 */
+	public void setGoodsType(GoodsType goodsType) {
+		this.goodsType = goodsType;
+	}
 
-    /**
-     * Gets the type of goods which should be produced at the
-     * <code>WorkLocation</code>.
-     *
-     * @return The type of goods.
-     * @see net.sf.freecol.common.model.Goods
-     * @see net.sf.freecol.common.model.WorkLocation
-     */
-    public GoodsType getGoodsType() {
-        return goodsType;
-    }
+	/**
+	 * Is this a food producing plan?.
+	 *
+	 * @return True if this plan produces food.
+	 */
+	public boolean isFoodPlan() {
+		return goodsType.isFoodType();
+	}
 
-    /**
-     * Sets the type of goods to be produced at the <code>WorkLocation</code>.
-     *
-     * @param goodsType The type of goods.
-     * @see net.sf.freecol.common.model.Goods
-     * @see net.sf.freecol.common.model.WorkLocation
-     */
-    public void setGoodsType(GoodsType goodsType) {
-        this.goodsType = goodsType;
-    }
+	// Serialization
+	// WorkLocationPlans are not currently saved so this is a no-op.
 
-    /**
-     * Is this a food producing plan?
-     *
-     * @return True if this plan produces food.
-     */
-    public boolean isFoodPlan() {
-        return goodsType.isFoodType();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder(32);
+		sb.append("[").append(getId()).append(" ").append(goodsType.getSuffix()).append(" at ")
+				.append(workLocation.getId()).append("]");
+		return sb.toString();
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-    // Serialization
-    // WorkLocationPlans are not currently saved so this is a no-op.
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(32);
-        sb.append("[").append(getId())
-            .append(" ").append(goodsType.getSuffix())
-            .append(" at ").append(workLocation.getId())
-            .append("]");
-        return sb.toString();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "workLocationPlan"
-     */
-    public static String getXMLElementTagName() {
-        return "workLocationPlan";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "workLocationPlan"
+	 */
+	public static String getXMLElementTagName() {
+		return "workLocationPlan";
+	}
 }

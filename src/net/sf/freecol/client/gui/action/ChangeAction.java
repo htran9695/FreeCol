@@ -27,101 +27,95 @@ import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
  * An action for changing the view. This action will:
  *
- *  - Open a colony panel if the active unit is located on a tile with
- *    a colony.
- *  - If aboard a carrier then the carrier will be the active unit.
- *  - In other cases: switch to another unit on the same tile.
+ * - Open a colony panel if the active unit is located on a tile with a colony.
+ * - If aboard a carrier then the carrier will be the active unit. - In other
+ * cases: switch to another unit on the same tile.
  */
 public class ChangeAction extends UnitAction {
 
-    public static final String id = "changeAction";
+	/** The Constant id. */
+	public static final String id = "changeAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ChangeAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ChangeAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
+		update();
+	}
 
-        update();
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		return super.shouldBeEnabled() && getGUI().getActiveUnit().hasTile();
+	}
 
-    // Override FreeColAction
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public final void update() {
+		super.update();
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        return super.shouldBeEnabled() && getGUI().getActiveUnit().hasTile();
-    }
+		final Unit unit = getGUI().getActiveUnit();
+		if (unit != null && unit.hasTile()) {
+			if (unit.getColony() != null) {
+				putValue(NAME, Messages.getName("changeAction.enterColony"));
+			} else if (unit.isOnCarrier()) {
+				putValue(NAME, Messages.getName("changeAction.selectCarrier"));
+			} else {
+				putValue(NAME, Messages.getName("changeAction.nextUnitOnTile"));
+			}
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final void update() {
-        super.update();
+	// Interface ActionListener
 
-        final Unit unit = getGUI().getActiveUnit();
-        if (unit != null && unit.hasTile()) {
-            if (unit.getColony() != null) {
-                putValue(NAME, Messages.getName("changeAction.enterColony"));
-            } else if (unit.isOnCarrier()) {
-                putValue(NAME, Messages.getName("changeAction.selectCarrier"));
-            } else {
-                putValue(NAME, Messages.getName("changeAction.nextUnitOnTile"));
-            }
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		final Unit unit = getGUI().getActiveUnit();
+		final Tile tile = unit.getTile();
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        final Unit unit = getGUI().getActiveUnit();
-        final Tile tile = unit.getTile();
-
-        if (tile.getColony() != null) {
-            getGUI().showColonyPanel(tile.getColony(), unit);
-        } else if (unit.isOnCarrier()) {
-            getGUI().setActiveUnit(unit.getCarrier());
-        } else {
-            Iterator<Unit> unitIterator = tile.getUnitIterator();
-            boolean activeUnitFound = false;
-            while (unitIterator.hasNext()) {
-                Unit u = unitIterator.next();
-                if (u == unit) {
-                    activeUnitFound = true;
-                } else if (activeUnitFound
-                    && u.getState() == Unit.UnitState.ACTIVE
-                    && u.getMovesLeft() > 0) {
-                    getGUI().setActiveUnit(u);
-                    return;
-                }
-            }
-            unitIterator = tile.getUnitIterator();
-            while (unitIterator.hasNext()) {
-                Unit u = unitIterator.next();
-                if (u == unit) {
-                    return;
-                } else if (u.getState() == Unit.UnitState.ACTIVE
-                    && u.getMovesLeft() > 0) {
-                    getGUI().setActiveUnit(u);
-                    return;
-                }
-            }
-        }
-    }
+		if (tile.getColony() != null) {
+			getGUI().showColonyPanel(tile.getColony(), unit);
+		} else if (unit.isOnCarrier()) {
+			getGUI().setActiveUnit(unit.getCarrier());
+		} else {
+			Iterator<Unit> unitIterator = tile.getUnitIterator();
+			boolean activeUnitFound = false;
+			while (unitIterator.hasNext()) {
+				Unit u = unitIterator.next();
+				if (u == unit) {
+					activeUnitFound = true;
+				} else if (activeUnitFound && u.getState() == Unit.UnitState.ACTIVE && u.getMovesLeft() > 0) {
+					getGUI().setActiveUnit(u);
+					return;
+				}
+			}
+			unitIterator = tile.getUnitIterator();
+			while (unitIterator.hasNext()) {
+				Unit u = unitIterator.next();
+				if (u == unit) {
+					return;
+				} else if (u.getState() == Unit.UnitState.ACTIVE && u.getMovesLeft() > 0) {
+					getGUI().setActiveUnit(u);
+					return;
+				}
+			}
+		}
+	}
 }

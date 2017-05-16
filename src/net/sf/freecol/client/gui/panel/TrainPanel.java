@@ -24,21 +24,19 @@ import net.miginfocom.swing.MigLayout;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
 
-
 /**
  * The panel that allows a user to train a new unit in Europe.
  */
 public final class TrainPanel extends NewUnitPanel {
 
-    /**
-     * The constructor to use.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public TrainPanel(FreeColClient freeColClient) {
-        super(freeColClient, new MigLayout("wrap 3", "[sg]", ""),
-            Messages.message("trainPanel.clickOn"),
-            freeColClient.getGame().getSpecification()
-                .getUnitTypesTrainedInEurope());
-    }
+	/**
+	 * The constructor to use.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public TrainPanel(FreeColClient freeColClient) {
+		super(freeColClient, new MigLayout("wrap 3", "[sg]", ""), Messages.message("trainPanel.clickOn"),
+				freeColClient.getGame().getSpecification().getUnitTypesTrainedInEurope());
+	}
 }

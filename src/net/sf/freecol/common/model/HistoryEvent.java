@@ -30,371 +30,369 @@ import static net.sf.freecol.common.util.StringUtils.*;
 
 import org.w3c.dom.Element;
 
-
 /**
  * A notable event in the history of a game.
  */
 public class HistoryEvent extends StringTemplate {
 
-    /**
-     * The Enum HistoryEventType.
-     */
-    public static enum HistoryEventType implements Named {
-        
-        /** The discover new world. */
-        DISCOVER_NEW_WORLD,
-        
-        /** The discover region. */
-        DISCOVER_REGION,
-        
-        /** The meet nation. */
-        MEET_NATION,
-        
-        /** The city of gold. */
-        CITY_OF_GOLD,
-        
-        /** The found colony. */
-        FOUND_COLONY,
-        
-        /** The abandon colony. */
-        ABANDON_COLONY,
-        
-        /** The conquer colony. */
-        CONQUER_COLONY,
-        
-        /** The colony destroyed. */
-        COLONY_DESTROYED,
-        
-        /** The colony conquered. */
-        COLONY_CONQUERED,
-        
-        /** The destroy settlement. */
-        DESTROY_SETTLEMENT,
-        
-        /** The destroy nation. */
-        // FIXME: when exactly is a European nation destroyed?
-        DESTROY_NATION,
-        
-        /** The nation destroyed. */
-        NATION_DESTROYED,
-        
-        /** The founding father. */
-        FOUNDING_FATHER,
-        
-        /** The declare independence. */
-        DECLARE_INDEPENDENCE,
-        
-        /** The independence. */
-        INDEPENDENCE,
-        
-        /** The spanish succession. */
-        SPANISH_SUCCESSION,
-        
-        /** The declare war. */
-        DECLARE_WAR,
-        
-        /** The cease fire. */
-        CEASE_FIRE,
-        
-        /** The make peace. */
-        MAKE_PEACE,
-        
-        /** The form alliance. */
-        FORM_ALLIANCE;
+	/**
+	 * The Enum HistoryEventType.
+	 */
+	public static enum HistoryEventType implements Named {
 
-        /**
-         * Get the stem key.
-         *
-         * @return The stem key for this history event type.
-         */
-        private String getKey() {
-            return "historyEventType." + getEnumKey(this);
-        }
+		/** The discover new world. */
+		DISCOVER_NEW_WORLD,
 
-        /**
-         * Gets the description key.
-         *
-         * @return the description key
-         */
-        public String getDescriptionKey() {
-            return Messages.descriptionKey("model." + getKey());
-        }
-        
-        // Implement Named
+		/** The discover region. */
+		DISCOVER_REGION,
 
-        /**
-         * {@inheritDoc}
-         */
-        public String getNameKey() {
-            return Messages.nameKey("model." + getKey());
-        }
-    }
+		/** The meet nation. */
+		MEET_NATION,
 
+		/** The city of gold. */
+		CITY_OF_GOLD,
 
-    /** The turn in which the event took place */
-    private Turn turn;
+		/** The found colony. */
+		FOUND_COLONY,
 
-    /** The type of event. */
-    private HistoryEventType eventType;
+		/** The abandon colony. */
+		ABANDON_COLONY,
 
-    /** Which player gets credit for the event, if any. */
-    private String playerId;
+		/** The conquer colony. */
+		CONQUER_COLONY,
 
-    /** Points for this event, if any. */
-    private int score;
+		/** The colony destroyed. */
+		COLONY_DESTROYED,
 
+		/** The colony conquered. */
+		COLONY_CONQUERED,
 
-    /**
-     * Create a new history event of given turn and type.
-     *
-     * @param turn The <code>Turn</code> of the event.
-     * @param eventType The <code>EventType</code>.
-     * @param player An optional <code>Player</code> responsible for
-     *     this event.
-     */
-    public HistoryEvent(Turn turn, HistoryEventType eventType, Player player) {
-        super(eventType.getDescriptionKey(), null, TemplateType.TEMPLATE);
-        this.turn = turn;
-        this.eventType = eventType;
-        this.playerId = (player == null) ? null : player.getId();
-        this.score = 0;
-    }
+		/** The destroy settlement. */
+		DESTROY_SETTLEMENT,
 
-    /**
-     * Create a new history event by reading a stream.
-     *
-     * @param xr The <code>FreeColXMLReader</code> to read from.
-     * @exception XMLStreamException if there is a problem reading the stream.
-     */
-    public HistoryEvent(FreeColXMLReader xr) throws XMLStreamException {
-        readFromXML(xr);
-    }
+		/** The destroy nation. */
+		// FIXME: when exactly is a European nation destroyed?
+		DESTROY_NATION,
 
-    /**
-     * Create a new history event by reading a element.
-     *
-     * @param element The <code>Element</code> to read from.
-     */
-    public HistoryEvent(Element element) {
-        readFromXMLElement(element);
-    }
+		/** The nation destroyed. */
+		NATION_DESTROYED,
 
+		/** The founding father. */
+		FOUNDING_FATHER,
 
-    /**
-     * Get the turn of this history event.
-     *
-     * @return The turn.
-     */
-    public final Turn getTurn() {
-        return turn;
-    }
+		/** The declare independence. */
+		DECLARE_INDEPENDENCE,
 
-    /**
-     * Get the type of this history event.
-     *
-     * @return The event type.
-     */
-    public final HistoryEventType getEventType() {
-        return eventType;
-    }
+		/** The independence. */
+		INDEPENDENCE,
 
-    /**
-     * Given a new stance, get the appropriate event type.
-     *
-     * @param stance The new <code>Stance</code>.
-     * @return The corresponding event type.
-     */
-    public static final HistoryEventType getEventTypeFromStance(Stance stance) {
-        switch (stance) {
-        case WAR:
-            return HistoryEventType.DECLARE_WAR;
-        case CEASE_FIRE:
-            return HistoryEventType.CEASE_FIRE;
-        case PEACE:
-            return HistoryEventType.MAKE_PEACE;
-        case ALLIANCE:
-            return HistoryEventType.FORM_ALLIANCE;
-        default:
-            break;
-        }
-        return null;
-    }
+		/** The spanish succession. */
+		SPANISH_SUCCESSION,
 
-    /**
-     * Get the id for the player that is credited with this event, if any.
-     *
-     * @return The credited <code>Player</code> id.
-     */
-    public final String getPlayerId() {
-        return playerId;
-    }
+		/** The declare war. */
+		DECLARE_WAR,
 
-    /**
-     * Set the id for the player to credit for this event.
-     *
-     * @param playerId The new credited <code>Player</code> id.
-     */
-    public void setPlayerId(String playerId) {
-        this.playerId = playerId;
-    }
+		/** The cease fire. */
+		CEASE_FIRE,
 
-    /**
-     * Get the score for this event.
-     *
-     * @return The score.
-     */
-    public final int getScore() {
-        return score;
-    }
+		/** The make peace. */
+		MAKE_PEACE,
 
-    /**
-     * Set the score for this event.
-     *
-     * @param score The new score for this event.
-     */
-    public void setScore(int score) {
-        this.score = score;
-    }
+		/** The form alliance. */
+		FORM_ALLIANCE;
 
+		/**
+		 * Get the stem key.
+		 *
+		 * @return The stem key for this history event type.
+		 */
+		private String getKey() {
+			return "historyEventType." + getEnumKey(this);
+		}
 
-    // Override StringTemplate routines to return HistoryEvents
+		/**
+		 * Gets the description key.
+		 *
+		 * @return the description key
+		 */
+		public String getDescriptionKey() {
+			return Messages.descriptionKey("model." + getKey());
+		}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public HistoryEvent add(String key, String value) {
-        return (HistoryEvent)super.add(key, value);
-    }
+		// Implement Named
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public HistoryEvent addName(String key, String value) {
-        return (HistoryEvent)super.addName(key, value);
-    }
+		/**
+		 * {@inheritDoc}
+		 */
+		public String getNameKey() {
+			return Messages.nameKey("model." + getKey());
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public HistoryEvent addNamed(String key, Named value) {
-        return (HistoryEvent)super.addNamed(key, value);
-    }
+	/** The turn in which the event took place. */
+	private Turn turn;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public HistoryEvent addAmount(String key, Number amount) {
-        return (HistoryEvent)super.addAmount(key, amount);
-    }
+	/** The type of event. */
+	private HistoryEventType eventType;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public HistoryEvent addStringTemplate(String key, StringTemplate template) {
-        return (HistoryEvent)super.addStringTemplate(key, template);
-    }
+	/** Which player gets credit for the event, if any. */
+	private String playerId;
 
+	/** Points for this event, if any. */
+	private int score;
 
-    // Interface Object
+	/**
+	 * Create a new history event of given turn and type.
+	 *
+	 * @param turn
+	 *            The <code>Turn</code> of the event.
+	 * @param eventType
+	 *            The <code>EventType</code>.
+	 * @param player
+	 *            An optional <code>Player</code> responsible for this event.
+	 */
+	public HistoryEvent(Turn turn, HistoryEventType eventType, Player player) {
+		super(eventType.getDescriptionKey(), null, TemplateType.TEMPLATE);
+		this.turn = turn;
+		this.eventType = eventType;
+		this.playerId = (player == null) ? null : player.getId();
+		this.score = 0;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o instanceof HistoryEvent) {
-            HistoryEvent h = (HistoryEvent)o;
-            return turn == h.turn && eventType == h.eventType
-                && Utils.equals(playerId, h.playerId)
-                && score == h.score;
-        }
-        return false;
-    }
+	/**
+	 * Create a new history event by reading a stream.
+	 *
+	 * @param xr
+	 *            The <code>FreeColXMLReader</code> to read from.
+	 * @exception XMLStreamException
+	 *                if there is a problem reading the stream.
+	 */
+	public HistoryEvent(FreeColXMLReader xr) throws XMLStreamException {
+		readFromXML(xr);
+	}
 
+	/**
+	 * Create a new history event by reading a element.
+	 *
+	 * @param element
+	 *            The <code>Element</code> to read from.
+	 */
+	public HistoryEvent(Element element) {
+		readFromXMLElement(element);
+	}
 
-    // Serialization
+	/**
+	 * Get the turn of this history event.
+	 *
+	 * @return The turn.
+	 */
+	public final Turn getTurn() {
+		return turn;
+	}
 
-    /** The Constant EVENT_TYPE_TAG. */
-    private static final String EVENT_TYPE_TAG = "eventType";
-    
-    /** The Constant PLAYER_ID_TAG. */
-    private static final String PLAYER_ID_TAG = "playerId";
-    
-    /** The Constant SCORE_TAG. */
-    private static final String SCORE_TAG = "score";
-    
-    /** The Constant TURN_TAG. */
-    private static final String TURN_TAG = "turn";
+	/**
+	 * Get the type of this history event.
+	 *
+	 * @return The event type.
+	 */
+	public final HistoryEventType getEventType() {
+		return eventType;
+	}
 
+	/**
+	 * Given a new stance, get the appropriate event type.
+	 *
+	 * @param stance
+	 *            The new <code>Stance</code>.
+	 * @return The corresponding event type.
+	 */
+	public static final HistoryEventType getEventTypeFromStance(Stance stance) {
+		switch (stance) {
+		case WAR:
+			return HistoryEventType.DECLARE_WAR;
+		case CEASE_FIRE:
+			return HistoryEventType.CEASE_FIRE;
+		case PEACE:
+			return HistoryEventType.MAKE_PEACE;
+		case ALLIANCE:
+			return HistoryEventType.FORM_ALLIANCE;
+		default:
+			break;
+		}
+		return null;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
+	/**
+	 * Get the id for the player that is credited with this event, if any.
+	 *
+	 * @return The credited <code>Player</code> id.
+	 */
+	public final String getPlayerId() {
+		return playerId;
+	}
 
-        xw.writeAttribute(TURN_TAG, turn.getNumber());
+	/**
+	 * Set the id for the player to credit for this event.
+	 *
+	 * @param playerId
+	 *            The new credited <code>Player</code> id.
+	 */
+	public void setPlayerId(String playerId) {
+		this.playerId = playerId;
+	}
 
-        xw.writeAttribute(EVENT_TYPE_TAG, eventType);
+	/**
+	 * Get the score for this event.
+	 *
+	 * @return The score.
+	 */
+	public final int getScore() {
+		return score;
+	}
 
-        if (playerId != null) xw.writeAttribute(PLAYER_ID_TAG, playerId);
+	/**
+	 * Set the score for this event.
+	 *
+	 * @param score
+	 *            The new score for this event.
+	 */
+	public void setScore(int score) {
+		this.score = score;
+	}
 
-        xw.writeAttribute(SCORE_TAG, score);
-    }
+	// Override StringTemplate routines to return HistoryEvents
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        super.readAttributes(xr);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public HistoryEvent add(String key, String value) {
+		return (HistoryEvent) super.add(key, value);
+	}
 
-        turn = new Turn(xr.getAttribute(TURN_TAG, 0));
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public HistoryEvent addName(String key, String value) {
+		return (HistoryEvent) super.addName(key, value);
+	}
 
-        eventType = xr.getAttribute(EVENT_TYPE_TAG,
-                                    HistoryEventType.class, (HistoryEventType)null);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public HistoryEvent addNamed(String key, Named value) {
+		return (HistoryEvent) super.addNamed(key, value);
+	}
 
-        playerId = xr.getAttribute(PLAYER_ID_TAG, (String)null);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public HistoryEvent addAmount(String key, Number amount) {
+		return (HistoryEvent) super.addAmount(key, amount);
+	}
 
-        score = xr.getAttribute(SCORE_TAG, 0);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public HistoryEvent addStringTemplate(String key, StringTemplate template) {
+		return (HistoryEvent) super.addStringTemplate(key, template);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(32);
-        sb.append("[").append(getId())
-            .append(" ").append(eventType)
-            .append(" (").append(turn.getYear()).append(")");
-        if (playerId != null) {
-            sb.append(" playerId=").append(playerId)
-                .append(" score=").append(score);
-        }
-        sb.append(" ").append(super.toString()).append("]");
-        return sb.toString();
-    }
+	// Interface Object
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean equals(Object o) {
+		if (this == o)
+			return true;
+		if (o instanceof HistoryEvent) {
+			HistoryEvent h = (HistoryEvent) o;
+			return turn == h.turn && eventType == h.eventType && Utils.equals(playerId, h.playerId) && score == h.score;
+		}
+		return false;
+	}
 
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "historyEvent".
-     */
-    public static String getXMLElementTagName() {
-        return "historyEvent";
-    }
+	// Serialization
+
+	/** The Constant EVENT_TYPE_TAG. */
+	private static final String EVENT_TYPE_TAG = "eventType";
+
+	/** The Constant PLAYER_ID_TAG. */
+	private static final String PLAYER_ID_TAG = "playerId";
+
+	/** The Constant SCORE_TAG. */
+	private static final String SCORE_TAG = "score";
+
+	/** The Constant TURN_TAG. */
+	private static final String TURN_TAG = "turn";
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
+
+		xw.writeAttribute(TURN_TAG, turn.getNumber());
+
+		xw.writeAttribute(EVENT_TYPE_TAG, eventType);
+
+		if (playerId != null)
+			xw.writeAttribute(PLAYER_ID_TAG, playerId);
+
+		xw.writeAttribute(SCORE_TAG, score);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		super.readAttributes(xr);
+
+		turn = new Turn(xr.getAttribute(TURN_TAG, 0));
+
+		eventType = xr.getAttribute(EVENT_TYPE_TAG, HistoryEventType.class, (HistoryEventType) null);
+
+		playerId = xr.getAttribute(PLAYER_ID_TAG, (String) null);
+
+		score = xr.getAttribute(SCORE_TAG, 0);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder(32);
+		sb.append("[").append(getId()).append(" ").append(eventType).append(" (").append(turn.getYear()).append(")");
+		if (playerId != null) {
+			sb.append(" playerId=").append(playerId).append(" score=").append(score);
+		}
+		sb.append(" ").append(super.toString()).append("]");
+		return sb.toString();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "historyEvent".
+	 */
+	public static String getXMLElementTagName() {
+		return "historyEvent";
+	}
 }

@@ -17,7 +17,6 @@
  *  along with FreeCol.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 package net.sf.freecol.common.model;
 
 /**
@@ -25,18 +24,19 @@ package net.sf.freecol.common.model;
  */
 public interface Nameable {
 
-    /**
-     * Gets the name of this <code>Nameable</code>.
-     *
-     * @return The name of the <code>Nameable</code>.
-     */
-    public String getName();
+	/**
+	 * Gets the name of this <code>Nameable</code>.
+	 *
+	 * @return The name of the <code>Nameable</code>.
+	 */
+	public String getName();
 
-    /**
-     * Sets the name for this <code>Nameable</code>.
-     *
-     * @param newName The new name for the <code>Nameable</code>.
-     */
-    public void setName(String newName);
+	/**
+	 * Sets the name for this <code>Nameable</code>.
+	 *
+	 * @param newName
+	 *            The new name for the <code>Nameable</code>.
+	 */
+	public void setName(String newName);
 
 }

@@ -29,212 +29,222 @@ import javax.xml.stream.XMLStreamException;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 
-
 /**
  * A special game event.
  */
 public class Event extends FreeColGameObjectType {
 
-    /** A restriction on the scope of the event. */
-    private String value;
+	/** A restriction on the scope of the event. */
+	private String value;
 
-    /** The score value of this event. */
-    private int scoreValue = 0;
+	/** The score value of this event. */
+	private int scoreValue = 0;
 
-    /** Limits on this event. */
-    private Map<String, Limit> limits = null;
+	/** Limits on this event. */
+	private Map<String, Limit> limits = null;
 
+	/**
+	 * Create a new event.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public Event(String id, Specification specification) {
+		super(id, specification);
+	}
 
-    /**
-     * Create a new event.
-     *
-     * @param id The object identifier.
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public Event(String id, Specification specification) {
-        super(id, specification);
-    }
+	/**
+	 * Create a new event.
+	 *
+	 * @param xr
+	 *            The <code>FreeColXMLReader</code> to read from.
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 * @exception XMLStreamException
+	 *                if there a problem reading the stream.
+	 */
+	public Event(FreeColXMLReader xr, Specification specification) throws XMLStreamException {
+		super(specification);
 
-    /**
-     * Create a new event.
-     *
-     * @param xr The <code>FreeColXMLReader</code> to read from.
-     * @param specification The <code>Specification</code> to refer to.
-     * @exception XMLStreamException if there a problem reading the stream.
-     */
-    public Event(FreeColXMLReader xr, Specification specification) throws XMLStreamException {
-        super(specification);
+		readFromXML(xr);
+	}
 
-        readFromXML(xr);
-    }
+	/**
+	 * Gets the event restriction.
+	 *
+	 * @return The restriction.
+	 */
+	public final String getValue() {
+		return value;
+	}
 
+	/**
+	 * Sets the event restriction.
+	 *
+	 * @param newValue
+	 *            The new event restriction.
+	 */
+	public final void setValue(final String newValue) {
+		this.value = newValue;
+	}
 
-    /**
-     * Gets the event restriction.
-     *
-     * @return The restriction.
-     */
-    public final String getValue() {
-        return value;
-    }
+	/**
+	 * Get the limits on this event.
+	 *
+	 * @return A list of limits.
+	 */
+	public final Collection<Limit> getLimits() {
+		return (limits == null) ? Collections.<Limit>emptyList() : limits.values();
+	}
 
-    /**
-     * Sets the event restriction.
-     *
-     * @param newValue The new event restriction.
-     */
-    public final void setValue(final String newValue) {
-        this.value = newValue;
-    }
+	/**
+	 * Gets a particular limit by identifier.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @return The corresponding <code>Limit</code> or null if not found.
+	 */
+	public final Limit getLimit(String id) {
+		return (limits == null) ? null : limits.get(id);
+	}
 
-    /**
-     * Get the limits on this event.
-     *
-     * @return A list of limits.
-     */
-    public final Collection<Limit> getLimits() {
-        return (limits == null) ? Collections.<Limit>emptyList()
-            : limits.values();
-    }
+	/**
+	 * Add a limit.
+	 *
+	 * @param limit
+	 *            The <code>Limit</code> to add.
+	 */
+	private void addLimit(Limit limit) {
+		if (limits == null)
+			limits = new HashMap<>();
+		limits.put(limit.getId(), limit);
+	}
 
-    /**
-     * Gets a particular limit by identifier.
-     *
-     * @param id The object identifier.
-     * @return The corresponding <code>Limit</code> or null if not found.
-     */
-    public final Limit getLimit(String id) {
-        return (limits == null) ? null : limits.get(id);
-    }
+	/**
+	 * Get the score value of this event.
+	 *
+	 * @return The score value.
+	 */
+	public final int getScoreValue() {
+		return scoreValue;
+	}
 
-    /**
-     * Add a limit.
-     *
-     * @param limit The <code>Limit</code> to add.
-     */
-    private void addLimit(Limit limit) {
-        if (limits == null) limits = new HashMap<>();
-        limits.put(limit.getId(), limit);
-    }
+	/**
+	 * Set the score value of this event.
+	 *
+	 * @param newScoreValue
+	 *            The new score value.
+	 */
+	public final void setScoreValue(final int newScoreValue) {
+		this.scoreValue = newScoreValue;
+	}
 
-    /**
-     * Get the score value of this event.
-     *
-     * @return The score value.
-     */
-    public final int getScoreValue() {
-        return scoreValue;
-    }
+	// Serialization
 
-    /**
-     * Set the score value of this event.
-     *
-     * @param newScoreValue The new score value.
-     */
-    public final void setScoreValue(final int newScoreValue) {
-        this.scoreValue = newScoreValue;
-    }
+	/** The Constant SCORE_VALUE_TAG. */
+	private static final String SCORE_VALUE_TAG = "score-value";
 
+	/** The Constant OLD_SCORE_VALUE_TAG. */
+	// @compat 0.11.3
+	private static final String OLD_SCORE_VALUE_TAG = "scoreValue";
+	// end @compat 0.11.3
 
-    // Serialization
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-    private static final String SCORE_VALUE_TAG = "score-value";
-    // @compat 0.11.3
-    private static final String OLD_SCORE_VALUE_TAG = "scoreValue";
-    // end @compat 0.11.3
+		if (value != null) {
+			xw.writeAttribute(VALUE_TAG, value);
+		}
 
+		if (scoreValue != 0) {
+			xw.writeAttribute(SCORE_VALUE_TAG, scoreValue);
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeChildren(xw);
 
-        if (value != null) {
-            xw.writeAttribute(VALUE_TAG, value);
-        }
+		for (Limit limit : getLimits())
+			limit.toXML(xw);
+	}
 
-        if (scoreValue != 0) {
-            xw.writeAttribute(SCORE_VALUE_TAG, scoreValue);
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		super.readAttributes(xr);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeChildren(xw);
+		value = xr.getAttribute(VALUE_TAG, (String) null);
 
-        for (Limit limit : getLimits()) limit.toXML(xw);
-    }
+		// @compat 0.11.3
+		if (xr.hasAttribute(OLD_SCORE_VALUE_TAG)) {
+			scoreValue = xr.getAttribute(OLD_SCORE_VALUE_TAG, 0);
+		} else
+			// end @compat 0.11.3
+			scoreValue = xr.getAttribute(SCORE_VALUE_TAG, 0);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        super.readAttributes(xr);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+		// Clear containers.
+		if (xr.shouldClearContainers()) {
+			limits = null;
+		}
 
-        value = xr.getAttribute(VALUE_TAG, (String)null);
+		super.readChildren(xr);
+	}
 
-        // @compat 0.11.3
-        if (xr.hasAttribute(OLD_SCORE_VALUE_TAG)) {
-            scoreValue = xr.getAttribute(OLD_SCORE_VALUE_TAG, 0);
-        } else
-        // end @compat 0.11.3
-            scoreValue = xr.getAttribute(SCORE_VALUE_TAG, 0);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+		final Specification spec = getSpecification();
+		final String tag = xr.getLocalName();
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
-        // Clear containers.
-        if (xr.shouldClearContainers()) {
-            limits = null;
-        }
-        
-        super.readChildren(xr);
-    }        
+		if (Limit.getXMLElementTagName().equals(tag)) {
+			Limit limit = new Limit(xr, spec);
+			// @compat 0.10.5
+			if ("model.limit.independence.colonies".equals(limit.getId())) {
+				limit.setId("model.limit.independence.coastalColonies");
+				limit.getLeftHandSide().setMethodName("isConnectedPort");
+			}
+			// end @compat
+			addLimit(limit);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
-        final Specification spec = getSpecification();
-        final String tag = xr.getLocalName();
+		} else {
+			super.readChild(xr);
+		}
+	}
 
-        if (Limit.getXMLElementTagName().equals(tag)) {
-            Limit limit = new Limit(xr, spec);
-            // @compat 0.10.5
-            if ("model.limit.independence.colonies".equals(limit.getId())) {
-                limit.setId("model.limit.independence.coastalColonies");
-                limit.getLeftHandSide().setMethodName("isConnectedPort");
-            }
-            // end @compat
-            addLimit(limit);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-        } else {
-            super.readChild(xr);
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "event".
-     */
-    public static String getXMLElementTagName() {
-        return "event";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "event".
+	 */
+	public static String getXMLElementTagName() {
+		return "event";
+	}
 }

@@ -23,36 +23,35 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for starting a new game.
  */
 public class NewAction extends FreeColAction {
 
-    public static final String id = "newAction";
+	/** The Constant id. */
+	public static final String id = "newAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public NewAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates this action
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public NewAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        if (freeColClient.isMapEditor()) {
-            freeColClient.getMapEditorController().newMap();
-        } else {
-            freeColClient.newGame(true);
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		if (freeColClient.isMapEditor()) {
+			freeColClient.getMapEditorController().newMap();
+		} else {
+			freeColClient.newGame(true);
+		}
+	}
 }

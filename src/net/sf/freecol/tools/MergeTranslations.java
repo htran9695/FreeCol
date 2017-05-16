@@ -32,96 +32,104 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
-
 /**
  * Merge some translation updates.
  */
 public class MergeTranslations {
-    
-    public static void main(String[] args) throws Exception {
 
-        File sourceDirectory = new File(args[0]);
-        if (!sourceDirectory.isDirectory()) {
-            System.exit(1);
-        }
+	/**
+	 * The main method.
+	 *
+	 * @param args
+	 *            the arguments
+	 * @throws Exception
+	 *             the exception
+	 */
+	public static void main(String[] args) throws Exception {
 
-        File targetDirectory = new File(args[1]);
-        if (!targetDirectory.isDirectory()) {
-            System.exit(1);
-        }
+		File sourceDirectory = new File(args[0]);
+		if (!sourceDirectory.isDirectory()) {
+			System.exit(1);
+		}
 
-        final String localeKey = args.length > 2 ? args[2] : "";
-        String[] sourceFiles = sourceDirectory.list(new FilenameFilter() {
-                @Override
-                public boolean accept(File dir, String name) {
-                    return name.matches("FreeColMessages_" + localeKey + ".*\\.properties");
-                }
-            });
-        
-        for (String name : sourceFiles) {
+		File targetDirectory = new File(args[1]);
+		if (!targetDirectory.isDirectory()) {
+			System.exit(1);
+		}
 
-            System.out.println("Processing source file: " + name);
+		final String localeKey = args.length > 2 ? args[2] : "";
+		String[] sourceFiles = sourceDirectory.list(new FilenameFilter() {
+			@Override
+			public boolean accept(File dir, String name) {
+				return name.matches("FreeColMessages_" + localeKey + ".*\\.properties");
+			}
+		});
 
-            File sourceFile = new File(sourceDirectory, name);
-            Map<String, String> sourceProperties = readFile(sourceFile);
+		for (String name : sourceFiles) {
 
-            File targetFile = new File(targetDirectory, name);
+			System.out.println("Processing source file: " + name);
 
-            if (targetFile.exists()) {
-                Map<String, String> targetProperties = readFile(targetFile);
+			File sourceFile = new File(sourceDirectory, name);
+			Map<String, String> sourceProperties = readFile(sourceFile);
 
-                List<Entry<?,?>> missingProperties
-                    = sourceProperties.entrySet().stream()
-                    .filter(e -> !targetProperties.containsKey(e.getKey()))
-                    .collect(Collectors.toList());
-                if (!missingProperties.isEmpty()) {
-                    try (FileWriter out = new FileWriter(targetFile, true)) {
-                        out.write("### Merged from trunk on "
-                                + DateFormat.getDateTimeInstance().format(new Date())
-                                + " ###\n");
-                        for (Entry<?,?> entry : missingProperties) {
-                            out.write((String) entry.getKey());
-                            out.write("=");
-                            out.write((String) entry.getValue());
-                            out.write("\n");
-                        }
-                    }
-                }
-            } else {
-                System.out.println("Copying " + name + " from trunk.");
-                FileWriter out;
-                try (FileReader in = new FileReader(sourceFile)) {
-                    out = new FileWriter(targetFile);
-                    int c;
-                    while ((c = in.read()) != -1) {
-                        out.write(c);
-                    }
-                }
-                out.close();
+			File targetFile = new File(targetDirectory, name);
 
-            }
-        }
-    }
+			if (targetFile.exists()) {
+				Map<String, String> targetProperties = readFile(targetFile);
 
-    private static Map<String, String> readFile(File file) {
-        Map<String, String> result = new HashMap<>();
-        try (
-            FileReader fileReader = new FileReader(file);
-            BufferedReader bufferedReader = new BufferedReader(fileReader); 
-        ) {
-            String line = bufferedReader.readLine();
-            while (line != null) {
-                int index = line.indexOf('=');
-                if (index >= 0) {
-                    result.put(line.substring(0, index), line.substring(index + 1));
-                }
-                line = bufferedReader.readLine();
-            }
-        } catch (Exception e) {
-            // forget it
-        }
-        return result;
-    }
+				List<Entry<?, ?>> missingProperties = sourceProperties.entrySet().stream()
+						.filter(e -> !targetProperties.containsKey(e.getKey())).collect(Collectors.toList());
+				if (!missingProperties.isEmpty()) {
+					try (FileWriter out = new FileWriter(targetFile, true)) {
+						out.write("### Merged from trunk on " + DateFormat.getDateTimeInstance().format(new Date())
+								+ " ###\n");
+						for (Entry<?, ?> entry : missingProperties) {
+							out.write((String) entry.getKey());
+							out.write("=");
+							out.write((String) entry.getValue());
+							out.write("\n");
+						}
+					}
+				}
+			} else {
+				System.out.println("Copying " + name + " from trunk.");
+				FileWriter out;
+				try (FileReader in = new FileReader(sourceFile)) {
+					out = new FileWriter(targetFile);
+					int c;
+					while ((c = in.read()) != -1) {
+						out.write(c);
+					}
+				}
+				out.close();
+
+			}
+		}
+	}
+
+	/**
+	 * Read file.
+	 *
+	 * @param file
+	 *            the file
+	 * @return the map
+	 */
+	private static Map<String, String> readFile(File file) {
+		Map<String, String> result = new HashMap<>();
+		try (FileReader fileReader = new FileReader(file);
+				BufferedReader bufferedReader = new BufferedReader(fileReader);) {
+			String line = bufferedReader.readLine();
+			while (line != null) {
+				int index = line.indexOf('=');
+				if (index >= 0) {
+					result.put(line.substring(0, index), line.substring(index + 1));
+				}
+				line = bufferedReader.readLine();
+			}
+		} catch (Exception e) {
+			// forget it
+		}
+		return result;
+	}
 
 }
-

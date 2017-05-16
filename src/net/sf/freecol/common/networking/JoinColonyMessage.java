@@ -28,98 +28,98 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent when a unit joins a colony.
  */
 public class JoinColonyMessage extends DOMMessage {
 
-    /** The identifier of the colony. */
-    private final String colonyId;
+	/** The identifier of the colony. */
+	private final String colonyId;
 
-    /** The identifier of the unit that is building the colony. */
-    private final String builderId;
+	/** The identifier of the unit that is building the colony. */
+	private final String builderId;
 
+	/**
+	 * Create a new <code>JoinColonyMessage</code> with the supplied name and
+	 * building unit.
+	 *
+	 * @param colony
+	 *            a <code>Colony</code> value
+	 * @param builder
+	 *            The <code>Unit</code> to do the building.
+	 */
+	public JoinColonyMessage(Colony colony, Unit builder) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>JoinColonyMessage</code> with the supplied name
-     * and building unit.
-     *
-     * @param colony a <code>Colony</code> value
-     * @param builder The <code>Unit</code> to do the building.
-     */
-    public JoinColonyMessage(Colony colony, Unit builder) {
-        super(getXMLElementTagName());
+		this.colonyId = colony.getId();
+		this.builderId = builder.getId();
+	}
 
-        this.colonyId = colony.getId();
-        this.builderId = builder.getId();
-    }
+	/**
+	 * Create a new <code>JoinColonyMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public JoinColonyMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>JoinColonyMessage</code> from a supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public JoinColonyMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.colonyId = element.getAttribute("colony");
+		this.builderId = element.getAttribute("unit");
+	}
 
-        this.colonyId = element.getAttribute("colony");
-        this.builderId = element.getAttribute("unit");
-    }
+	/**
+	 * Handle a "joinColony"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the request.
+	 * @param player
+	 *            The <code>Player</code> building the colony.
+	 * @param connection
+	 *            The <code>Connection</code> the message is from.
+	 * @return An update <code>Element</code> defining the new colony and
+	 *         updating its surrounding tiles, or an error <code>Element</code>
+	 *         on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
 
+		Unit unit;
+		try {
+			unit = player.getOurFreeColGameObject(builderId, Unit.class);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
 
-    /**
-     * Handle a "joinColony"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the request.
-     * @param player The <code>Player</code> building the colony.
-     * @param connection The <code>Connection</code> the message is from.
-     * @return An update <code>Element</code> defining the new colony
-     *     and updating its surrounding tiles, or an error
-     *     <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
+		Colony colony;
+		try {
+			colony = player.getOurFreeColGameObject(colonyId, Colony.class);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
 
-        Unit unit;
-        try {
-            unit = player.getOurFreeColGameObject(builderId, Unit.class);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
+		// Try to buy.
+		return server.getInGameController().joinColony(serverPlayer, unit, colony);
+	}
 
-        Colony colony;
-        try {
-            colony = player.getOurFreeColGameObject(colonyId, Colony.class);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
+	/**
+	 * Convert this JoinColonyMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		return createMessage(getXMLElementTagName(), "colony", colonyId, "unit", builderId);
+	}
 
-        // Try to buy.
-        return server.getInGameController()
-            .joinColony(serverPlayer, unit, colony);
-    }
-
-    /**
-     * Convert this JoinColonyMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        return createMessage(getXMLElementTagName(),
-            "colony", colonyId,
-            "unit", builderId);
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "joinColony".
-     */
-    public static String getXMLElementTagName() {
-        return "joinColony";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "joinColony".
+	 */
+	public static String getXMLElementTagName() {
+		return "joinColony";
+	}
 }

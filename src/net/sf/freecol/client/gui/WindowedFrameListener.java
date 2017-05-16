@@ -24,88 +24,98 @@ import java.awt.event.WindowListener;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * The WindowListener for the WindowedFrame class.
+ *
+ * @see WindowedFrameEvent
  */
 public final class WindowedFrameListener implements WindowListener {
 
-    private final FreeColClient freeColClient;
+	/** The free col client. */
+	private final FreeColClient freeColClient;
 
-    /**
-     * Constructs this WindowListener.
-     *
-     * @param freeColClient The <code>FreeColClient</code> to notify.
-     */
-    public WindowedFrameListener(FreeColClient freeColClient) {
-        this.freeColClient = freeColClient;
-    }
-    
-    /**
-     * Invoked when the window gets activated.
-     *
-     * @param event The event that has information on the action.
-     */
-    @Override
-    public void windowActivated(WindowEvent event) {
-    }
-    
-    /**
-     * Invoked when the window gets closed.
-     *
-     * @param event The event that has information on the action.
-     */
-    @Override
-    public void windowClosed(WindowEvent event) {
-    }
-    
-    /**
-     * Invoked when the window is closing.
-     *
-     * @param event The event that has information on the action.
-     */
-    @Override
-    public void windowClosing(WindowEvent event) {
-        if (freeColClient.isInGame()) {
-            freeColClient.askToQuit();
-        } else {
-            freeColClient.quit();
-        }
-    }
-    
-    /**
-     * Invoked when the window gets deactivated.
-     *
-     * @param event The event that has information on the action.
-     */
-    @Override
-    public void windowDeactivated(WindowEvent event) {
-    }
-    
-    /**
-     * Invoked when the window gets deiconified.
-     *
-     * @param event The event that has information on the action.
-     */
-    @Override
-    public void windowDeiconified(WindowEvent event) {
-    }
-    
-    /**
-     * Invoked when the window gets iconified.
-     *
-     * @param event The event that has information on the action.
-     */
-    @Override
-    public void windowIconified(WindowEvent event) {
-    }
-    
-    /**
-     * Invoked when the window gets opened.
-     *
-     * @param event The event that has information on the action.
-     */
-    @Override
-    public void windowOpened(WindowEvent event) {
-    }
+	/**
+	 * Constructs this WindowListener.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> to notify.
+	 */
+	public WindowedFrameListener(FreeColClient freeColClient) {
+		this.freeColClient = freeColClient;
+	}
+
+	/**
+	 * Invoked when the window gets activated.
+	 *
+	 * @param event
+	 *            The event that has information on the action.
+	 */
+	@Override
+	public void windowActivated(WindowEvent event) {
+	}
+
+	/**
+	 * Invoked when the window gets closed.
+	 *
+	 * @param event
+	 *            The event that has information on the action.
+	 */
+	@Override
+	public void windowClosed(WindowEvent event) {
+	}
+
+	/**
+	 * Invoked when the window is closing.
+	 *
+	 * @param event
+	 *            The event that has information on the action.
+	 */
+	@Override
+	public void windowClosing(WindowEvent event) {
+		if (freeColClient.isInGame()) {
+			freeColClient.askToQuit();
+		} else {
+			freeColClient.quit();
+		}
+	}
+
+	/**
+	 * Invoked when the window gets deactivated.
+	 *
+	 * @param event
+	 *            The event that has information on the action.
+	 */
+	@Override
+	public void windowDeactivated(WindowEvent event) {
+	}
+
+	/**
+	 * Invoked when the window gets deiconified.
+	 *
+	 * @param event
+	 *            The event that has information on the action.
+	 */
+	@Override
+	public void windowDeiconified(WindowEvent event) {
+	}
+
+	/**
+	 * Invoked when the window gets iconified.
+	 *
+	 * @param event
+	 *            The event that has information on the action.
+	 */
+	@Override
+	public void windowIconified(WindowEvent event) {
+	}
+
+	/**
+	 * Invoked when the window gets opened.
+	 *
+	 * @param event
+	 *            The event that has information on the action.
+	 */
+	@Override
+	public void windowOpened(WindowEvent event) {
+	}
 }

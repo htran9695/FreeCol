@@ -22,25 +22,30 @@ package net.sf.freecol.server.generator;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.util.LogBuilder;
 
-
 /**
  * Creates maps and sets the starting locations for the players.
  */
 public interface MapGenerator {
 
-    /**
-     * Create an empty map.
-     *
-     * @param width The map width.
-     * @param height The map height.
-     * @return A new empty <code>Map</code>.
-     */
-    public abstract Map createEmptyMap(int width, int height, LogBuilder lb);
+	/**
+	 * Create an empty map.
+	 *
+	 * @param width
+	 *            The map width.
+	 * @param height
+	 *            The map height.
+	 * @param lb
+	 *            the lb
+	 * @return A new empty <code>Map</code>.
+	 */
+	public abstract Map createEmptyMap(int width, int height, LogBuilder lb);
 
-    /**
-     * Creates the map with the current set options
-     *
-     * @return The new <code>Map</code>.
-     */
-    public abstract Map createMap(LogBuilder lb);
+	/**
+	 * Creates the map with the current set options.
+	 *
+	 * @param lb
+	 *            the lb
+	 * @return The new <code>Map</code>.
+	 */
+	public abstract Map createMap(LogBuilder lb);
 }

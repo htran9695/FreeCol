@@ -24,26 +24,42 @@ import javax.swing.ListCellRenderer;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.metal.MetalComboBoxUI;
 
-
 /**
  * Sets the default opaque attribute to <i>false</i>.
  */
 public class FreeColComboBoxUI extends MetalComboBoxUI {
 
-    public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
-        return new FreeColComboBoxUI();
-    }
+	/**
+	 * Creates the UI.
+	 *
+	 * @param c
+	 *            the c
+	 * @return the component UI
+	 */
+	public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
+		return new FreeColComboBoxUI();
+	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * javax.swing.plaf.basic.BasicComboBoxUI#installUI(javax.swing.JComponent)
+	 */
+	@Override
+	public void installUI(JComponent c) {
+		super.installUI(c);
 
-    @Override
-    public void installUI(JComponent c) {
-        super.installUI(c);
+		c.setOpaque(false);
+	}
 
-        c.setOpaque(false);
-    }
-
-    @Override
-    protected ListCellRenderer createRenderer() {
-        return new FreeColComboBoxRenderer();
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.plaf.basic.BasicComboBoxUI#createRenderer()
+	 */
+	@Override
+	protected ListCellRenderer createRenderer() {
+		return new FreeColComboBoxRenderer();
+	}
 }

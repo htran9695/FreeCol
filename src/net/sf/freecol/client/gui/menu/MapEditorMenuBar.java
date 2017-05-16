@@ -39,11 +39,11 @@ import net.sf.freecol.common.option.FileOption;
 import net.sf.freecol.common.option.MapGeneratorOptions;
 import net.sf.freecol.common.option.OptionGroup;
 
-
 /**
  * The menu bar used when running in editor mode.
  *
- * <br><br>
+ * <br>
+ * <br>
  *
  * The menu bar that is displayed on the top left corner of the
  * <code>Canvas</code>.
@@ -52,117 +52,124 @@ import net.sf.freecol.common.option.OptionGroup;
  */
 public class MapEditorMenuBar extends FreeColMenuBar {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(MapEditorMenuBar.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(MapEditorMenuBar.class.getName());
 
+	/**
+	 * Creates a new <code>MapEditorMenuBar</code>. This menu bar will include
+	 * all of the submenus and items.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param listener
+	 *            An optional mouse motion listener.
+	 */
+	public MapEditorMenuBar(final FreeColClient freeColClient, MouseMotionListener listener) {
+		super(freeColClient);
 
-    /**
-     * Creates a new <code>MapEditorMenuBar</code>. This menu bar will include
-     * all of the submenus and items.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param listener An optional mouse motion listener.
-     */
-    public MapEditorMenuBar(final FreeColClient freeColClient, MouseMotionListener listener) {
-        super(freeColClient);
+		// Add a mouse listener so that autoscrolling can happen in this menubar
+		this.addMouseMotionListener(listener);
+		reset();
+	}
 
-        // Add a mouse listener so that autoscrolling can happen in this menubar
-        this.addMouseMotionListener(listener);
-        reset();
-    }
+	/**
+	 * Resets this menu bar.
+	 */
+	@Override
+	public final void reset() {
+		removeAll();
 
+		buildGameMenu();
+		buildViewMenu();
+		buildToolsMenu();
+		buildColopediaMenu();
 
-    /**
-     * Resets this menu bar.
-     */
-    @Override
-    public final void reset() {
-        removeAll();
+		update();
+	}
 
-        buildGameMenu();
-        buildViewMenu();
-        buildToolsMenu();
-        buildColopediaMenu();
+	/**
+	 * Builds the game menu.
+	 */
+	private void buildGameMenu() {
+		// --> Game
+		JMenu menu = Utility.localizedMenu("menuBar.game");
+		menu.setOpaque(false);
+		menu.setMnemonic(KeyEvent.VK_G);
 
-        update();
-    }
+		menu.add(getMenuItem(NewAction.id));
+		menu.add(getMenuItem(NewEmptyMapAction.id));
 
-    private void buildGameMenu() {
-        // --> Game
-        JMenu menu = Utility.localizedMenu("menuBar.game");
-        menu.setOpaque(false);
-        menu.setMnemonic(KeyEvent.VK_G);
+		menu.addSeparator();
 
-        menu.add(getMenuItem(NewAction.id));
-        menu.add(getMenuItem(NewEmptyMapAction.id));
+		menu.add(getMenuItem(OpenAction.id));
+		menu.add(getMenuItem(SaveAction.id));
+		JMenuItem playItem = Utility.localizedMenuItem("startGame");
+		playItem.addActionListener((ActionEvent ae) -> {
+			File startFile = FreeColDirectories.getStartMapFile();
+			freeColClient.getMapEditorController().saveGame(startFile);
+			OptionGroup options = freeColClient.getGame().getMapGeneratorOptions();
+			FileOption fileOption = (FileOption) options.getOption(MapGeneratorOptions.IMPORT_FILE);
+			fileOption.setValue(startFile);
+			File mapOptionsFile = FreeColDirectories.getOptionsFile(FreeColDirectories.MAP_GENERATOR_OPTIONS_FILE_NAME);
+			try {
+				options.save(mapOptionsFile);
+			} catch (FileNotFoundException fnfe) {
+			}
+			freeColClient.newGame(true);
+		});
+		menu.add(playItem);
+		menu.addSeparator();
 
-        menu.addSeparator();
+		menu.add(getMenuItem(PreferencesAction.id));
 
-        menu.add(getMenuItem(OpenAction.id));
-        menu.add(getMenuItem(SaveAction.id));
-        JMenuItem playItem = Utility.localizedMenuItem("startGame");
-        playItem.addActionListener((ActionEvent ae) -> {
-                File startFile = FreeColDirectories.getStartMapFile();
-                freeColClient.getMapEditorController().saveGame(startFile);
-                OptionGroup options = freeColClient.getGame()
-                    .getMapGeneratorOptions();
-                FileOption fileOption = (FileOption)options
-                    .getOption(MapGeneratorOptions.IMPORT_FILE);
-                fileOption.setValue(startFile);
-                File mapOptionsFile = FreeColDirectories
-                    .getOptionsFile(FreeColDirectories.MAP_GENERATOR_OPTIONS_FILE_NAME);
-                try {
-                    options.save(mapOptionsFile);
-                } catch (FileNotFoundException fnfe) {}
-                freeColClient.newGame(true);
-            });
-        menu.add(playItem);
-        menu.addSeparator();
+		menu.addSeparator();
 
-        menu.add(getMenuItem(PreferencesAction.id));
+		menu.add(getMenuItem(ShowMainAction.id));
+		menu.add(getMenuItem(QuitAction.id));
 
-        menu.addSeparator();
+		add(menu);
+	}
 
-        menu.add(getMenuItem(ShowMainAction.id));
-        menu.add(getMenuItem(QuitAction.id));
+	/**
+	 * Builds the view menu.
+	 */
+	private void buildViewMenu() {
+		// --> View
+		JMenu menu = Utility.localizedMenu("menuBar.view");
+		menu.setOpaque(false);
+		menu.setMnemonic(KeyEvent.VK_V);
 
-        add(menu);
-    }
+		menu.add(getCheckBoxMenuItem(MapControlsAction.id));
+		menu.add(getCheckBoxMenuItem(DisplayGridAction.id));
+		menu.add(getCheckBoxMenuItem(ChangeWindowedModeAction.id));
 
-    private void buildViewMenu() {
-        // --> View
-        JMenu menu = Utility.localizedMenu("menuBar.view");
-        menu.setOpaque(false);
-        menu.setMnemonic(KeyEvent.VK_V);
+		menu.addSeparator();
+		ButtonGroup tileTextGroup = new ButtonGroup();
+		for (DisplayText type : DisplayText.values()) {
+			menu.add(getRadioButtonMenuItem(DisplayTileTextAction.id + type.getKey(), tileTextGroup));
+		}
 
-        menu.add(getCheckBoxMenuItem(MapControlsAction.id));
-        menu.add(getCheckBoxMenuItem(DisplayGridAction.id));
-        menu.add(getCheckBoxMenuItem(ChangeWindowedModeAction.id));
+		menu.addSeparator();
+		menu.add(getMenuItem(ZoomInAction.id));
+		menu.add(getMenuItem(ZoomOutAction.id));
 
-        menu.addSeparator();
-        ButtonGroup tileTextGroup = new ButtonGroup();
-        for (DisplayText type : DisplayText.values()) {
-            menu.add(getRadioButtonMenuItem(DisplayTileTextAction.id + type.getKey(),
-                                            tileTextGroup));
-        }
+		add(menu);
+	}
 
-        menu.addSeparator();
-        menu.add(getMenuItem(ZoomInAction.id));
-        menu.add(getMenuItem(ZoomOutAction.id));
+	/**
+	 * Builds the tools menu.
+	 */
+	private void buildToolsMenu() {
+		// --> Tools
+		JMenu menu = Utility.localizedMenu("menuBar.tools");
+		menu.setOpaque(false);
+		menu.setMnemonic(KeyEvent.VK_T);
 
-        add(menu);
-    }
+		menu.add(getMenuItem(ScaleMapAction.id));
+		menu.add(getMenuItem(DetermineHighSeasAction.id));
 
-    private void buildToolsMenu() {
-        // --> Tools
-        JMenu menu = Utility.localizedMenu("menuBar.tools");
-        menu.setOpaque(false);
-        menu.setMnemonic(KeyEvent.VK_T);
-
-        menu.add(getMenuItem(ScaleMapAction.id));
-        menu.add(getMenuItem(DetermineHighSeasAction.id));
-
-        add(menu);
-    }
+		add(menu);
+	}
 
 }

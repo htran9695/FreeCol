@@ -34,47 +34,51 @@ import net.sf.freecol.common.io.FreeColTcFile;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.server.FreeColServer;
 
-
 /**
  * Convert map formats.
  */
 public class MapConverter {
 
-    public static void main(String[] args) throws Exception {
+	/**
+	 * The main method.
+	 *
+	 * @param args
+	 *            the arguments
+	 * @throws Exception
+	 *             the exception
+	 */
+	public static void main(String[] args) throws Exception {
 
-        Specification specification = new FreeColTcFile("freecol").getSpecification();
+		Specification specification = new FreeColTcFile("freecol").getSpecification();
 
-        for (String filename : args) {
-            File out = new File(filename);
-            if (out.exists()) {
-                try {
-                    String newName = filename + ".old";
-                    File in = new File(newName);
-                    out.renameTo(in);
-                    System.out.println("Renamed " + filename + " to " + newName + ".");
-                    FreeColSavegameFile savegame = new FreeColSavegameFile(in);
-                    BufferedImage thumbnail = null;
-                    try {
-                        thumbnail = ImageIO.read(savegame.getInputStream(FreeColSavegameFile.THUMBNAIL_FILE));
-                        System.out.println("Loaded thumbnail.");
-                    } catch (FileNotFoundException e) {
-                        System.out.println("No thumbnail present.");
-                    }
-                    FreeColServer server
-                        = new FreeColServer(savegame, specification,
-                                            FreeCol.getServerPort(),
-                                            "mapTransformer");
-                    System.out.println("Started server.");
-                    server.saveGame(out, null, thumbnail);
-                    System.out.println("Saved updated savegame.");
-                    server.shutdown();
-                    System.out.println("Shut down server.");
-                } catch (IOException | XMLStreamException | FreeColException e) {
-                    System.out.println(e);
-                }
-            }
-        }
-    }
+		for (String filename : args) {
+			File out = new File(filename);
+			if (out.exists()) {
+				try {
+					String newName = filename + ".old";
+					File in = new File(newName);
+					out.renameTo(in);
+					System.out.println("Renamed " + filename + " to " + newName + ".");
+					FreeColSavegameFile savegame = new FreeColSavegameFile(in);
+					BufferedImage thumbnail = null;
+					try {
+						thumbnail = ImageIO.read(savegame.getInputStream(FreeColSavegameFile.THUMBNAIL_FILE));
+						System.out.println("Loaded thumbnail.");
+					} catch (FileNotFoundException e) {
+						System.out.println("No thumbnail present.");
+					}
+					FreeColServer server = new FreeColServer(savegame, specification, FreeCol.getServerPort(),
+							"mapTransformer");
+					System.out.println("Started server.");
+					server.saveGame(out, null, thumbnail);
+					System.out.println("Saved updated savegame.");
+					server.shutdown();
+					System.out.println("Shut down server.");
+				} catch (IOException | XMLStreamException | FreeColException e) {
+					System.out.println(e);
+				}
+			}
+		}
+	}
 
 }
-

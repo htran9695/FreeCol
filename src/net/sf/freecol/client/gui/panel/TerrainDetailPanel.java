@@ -45,128 +45,131 @@ import net.sf.freecol.common.model.Modifier;
 import net.sf.freecol.common.model.ResourceType;
 import net.sf.freecol.common.model.TileType;
 
-
 /**
  * This panel displays details of terrain types in the Colopedia.
  */
-public class TerrainDetailPanel
-    extends ColopediaGameObjectTypePanel<TileType> {
+public class TerrainDetailPanel extends ColopediaGameObjectTypePanel<TileType> {
 
-    /**
-     * Creates a new instance of this TerrainDetailPanel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param colopediaPanel The parent <code>ColopediaPanel</code>.
-     */
-    public TerrainDetailPanel(FreeColClient freeColClient,
-                              ColopediaPanel colopediaPanel) {
-        super(freeColClient, colopediaPanel, PanelType.TERRAIN.getKey());
-    }
+	/**
+	 * Creates a new instance of this TerrainDetailPanel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param colopediaPanel
+	 *            The parent <code>ColopediaPanel</code>.
+	 */
+	public TerrainDetailPanel(FreeColClient freeColClient, ColopediaPanel colopediaPanel) {
+		super(freeColClient, colopediaPanel, PanelType.TERRAIN.getKey());
+	}
 
+	// Implement ColopediaDetailPanel
 
-    // Implement ColopediaDetailPanel
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void addSubTrees(DefaultMutableTreeNode root) {
+		DefaultMutableTreeNode node = new DefaultMutableTreeNode(new ColopediaTreeItem(this, getId(), getName(), null));
+		for (TileType t : getSpecification().getTileTypeList()) {
+			Image tile = SwingGUI.createTileImageWithOverlayAndForest(t,
+					new Dimension(-1, ImageLibrary.ICON_SIZE.height));
+			BufferedImage image = new BufferedImage(tile.getWidth(null), ImageLibrary.ICON_SIZE.height,
+					BufferedImage.TYPE_INT_ARGB);
+			Graphics2D g = image.createGraphics();
+			g.drawImage(tile, 0, (ImageLibrary.ICON_SIZE.height - tile.getHeight(null)) / 2, null);
+			g.dispose();
+			ImageIcon icon = new ImageIcon(image);
+			node.add(buildItem(t, icon));
+		}
+		root.add(node);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void addSubTrees(DefaultMutableTreeNode root) {
-        DefaultMutableTreeNode node
-            = new DefaultMutableTreeNode(new ColopediaTreeItem(this, getId(),
-                                         getName(), null));
-        for (TileType t : getSpecification().getTileTypeList()) {
-            Image tile = SwingGUI.createTileImageWithOverlayAndForest(t,
-                new Dimension(-1, ImageLibrary.ICON_SIZE.height));
-            BufferedImage image = new BufferedImage(tile.getWidth(null),
-                ImageLibrary.ICON_SIZE.height, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = image.createGraphics();
-            g.drawImage(tile, 0, (ImageLibrary.ICON_SIZE.height - tile.getHeight(null)) / 2, null);
-            g.dispose();
-            ImageIcon icon = new ImageIcon(image);
-            node.add(buildItem(t, icon));
-        }
-        root.add(node);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void buildDetail(String id, JPanel panel) {
+		if (getId().equals(id))
+			return;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void buildDetail(String id, JPanel panel) {
-        if (getId().equals(id)) return;
+		TileType tileType = getSpecification().getTileType(id);
+		panel.setLayout(new MigLayout("wrap 4, gap 20"));
 
-        TileType tileType = getSpecification().getTileType(id);
-        panel.setLayout(new MigLayout("wrap 4, gap 20"));
+		String movementCost = String.valueOf(tileType.getBasicMoveCost() / 3);
+		String defenseBonus = Messages.message("none");
+		Set<Modifier> defenceModifiers = tileType.getDefenceModifiers();
+		if (!defenceModifiers.isEmpty()) {
+			defenseBonus = ModifierFormat.getModifierAsString(defenceModifiers.iterator().next());
+		}
 
-        String movementCost = String.valueOf(tileType.getBasicMoveCost() / 3);
-        String defenseBonus = Messages.message("none");
-        Set<Modifier> defenceModifiers = tileType.getDefenceModifiers();
-        if (!defenceModifiers.isEmpty()) {
-            defenseBonus = ModifierFormat.getModifierAsString(defenceModifiers.iterator().next());
-        }
+		JLabel nameLabel = Utility.localizedHeaderLabel(tileType, FontLibrary.FontSize.SMALL);
+		panel.add(nameLabel, "span, align center");
 
-        JLabel nameLabel = Utility.localizedHeaderLabel(tileType, FontLibrary.FontSize.SMALL);
-        panel.add(nameLabel, "span, align center");
+		panel.add(Utility.localizedLabel("colopedia.terrain.terrainImage"), "spany 3");
+		Image terrainImage = SwingGUI.createTileImageWithOverlayAndForest(tileType, ImageLibrary.TILE_OVERLAY_SIZE);
+		panel.add(new JLabel(new ImageIcon(terrainImage)), "spany 3");
 
-        panel.add(Utility.localizedLabel("colopedia.terrain.terrainImage"), "spany 3");
-        Image terrainImage = SwingGUI.createTileImageWithOverlayAndForest(
-            tileType, ImageLibrary.TILE_OVERLAY_SIZE);
-        panel.add(new JLabel(new ImageIcon(terrainImage)), "spany 3");
+		List<ResourceType> resourceList = tileType.getResourceTypes();
+		if (!resourceList.isEmpty()) {
+			panel.add(Utility.localizedLabel("colopedia.terrain.resource"));
+			if (resourceList.size() > 1) {
+				panel.add(getResourceButton(resourceList.get(0)), "split " + resourceList.size());
+				for (int index = 1; index < resourceList.size(); index++) {
+					panel.add(getResourceButton(resourceList.get(index)));
+				}
+			} else {
+				panel.add(getResourceButton(resourceList.get(0)));
+			}
+		} else {
+			panel.add(new JLabel(), "wrap");
+		}
 
-        List<ResourceType> resourceList = tileType.getResourceTypes();
-        if (!resourceList.isEmpty()) {
-            panel.add(Utility.localizedLabel("colopedia.terrain.resource"));
-            if (resourceList.size() > 1) {
-                panel.add(getResourceButton(resourceList.get(0)), "split " + resourceList.size());
-                for (int index = 1; index < resourceList.size(); index++) {
-                    panel.add(getResourceButton(resourceList.get(index)));
-                }
-            } else {
-                panel.add(getResourceButton(resourceList.get(0)));
-            }
-        } else {
-            panel.add(new JLabel(), "wrap");
-        }
+		panel.add(Utility.localizedLabel("colopedia.terrain.movementCost"));
+		panel.add(new JLabel(movementCost));
 
-        panel.add(Utility.localizedLabel("colopedia.terrain.movementCost"));
-        panel.add(new JLabel(movementCost));
+		panel.add(Utility.localizedLabel("colopedia.terrain.defenseBonus"));
+		panel.add(new JLabel(defenseBonus));
 
-        panel.add(Utility.localizedLabel("colopedia.terrain.defenseBonus"));
-        panel.add(new JLabel(defenseBonus));
+		panel.add(Utility.localizedLabel("colopedia.terrain.unattendedProduction"));
+		addProduction(panel, tileType.getPossibleProduction(true));
 
-        panel.add(Utility.localizedLabel("colopedia.terrain.unattendedProduction"));
-        addProduction(panel, tileType.getPossibleProduction(true));
+		panel.add(Utility.localizedLabel("colopedia.terrain.colonistProduction"));
+		addProduction(panel, tileType.getPossibleProduction(false));
 
-        panel.add(Utility.localizedLabel("colopedia.terrain.colonistProduction"));
-        addProduction(panel, tileType.getPossibleProduction(false));
+		panel.add(Utility.localizedLabel("colopedia.terrain.description"));
+		panel.add(Utility.localizedTextArea(Messages.descriptionKey(tileType)), "span, growx");
+	}
 
-        panel.add(Utility.localizedLabel("colopedia.terrain.description"));
-        panel.add(Utility.localizedTextArea(Messages.descriptionKey(tileType)),
-                  "span, growx");
-    }
+	/**
+	 * Adds the production.
+	 *
+	 * @param panel
+	 *            the panel
+	 * @param production
+	 *            the production
+	 */
+	private void addProduction(JPanel panel, List<AbstractGoods> production) {
+		if (production.isEmpty()) {
+			panel.add(new JLabel(), "wrap");
+		} else {
+			// Drop the zero amount production (which need resources to work)
+			Iterator<AbstractGoods> it = production.iterator();
+			while (it.hasNext()) {
+				AbstractGoods ag = it.next();
+				if (ag.getAmount() <= 0)
+					it.remove();
+			}
 
-    private void addProduction(JPanel panel, List<AbstractGoods> production) {
-        if (production.isEmpty()) {
-            panel.add(new JLabel(), "wrap");
-        } else {
-            // Drop the zero amount production (which need resources to work)
-            Iterator<AbstractGoods> it = production.iterator();
-            while (it.hasNext()) {
-                AbstractGoods ag = it.next();
-                if (ag.getAmount() <= 0) it.remove();
-            }
-
-            AbstractGoods ag = production.get(0);
-            if (production.size() > 1) {
-                panel.add(getGoodsButton(ag.getType(), ag.getAmount()),
-                          "span, split " + production.size());
-                for (int index = 1; index < production.size(); index++) {
-                    ag = production.get(index);
-                    panel.add(getGoodsButton(ag.getType(), ag.getAmount()));
-                }
-            } else {
-                panel.add(getGoodsButton(ag.getType(), ag.getAmount()), "span");
-            }
-        }
-    }
+			AbstractGoods ag = production.get(0);
+			if (production.size() > 1) {
+				panel.add(getGoodsButton(ag.getType(), ag.getAmount()), "span, split " + production.size());
+				for (int index = 1; index < production.size(); index++) {
+					ag = production.get(index);
+					panel.add(getGoodsButton(ag.getType(), ag.getAmount()));
+				}
+			} else {
+				panel.add(getGoodsButton(ag.getType(), ag.getAmount()), "span");
+			}
+		}
+	}
 }

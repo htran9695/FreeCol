@@ -41,144 +41,157 @@ import net.sf.freecol.client.gui.menu.MapEditorMenuBar;
 import net.sf.freecol.client.gui.menu.MenuMouseMotionListener;
 import net.sf.freecol.common.resources.ResourceManager;
 
-
 /**
  * The base frame for FreeCol.
  */
 public class FreeColFrame extends JFrame {
 
-    private static final Logger logger = Logger.getLogger(FreeColFrame.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(FreeColFrame.class.getName());
 
-    /** The FreeCol client controlling the frame. */
-    protected final FreeColClient freeColClient;
+	/** The FreeCol client controlling the frame. */
+	protected final FreeColClient freeColClient;
 
-    /** The Canvas contained inside the frame. */
-    protected final Canvas canvas;
+	/** The Canvas contained inside the frame. */
+	protected final Canvas canvas;
 
+	/**
+	 * Create a new main frame.
+	 *
+	 * @param freeColClient
+	 *            The enclosing <code>FreeColClient</code>.
+	 * @param gd
+	 *            The <code>GraphicsDevice</code> to use.
+	 * @param menuBar
+	 *            The menu bar to add to the frame.
+	 * @param canvas
+	 *            The Canvas to add to the frame.
+	 * @param windowed
+	 *            If the frame should be windowed.
+	 * @param bounds
+	 *            The optional size of the windowed frame.
+	 */
+	public FreeColFrame(FreeColClient freeColClient, GraphicsDevice gd, JMenuBar menuBar, Canvas canvas,
+			boolean windowed, Rectangle bounds) {
+		super(getFrameName(), gd.getDefaultConfiguration());
 
-    /**
-     * Create a new main frame.
-     *
-     * @param freeColClient The enclosing <code>FreeColClient</code>.
-     * @param gd The <code>GraphicsDevice</code> to use.
-     * @param menuBar The menu bar to add to the frame.
-     * @param canvas The Canvas to add to the frame.
-     * @param windowed If the frame should be windowed.
-     * @param bounds The optional size of the windowed frame.
-     */
-    public FreeColFrame(FreeColClient freeColClient, GraphicsDevice gd,
-            JMenuBar menuBar, Canvas canvas, boolean windowed,
-            Rectangle bounds) {
-        super(getFrameName(), gd.getDefaultConfiguration());
+		this.freeColClient = freeColClient;
+		this.canvas = canvas;
+		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		if (windowed) {
+			setResizable(true);
+		} else {
+			setUndecorated(true);
+			gd.setFullScreenWindow(this);
+		}
+		setJMenuBar(menuBar);
+		addWindowListener(
+				windowed ? new WindowedFrameListener(freeColClient) : new FullScreenFrameListener(freeColClient, this));
+		setCanvas();
+		setIconImage(ResourceManager.getImage("image.miscicon.FrameIcon"));
 
-        this.freeColClient = freeColClient;
-        this.canvas = canvas;
-        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        if(windowed) {
-            setResizable(true);
-        } else {
-            setUndecorated(true);
-            gd.setFullScreenWindow(this);
-        }
-        setJMenuBar(menuBar);
-        addWindowListener(windowed
-            ? new WindowedFrameListener(freeColClient)
-            : new FullScreenFrameListener(freeColClient, this));
-        setCanvas();
-        setIconImage(ResourceManager.getImage("image.miscicon.FrameIcon"));
+		pack(); // necessary for getInsets
+		Insets insets = getInsets();
 
-        pack(); // necessary for getInsets
-        Insets insets = getInsets();
+		// numbers are taken from the size of the opening video
+		setMinimumSize(new Dimension(656 + insets.left + insets.right, 480 + insets.top + insets.bottom));
 
-        // numbers are taken from the size of the opening video
-        setMinimumSize(new Dimension(656 + insets.left + insets.right,
-                                     480 + insets.top + insets.bottom));
+		if (!windowed || bounds == null || bounds.width <= 0 || bounds.height <= 0) {
+			bounds = gd.getDefaultConfiguration().getBounds();
+			if (windowed) {
+				Insets screenInsets = Toolkit.getDefaultToolkit().getScreenInsets(gd.getDefaultConfiguration());
+				bounds = new Rectangle(bounds.x + screenInsets.left, bounds.y + screenInsets.top,
+						bounds.width - screenInsets.right, bounds.height - screenInsets.bottom);
+			}
+		}
+		setBounds(bounds);
+		logger.info("Frame created in size " + bounds.width + "x" + bounds.height);
+		if (windowed) {
+			addComponentListener(new ComponentAdapter() {
+				@Override
+				public void componentResized(ComponentEvent e) {
+					logger.info("Window size changes to " + getSize());
+				}
+			});
+		}
+	}
 
-        if(!windowed || bounds==null || bounds.width<=0 || bounds.height<=0) {
-            bounds = gd.getDefaultConfiguration().getBounds();
-            if (windowed) {
-                Insets screenInsets = Toolkit.getDefaultToolkit()
-                        .getScreenInsets(gd.getDefaultConfiguration());
-                bounds = new Rectangle(
-                    bounds.x + screenInsets.left,
-                    bounds.y + screenInsets.top,
-                    bounds.width - screenInsets.right,
-                    bounds.height - screenInsets.bottom);
-            }
-        }
-        setBounds(bounds);
-        logger.info("Frame created in size " + bounds.width + "x" + bounds.height);
-        if (windowed) {
-            addComponentListener(new ComponentAdapter() {
-                @Override
-                public void componentResized(ComponentEvent e) {
-                    logger.info("Window size changes to " + getSize());
-                }
-            });
-        }
-    }
+	/**
+	 * Exit full screen.
+	 */
+	public void exitFullScreen() {
+		GraphicsConfiguration GraphicsConf = getGraphicsConfiguration();
+		GraphicsDevice gd = GraphicsConf.getDevice();
+		gd.setFullScreenWindow(null);
+	}
 
-    public void exitFullScreen() {
-        GraphicsConfiguration GraphicsConf = getGraphicsConfiguration();
-        GraphicsDevice gd = GraphicsConf.getDevice();
-        gd.setFullScreenWindow(null);
-    }
+	/**
+	 * Sets the in game menu bar.
+	 */
+	public void setInGameMenuBar() {
+		setJMenuBar(new InGameMenuBar(freeColClient, new MenuMouseMotionListener(freeColClient, canvas)));
+		validate();
+	}
 
-    public void setInGameMenuBar() {
-        setJMenuBar(new InGameMenuBar(freeColClient,
-            new MenuMouseMotionListener(freeColClient, canvas)));
-        validate();
-    }
+	/**
+	 * Sets the map editor menu bar.
+	 */
+	public void setMapEditorMenuBar() {
+		setJMenuBar(new MapEditorMenuBar(freeColClient, new MenuMouseMotionListener(freeColClient, canvas)));
+	}
 
-    public void setMapEditorMenuBar() {
-        setJMenuBar(new MapEditorMenuBar(freeColClient,
-            new MenuMouseMotionListener(freeColClient, canvas)));
-    }
+	/**
+	 * Removes the menu bar.
+	 */
+	public void removeMenuBar() {
+		setJMenuBar(null);
+		validate();
+	}
 
-    public void removeMenuBar() {
-        setJMenuBar(null);
-        validate();
-    }
+	/**
+	 * Reset menu bar.
+	 */
+	public void resetMenuBar() {
+		JMenuBar menuBar = getJMenuBar();
+		if (menuBar != null) {
+			((FreeColMenuBar) menuBar).reset();
+		}
+	}
 
-    public void resetMenuBar() {
-        JMenuBar menuBar = getJMenuBar();
-        if (menuBar != null) {
-            ((FreeColMenuBar)menuBar).reset();
-        }
-    }
+	/**
+	 * Update menu bar.
+	 */
+	public void updateMenuBar() {
+		JMenuBar menuBar = getJMenuBar();
+		if (menuBar != null) {
+			((FreeColMenuBar) menuBar).update();
+		}
+	}
 
-    public void updateMenuBar() {
-        JMenuBar menuBar = getJMenuBar();
-        if (menuBar != null) {
-            ((FreeColMenuBar)menuBar).update();
-        }
-    }
+	/**
+	 * Get the standard name for the main frame.
+	 *
+	 * @return The standard frame name.
+	 */
+	private static String getFrameName() {
+		return "FreeCol " + FreeCol.getVersion();
+	}
 
-    /**
-     * Get the standard name for the main frame.
-     *
-     * @return The standard frame name.
-     */
-    private static String getFrameName() {
-        return "FreeCol " + FreeCol.getVersion();
-    } 
-
-
-    /**
-     * Set the canvas for this frame.
-     */
-    private void setCanvas() {
-        // This crashes deep in the Java libraries when changing full screen
-        // mode during the opening video
-        //   Java version: 1.7.0_45
-        //   Java WM name: OpenJDK 64-Bit Server VM
-        //   Java WM version: 24.45-b08
-        // arch linux, reported by Lone Wolf
-        try {
-            getContentPane().add(canvas);
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Java crash", e);
-        }        
-    }
+	/**
+	 * Set the canvas for this frame.
+	 */
+	private void setCanvas() {
+		// This crashes deep in the Java libraries when changing full screen
+		// mode during the opening video
+		// Java version: 1.7.0_45
+		// Java WM name: OpenJDK 64-Bit Server VM
+		// Java WM version: 24.45-b08
+		// arch linux, reported by Lone Wolf
+		try {
+			getContentPane().add(canvas);
+		} catch (Exception e) {
+			logger.log(Level.WARNING, "Java crash", e);
+		}
+	}
 
 }

@@ -19,17 +19,20 @@
 
 package net.sf.freecol.client.gui;
 
-
 /**
  * The interface for non-modal dialog handlers.
+ *
+ * @param <T>
+ *            the generic type
  */
 public interface DialogHandler<T> {
 
-    /**
-     * Handle.
-     *
-     * @param response the response
-     */
-    void handle(T response);
+	/**
+	 * Handle.
+	 *
+	 * @param response
+	 *            the response
+	 */
+	void handle(T response);
 
 };

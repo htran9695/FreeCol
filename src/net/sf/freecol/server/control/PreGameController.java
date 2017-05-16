@@ -33,11 +33,10 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
- * The control object that is responsible for setting parameters
- * and starting a new game. {@link PreGameInputHandler} is used
- * to receive and handle network messages from the clients.
+ * The control object that is responsible for setting parameters and starting a
+ * new game. {@link PreGameInputHandler} is used to receive and handle network
+ * messages from the clients.
  *
  * The game enters the state
  * {@link net.sf.freecol.server.FreeColServer.GameState#IN_GAME}, when the
@@ -47,57 +46,60 @@ import org.w3c.dom.Element;
  */
 public final class PreGameController extends Controller {
 
-    private static final Logger logger = Logger.getLogger(PreGameController.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(PreGameController.class.getName());
 
-    /**
-     * The constructor to use.
-     *
-     * @param freeColServer The main <code>FreeColServer</code> object.
-     */
-    public PreGameController(FreeColServer freeColServer) {
-        super(freeColServer);
-    }
+	/**
+	 * The constructor to use.
+	 *
+	 * @param freeColServer
+	 *            The main <code>FreeColServer</code> object.
+	 */
+	public PreGameController(FreeColServer freeColServer) {
+		super(freeColServer);
+	}
 
-    /**
-     * Updates and starts the new game.
-     *
-     * Called in response to a requestLaunch message arriving at the 
-     * PreGameInputHandler.
-     *
-     * <ol>
-     *   <li>Creates the game.
-     *   <li>Sends updated game information to the clients.
-     *   <li>Changes the game state to {@link net.sf.freecol.server.FreeColServer.GameState#IN_GAME}.
-     *   <li>Sends the "startGame"-message to the clients.
-     * </ol>
-     *
-     * @exception FreeColException if there is an error building the game.
-     */
-    public void startGame() throws FreeColException {
-        final FreeColServer freeColServer = getFreeColServer();
-        Game game = freeColServer.buildGame();
+	/**
+	 * Updates and starts the new game.
+	 *
+	 * Called in response to a requestLaunch message arriving at the
+	 * PreGameInputHandler.
+	 *
+	 * <ol>
+	 * <li>Creates the game.
+	 * <li>Sends updated game information to the clients.
+	 * <li>Changes the game state to
+	 * {@link net.sf.freecol.server.FreeColServer.GameState#IN_GAME}.
+	 * <li>Sends the "startGame"-message to the clients.
+	 * </ol>
+	 *
+	 * @exception FreeColException
+	 *                if there is an error building the game.
+	 */
+	public void startGame() throws FreeColException {
+		final FreeColServer freeColServer = getFreeColServer();
+		Game game = freeColServer.buildGame();
 
-        // Inform the clients.
-        for (Player player : game.getLivePlayers(null)) {
-            if (player.isAI()) continue;
+		// Inform the clients.
+		for (Player player : game.getLivePlayers(null)) {
+			if (player.isAI())
+				continue;
 
-            player.invalidateCanSeeTiles();//Send clean copy of the game
-            Connection conn = ((ServerPlayer)player).getConnection();
-            Element update = DOMMessage.createMessage("updateGame");
-            update.appendChild(game.toXMLElement(update.getOwnerDocument(),
-                                                 player));
-            try {
-                conn.ask(update);
-            } catch (IOException e) {
-                logger.log(Level.WARNING, "Unable to updateGame", e);
-            }
-        }
+			player.invalidateCanSeeTiles();// Send clean copy of the game
+			Connection conn = ((ServerPlayer) player).getConnection();
+			Element update = DOMMessage.createMessage("updateGame");
+			update.appendChild(game.toXMLElement(update.getOwnerDocument(), player));
+			try {
+				conn.ask(update);
+			} catch (IOException e) {
+				logger.log(Level.WARNING, "Unable to updateGame", e);
+			}
+		}
 
-        // Start the game:
-        freeColServer.setGameState(FreeColServer.GameState.IN_GAME);
-        freeColServer.updateMetaServer();
-        freeColServer.getServer()
-            .sendToAll(DOMMessage.createMessage("startGame"));
-        freeColServer.getServer().setMessageHandlerToAllConnections(freeColServer.getInGameInputHandler());
-    }
+		// Start the game:
+		freeColServer.setGameState(FreeColServer.GameState.IN_GAME);
+		freeColServer.updateMetaServer();
+		freeColServer.getServer().sendToAll(DOMMessage.createMessage("startGame"));
+		freeColServer.getServer().setMessageHandlerToAllConnections(freeColServer.getInGameInputHandler());
+	}
 }

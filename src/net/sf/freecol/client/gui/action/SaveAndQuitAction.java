@@ -23,38 +23,37 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for prompting the user to save before quitting the game.
  */
 public class SaveAndQuitAction extends FreeColAction {
 
-    public static final String id = "saveAndQuitAction";
+	/** The Constant id. */
+	public static final String id = "saveAndQuitAction";
 
+	/**
+	 * Creates a new <code>SaveAndQuitAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The main controller object for the client.
+	 */
+	public SaveAndQuitAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>SaveAndQuitAction</code>.
-     *
-     * @param freeColClient The main controller object for the client.
-     */
-    public SaveAndQuitAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        if (freeColClient.isMapEditor()) {
-            freeColClient.getMapEditorController().saveGame();
-        } else {
-            if (!igc().saveGame()) return;
-        }
-        freeColClient.quit();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		if (freeColClient.isMapEditor()) {
+			freeColClient.getMapEditorController().saveGame();
+		} else {
+			if (!igc().saveGame())
+				return;
+		}
+		freeColClient.quit();
+	}
 }
-

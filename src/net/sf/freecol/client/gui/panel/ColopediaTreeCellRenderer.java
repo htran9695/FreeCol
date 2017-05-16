@@ -29,40 +29,35 @@ import javax.swing.tree.DefaultTreeCellRenderer;
 
 import net.sf.freecol.common.resources.ResourceManager;
 
-
 /**
- * This TreeCellRenderer is responsible for rendering tree items in
- * the Colopedia.
+ * This TreeCellRenderer is responsible for rendering tree items in the
+ * Colopedia.
  */
 public class ColopediaTreeCellRenderer extends DefaultTreeCellRenderer {
 
-    /**
-     * The constructor makes sure that the backgrounds are transparent.
-     */
-    public ColopediaTreeCellRenderer() {
-        setBackgroundNonSelectionColor(new Color(0,0,0,1));
-    }
+	/**
+	 * The constructor makes sure that the backgrounds are transparent.
+	 */
+	public ColopediaTreeCellRenderer() {
+		setBackgroundNonSelectionColor(new Color(0, 0, 0, 1));
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Component getTreeCellRendererComponent(JTree tree, Object value, boolean selected, boolean expanded,
+			boolean leaf, int row, boolean hasFocus) {
+		DefaultMutableTreeNode node = (DefaultMutableTreeNode) value;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Component getTreeCellRendererComponent(JTree tree, Object value,
-        boolean selected, boolean expanded, boolean leaf, int row,
-        boolean hasFocus) {
-        DefaultMutableTreeNode node = (DefaultMutableTreeNode)value;
-
-        super.getTreeCellRendererComponent(tree, value, selected, expanded,
-                                           leaf, row, hasFocus);
-        ColopediaTreeItem nodeItem = (ColopediaTreeItem)node.getUserObject();
-        if (nodeItem.getIcon() != null) {
-            setIcon(nodeItem.getIcon());
-        } else {
-            String key = "image.icon.Colopedia."
-                + ((expanded) ? "open" : "closed") + "Section";
-            setIcon(new ImageIcon(ResourceManager.getImage(key)));
-        }
-        return this;
-    }
+		super.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, hasFocus);
+		ColopediaTreeItem nodeItem = (ColopediaTreeItem) node.getUserObject();
+		if (nodeItem.getIcon() != null) {
+			setIcon(nodeItem.getIcon());
+		} else {
+			String key = "image.icon.Colopedia." + ((expanded) ? "open" : "closed") + "Section";
+			setIcon(new ImageIcon(ResourceManager.getImage(key)));
+		}
+		return this;
+	}
 }

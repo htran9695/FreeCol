@@ -34,197 +34,199 @@ import net.sf.freecol.server.ai.AIColony;
 import net.sf.freecol.server.ai.AIMain;
 import net.sf.freecol.server.ai.AIUnit;
 
-
 /**
  * Mission for working inside an AI colony.
  */
 public class WorkInsideColonyMission extends Mission {
 
-    /** The Constant logger. */
-    private static final Logger logger = Logger.getLogger(WorkInsideColonyMission.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(WorkInsideColonyMission.class.getName());
 
-    /** The tag for this mission. */
-    private static final String tag = "AI worker";
+	/** The tag for this mission. */
+	private static final String tag = "AI worker";
 
-    /** The target colony to work inside. */
-    private Colony colony;
+	/** The target colony to work inside. */
+	private Colony colony;
 
+	/**
+	 * Creates a mission for the given <code>AIUnit</code>.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param aiUnit
+	 *            The <code>AIUnit</code> this mission is created for.
+	 * @param aiColony
+	 *            The <code>AIColony</code> the unit should be working in.
+	 */
+	public WorkInsideColonyMission(AIMain aiMain, AIUnit aiUnit, AIColony aiColony) {
+		super(aiMain, aiUnit, aiColony.getColony());
+	}
 
-    /**
-     * Creates a mission for the given <code>AIUnit</code>.
-     *
-     * @param aiMain The main AI-object.
-     * @param aiUnit The <code>AIUnit</code> this mission is created for.
-     * @param aiColony The <code>AIColony</code> the unit should be
-     *     working in.
-     */
-    public WorkInsideColonyMission(AIMain aiMain, AIUnit aiUnit,
-                                   AIColony aiColony) {
-        super(aiMain, aiUnit, aiColony.getColony());
-    }
+	/**
+	 * Creates a new <code>WorkInsideColonyMission</code> and reads the given
+	 * element.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param aiUnit
+	 *            The <code>AIUnit</code> this mission is created for.
+	 * @param xr
+	 *            The input stream containing the XML.
+	 * @throws XMLStreamException
+	 *             if a problem was encountered during parsing.
+	 * @see net.sf.freecol.server.ai.AIObject#readFromXML
+	 */
+	public WorkInsideColonyMission(AIMain aiMain, AIUnit aiUnit, FreeColXMLReader xr) throws XMLStreamException {
+		super(aiMain, aiUnit);
 
-    /**
-     * Creates a new <code>WorkInsideColonyMission</code> and reads
-     * the given element.
-     *
-     * @param aiMain The main AI-object.
-     * @param aiUnit The <code>AIUnit</code> this mission is created for.
-     * @param xr The input stream containing the XML.
-     * @throws XMLStreamException if a problem was encountered
-     *      during parsing.
-     * @see net.sf.freecol.server.ai.AIObject#readFromXML
-     */
-    public WorkInsideColonyMission(AIMain aiMain, AIUnit aiUnit,
-                                   FreeColXMLReader xr) throws XMLStreamException {
-        super(aiMain, aiUnit);
+		readFromXML(xr);
+	}
 
-        readFromXML(xr);
-    }
+	/**
+	 * Convenience accessor for the colony to work in.
+	 *
+	 * @return The <code>AIColony</code> to work in.
+	 */
+	public AIColony getAIColony() {
+		return getAIMain().getAIColony(colony);
+	}
 
+	/**
+	 * Why would this mission be invalid with the given AI unit and location?.
+	 *
+	 * @param aiUnit
+	 *            The <code>AIUnit</code> to check.
+	 * @param loc
+	 *            The <code>Location</code> to check.
+	 * @return A reason for invalidity, or null if none found.
+	 */
+	public static String invalidReason(AIUnit aiUnit, Location loc) {
+		String reason;
+		return ((reason = invalidAIUnitReason(aiUnit)) != null) ? reason
+				: (!aiUnit.getUnit().isPerson()) ? Mission.UNITNOTAPERSON
+						: ((reason = invalidTargetReason(loc, aiUnit.getUnit().getOwner())) != null) ? reason : null;
+	}
 
-    /**
-     * Convenience accessor for the colony to work in.
-     *
-     * @return The <code>AIColony</code> to work in.
-     */
-    public AIColony getAIColony() {
-        return getAIMain().getAIColony(colony);
-    }
+	// Implement Mission
+	// Inherit dispose, getTransportDestination, isOneTime
 
-    /**
-     * Why would this mission be invalid with the given AI unit and location?
-     *
-     * @param aiUnit The <code>AIUnit</code> to check.
-     * @param loc The <code>Location</code> to check.
-     * @return A reason for invalidity, or null if none found.
-     */
-    public static String invalidReason(AIUnit aiUnit, Location loc) {
-        String reason;
-        return ((reason = invalidAIUnitReason(aiUnit)) != null) ? reason
-            : (!aiUnit.getUnit().isPerson()) ? Mission.UNITNOTAPERSON
-            : ((reason = invalidTargetReason(loc, aiUnit.getUnit().getOwner()))
-                != null) ? reason
-            : null;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getBaseTransportPriority() {
+		return NORMAL_TRANSPORT_PRIORITY;
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location getTarget() {
+		return colony;
+	}
 
-    // Implement Mission
-    //   Inherit dispose, getTransportDestination, isOneTime
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void setTarget(Location target) {
+		if (target instanceof Colony) {
+			this.colony = (Colony) target;
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getBaseTransportPriority() {
-        return NORMAL_TRANSPORT_PRIORITY;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location findTarget() {
+		return getTarget();
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location getTarget() {
-        return colony;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String invalidReason() {
+		return invalidReason(getAIUnit(), getTarget());
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setTarget(Location target) {
-        if (target instanceof Colony) {
-            this.colony = (Colony)target;
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Mission doMission(LogBuilder lb) {
+		lb.add(tag);
+		String reason = invalidReason();
+		if (reason != null)
+			return lbFail(lb, false, reason);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location findTarget() {
-        return getTarget();
-    }
+		final Unit unit = getUnit();
+		Unit.MoveType mt = travelToTarget(getTarget(), CostDeciders.avoidSettlementsAndBlockingUnits(), lb);
+		switch (mt) {
+		case MOVE: // Arrived
+			break;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String invalidReason() {
-        return invalidReason(getAIUnit(), getTarget());
-    }
+		case MOVE_HIGH_SEAS:
+		case MOVE_NO_REPAIR:
+		case MOVE_NO_MOVES:
+		case MOVE_ILLEGAL:
+			return lbWait(lb);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Mission doMission(LogBuilder lb) {
-        lb.add(tag);
-        String reason = invalidReason();
-        if (reason != null) return lbFail(lb, false, reason);
+		case MOVE_NO_ACCESS_EMBARK:
+		case MOVE_NO_TILE:
+			return this;
 
-        final Unit unit = getUnit();
-        Unit.MoveType mt = travelToTarget(getTarget(),
-            CostDeciders.avoidSettlementsAndBlockingUnits(), lb);
-        switch (mt) {
-        case MOVE: // Arrived
-            break;
+		default:
+			return lbMove(lb, mt);
+		}
 
-        case MOVE_HIGH_SEAS: case MOVE_NO_REPAIR:
-        case MOVE_NO_MOVES: case MOVE_ILLEGAL:
-            return lbWait(lb);
+		lbAt(lb);
+		if (unit.isInColony())
+			lb.add(", working");
+		return lbWait(lb);
+	}
 
-        case MOVE_NO_ACCESS_EMBARK: case MOVE_NO_TILE:
-            return this;
+	// Serialization
 
-        default:
-            return lbMove(lb, mt);
-        }
+	/** The Constant COLONY_TAG. */
+	private static final String COLONY_TAG = "colony";
 
-        lbAt(lb);
-        if (unit.isInColony()) lb.add(", working");
-        return lbWait(lb);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
+		xw.writeAttribute(COLONY_TAG, colony);
+	}
 
-    // Serialization
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		super.readAttributes(xr);
 
-    /** The Constant COLONY_TAG. */
-    private static final String COLONY_TAG = "colony";
+		colony = xr.getAttribute(getGame(), COLONY_TAG, Colony.class, (Colony) null);
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
-
-        xw.writeAttribute(COLONY_TAG, colony);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        super.readAttributes(xr);
-
-        colony = xr.getAttribute(getGame(), COLONY_TAG,
-                                 Colony.class, (Colony)null);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "workInsideColonyMission".
-     */
-    public static String getXMLElementTagName() {
-        return "workInsideColonyMission";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "workInsideColonyMission".
+	 */
+	public static String getXMLElementTagName() {
+		return "workInsideColonyMission";
+	}
 }

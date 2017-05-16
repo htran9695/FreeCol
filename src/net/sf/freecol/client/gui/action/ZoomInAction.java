@@ -23,49 +23,49 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for zooming in on the main map.
  */
 public class ZoomInAction extends FreeColAction {
 
-    public static final String id = "zoomInAction";
+	/** The Constant id. */
+	public static final String id = "zoomInAction";
 
+	/**
+	 * Creates a new <code>ZoomInAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ZoomInAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>ZoomInAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ZoomInAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		if (!super.shouldBeEnabled())
+			return false;
 
-    // Override FreeColAction
+		if (!getGUI().isMapboardActionsEnabled())
+			return false;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        if (!super.shouldBeEnabled()) return false;
+		return getGUI().canZoomInMap();
+	}
 
-        if (!getGUI().isMapboardActionsEnabled()) return false;
+	// Interface ActionListener
 
-        return getGUI().canZoomInMap();
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        getGUI().zoomInMap();
-        update();
-        getActionManager().getFreeColAction(ZoomOutAction.id).update();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		getGUI().zoomInMap();
+		update();
+		getActionManager().getFreeColAction(ZoomOutAction.id).update();
+	}
 }

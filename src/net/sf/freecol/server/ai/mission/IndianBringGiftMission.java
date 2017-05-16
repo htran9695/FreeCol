@@ -39,7 +39,6 @@ import net.sf.freecol.server.ai.AIMain;
 import net.sf.freecol.server.ai.AIMessage;
 import net.sf.freecol.server.ai.AIUnit;
 
-
 /**
  * Mission for bringing a gift to a specified player.
  *
@@ -53,332 +52,338 @@ import net.sf.freecol.server.ai.AIUnit;
  */
 public class IndianBringGiftMission extends Mission {
 
-    /** The Constant logger. */
-    private static final Logger logger = Logger.getLogger(IndianBringGiftMission.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(IndianBringGiftMission.class.getName());
 
-    /** The tag for this mission. */
-    private static final String tag = "AI native gifter";
+	/** The tag for this mission. */
+	private static final String tag = "AI native gifter";
 
-    /** The Colony to receive the gift. */
-    private Colony colony;
+	/** The Colony to receive the gift. */
+	private Colony colony;
 
-    /** Has the gift been collected? */
-    private boolean collected;
+	/** Has the gift been collected?. */
+	private boolean collected;
 
+	/**
+	 * Creates a mission for the given <code>AIUnit</code>.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param aiUnit
+	 *            The <code>AIUnit</code> this mission is created for.
+	 * @param target
+	 *            The <code>Colony</code> receiving the gift.
+	 */
+	public IndianBringGiftMission(AIMain aiMain, AIUnit aiUnit, Colony target) {
+		super(aiMain, aiUnit, target);
 
-    /**
-     * Creates a mission for the given <code>AIUnit</code>.
-     *
-     * @param aiMain The main AI-object.
-     * @param aiUnit The <code>AIUnit</code> this mission is created for.
-     * @param target The <code>Colony</code> receiving the gift.
-     */
-    public IndianBringGiftMission(AIMain aiMain, AIUnit aiUnit, Colony target) {
-        super(aiMain, aiUnit, target);
+		this.collected = hasGift();
+	}
 
-        this.collected = hasGift();
-    }
+	/**
+	 * Creates a new <code>IndianBringGiftMission</code> and reads the given
+	 * element.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param aiUnit
+	 *            The <code>AIUnit</code> this mission is created for.
+	 * @param xr
+	 *            The input stream containing the XML.
+	 * @throws XMLStreamException
+	 *             if a problem was encountered during parsing.
+	 * @see net.sf.freecol.server.ai.AIObject#readFromXML
+	 */
+	public IndianBringGiftMission(AIMain aiMain, AIUnit aiUnit, FreeColXMLReader xr) throws XMLStreamException {
+		super(aiMain, aiUnit);
 
-    /**
-     * Creates a new <code>IndianBringGiftMission</code> and reads the given
-     * element.
-     *
-     * @param aiMain The main AI-object.
-     * @param aiUnit The <code>AIUnit</code> this mission is created for.
-     * @param xr The input stream containing the XML.
-     * @throws XMLStreamException if a problem was encountered during parsing.
-     * @see net.sf.freecol.server.ai.AIObject#readFromXML
-     */
-    public IndianBringGiftMission(AIMain aiMain, AIUnit aiUnit,
-                                  FreeColXMLReader xr) throws XMLStreamException {
-        super(aiMain, aiUnit);
+		readFromXML(xr);
+	}
 
-        readFromXML(xr);
-    }
+	/**
+	 * Gets the colony.
+	 *
+	 * @return the colony
+	 */
+	public Colony getColony() {
+		return this.colony;
+	}
 
+	/**
+	 * Checks if the unit is carrying a gift (goods).
+	 *
+	 * @return True if the unit is carrying goods.
+	 */
+	private boolean hasGift() {
+		return getUnit().hasGoodsCargo();
+	}
 
-    /**
-     * Gets the colony.
-     *
-     * @return the colony
-     */
-    public Colony getColony() { return this.colony; }
+	/**
+	 * Why would this mission be invalid with the given unit?.
+	 *
+	 * @param aiUnit
+	 *            The <code>AIUnit</code> to test.
+	 * @return A reason why the mission would be invalid with the unit, or null
+	 *         if none found.
+	 */
+	private static String invalidMissionReason(AIUnit aiUnit) {
+		String reason = invalidAIUnitReason(aiUnit);
+		IndianSettlement home;
+		return (reason != null) ? reason
+				: ((home = aiUnit.getUnit().getHomeIndianSettlement()) == null || home.isDisposed()) ? "home-destroyed"
+						: null;
+	}
 
-    /**
-     * Checks if the unit is carrying a gift (goods).
-     *
-     * @return True if the unit is carrying goods.
-     */
-    private boolean hasGift() {
-        return getUnit().hasGoodsCargo();
-    }
+	/**
+	 * Why would an IndianBringGiftMission be invalid with the given unit and
+	 * colony.
+	 *
+	 * @param aiUnit
+	 *            The <code>AIUnit</code> to test.
+	 * @param colony
+	 *            The <code>Colony</code> to test.
+	 * @return A reason why the mission would be invalid with the unit and
+	 *         colony or null if none found.
+	 */
+	private static String invalidColonyReason(AIUnit aiUnit, Colony colony) {
+		String reason = invalidTargetReason(colony);
+		if (reason != null)
+			return reason;
+		final Unit unit = aiUnit.getUnit();
+		final Player owner = unit.getOwner();
+		Player targetPlayer = colony.getOwner();
+		switch (owner.getStance(targetPlayer)) {
+		case UNCONTACTED:
+		case WAR:
+		case CEASE_FIRE:
+			return "bad-stance";
+		case PEACE:
+		case ALLIANCE:
+			Tension tension = unit.getHomeIndianSettlement().getAlarm(targetPlayer);
+			if (tension != null && tension.getLevel().compareTo(Tension.Level.HAPPY) > 0)
+				return "unhappy";
+		}
+		return null;
+	}
 
-    /**
-     * Why would this mission be invalid with the given unit?
-     *
-     * @param aiUnit The <code>AIUnit</code> to test.
-     * @return A reason why the mission would be invalid with the unit,
-     *     or null if none found.
-     */
-    private static String invalidMissionReason(AIUnit aiUnit) {
-        String reason = invalidAIUnitReason(aiUnit);
-        IndianSettlement home;
-        return (reason != null)
-            ? reason
-            : ((home = aiUnit.getUnit().getHomeIndianSettlement()) == null
-                || home.isDisposed())
-            ? "home-destroyed"
-            : null;
-    }
+	/**
+	 * Why would this mission be invalid with the given AI unit?.
+	 *
+	 * @param aiUnit
+	 *            The <code>AIUnit</code> to check.
+	 * @return A reason for mission invalidity, or null if none found.
+	 */
+	public static String invalidReason(AIUnit aiUnit) {
+		return invalidMissionReason(aiUnit);
+	}
 
-    /**
-     * Why would an IndianBringGiftMission be invalid with the given
-     * unit and colony.
-     *
-     * @param aiUnit The <code>AIUnit</code> to test.
-     * @param colony The <code>Colony</code> to test.
-     * @return A reason why the mission would be invalid with the unit
-     *     and colony or null if none found.
-     */
-    private static String invalidColonyReason(AIUnit aiUnit, Colony colony) {
-        String reason = invalidTargetReason(colony);
-        if (reason != null) return reason;
-        final Unit unit = aiUnit.getUnit();
-        final Player owner = unit.getOwner();
-        Player targetPlayer = colony.getOwner();
-        switch (owner.getStance(targetPlayer)) {
-        case UNCONTACTED: case WAR: case CEASE_FIRE:
-            return "bad-stance";
-        case PEACE: case ALLIANCE:
-            Tension tension = unit.getHomeIndianSettlement()
-                .getAlarm(targetPlayer);
-            if (tension != null && tension.getLevel()
-                .compareTo(Tension.Level.HAPPY) > 0) return "unhappy";
-        }
-        return null;
-    }
+	/**
+	 * Why would this mission be invalid with the given AI unit and location?.
+	 *
+	 * @param aiUnit
+	 *            The <code>AIUnit</code> to check.
+	 * @param loc
+	 *            The <code>Location</code> to check.
+	 * @return A reason for invalidity, or null if none found.
+	 */
+	public static String invalidReason(AIUnit aiUnit, Location loc) {
+		String reason = invalidMissionReason(aiUnit);
+		return (reason != null) ? reason
+				: (loc instanceof Colony) ? invalidColonyReason(aiUnit, (Colony) loc)
+						: (loc instanceof IndianSettlement) ? invalidTargetReason(loc, aiUnit.getUnit().getOwner())
+								: Mission.TARGETINVALID;
+	}
 
-    /**
-     * Why would this mission be invalid with the given AI unit?
-     *
-     * @param aiUnit The <code>AIUnit</code> to check.
-     * @return A reason for mission invalidity, or null if none found.
-     */
-    public static String invalidReason(AIUnit aiUnit) {
-        return invalidMissionReason(aiUnit);
-    }
+	// Mission interface
+	// Inherit dispose, getBaseTransportPriority, isOneTime
 
-    /**
-     * Why would this mission be invalid with the given AI unit and location?
-     *
-     * @param aiUnit The <code>AIUnit</code> to check.
-     * @param loc The <code>Location</code> to check.
-     * @return A reason for invalidity, or null if none found.
-     */
-    public static String invalidReason(AIUnit aiUnit, Location loc) {
-        String reason = invalidMissionReason(aiUnit);
-        return (reason != null) ? reason
-            : (loc instanceof Colony)
-            ? invalidColonyReason(aiUnit, (Colony)loc)
-            : (loc instanceof IndianSettlement)
-            ? invalidTargetReason(loc, aiUnit.getUnit().getOwner())
-            : Mission.TARGETINVALID;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location getTransportDestination() {
+		return null;
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location getTarget() {
+		return (this.collected) ? this.colony : getUnit().getHomeIndianSettlement();
+	}
 
-    // Mission interface
-    //   Inherit dispose, getBaseTransportPriority, isOneTime
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void setTarget(Location target) {
+		if (target instanceof Colony) {
+			this.colony = (Colony) target;
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location getTransportDestination() {
-        return null;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location findTarget() {
+		return getTarget();
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location getTarget() {
-        return (this.collected) ? this.colony
-            : getUnit().getHomeIndianSettlement();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String invalidReason() {
+		return invalidReason(getAIUnit(), this.colony);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setTarget(Location target) {
-        if (target instanceof Colony) {
-            this.colony = (Colony)target;
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Mission doMission(LogBuilder lb) {
+		lb.add(tag);
+		String reason = invalidReason();
+		if (reason != null)
+			return lbFail(lb, false, reason);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location findTarget() {
-        return getTarget();
-    }
+		final AIUnit aiUnit = getAIUnit();
+		final Unit unit = getUnit();
+		final IndianSettlement is = unit.getHomeIndianSettlement();
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String invalidReason() {
-        return invalidReason(getAIUnit(), this.colony);
-    }
+		while (!this.collected) {
+			Unit.MoveType mt = travelToTarget(getTarget(), null, lb);
+			switch (mt) {
+			case MOVE: // Arrived
+				break;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Mission doMission(LogBuilder lb) {
-        lb.add(tag);
-        String reason = invalidReason();
-        if (reason != null) return lbFail(lb, false, reason);
+			case MOVE_HIGH_SEAS:
+			case MOVE_NO_MOVES:
+			case MOVE_NO_REPAIR:
+			case MOVE_ILLEGAL:
+				return lbWait(lb);
 
-        final AIUnit aiUnit = getAIUnit();
-        final Unit unit = getUnit();
-        final IndianSettlement is = unit.getHomeIndianSettlement();
+			case MOVE_NO_TILE:
+				return this;
 
-        while (!this.collected) {
-            Unit.MoveType mt = travelToTarget(getTarget(), null, lb);
-            switch (mt) {
-            case MOVE: // Arrived
-                break;
+			case ATTACK_SETTLEMENT:
+			case ATTACK_UNIT: // A blockage!
+				Location blocker = resolveBlockage(aiUnit, getTarget());
+				if (blocker != null && AIMessage.askAttack(aiUnit, unit.getTile().getDirection(blocker.getTile()))) {
+					return lbAttack(lb, blocker);
+				}
+				moveRandomly(tag, null);
+				continue;
 
-            case MOVE_HIGH_SEAS: case MOVE_NO_MOVES:
-            case MOVE_NO_REPAIR: case MOVE_ILLEGAL:
-                return lbWait(lb);
+			default:
+				return lbMove(lb, mt);
+			}
 
-            case MOVE_NO_TILE:
-                return this;
-            
-            case ATTACK_SETTLEMENT: case ATTACK_UNIT: // A blockage!
-                Location blocker = resolveBlockage(aiUnit, getTarget());
-                if (blocker != null
-                    && AIMessage.askAttack(aiUnit, unit.getTile()
-                        .getDirection(blocker.getTile()))) {
-                    return lbAttack(lb, blocker);
-                }
-                moveRandomly(tag, null);
-                continue;
+			// Load the goods.
+			lbAt(lb);
+			Goods gift = is.getRandomGift(getAIRandom());
+			if (gift == null)
+				return lbFail(lb, false, "found no gift");
+			if (!AIMessage.askLoadGoods(is, gift.getType(), gift.getAmount(), aiUnit) || !hasGift()) {
+				return lbFail(lb, false, "failed to collect gift");
+			}
+			this.collected = true;
+			lb.add(", collected gift");
+			return lbRetarget(lb);
+		}
 
-            default:
-                return lbMove(lb, mt);
-            }
+		// Move to the target's colony and deliver, avoiding trouble
+		// by choice of cost decider.
+		for (;;) {
+			Unit.MoveType mt = travelToTarget(getTarget(), CostDeciders.avoidSettlementsAndBlockingUnits(), lb);
+			switch (mt) {
+			case MOVE_HIGH_SEAS:
+			case MOVE_NO_MOVES:
+			case MOVE_NO_REPAIR:
+			case MOVE_ILLEGAL:
+				return lbWait(lb);
 
-            // Load the goods.
-            lbAt(lb);
-            Goods gift = is.getRandomGift(getAIRandom());
-            if (gift == null) return lbFail(lb, false, "found no gift");
-            if (!AIMessage.askLoadGoods(is, gift.getType(), gift.getAmount(),
-                                        aiUnit) || !hasGift()) {
-                return lbFail(lb, false, "failed to collect gift");
-            }
-            this.collected = true;
-            lb.add(", collected gift");
-            return lbRetarget(lb);
-        }
+			case MOVE_NO_TILE:
+				return this;
 
-        // Move to the target's colony and deliver, avoiding trouble
-        // by choice of cost decider.
-        for (;;) {
-            Unit.MoveType mt = travelToTarget(getTarget(),
-                CostDeciders.avoidSettlementsAndBlockingUnits(), lb);
-            switch (mt) {
-            case MOVE_HIGH_SEAS: case MOVE_NO_MOVES:
-            case MOVE_NO_REPAIR: case MOVE_ILLEGAL:
-                return lbWait(lb);
+			case MOVE:
+			case ATTACK_SETTLEMENT: // Arrived (do not attack!)
+				break;
 
-            case MOVE_NO_TILE:
-                return this;
-            
-            case MOVE: case ATTACK_SETTLEMENT: // Arrived (do not attack!)
-                break;
+			case ATTACK_UNIT:
+				Location blocker = resolveBlockage(aiUnit, getTarget());
+				if (blocker != null && AIMessage.askAttack(aiUnit, unit.getTile().getDirection(blocker.getTile()))) {
+					return lbAttack(lb, blocker);
+				}
+				moveRandomly(tag, null);
+				continue;
 
-            case ATTACK_UNIT:
-                Location blocker = resolveBlockage(aiUnit, getTarget());
-                if (blocker != null
-                    && AIMessage.askAttack(aiUnit, unit.getTile()
-                        .getDirection(blocker.getTile()))) {
-                    return lbAttack(lb, blocker);
-                }
-                moveRandomly(tag, null);
-                continue;
-            
-            default:
-                return lbMove(lb, mt);
-            }
-        
-            // Deliver the goods.
-            lbAt(lb);
-            Settlement settlement = (Settlement)getTarget();
-            boolean result = false;
-            if (AIMessage.askGetTransaction(aiUnit, settlement)) {
-                result = AIMessage.askDeliverGift(aiUnit, settlement,
-                    unit.getGoodsList().get(0));
-                AIMessage.askCloseTransaction(aiUnit, settlement);
-            }
-            return (result)
-                ? lbDone(lb, false, "delivered")
-                : lbFail(lb, false, "delivery");
-        }
-    }
+			default:
+				return lbMove(lb, mt);
+			}
 
+			// Deliver the goods.
+			lbAt(lb);
+			Settlement settlement = (Settlement) getTarget();
+			boolean result = false;
+			if (AIMessage.askGetTransaction(aiUnit, settlement)) {
+				result = AIMessage.askDeliverGift(aiUnit, settlement, unit.getGoodsList().get(0));
+				AIMessage.askCloseTransaction(aiUnit, settlement);
+			}
+			return (result) ? lbDone(lb, false, "delivered") : lbFail(lb, false, "delivery");
+		}
+	}
 
-    // Serialization
+	// Serialization
 
-    /** The Constant COLLECTED_TAG. */
-    private static final String COLLECTED_TAG = "collected";
-    
-    /** The Constant COLONY_TAG. */
-    private static final String COLONY_TAG = "colony";
+	/** The Constant COLLECTED_TAG. */
+	private static final String COLLECTED_TAG = "collected";
 
+	/** The Constant COLONY_TAG. */
+	private static final String COLONY_TAG = "colony";
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-        xw.writeAttribute(COLLECTED_TAG, this.collected);
+		xw.writeAttribute(COLLECTED_TAG, this.collected);
 
-        if (this.colony != null) {
-            xw.writeAttribute(COLONY_TAG, this.colony.getId());
-        }
-    }
+		if (this.colony != null) {
+			xw.writeAttribute(COLONY_TAG, this.colony.getId());
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        super.readAttributes(xr);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		super.readAttributes(xr);
 
-        this.collected = xr.getAttribute(COLLECTED_TAG, false);
+		this.collected = xr.getAttribute(COLLECTED_TAG, false);
 
-        this.colony = xr.getAttribute(getGame(), COLONY_TAG,
-                                      Colony.class, (Colony)null);
-    }
+		this.colony = xr.getAttribute(getGame(), COLONY_TAG, Colony.class, (Colony) null);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "indianBringGiftMission".
-     */
-    public static String getXMLElementTagName() {
-        return "indianBringGiftMission";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "indianBringGiftMission".
+	 */
+	public static String getXMLElementTagName() {
+		return "indianBringGiftMission";
+	}
 }

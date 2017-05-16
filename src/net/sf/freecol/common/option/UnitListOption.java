@@ -22,57 +22,60 @@ package net.sf.freecol.common.option;
 import net.sf.freecol.common.model.AbstractUnit;
 import net.sf.freecol.common.model.Specification;
 
-
 /**
- * Represents an option where the valid choice is a list of
- * AbstractUnits, e.g. the units of the REF.
+ * Represents an option where the valid choice is a list of AbstractUnits, e.g.
+ * the units of the REF.
  */
 public class UnitListOption extends ListOption<AbstractUnit> {
 
-    /**
-     * Creates a new <code>UnitListOption</code>.
-     *
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public UnitListOption(Specification specification) {
-        super(specification);
-    }
+	/**
+	 * Creates a new <code>UnitListOption</code>.
+	 *
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public UnitListOption(Specification specification) {
+		super(specification);
+	}
 
-    /**
-     * Creates a new <code>UnitListOption</code>.
-     *
-     * @param id The object identifier.
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public UnitListOption(String id, Specification specification) {
-        super(id, specification);
-    }
+	/**
+	 * Creates a new <code>UnitListOption</code>.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public UnitListOption(String id, Specification specification) {
+		super(id, specification);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public UnitListOption clone() {
-        UnitListOption ret = new UnitListOption(getId(), getSpecification());
-        ret.setValues(this);
-        return ret;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public UnitListOption clone() {
+		UnitListOption ret = new UnitListOption(getId(), getSpecification());
+		ret.setValues(this);
+		return ret;
+	}
 
+	// Serialization
 
-    // Serialization
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "unitListOption".
-     */
-    public static String getXMLElementTagName() {
-        return "unitListOption";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "unitListOption".
+	 */
+	public static String getXMLElementTagName() {
+		return "unitListOption";
+	}
 }

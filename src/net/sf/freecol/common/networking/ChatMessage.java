@@ -26,123 +26,123 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message that contains a chat string.
  */
 public class ChatMessage extends DOMMessage {
 
-    /** The object identifier of the sender player. */
-    private String sender;
+	/** The object identifier of the sender player. */
+	private String sender;
 
-    /** The text of the message. */
-    private final String message;
+	/** The text of the message. */
+	private final String message;
 
-    /** Whether this is a private message or not. */
-    private final boolean privateChat;
+	/** Whether this is a private message or not. */
+	private final boolean privateChat;
 
+	/**
+	 * Create a new <code>ChatMessage</code> with the supplied message.
+	 *
+	 * @param player
+	 *            The player that is sending the message.
+	 * @param message
+	 *            The text of the message to send.
+	 * @param privateChat
+	 *            Whether this message is private.
+	 */
+	public ChatMessage(Player player, String message, boolean privateChat) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>ChatMessage</code> with the
-     * supplied message.
-     *
-     * @param player The player that is sending the message.
-     * @param message The text of the message to send.
-     * @param privateChat Whether this message is private.
-     */
-    public ChatMessage(Player player, String message, boolean privateChat) {
-        super(getXMLElementTagName());
+		this.sender = player.getId();
+		this.message = message;
+		this.privateChat = privateChat;
+	}
 
-        this.sender = player.getId();
-        this.message = message;
-        this.privateChat = privateChat;
-    }
+	/**
+	 * Create a new <code>ChatMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 * @throws IllegalStateException
+	 *             if there is problem with the senderID.
+	 */
+	public ChatMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>ChatMessage</code> from a
-     * supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     * @throws IllegalStateException if there is problem with the senderID.
-     */
-    public ChatMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		sender = element.getAttribute("sender");
+		message = element.getAttribute("message");
+		privateChat = Boolean.parseBoolean(element.getAttribute("privateChat"));
+	}
 
-        sender = element.getAttribute("sender");
-        message = element.getAttribute("message");
-        privateChat = Boolean.parseBoolean(element.getAttribute("privateChat"));
-    }
+	// Public interface
 
+	/**
+	 * Who sent this ChatMessage?.
+	 *
+	 * @param game
+	 *            The <code>Game</code> the player is in.
+	 * @return The player that sent this ChatMessage.
+	 */
+	public Player getPlayer(Game game) {
+		return game.getFreeColGameObject(sender, Player.class);
+	}
 
-    // Public interface
+	/**
+	 * What is the text of this ChatMessage?.
+	 *
+	 * @return The text of this ChatMessage.
+	 */
+	public String getMessage() {
+		return message;
+	}
 
-    /**
-     * Who sent this ChatMessage?
-     *
-     * @param game The <code>Game</code> the player is in.
-     * @return The player that sent this ChatMessage.
-     */
-    public Player getPlayer(Game game) {
-        return game.getFreeColGameObject(sender, Player.class);
-    }
+	/**
+	 * Is this ChatMessage private?.
+	 *
+	 * @return True if this ChatMessage is private.
+	 */
+	public boolean isPrivate() {
+		return privateChat;
+	}
 
-    /**
-     * What is the text of this ChatMessage?
-     *
-     * @return The text of this ChatMessage.
-     */
-    public String getMessage() {
-        return message;
-    }
+	/**
+	 * Handle a "chat"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> that handles the message.
+	 * @param connection
+	 *            The <code>Connection</code> message was received on.
+	 *
+	 * @return Null.
+	 */
+	public Element handle(FreeColServer server, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
 
-    /**
-     * Is this ChatMessage private?
-     *
-     * @return True if this ChatMessage is private.
-     */
-    public boolean isPrivate() {
-        return privateChat;
-    }
+		/* Do not trust the client-supplied sender name */
+		sender = serverPlayer.getId();
 
+		return server.getInGameController().chat(serverPlayer, message, privateChat);
+	}
 
-    /**
-     * Handle a "chat"-message.
-     *
-     * @param server The <code>FreeColServer</code> that handles the message.
-     * @param connection The <code>Connection</code> message was received on.
-     *
-     * @return Null.
-     */
-    public Element handle(FreeColServer server, Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
+	/**
+	 * Convert this ChatMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		return createMessage(getXMLElementTagName(), "sender", sender, "message", message, "privateChat",
+				String.valueOf(privateChat));
+	}
 
-        /* Do not trust the client-supplied sender name */
-        sender = serverPlayer.getId();
-
-        return server.getInGameController().chat(serverPlayer, message,
-                                                 privateChat);
-    }
-
-    /**
-     * Convert this ChatMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        return createMessage(getXMLElementTagName(),
-            "sender", sender,
-            "message", message,
-            "privateChat", String.valueOf(privateChat));
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "chat".
-     */
-    public static String getXMLElementTagName() {
-        return "chat";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "chat".
+	 */
+	public static String getXMLElementTagName() {
+		return "chat";
+	}
 }

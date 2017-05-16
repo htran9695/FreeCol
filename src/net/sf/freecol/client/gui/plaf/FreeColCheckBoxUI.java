@@ -25,27 +25,44 @@ import javax.swing.JComponent;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.basic.BasicCheckBoxUI;
 
-
 /**
  * Sets the default opaque attribute to <i>false</i>.
  */
 public class FreeColCheckBoxUI extends BasicCheckBoxUI {
 
-    public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
-        return new FreeColCheckBoxUI();
-    }
+	/**
+	 * Creates the UI.
+	 *
+	 * @param c
+	 *            the c
+	 * @return the component UI
+	 */
+	public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
+		return new FreeColCheckBoxUI();
+	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * javax.swing.plaf.basic.BasicButtonUI#installUI(javax.swing.JComponent)
+	 */
+	@Override
+	public void installUI(JComponent c) {
+		super.installUI(c);
 
-    @Override
-    public void installUI(JComponent c) {
-        super.installUI(c);
+		c.setOpaque(false);
+	}
 
-        c.setOpaque(false);
-    }
-
-    @Override
-    public void paint(Graphics g, JComponent c) {
-        LAFUtilities.setProperties(g, c);
-        super.paint(g, c);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.plaf.basic.BasicRadioButtonUI#paint(java.awt.Graphics,
+	 * javax.swing.JComponent)
+	 */
+	@Override
+	public void paint(Graphics g, JComponent c) {
+		LAFUtilities.setProperties(g, c);
+		super.paint(g, c);
+	}
 }

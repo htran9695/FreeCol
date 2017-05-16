@@ -25,7 +25,6 @@ import java.net.URI;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-
 /**
  * A <code>Resource</code> wrapping a <code>Color</code>.
  * 
@@ -34,84 +33,98 @@ import java.util.logging.Logger;
  */
 public class ColorResource extends Resource {
 
-    private static final Logger logger = Logger.getLogger(ColorResource.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(ColorResource.class.getName());
 
-    public static final Color REPLACEMENT_COLOR = Color.MAGENTA;
+	/** The Constant REPLACEMENT_COLOR. */
+	public static final Color REPLACEMENT_COLOR = Color.MAGENTA;
 
-    public static final String SCHEME = "color:";
+	/** The Constant SCHEME. */
+	public static final String SCHEME = "color:";
 
-    private final Color color;
+	/** The color. */
+	private final Color color;
 
+	/**
+	 * Instantiates a new color resource.
+	 *
+	 * @param color
+	 *            the color
+	 */
+	public ColorResource(Color color) {
+		this.color = color;
+	}
 
-    public ColorResource(Color color) {
-        this.color = color;
-    }
+	/**
+	 * Do not use directly.
+	 *
+	 * @param resourceLocator
+	 *            The <code>URI</code> used when loading this resource.
+	 * @throws Exception
+	 *             the exception
+	 */
+	public ColorResource(URI resourceLocator) throws Exception {
+		super(resourceLocator);
 
-    /**
-     * Do not use directly.
-     *
-     * @param resourceLocator The <code>URI</code> used when loading this
-     *     resource.
-     */
-    public ColorResource(URI resourceLocator) throws Exception {
-        super(resourceLocator);
+		String colorName = resourceLocator.getSchemeSpecificPart().substring(SCHEME.length());
+		this.color = getColor(colorName);
+	}
 
-        String colorName = resourceLocator.getSchemeSpecificPart()
-            .substring(SCHEME.length());
-        this.color = getColor(colorName);
-    }
+	/**
+	 * Gets the <code>Color</code> represented by this resource.
+	 *
+	 * @return The <code>Color</code> in it's original size.
+	 */
+	public Color getColor() {
+		return this.color;
+	}
 
+	/**
+	 * Checks if is hex string.
+	 *
+	 * @param str
+	 *            the str
+	 * @return true, if is hex string
+	 */
+	private static boolean isHexString(String str) {
+		if (str == null || !(str.startsWith("0x") || str.startsWith("0X")) || str.length() <= 2)
+			return false;
+		for (int i = 2; i < str.length(); i++) {
+			if (!"0123456789ABCDEFabcdef".contains(str.substring(i, i + 1))) {
+				return false;
+			}
+		}
+		return true;
+	}
 
-    /**
-     * Gets the <code>Color</code> represented by this resource.
-     *
-     * @return The <code>Color</code> in it's original size.
-     */
-    public Color getColor() {
-        return this.color;
-    }
-
-    private static boolean isHexString(String str) {
-        if (str == null
-            || !(str.startsWith("0x") || str.startsWith("0X"))
-            || str.length() <= 2) return false;
-        for (int i = 2; i < str.length(); i++) {
-            if (!"0123456789ABCDEFabcdef".contains(str.substring(i, i + 1))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Returns the <code>Color</code> identified by the given
-     * string. This is either a hexadecimal integer prefixed with
-     * "0x", or the name of a field of the Color class.
-     *
-     * @param colorName a <code>String</code> value
-     * @return a <code>Color</code> value
-     */
-    public static Color getColor(String colorName) {
-        if (isHexString(colorName)) {
-            try {
-                int col = Integer.decode(colorName);
-                return new Color(col, colorName.length() > 8);
-            } catch (NumberFormatException e) {
-                logger.warning("Failed to decode hex colour string: "
-                    + colorName);
-            }
-        } else {
-            try {
-                Field field = Color.class.getField(colorName);
-                return (Color) field.get(null);
-            } catch (IllegalAccessException | IllegalArgumentException
-                    | NoSuchFieldException | SecurityException e) {
-                // probably a non-standard color name
-                logger.log(Level.WARNING, "Failed to decode colour", e);
-            }
-        }
-        // Fall back, as there are places where a null colour
-        // can cause crashes.
-        return REPLACEMENT_COLOR;
-    }
+	/**
+	 * Returns the <code>Color</code> identified by the given string. This is
+	 * either a hexadecimal integer prefixed with "0x", or the name of a field
+	 * of the Color class.
+	 *
+	 * @param colorName
+	 *            a <code>String</code> value
+	 * @return a <code>Color</code> value
+	 */
+	public static Color getColor(String colorName) {
+		if (isHexString(colorName)) {
+			try {
+				int col = Integer.decode(colorName);
+				return new Color(col, colorName.length() > 8);
+			} catch (NumberFormatException e) {
+				logger.warning("Failed to decode hex colour string: " + colorName);
+			}
+		} else {
+			try {
+				Field field = Color.class.getField(colorName);
+				return (Color) field.get(null);
+			} catch (IllegalAccessException | IllegalArgumentException | NoSuchFieldException | SecurityException e) {
+				// probably a non-standard color name
+				logger.log(Level.WARNING, "Failed to decode colour", e);
+			}
+		}
+		// Fall back, as there are places where a null colour
+		// can cause crashes.
+		return REPLACEMENT_COLOR;
+	}
 }

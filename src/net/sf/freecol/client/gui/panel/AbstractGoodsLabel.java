@@ -19,7 +19,6 @@
 
 package net.sf.freecol.client.gui.panel;
 
-
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 
@@ -28,115 +27,117 @@ import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.AbstractGoods;
 import net.sf.freecol.common.model.GoodsType;
 
-
 /**
  * This label represents AbstractGoods.
  */
 public class AbstractGoodsLabel extends JLabel {
 
-    /** The abstract goods. */
-    private final AbstractGoods abstractGoods;
+	/** The abstract goods. */
+	private final AbstractGoods abstractGoods;
 
-    /** The partial chosen. */
-    private boolean partialChosen = false;
+	/** The partial chosen. */
+	private boolean partialChosen = false;
 
-    /** The full chosen. */
-    private boolean fullChosen = false;
+	/** The full chosen. */
+	private boolean fullChosen = false;
 
+	/**
+	 * Initializes this JLabel with the given goods data.
+	 *
+	 * @param lib
+	 *            the lib
+	 * @param abstractGoods
+	 *            The <code>AbstractGoods</code> that this JLabel will visually
+	 *            represent.
+	 */
+	public AbstractGoodsLabel(ImageLibrary lib, AbstractGoods abstractGoods) {
+		super(new ImageIcon(lib.getIconImage(abstractGoods.getType())));
 
-    /**
-     * Initializes this JLabel with the given goods data.
-     *
-     * @param abstractGoods The <code>AbstractGoods</code> that this JLabel
-     *     will visually represent.
-     */
-    public AbstractGoodsLabel(ImageLibrary lib, AbstractGoods abstractGoods) {
-        super(new ImageIcon(lib.getIconImage(abstractGoods.getType())));
+		this.abstractGoods = abstractGoods;
 
-        this.abstractGoods = abstractGoods;
+		setToolTipText(Messages.getName(abstractGoods));
+	}
 
-        setToolTipText(Messages.getName(abstractGoods));
-    }
+	/**
+	 * Has a partial amount been selected?.
+	 *
+	 * @return True if a partial amount has been selected.
+	 */
+	public boolean isPartialChosen() {
+		return partialChosen;
+	}
 
+	/**
+	 * Set the partial amount state.
+	 *
+	 * @param partialChosen
+	 *            The new partial amount state.
+	 */
+	public void setPartialChosen(boolean partialChosen) {
+		this.partialChosen = partialChosen;
+	}
 
-    /**
-     * Has a partial amount been selected?
-     *
-     * @return True if a partial amount has been selected.
-     */
-    public boolean isPartialChosen() {
-        return partialChosen;
-    }
+	/**
+	 * Has full amount been selected?.
+	 *
+	 * @return True if a full amount has been selected.
+	 */
+	public boolean isFullChosen() {
+		return fullChosen;
+	}
 
-    /**
-     * Set the partial amount state.
-     *
-     * @param partialChosen The new partial amount state.
-     */
-    public void setPartialChosen(boolean partialChosen) {
-        this.partialChosen = partialChosen;
-    }
+	/**
+	 * Set the full amount state.
+	 *
+	 * @param fullChosen
+	 *            The new full amount state.
+	 */
+	public void setFullChosen(boolean fullChosen) {
+		this.fullChosen = fullChosen;
+	}
 
-    /**
-     * Has full amount been selected?
-     *
-     * @return True if a full amount has been selected.
-     */
-    public boolean isFullChosen() {
-        return fullChosen;
-    }
+	/**
+	 * Get the goods data.
+	 *
+	 * @return The goods data for this label.
+	 */
+	public AbstractGoods getAbstractGoods() {
+		return abstractGoods;
+	}
 
-    /**
-     * Set the full amount state.
-     *
-     * @param fullChosen The new full amount state.
-     */
-    public void setFullChosen(boolean fullChosen) {
-        this.fullChosen = fullChosen;
-    }
+	/**
+	 * Get the goods type.
+	 *
+	 * @return The goods type for this label.
+	 */
+	public GoodsType getType() {
+		return abstractGoods.getType();
+	}
 
-    /**
-     * Get the goods data.
-     *
-     * @return The goods data for this label.
-     */
-    public AbstractGoods getAbstractGoods() {
-        return abstractGoods;
-    }
+	/**
+	 * Get the goods amount.
+	 *
+	 * @return The goods amount.
+	 */
+	public int getAmount() {
+		return abstractGoods.getAmount();
+	}
 
-    /**
-     * Get the goods type.
-     *
-     * @return The goods type for this label.
-     */
-    public GoodsType getType() {
-        return abstractGoods.getType();
-    }
+	/**
+	 * Set the goods amount.
+	 *
+	 * @param amount
+	 *            The amount of goods.
+	 */
+	public void setAmount(int amount) {
+		abstractGoods.setAmount(amount);
+	}
 
-    /**
-     * Get the goods amount.
-     *
-     * @return The goods amount.
-     */
-    public int getAmount() {
-        return abstractGoods.getAmount();
-    }
-
-    /**
-     * Set the goods amount.
-     *
-     * @param amount The amount of goods.
-     */
-    public void setAmount(int amount) {
-        abstractGoods.setAmount(amount);
-    }
-
-    /**
-     * Sets the amount of the goods wrapped by this Label to a default
-     * value.  By default, do nothing.  Override this method if
-     * necessary.
-     */
-    public void setDefaultAmount() {
-        // do nothing
-    }
+	/**
+	 * Sets the amount of the goods wrapped by this Label to a default value. By
+	 * default, do nothing. Override this method if necessary.
+	 */
+	public void setDefaultAmount() {
+		// do nothing
+	}
 }

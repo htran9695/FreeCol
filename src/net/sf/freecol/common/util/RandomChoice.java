@@ -25,53 +25,108 @@ import java.util.logging.Logger;
 
 import static net.sf.freecol.common.util.RandomUtils.*;
 
-
 /**
  * A class to provide flat and weighted random selection from a collection.
+ *
+ * @param <T>
+ *            the generic type
  */
 public class RandomChoice<T> {
 
-    private final int probability;
-    private final T object;
+	/** The probability. */
+	private final int probability;
 
+	/** The object. */
+	private final T object;
 
-    public RandomChoice(T object, int probability) {
-        this.probability = probability;
-        this.object = object;
-    }
+	/**
+	 * Instantiates a new random choice.
+	 *
+	 * @param object
+	 *            the object
+	 * @param probability
+	 *            the probability
+	 */
+	public RandomChoice(T object, int probability) {
+		this.probability = probability;
+		this.object = object;
+	}
 
-    public int getProbability() {
-        return probability;
-    }
+	/**
+	 * Gets the probability.
+	 *
+	 * @return the probability
+	 */
+	public int getProbability() {
+		return probability;
+	}
 
-    public T getObject() {
-        return object;
-    }
+	/**
+	 * Gets the object.
+	 *
+	 * @return the object
+	 */
+	public T getObject() {
+		return object;
+	}
 
+	/**
+	 * Select.
+	 *
+	 * @param <T>
+	 *            the generic type
+	 * @param input
+	 *            the input
+	 * @param probability
+	 *            the probability
+	 * @return the t
+	 */
+	private static <T> T select(Collection<RandomChoice<T>> input, int probability) {
+		if (input.isEmpty())
+			return null;
 
-    private static <T> T select(Collection<RandomChoice<T>> input,
-                                int probability) {
-        if (input.isEmpty()) return null;
+		int total = 0;
+		for (RandomChoice<T> choice : input) {
+			total += choice.getProbability();
+			if (probability < total)
+				return choice.getObject();
+		}
+		return input.iterator().next().getObject();
+	}
 
-        int total = 0;
-        for (RandomChoice<T> choice : input) {
-            total += choice.getProbability();
-            if (probability < total) return choice.getObject();
-        }
-        return input.iterator().next().getObject();
-    }
+	/**
+	 * Gets the total probability.
+	 *
+	 * @param <T>
+	 *            the generic type
+	 * @param input
+	 *            the input
+	 * @return the total probability
+	 */
+	public static <T> int getTotalProbability(Collection<RandomChoice<T>> input) {
+		return input.stream().mapToInt(c -> c.getProbability()).sum();
+	}
 
-    public static <T> int getTotalProbability(Collection<RandomChoice<T>> input) {
-        return input.stream().mapToInt(c -> c.getProbability()).sum();
-    }
-
-    public static <T> T getWeightedRandom(Logger logger, String logMe,
-                                          Collection<RandomChoice<T>> input,
-                                          Random random) {
-        int n;
-        return (input == null || input.isEmpty()
-            || (n = getTotalProbability(input)) <= 0) ? null
-            : (input.size() == 1) ? input.iterator().next().getObject()
-            : select(input, randomInt(logger, logMe, random, n));
-    }
+	/**
+	 * Gets the weighted random.
+	 *
+	 * @param <T>
+	 *            the generic type
+	 * @param logger
+	 *            the logger
+	 * @param logMe
+	 *            the log me
+	 * @param input
+	 *            the input
+	 * @param random
+	 *            the random
+	 * @return the weighted random
+	 */
+	public static <T> T getWeightedRandom(Logger logger, String logMe, Collection<RandomChoice<T>> input,
+			Random random) {
+		int n;
+		return (input == null || input.isEmpty() || (n = getTotalProbability(input)) <= 0) ? null
+				: (input.size() == 1) ? input.iterator().next().getObject()
+						: select(input, randomInt(logger, logMe, random, n));
+	}
 }

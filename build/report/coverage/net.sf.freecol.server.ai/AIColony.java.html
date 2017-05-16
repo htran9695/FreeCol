@@ -79,1602 +79,1621 @@ import net.sf.freecol.server.ai.mission.WishRealizationMission;
 
 import org.w3c.dom.Element;
 
-
 /**
  * Objects of this class contains AI-information for a single {@link Colony}.
  */
 public class AIColony extends AIObject implements PropertyChangeListener {
 
-<span class="fc" id="L88">    private static final Logger logger = Logger.getLogger(AIColony.class.getName());</span>
-
-    private static final String LIST_ELEMENT = &quot;ListElement&quot;;
-
-    /**
-     * Do not perform tile improvements that would leave less than
-     * this amount of forested work locations available to the colony.
-     */
-    private static final int FOREST_MINIMUM = 1;
-
-    /** Do not bother trying to ship out less than this amount of goods. */
-    private static final int EXPORT_MINIMUM = 10;
-
-    /** The colony this AIColony is managing. */
-    private Colony colony;
-
-    /** The current plan for the colony.  Does not need to be serialized. */
-<span class="fc" id="L105">    private ColonyPlan colonyPlan = null;</span>
-
-    /** Goods to export from the colony. */
-<span class="fc" id="L108">    private final List&lt;AIGoods&gt; exportGoods = new ArrayList&lt;&gt;();</span>
-
-    /** Useful things for the colony. */
-<span class="fc" id="L111">    private final List&lt;Wish&gt; wishes = new ArrayList&lt;&gt;();</span>
-
-    /** Plans to improve neighbouring tiles. */
-<span class="fc" id="L114">    private final List&lt;TileImprovementPlan&gt; tileImprovementPlans</span>
-        = new ArrayList&lt;&gt;();
-
-    /** When should the workers in this Colony be rearranged? */
-<span class="fc" id="L118">    private Turn rearrangeTurn = new Turn(0);</span>
-
-    /**
-     * Goods that should be completely exported and only exported to
-     * prevent the warehouse filling.
-     */
-<span class="fc" id="L124">    private static final Set&lt;GoodsType&gt; fullExport = new HashSet&lt;&gt;();</span>
-<span class="fc" id="L125">    private static final Set&lt;GoodsType&gt; partExport = new HashSet&lt;&gt;();</span>
-
-    /**
-     * Comparator to favour expert pioneers, then units in that role,
-     * then least skillful.
-     */
-<span class="fc" id="L131">    private static final Comparator&lt;Unit&gt; pioneerComparator</span>
-<span class="fc" id="L132">        = new Comparator&lt;Unit&gt;() {</span>
-            private int score(Unit unit) {
-<span class="nc bnc" id="L134" title="All 2 branches missed.">                return (unit == null) ? -1000 : unit.getPioneerScore();</span>
-            }
-
-            @Override
-            public int compare(Unit u1, Unit u2) {
-<span class="nc" id="L139">                return score(u2) - score(u1);</span>
-            }
-        };
-
-    /**
-     * Comparator to favour expert scouts, then units in that role,
-     * then least skillful.
-     */
-<span class="fc" id="L147">    private static final Comparator&lt;Unit&gt; scoutComparator</span>
-<span class="fc" id="L148">        = new Comparator&lt;Unit&gt;() {</span>
-            private int score(Unit unit) {
-<span class="nc bnc" id="L150" title="All 2 branches missed.">                return (unit == null) ? -1000 : unit.getScoutScore();</span>
-            }
-
-            @Override
-            public int compare(Unit u1, Unit u2) {
-<span class="nc" id="L155">                return score(u2) - score(u1);</span>
-            }
-        };
-
-
-    /**
-     * Creates a new uninitialized &lt;code&gt;AIColony&lt;/code&gt;.
-     *
-     * @param aiMain The main AI-object.
-     * @param id The object identifier.
-     */
-    public AIColony(AIMain aiMain, String id) {
-<span class="fc" id="L167">        super(aiMain, id);</span>
-
-<span class="fc" id="L169">        this.colony = null;</span>
-<span class="fc" id="L170">        this.colonyPlan = null;</span>
-<span class="fc" id="L171">    }</span>
-
-    /**
-     * Creates a new &lt;code&gt;AIColony&lt;/code&gt;.
-     *
-     * @param aiMain The main AI-object.
-     * @param colony The colony to make an {@link AIObject} for.
-     */
-    public AIColony(AIMain aiMain, Colony colony) {
-<span class="fc" id="L180">        this(aiMain, colony.getId());</span>
-
-<span class="fc" id="L182">        this.colony = colony;</span>
-<span class="fc" id="L183">        colony.addPropertyChangeListener(Colony.REARRANGE_WORKERS, this);</span>
-
-<span class="fc" id="L185">        uninitialized = false;</span>
-<span class="fc" id="L186">    }</span>
-
-    /**
-     * Creates a new &lt;code&gt;AIColony&lt;/code&gt; from the given
-     * XML-representation.
-     *
-     * @param aiMain The main AI-object.
-     * @param element The root element for the XML-representation
-     *       of a &lt;code&gt;Wish&lt;/code&gt;.
-     */
-    public AIColony(AIMain aiMain, Element element) {
-<span class="nc" id="L197">        this(aiMain, (String)null);</span>
-
-<span class="nc" id="L199">        readFromXMLElement(element);</span>
-<span class="nc" id="L200">        addAIObjectWithId();</span>
-
-<span class="nc bnc" id="L202" title="All 2 branches missed.">        uninitialized = getColony() == null;</span>
-<span class="nc" id="L203">    }</span>
-
-    /**
-     * Creates a new &lt;code&gt;AIColony&lt;/code&gt; from the given
-     * XML-representation.
-     *
-     * @param aiMain The main AI-object.
-     * @param xr The input stream containing the XML.
-     * @exception XMLStreamException if a problem was encountered
-     *     during parsing.
-     */
-    public AIColony(AIMain aiMain, FreeColXMLReader xr) throws XMLStreamException {
-<span class="nc" id="L215">        this(aiMain, (String)null);</span>
-
-<span class="nc" id="L217">        readFromXML(xr);</span>
-<span class="nc" id="L218">        addAIObjectWithId();</span>
-
-<span class="nc bnc" id="L220" title="All 2 branches missed.">        uninitialized = getColony() == null;</span>
-<span class="nc" id="L221">    }</span>
-
-
-    /**
-     * Gets the &lt;code&gt;Colony&lt;/code&gt; this &lt;code&gt;AIColony&lt;/code&gt; controls.
-     *
-     * @return The &lt;code&gt;Colony&lt;/code&gt;.
-     */
-    public final Colony getColony() {
-<span class="fc" id="L230">        return colony;</span>
-    }
-
-    protected AIUnit getAIUnit(Unit unit) {
-<span class="fc" id="L234">        return getAIMain().getAIUnit(unit);</span>
-    }
-
-    protected AIPlayer getAIOwner() {
-<span class="fc" id="L238">        return getAIMain().getAIPlayer(colony.getOwner());</span>
-    }
-
-    /**
-     * Is this AI colony badly defended?
-     *
-     * @return True if this colony needs more defenders.
-     */
-    public boolean isBadlyDefended() {
-<span class="nc" id="L247">        return colony.isBadlyDefended();</span>
-    }
-
-    /**
-     * Update any relatively static properties of the colony:
-     *   - export state
-     *   - disposition of export goods in this colony
-     *   - tile improvements (might ignore freshly grabbed tiles)
-     *   - wishes
-     *
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     */
-    public void update(LogBuilder lb) {
-<span class="nc" id="L260">        lb.add(&quot;\n  &quot;, colony.getName());</span>
-<span class="nc" id="L261">        resetExports();</span>
-<span class="nc" id="L262">        updateExportGoods(lb);</span>
-<span class="nc" id="L263">        updateTileImprovementPlans(lb);</span>
-<span class="nc" id="L264">        updateWishes(lb);</span>
-<span class="nc" id="L265">    }</span>
-
-    /**
-     * Rearranges the workers within this colony using the {@link ColonyPlan}.
-     *
-     * FIXME: Detect military threats and boost defence.
-     *
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     * @return A collection of worker &lt;code&gt;AIUnit&lt;/code&gt;s that now need
-     *     a &lt;code&gt;WorkInsideColonyMission&lt;/code&gt;.
-     */
-    public Collection&lt;AIUnit&gt; rearrangeWorkers(LogBuilder lb) {
-<span class="fc" id="L277">        final AIMain aiMain = getAIMain();</span>
-<span class="fc" id="L278">        Set&lt;AIUnit&gt; result = new HashSet&lt;&gt;();</span>
-
-        // First check if it is collapsing.
-<span class="pc bpc" id="L281" title="1 of 2 branches missed.">        if (colony.getUnitCount() &lt;= 0) {</span>
-<span class="nc bnc" id="L282" title="All 2 branches missed.">            if (!avertAutoDestruction()) return result;</span>
-        }
-
-        // Skip this colony if it does not yet need rearranging.
-<span class="fc" id="L286">        final int turn = getGame().getTurn().getNumber();</span>
-<span class="pc bpc" id="L287" title="1 of 2 branches missed.">        if (rearrangeTurn.getNumber() &gt; turn) {</span>
-<span class="nc bnc" id="L288" title="All 4 branches missed.">            if (colony.getCurrentlyBuilding() == null</span>
-                &amp;&amp; colonyPlan != null
-<span class="nc bnc" id="L290" title="All 2 branches missed.">                &amp;&amp; colonyPlan.getBestBuildableType() != null) {</span>
-<span class="nc" id="L291">                logger.warning(colony.getName() + &quot; could be building but&quot;</span>
-<span class="nc" id="L292">                    + &quot; is asleep until turn: &quot; + rearrangeTurn.getNumber()</span>
-                    + &quot;( &gt; &quot; + turn + &quot;)&quot;);
-            } else {
-<span class="nc" id="L295">                return result;</span>
-            }
-        }
-
-<span class="fc" id="L299">        final Tile tile = colony.getTile();</span>
-<span class="fc" id="L300">        final Player player = colony.getOwner();</span>
-<span class="fc" id="L301">        final Specification spec = getSpecification();</span>
-<span class="fc" id="L302">        lb.add(&quot;\n  &quot;, colony.getName());</span>
-
-        // For now, cap the rearrangement horizon, because confidence
-        // that we are triggering on all relevant changes is low.
-<span class="fc" id="L306">        int nextRearrange = 15;</span>
-
-        // See if there are neighbouring LCRs to explore, or tiles
-        // to steal, or just unclaimed tiles (a neighbouring settlement
-        // might have disappeared or relinquished a tile).
-        // This needs to be done early so that new tiles can be
-        // included in any new colony plan.
-<span class="fc" id="L313">        exploreLCRs();</span>
-<span class="fc" id="L314">        stealTiles(lb);</span>
-<span class="fc bfc" id="L315" title="All 2 branches covered.">        for (Tile t : tile.getSurroundingTiles(1)) {</span>
-<span class="pc bpc" id="L316" title="3 of 4 branches missed.">            if (!player.owns(t) &amp;&amp; player.canClaimForSettlement(t)) {</span>
-<span class="nc" id="L317">                AIMessage.askClaimLand(t, this, 0);</span>
-<span class="nc bnc" id="L318" title="All 2 branches missed.">                if (player.owns(t)) lb.add(&quot;, claimed tile &quot;, t);</span>
-            }
-<span class="fc" id="L320">        }</span>
-
-        // Update the colony plan.
-<span class="fc bfc" id="L323" title="All 2 branches covered.">        if (colonyPlan == null) colonyPlan = new ColonyPlan(aiMain, colony);</span>
-<span class="fc" id="L324">        colonyPlan.update();</span>
-
-        // Now that we know what raw materials are available in the
-        // colony plan, set the current buildable, first backing out
-        // of anything currently being built that is now impossible.
-        // If a buildable is chosen, refine the worker allocation in
-        // the colony plan in case the required building materials
-        // have changed.
-<span class="fc" id="L332">        BuildableType oldBuild = colony.getCurrentlyBuilding();</span>
-<span class="fc" id="L333">        BuildableType build = colonyPlan.getBestBuildableType();</span>
-<span class="fc bfc" id="L334" title="All 2 branches covered.">        if (build != oldBuild) {</span>
-<span class="fc" id="L335">            List&lt;BuildableType&gt; queue = new ArrayList&lt;&gt;();</span>
-<span class="pc bpc" id="L336" title="1 of 2 branches missed.">            if (build != null) queue.add(build);</span>
-<span class="fc" id="L337">            AIMessage.askSetBuildQueue(this, queue);</span>
-<span class="fc" id="L338">            build = colony.getCurrentlyBuilding();</span>
-        }
-<span class="fc" id="L340">        colonyPlan.refine(build, lb);</span>
-
-        // Collect all potential workers from the colony and from the tile,
-        // being careful not to disturb existing non-colony missions.
-        // Note the special case of a unit aiming to build a colony on this
-        // tile, which happens regularly with the initial AI colony.
-        // Remember where the units came from.
-<span class="fc" id="L347">        List&lt;Unit&gt; workers = colony.getUnitList();</span>
-<span class="fc" id="L348">        List&lt;UnitWas&gt; was = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L349" title="All 2 branches covered.">        for (Unit u : workers) {</span>
-<span class="fc" id="L350">            Location loc = u.getLocation();</span>
-<span class="fc" id="L351">            was.add(new UnitWas(u));</span>
-<span class="fc" id="L352">        }</span>
-<span class="pc bpc" id="L353" title="1 of 2 branches missed.">        for (Unit u : tile.getUnitList()) {</span>
-<span class="nc bnc" id="L354" title="All 4 branches missed.">            if (!u.isPerson() || u.hasAbility(Ability.REF_UNIT)</span>
-<span class="nc bnc" id="L355" title="All 2 branches missed.">                || getAIUnit(u) == null) continue;</span>
-<span class="nc" id="L356">            Mission m = getAIUnit(u).getMission();</span>
-<span class="nc bnc" id="L357" title="All 4 branches missed.">            if (m == null</span>
-                || (m instanceof BuildColonyMission
-<span class="nc bnc" id="L359" title="All 2 branches missed.">                    &amp;&amp; (Map.isSameLocation(m.getTarget(), tile)</span>
-<span class="nc bnc" id="L360" title="All 8 branches missed.">                        || colony.getUnitCount() &lt;= 1))</span>
-                // FIXME: drop this when the AI stops building excessive armies
-                || m instanceof DefendSettlementMission
-                || m instanceof IdleAtSettlementMission
-                || m instanceof WorkInsideColonyMission
-                ) {
-<span class="nc" id="L366">                workers.add(u);</span>
-<span class="nc" id="L367">                was.add(new UnitWas(u));</span>
-            }
-<span class="nc" id="L369">        }</span>
-        // Assign the workers according to the colony plan.
-        // ATM we just accept this assignment unless it failed, in
-        // which case restore original state.
-<span class="fc" id="L373">        EuropeanAIPlayer aiPlayer = (EuropeanAIPlayer)getAIOwner();</span>
-<span class="fc" id="L374">        LogBuilder aw = new LogBuilder(256);</span>
-<span class="pc bpc" id="L375" title="1 of 2 branches missed.">        boolean preferScouts = aiPlayer.scoutsNeeded() &gt; 0;</span>
-<span class="fc" id="L376">        Colony scratch = colonyPlan.assignWorkers(new ArrayList&lt;&gt;(workers),</span>
-                                                  preferScouts, aw);
-<span class="pc bpc" id="L378" title="1 of 2 branches missed.">        if (scratch == null) {</span>
-<span class="nc" id="L379">            lb.add(&quot;, failed to assign workers.&quot;);</span>
-<span class="nc" id="L380">            rearrangeTurn = new Turn(turn + 1);</span>
-<span class="nc" id="L381">            return result;</span>
-        } else {
-<span class="fc" id="L383">            lb.add(&quot;, assigned &quot;, workers.size(), &quot; workers&quot;);</span>
-        }
-
-        // Apply the arrangement, and give suitable missions to all units.
-<span class="fc" id="L387">        AIMessage.askRearrangeColony(this, workers, scratch);</span>
-
-        // Emergency recovery if something broke and the colony is empty.
-<span class="pc bpc" id="L390" title="1 of 2 branches missed.">        if (colony.getUnitCount() &lt;= 0) {</span>
-<span class="nc" id="L391">            lb.add(&quot;, autodestruct detected&quot;);</span>
-<span class="nc" id="L392">            String destruct = &quot;Autodestruct at &quot; + colony.getName()</span>
-                + &quot; in &quot; + turn + &quot;:&quot;;
-<span class="nc bnc" id="L394" title="All 2 branches missed.">            for (UnitWas uw : was) destruct += &quot;\n&quot; + uw;</span>
-<span class="nc" id="L395">            logger.warning(destruct);</span>
-<span class="nc bnc" id="L396" title="All 2 branches missed.">            if (!avertAutoDestruction()) return result;</span>
-        }
-
-        // Argh.  We may have chosen to build something we can no
-        // longer build due to some limitation.  Try to find a
-        // replacement, but do not re-refine as that process is
-        // sufficiently complex that we can not be confident that this
-        // will not loop indefinitely.  The compromise is to just
-        // rearrange next turn until we get out of this state.
-<span class="pc bpc" id="L405" title="2 of 4 branches missed.">        if (build != null &amp;&amp; !colony.canBuild(build)) {</span>
-<span class="nc" id="L406">            BuildableType newBuild = colonyPlan.getBestBuildableType();</span>
-<span class="nc" id="L407">            lb.add(&quot;, reneged building &quot;, build.getSuffix(),</span>
-<span class="nc" id="L408">                   &quot; (&quot;, colony.getNoBuildReason(build, null), &quot;)&quot;);</span>
-<span class="nc" id="L409">            List&lt;BuildableType&gt; queue = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L410" title="All 2 branches missed.">            if (newBuild != null) queue.add(newBuild);</span>
-<span class="nc" id="L411">            AIMessage.askSetBuildQueue(this, queue);</span>
-<span class="nc" id="L412">            nextRearrange = 1;</span>
-        }
-
-        // Now that all production has been stabilized, plan to
-        // rearrange when the warehouse hits a limit.
-<span class="pc bpc" id="L417" title="1 of 2 branches missed.">        if (colony.getNetProductionOf(spec.getPrimaryFoodType()) &lt; 0) {</span>
-<span class="nc" id="L418">            int net = colony.getNetProductionOf(spec.getPrimaryFoodType());</span>
-<span class="nc" id="L419">            int when = colony.getGoodsCount(spec.getPrimaryFoodType()) / -net;</span>
-<span class="nc" id="L420">            nextRearrange = Math.max(0, Math.min(nextRearrange, when-1));</span>
-        }
-<span class="fc" id="L422">        int warehouse = colony.getWarehouseCapacity();</span>
-<span class="fc bfc" id="L423" title="All 2 branches covered.">        for (GoodsType g : spec.getStorableGoodsTypeList()) {</span>
-<span class="fc bfc" id="L424" title="All 2 branches covered.">            if (g.isFoodType()) continue;</span>
-<span class="fc" id="L425">            int have = colony.getGoodsCount(g);</span>
-<span class="fc" id="L426">            int net = colony.getAdjustedNetProductionOf(g);</span>
-<span class="pc bpc" id="L427" title="1 of 6 branches missed.">            if (net &gt;= 0 &amp;&amp; (have &gt;= warehouse || g.limitIgnored())) continue;</span>
-<span class="fc bfc" id="L428" title="All 4 branches covered.">            int when = (net &lt; 0) ? (have / -net - 1)</span>
-                : (net &gt; 0) ? ((warehouse - have) / net - 1)
-                : Integer.MAX_VALUE;
-<span class="fc" id="L431">            nextRearrange = Math.max(1, Math.min(nextRearrange, when));</span>
-<span class="fc" id="L432">        }</span>
-
-        // Return any units with the wrong mission
-<span class="fc bfc" id="L435" title="All 2 branches covered.">        for (Unit u : colony.getUnitList()) {</span>
-<span class="fc" id="L436">            final AIUnit aiu = getAIUnit(u);</span>
-<span class="fc" id="L437">            WorkInsideColonyMission wic</span>
-<span class="fc" id="L438">                = aiu.getMission(WorkInsideColonyMission.class);</span>
-<span class="fc bfc" id="L439" title="All 2 branches covered.">            if (wic == null) {</span>
-<span class="pc bpc" id="L440" title="1 of 2 branches missed.">                if (aiPlayer.getWorkInsideColonyMission(aiu, this) == null) {</span>
-<span class="nc" id="L441">                    result.add(aiu); </span>
-                } else {
-<span class="fc" id="L443">                    lb.add(&quot;, &quot;, aiu.getMission());</span>
-<span class="fc" id="L444">                    aiu.dropTransport();</span>
-                }
-            }
-<span class="fc" id="L447">        }</span>
-
-        // Allocate pioneers if possible.
-<span class="fc" id="L450">        int tipSize = tileImprovementPlans.size();</span>
-<span class="pc bpc" id="L451" title="1 of 2 branches missed.">        if (tipSize &gt; 0) {</span>
-<span class="nc" id="L452">            List&lt;Unit&gt; pioneers = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L453" title="All 2 branches missed.">            for (Unit u : tile.getUnitList()) {</span>
-<span class="nc bnc" id="L454" title="All 2 branches missed.">                if (u.getPioneerScore() &gt;= 0) pioneers.add(u);</span>
-<span class="nc" id="L455">            }</span>
-<span class="nc" id="L456">            Collections.sort(pioneers, pioneerComparator);</span>
-<span class="nc bnc" id="L457" title="All 2 branches missed.">            for (Unit u : pioneers) {</span>
-<span class="nc" id="L458">                final AIUnit aiu = getAIUnit(u);</span>
-<span class="nc" id="L459">                Mission m = aiu.getMission();</span>
-<span class="nc bnc" id="L460" title="All 2 branches missed.">                Location oldTarget = (m == null) ? null : m.getTarget();</span>
-
-<span class="nc bnc" id="L462" title="All 2 branches missed.">                if ((m = aiPlayer.getPioneeringMission(aiu, null)) != null) {</span>
-<span class="nc" id="L463">                    lb.add(&quot;, &quot;, aiu.getMission());</span>
-<span class="nc" id="L464">                    aiPlayer.updateTransport(aiu, oldTarget, lb);</span>
-<span class="nc bnc" id="L465" title="All 2 branches missed.">                    if (--tipSize &lt;= 0) break;</span>
-                }
-<span class="nc" id="L467">            }</span>
-        }
-                
-<span class="pc bpc" id="L470" title="1 of 2 branches missed.">        for (Unit u : tile.getUnitList()) {</span>
-<span class="nc" id="L471">            final AIUnit aiu = getAIUnit(u);</span>
-<span class="nc" id="L472">            Mission m = aiu.getMission();</span>
-<span class="nc bnc" id="L473" title="All 12 branches missed.">            if (m instanceof BuildColonyMission</span>
-                || m instanceof DefendSettlementMission
-                || m instanceof MissionaryMission
-                || m instanceof PioneeringMission
-                || m instanceof ScoutingMission
-<span class="nc" id="L478">                || m instanceof UnitSeekAndDestroyMission) continue;</span>
-<span class="nc bnc" id="L479" title="All 2 branches missed.">            Location oldTarget = (m == null) ? null : m.getTarget();</span>
-
-<span class="nc bnc" id="L481" title="All 2 branches missed.">            if (u.hasAbility(Ability.SPEAK_WITH_CHIEF)</span>
-<span class="nc bnc" id="L482" title="All 2 branches missed.">                &amp;&amp; (m = aiPlayer.getScoutingMission(aiu)) != null) {</span>
-<span class="nc" id="L483">                lb.add(&quot;, &quot;, m);</span>
-<span class="nc" id="L484">                aiPlayer.updateTransport(aiu, oldTarget, lb);</span>
-<span class="nc" id="L485">                continue;</span>
-<span class="nc bnc" id="L486" title="All 2 branches missed.">            } else if (u.isDefensiveUnit()</span>
-<span class="nc bnc" id="L487" title="All 2 branches missed.">                &amp;&amp; (m = aiPlayer.getDefendSettlementMission(aiu, colony)) != null) {</span>
-<span class="nc" id="L488">                lb.add(&quot;, &quot;, m);</span>
-<span class="nc" id="L489">                aiPlayer.updateTransport(aiu, oldTarget, lb);</span>
-<span class="nc" id="L490">                continue;</span>
-<span class="nc bnc" id="L491" title="All 2 branches missed.">            } else if (u.hasAbility(Ability.ESTABLISH_MISSION)</span>
-<span class="nc bnc" id="L492" title="All 2 branches missed.">                &amp;&amp; (m = aiPlayer.getMissionaryMission(aiu)) != null) {</span>
-<span class="nc" id="L493">                lb.add(&quot;, &quot;, m);</span>
-<span class="nc" id="L494">                aiPlayer.updateTransport(aiu, oldTarget, lb);</span>
-<span class="nc" id="L495">                continue;</span>
-            }
-<span class="nc" id="L497">            result.add(aiu);</span>
-<span class="nc" id="L498">        }</span>
-
-        // Log the changes.
-<span class="fc" id="L501">        build = colony.getCurrentlyBuilding();</span>
-<span class="pc bpc" id="L502" title="1 of 2 branches missed.">        String buildStr = (build != null) ? build.toString()</span>
-<span class="pc bnc" id="L503" title="All 2 branches missed.">            : ((build = colonyPlan.getBestBuildableType()) != null)</span>
-            ? &quot;unexpected-null(&quot; + build + &quot;)&quot;
-            : &quot;expected-null&quot;;
-<span class="fc" id="L506">        lb.add(&quot;, building &quot;, buildStr, &quot;, population &quot;, colony.getUnitCount(),</span>
-<span class="fc" id="L507">            &quot;, rearrange &quot;, nextRearrange, &quot;.\n&quot;);</span>
-<span class="fc" id="L508">        lb.add(aw.toString());</span>
-<span class="fc" id="L509">        lb.shrink(&quot;\n&quot;);</span>
-<span class="fc bfc" id="L510" title="All 2 branches covered.">        for (UnitWas uw : was) lb.add(&quot;\n  &quot;, uw);</span>
-
-        // Set the next rearrangement turn.
-<span class="fc" id="L513">        rearrangeTurn = new Turn(turn + nextRearrange);</span>
-<span class="fc" id="L514">        return result;</span>
-    }
-
-    /**
-     * Reset the export settings.
-     * This is always needed even when there is no customs house, because
-     * updateExportGoods needs to know what to export by transport.
-     *
-     * FIXME: consider market prices?
-     */
-    private void resetExports() {
-<span class="nc" id="L525">        final Specification spec = getSpecification();</span>
-<span class="nc" id="L526">        final Player player = colony.getOwner();</span>
-
-<span class="nc" id="L528">        fullExport.clear();</span>
-<span class="nc" id="L529">        partExport.clear();</span>
-        // Initialize the exportable sets.
-        // Luxury goods, non-raw materials (silver), and raw materials
-        // we do not produce (might have been gifted) should always be
-        // fully exported.  Other raw and manufactured goods should be
-        // exported only to the extent of not filling the warehouse.
-<span class="nc bnc" id="L535" title="All 2 branches missed.">        for (GoodsType g : spec.getStorableGoodsTypeList()) {</span>
-<span class="nc bnc" id="L536" title="All 2 branches missed.">            if (!g.isFoodType()</span>
-<span class="nc bnc" id="L537" title="All 2 branches missed.">                &amp;&amp; !g.isBuildingMaterial()</span>
-<span class="nc bnc" id="L538" title="All 2 branches missed.">                &amp;&amp; !g.isMilitaryGoods()</span>
-<span class="nc bnc" id="L539" title="All 2 branches missed.">                &amp;&amp; !g.isTradeGoods()) {</span>
-<span class="nc bnc" id="L540" title="All 2 branches missed.">                if (g.isRawMaterial()) {</span>
-<span class="nc" id="L541">                    partExport.add(g);</span>
-                } else {
-<span class="nc" id="L543">                    fullExport.add(g);</span>
-                }
-            }
-<span class="nc" id="L546">        }</span>
-<span class="nc bnc" id="L547" title="All 2 branches missed.">        for (Role role : spec.getRoles()) {</span>
-<span class="nc bnc" id="L548" title="All 2 branches missed.">            if (role.isAvailableTo(player, spec.getDefaultUnitType(player))) {</span>
-<span class="nc bnc" id="L549" title="All 2 branches missed.">                for (AbstractGoods ag : role.getRequiredGoods()) {</span>
-<span class="nc bnc" id="L550" title="All 2 branches missed.">                    if (fullExport.contains(ag.getType())) {</span>
-<span class="nc" id="L551">                        fullExport.remove(ag.getType());</span>
-<span class="nc" id="L552">                        partExport.add(ag.getType());</span>
-                    }
-<span class="nc" id="L554">                }</span>
-            }
-<span class="nc" id="L556">        }</span>
-
-<span class="nc bnc" id="L558" title="All 2 branches missed.">        if (colony.getOwner().getMarket() == null) {</span>
-            // Do not export when there is no market!
-<span class="nc bnc" id="L560" title="All 2 branches missed.">            for (GoodsType g : spec.getGoodsTypeList()) {</span>
-<span class="nc" id="L561">                colony.getExportData(g).setExported(false);</span>
-<span class="nc" id="L562">            }</span>
-        } else {
-<span class="nc" id="L564">            int exportLevel = 4 * colony.getWarehouseCapacity() / 5;</span>
-<span class="nc bnc" id="L565" title="All 2 branches missed.">            for (GoodsType g : spec.getGoodsTypeList()) {</span>
-<span class="nc bnc" id="L566" title="All 2 branches missed.">                if (fullExport.contains(g)) {</span>
-<span class="nc" id="L567">                    colony.getExportData(g).setExportLevel(0);</span>
-<span class="nc" id="L568">                    colony.getExportData(g).setExported(true);</span>
-<span class="nc bnc" id="L569" title="All 2 branches missed.">                } else if (partExport.contains(g)) {</span>
-<span class="nc" id="L570">                    colony.getExportData(g).setExportLevel(exportLevel);</span>
-<span class="nc" id="L571">                    colony.getExportData(g).setExported(true);</span>
-                } else {
-<span class="nc" id="L573">                    colony.getExportData(g).setExported(false);</span>
-                }
-<span class="nc" id="L575">            }</span>
-        }
-<span class="nc" id="L577">    }</span>
-
-    /**
-     * Explores any neighbouring LCRs.
-     * Choose non-expert persons for the exploration.
-     */
-    private void exploreLCRs() {
-<span class="fc" id="L584">        final Tile tile = colony.getTile();</span>
-<span class="fc" id="L585">        List&lt;Unit&gt; explorers = tile.getUnitList().stream()</span>
-<span class="pc bnc" id="L586" title="All 4 branches missed.">            .filter(u -&gt; u.isPerson() &amp;&amp; (u.getType().getSkill() &lt;= 0</span>
-<span class="nc bnc" id="L587" title="All 2 branches missed.">                        || u.hasAbility(Ability.EXPERT_SCOUT)))</span>
-<span class="fc" id="L588">            .sorted(scoutComparator).collect(Collectors.toList());</span>
-<span class="fc bfc" id="L589" title="All 2 branches covered.">        for (Tile t : tile.getSurroundingTiles(1)) {</span>
-<span class="pc bpc" id="L590" title="1 of 2 branches missed.">            if (t.hasLostCityRumour()) {</span>
-<span class="nc" id="L591">                Direction direction = tile.getDirection(t);</span>
-                for (;;) {
-<span class="nc bnc" id="L593" title="All 2 branches missed.">                    if (explorers.isEmpty()) return;</span>
-<span class="nc" id="L594">                    Unit u = explorers.remove(0);</span>
-<span class="nc bnc" id="L595" title="All 2 branches missed.">                    if (!u.getMoveType(t).isProgress()) continue;</span>
-<span class="nc bnc" id="L596" title="All 2 branches missed.">                    if (getAIUnit(u).move(direction)</span>
-<span class="nc bnc" id="L597" title="All 2 branches missed.">                        &amp;&amp; !t.hasLostCityRumour()) {</span>
-<span class="nc" id="L598">                        u.setDestination(tile);</span>
-<span class="nc" id="L599">                        break;</span>
-                    }
-<span class="nc" id="L601">                }</span>
-            }
-<span class="fc" id="L603">        }</span>
-<span class="fc" id="L604">    }</span>
-
-    /**
-     * Steals neighbouring tiles but only if the colony has some
-     * defence.  Grab everything if at war with the owner, otherwise
-     * just take the tile that best helps with the currently required
-     * raw building materials, with a lesser interest in food.
-     *
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     */
-    private void stealTiles(LogBuilder lb) {
-<span class="fc" id="L615">        final Specification spec = getSpecification();</span>
-<span class="fc" id="L616">        final Tile tile = colony.getTile();</span>
-<span class="fc" id="L617">        final Player player = colony.getOwner();</span>
-<span class="fc" id="L618">        boolean hasDefender = any(tile.getUnitList(),</span>
-<span class="nc bnc" id="L619" title="All 2 branches missed.">            u -&gt; u.isDefensiveUnit()</span>
-<span class="nc bnc" id="L620" title="All 2 branches missed.">                &amp;&amp; getAIUnit(u).getMission(DefendSettlementMission.class) != null);</span>
-<span class="pc bpc" id="L621" title="1 of 2 branches missed.">        if (!hasDefender) return;</span>
-
-        // What goods are really needed?
-<span class="nc" id="L624">        List&lt;GoodsType&gt; needed = spec.getRawBuildingGoodsTypeList().stream()</span>
-<span class="nc bnc" id="L625" title="All 2 branches missed.">            .filter(gt -&gt; colony.getTotalProductionOf(gt) &lt;= 0)</span>
-<span class="nc" id="L626">            .collect(Collectors.toList());</span>
-
-        // If a tile can be stolen, do so if already at war with the
-        // owner or if it is the best one available.
-<span class="nc" id="L630">        UnitType unitType = spec.getDefaultUnitType(player);</span>
-<span class="nc" id="L631">        Tile steal = null;</span>
-<span class="nc" id="L632">        double score = 1.0;</span>
-<span class="nc bnc" id="L633" title="All 2 branches missed.">        for (Tile t : tile.getSurroundingTiles(1)) {</span>
-<span class="nc" id="L634">            Player owner = t.getOwner();</span>
-<span class="nc bnc" id="L635" title="All 4 branches missed.">            if (owner == null || owner == player</span>
-<span class="nc bnc" id="L636" title="All 2 branches missed.">                || owner.isEuropean()</span>
-<span class="nc bnc" id="L637" title="All 2 branches missed.">                || !player.canClaimForSettlement(t)) continue;</span>
-<span class="nc bnc" id="L638" title="All 2 branches missed.">            if (owner.atWarWith(player)) {</span>
-<span class="nc bnc" id="L639" title="All 2 branches missed.">                if (AIMessage.askClaimLand(t, this, NetworkConstants.STEAL_LAND)</span>
-<span class="nc bnc" id="L640" title="All 2 branches missed.">                    &amp;&amp; player.owns(t)) {</span>
-<span class="nc" id="L641">                    lb.add(&quot;, stole tile &quot;, t,</span>
-<span class="nc" id="L642">                          &quot; from hostile &quot;, owner.getName());</span>
-                }
-            } else {
-                // Pick the best tile to steal, considering mainly the
-                // building goods needed, but including food at a lower
-                // weight.
-<span class="nc" id="L648">                double s = needed.stream()</span>
-<span class="nc" id="L649">                        .mapToInt(gt -&gt; t.getPotentialProduction(gt, unitType)).sum()</span>
-<span class="nc" id="L650">                    + spec.getFoodGoodsTypeList().stream()</span>
-<span class="nc" id="L651">                        .mapToDouble(ft -&gt; 0.1 * t.getPotentialProduction(ft, unitType)).sum();</span>
-<span class="nc bnc" id="L652" title="All 2 branches missed.">                if (s &gt; score) {</span>
-<span class="nc" id="L653">                    score = s;</span>
-<span class="nc" id="L654">                    steal = t;</span>
-                }
-            }
-<span class="nc" id="L657">        }</span>
-<span class="nc bnc" id="L658" title="All 2 branches missed.">        if (steal != null) {</span>
-<span class="nc" id="L659">            Player owner = steal.getOwner();</span>
-<span class="nc bnc" id="L660" title="All 2 branches missed.">            if (AIMessage.askClaimLand(steal, this, NetworkConstants.STEAL_LAND)</span>
-<span class="nc bnc" id="L661" title="All 2 branches missed.">                &amp;&amp; player.owns(steal)) {</span>
-<span class="nc" id="L662">                lb.add(&quot;, stole tile &quot;, steal, &quot; (score = &quot;, score,</span>
-<span class="nc" id="L663">                      &quot;) from &quot;, owner.getName());</span>
-            }
-        }
-<span class="nc" id="L666">    }</span>
-
-    /**
-     * Something bad happened, there is no remaining unit working in
-     * the colony.
-     *
-     * Throwing an exception stalls the AI and wrecks the colony in a
-     * weird way.  Try to recover by hopefully finding a unit outside
-     * the colony and stuffing it into the town hall.
-     *
-     * @return True if autodestruction has been averted.
-     */
-    private boolean avertAutoDestruction() {
-<span class="nc" id="L679">        LogBuilder lb = new LogBuilder(64);</span>
-<span class="nc" id="L680">        lb.add(&quot;Colony &quot;, colony.getName(), &quot; rearrangement leaves no units, &quot;,</span>
-<span class="nc" id="L681">            colony.getTile().getUnitCount(), &quot; available:&quot;);</span>
-<span class="nc bnc" id="L682" title="All 2 branches missed.">        for (Unit u : colony.getTile().getUnitList()) lb.add(&quot; &quot;, u);</span>
-<span class="nc" id="L683">        List&lt;GoodsType&gt; libertyGoods = getSpecification()</span>
-<span class="nc" id="L684">            .getLibertyGoodsTypeList();</span>
-<span class="nc bnc" id="L685" title="All 2 branches missed.">        out: for (Unit u : colony.getTile().getUnitList()) {</span>
-<span class="nc bnc" id="L686" title="All 2 branches missed.">            if (!u.isPerson()) continue;</span>
-<span class="nc bnc" id="L687" title="All 2 branches missed.">            for (WorkLocation wl : colony.getAvailableWorkLocations()) {</span>
-<span class="nc bnc" id="L688" title="All 2 branches missed.">                if (!wl.canAdd(u)) continue;</span>
-<span class="nc bnc" id="L689" title="All 2 branches missed.">                for (GoodsType type : libertyGoods) {</span>
-<span class="nc bnc" id="L690" title="All 2 branches missed.">                    if (wl.getPotentialProduction(type, u.getType()) &gt; 0</span>
-<span class="nc bnc" id="L691" title="All 2 branches missed.">                        &amp;&amp; AIMessage.askWork(getAIUnit(u), wl)</span>
-<span class="nc bnc" id="L692" title="All 2 branches missed.">                        &amp;&amp; u.getLocation() == wl) {</span>
-<span class="nc" id="L693">                        AIMessage.askChangeWorkType(getAIUnit(u), type);</span>
-<span class="nc" id="L694">                        lb.add(&quot;, averts destruction with &quot;, u);</span>
-<span class="nc" id="L695">                        break out;</span>
-                    }
-<span class="nc" id="L697">                }</span>
-<span class="nc" id="L698">            }</span>
-<span class="nc" id="L699">        }</span>
-<span class="nc" id="L700">        lb.log(logger, Level.WARNING);</span>
-<span class="nc bnc" id="L701" title="All 2 branches missed.">        return colony.getUnitCount() &gt; 0;</span>
-    }
-
-    /**
-     * Stop using a work location.
-     *
-     * Called from BuildColonyMission to clear a colony tile that is about
-     * to have a colony built on it.
-     *
-     * @param wl The &lt;code&gt;WorkLocation&lt;/code&gt; to stop using.
-     */
-    public void stopUsing(WorkLocation wl) {
-<span class="nc bnc" id="L713" title="All 2 branches missed.">        for (Unit u : wl.getUnitList()) {</span>
-<span class="nc" id="L714">            AIMessage.askPutOutsideColony(getAIUnit(u));</span>
-<span class="nc" id="L715">        }</span>
-<span class="nc bnc" id="L716" title="All 2 branches missed.">        if (colony.getUnitCount() &lt;= 0) avertAutoDestruction();</span>
-<span class="nc" id="L717">        rearrangeTurn = new Turn(getGame().getTurn().getNumber());</span>
-<span class="nc" id="L718">    }</span>
-
-    /**
-     * Gets the goods to be exported from this AI colony.
-     *
-     * @return A copy of the exportGoods list.
-     */
-    public List&lt;AIGoods&gt; getExportGoods() {
-<span class="fc" id="L726">        synchronized (exportGoods) {</span>
-            // firePropertyChanges can hit exportGoods
-<span class="fc" id="L728">            return new ArrayList&lt;&gt;(exportGoods);</span>
-<span class="nc" id="L729">        }</span>
-    }
-
-    /**
-     * Clear the export goods.
-     */
-    private void clearExportGoods() {
-<span class="nc" id="L736">        synchronized (exportGoods) {</span>
-<span class="nc" id="L737">            exportGoods.clear();</span>
-<span class="nc" id="L738">        }</span>
-<span class="nc" id="L739">    }</span>
-
-    /**
-     * Add to the export goods list, and resort.
-     *
-     * @param aiGoods The &lt;code&gt;AIGoods&lt;/code&gt; to add.
-     */
-    private void addExportGoods(AIGoods aiGoods) {
-<span class="nc" id="L747">        synchronized (exportGoods) {</span>
-<span class="nc" id="L748">            exportGoods.add(aiGoods);</span>
-<span class="nc" id="L749">        }</span>
-<span class="nc" id="L750">    }</span>
-
-    /**
-     * Set the export goods list.
-     *
-     * @param aiGoods The new list of &lt;code&gt;AIGoods&lt;/code&gt;.
-     */
-    private void setExportGoods(List&lt;AIGoods&gt; aiGoods) {            
-<span class="nc" id="L758">        clearExportGoods();</span>
-<span class="nc" id="L759">        synchronized (exportGoods) {</span>
-<span class="nc" id="L760">            exportGoods.addAll(aiGoods);</span>
-<span class="nc" id="L761">        }</span>
-<span class="nc" id="L762">        sortExportGoods();</span>
-<span class="nc" id="L763">    }</span>
-
-    /**
-     * Sort the export goods.
-     */
-    private void sortExportGoods() {
-<span class="nc" id="L769">        synchronized (exportGoods) {</span>
-<span class="nc" id="L770">            Collections.sort(exportGoods);</span>
-<span class="nc" id="L771">        }</span>
-<span class="nc" id="L772">    }</span>
-
-    /**
-     * Removes the given &lt;code&gt;AIGoods&lt;/code&gt; from the export goods
-     * for this colony.  The &lt;code&gt;AIGoods&lt;/code&gt;-object is not
-     * disposed as part of this operation.  Use dropExportGoods
-     * instead to remove the object completely (this method would then
-     * be called indirectly).
-     *
-     * @param ag The &lt;code&gt;AIGoods&lt;/code&gt; to be removed.
-     * @see AIGoods#dispose()
-     */
-    public void removeExportGoods(AIGoods ag) {
-<span class="nc" id="L785">        synchronized (exportGoods) {</span>
-<span class="nc bnc" id="L786" title="All 2 branches missed.">            while (exportGoods.remove(ag)) {} /* Do nothing here */</span>
-<span class="nc" id="L787">        }</span>
-<span class="nc" id="L788">    }</span>
-
-    /**
-     * Drops some goods from the goods list, and cancels any transport.
-     *
-     * @param ag The &lt;code&gt;AIGoods&lt;/code&gt; to drop.
-     */
-    private void dropExportGoods(AIGoods ag) {
-        TransportMission tm;
-<span class="nc bnc" id="L797" title="All 2 branches missed.">        if (ag.getTransport() != null</span>
-<span class="nc bnc" id="L798" title="All 2 branches missed.">            &amp;&amp; (tm = ag.getTransport().getMission(TransportMission.class)) != null) {</span>
-<span class="nc" id="L799">            tm.removeTransportable(ag);</span>
-        }
-<span class="nc" id="L801">        removeExportGoods(ag);</span>
-<span class="nc" id="L802">        ag.dispose();</span>
-<span class="nc" id="L803">    }</span>
-
-    /**
-     * Emits a standard message regarding the state of AIGoods.
-     *
-     * @param ag The &lt;code&gt;AIGoods&lt;/code&gt; to log.
-     * @param action The state of the goods.
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     */
-    private void goodsLog(AIGoods ag, String action, LogBuilder lb) {
-<span class="nc bnc" id="L813" title="All 2 branches missed.">        Goods goods = (ag == null) ? null : ag.getGoods();</span>
-<span class="nc bnc" id="L814" title="All 2 branches missed.">        int amount = (goods == null) ? -1 : goods.getAmount();</span>
-<span class="nc bnc" id="L815" title="All 2 branches missed.">        String type = (goods == null) ? &quot;(null)&quot;</span>
-<span class="nc" id="L816">            : ag.getGoods().getType().getSuffix();</span>
-<span class="nc bnc" id="L817" title="All 4 branches missed.">        lb.add(&quot;, &quot;, action, &quot; &quot;, ((ag == null) ? &quot;(null)&quot; : ag.getId()),</span>
-            &quot; &quot;, ((amount &gt;= GoodsContainer.CARGO_SIZE) ? &quot;full &quot;
-<span class="nc" id="L819">                : Integer.toString(amount) + &quot; &quot;), type);</span>
-<span class="nc" id="L820">    }</span>
-
-    /**
-     * Creates a list of the goods which should be shipped out of this colony.
-     *
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     */
-    private void updateExportGoods(LogBuilder lb) {
-<span class="nc bnc" id="L828" title="All 2 branches missed.">        if (colony.hasAbility(Ability.EXPORT)) {</span>
-<span class="nc bnc" id="L829" title="All 2 branches missed.">            for (AIGoods aig : getExportGoods()) {</span>
-<span class="nc" id="L830">                goodsLog(aig, &quot;customizes&quot;, lb);</span>
-<span class="nc" id="L831">                dropExportGoods(aig);</span>
-<span class="nc" id="L832">            }</span>
-
-        } else { // does not have a customs house
-<span class="nc bnc" id="L835" title="All 2 branches missed.">            for (AIGoods aig : getExportGoods()) {</span>
-<span class="nc bnc" id="L836" title="All 2 branches missed.">                if (aig == null) {</span>
-<span class="nc" id="L837">                    removeExportGoods(aig);</span>
-<span class="nc bnc" id="L838" title="All 2 branches missed.">                } else if (aig.checkIntegrity(false) &lt; 0) {</span>
-<span class="nc" id="L839">                    goodsLog(aig, &quot;reaps&quot;, lb);</span>
-<span class="nc" id="L840">                    dropExportGoods(aig);</span>
-<span class="nc bnc" id="L841" title="All 2 branches missed.">                } else if (aig.getGoods().getLocation() != colony) {</span>
-                    // On its way, no longer of interest here, but do
-                    // not dispose as that will happen when delivered.
-<span class="nc" id="L844">                    goodsLog(aig, &quot;sends&quot;, lb);</span>
-<span class="nc" id="L845">                    removeExportGoods(aig);</span>
-<span class="nc bnc" id="L846" title="All 2 branches missed.">                } else if (colony.getAdjustedNetProductionOf(aig.getGoods()</span>
-<span class="nc" id="L847">                        .getType()) &lt; 0) {</span>
-<span class="nc" id="L848">                    goodsLog(aig, &quot;needs&quot;, lb);</span>
-<span class="nc" id="L849">                    dropExportGoods(aig);</span>
-                }
-<span class="nc" id="L851">            }</span>
-
-            // Create a new batch of exported goods.
-<span class="nc" id="L854">            final Europe europe = colony.getOwner().getEurope();</span>
-<span class="nc" id="L855">            final int capacity = colony.getWarehouseCapacity();</span>
-<span class="nc" id="L856">            List&lt;AIGoods&gt; newAIGoods = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L857" title="All 2 branches missed.">            outer: for (GoodsType gt : getSpecification().getGoodsTypeList()) {</span>
-<span class="nc bnc" id="L858" title="All 2 branches missed.">                if (colony.getAdjustedNetProductionOf(gt) &lt; 0) continue;</span>
-<span class="nc" id="L859">                int count = colony.getGoodsCount(gt);</span>
-<span class="nc bnc" id="L860" title="All 2 branches missed.">                int exportAmount = (fullExport.contains(gt))</span>
-                    ? count
-<span class="nc bnc" id="L862" title="All 2 branches missed.">                    : (partExport.contains(gt))</span>
-<span class="nc" id="L863">                    ? count - colony.getExportData(gt).getExportLevel()</span>
-                    : -1;
-<span class="nc bnc" id="L865" title="All 2 branches missed.">                if (exportAmount &lt;= 0) continue;</span>
-<span class="nc bnc" id="L866" title="All 4 branches missed.">                int priority = (exportAmount &gt;= capacity)</span>
-                    ? TransportableAIObject.IMPORTANT_DELIVERY
-                    : (exportAmount &gt;= GoodsContainer.CARGO_SIZE)
-                    ? TransportableAIObject.FULL_DELIVERY
-                    : 0;
-
-                // Find all existing AI goods of type gt, update
-                // amount of goods to export to that present in the
-                // colony, and drop exports of trivial amounts.  If
-                // existing goods are found we do not continue with
-                // this goods type but add the updated goods to the
-                // new goods batch.
-<span class="nc bnc" id="L878" title="All 2 branches missed.">                for (AIGoods aig : getExportGoods()) {</span>
-<span class="nc" id="L879">                    Goods goods = aig.getGoods();</span>
-<span class="nc bnc" id="L880" title="All 2 branches missed.">                    if (goods.getType() == gt) {</span>
-<span class="nc" id="L881">                        int amount = goods.getAmount();</span>
-<span class="nc bnc" id="L882" title="All 2 branches missed.">                        if (amount &lt;= exportAmount) {</span>
-<span class="nc" id="L883">                            goods.setAmount(exportAmount);</span>
-<span class="nc" id="L884">                            goodsLog(aig, &quot;updates&quot;, lb);</span>
-<span class="nc" id="L885">                            newAIGoods.add(aig);</span>
-                        } else {
-<span class="nc bnc" id="L887" title="All 2 branches missed.">                            if (exportAmount &gt;= EXPORT_MINIMUM) {</span>
-<span class="nc" id="L888">                                goods.setAmount(exportAmount);</span>
-<span class="nc" id="L889">                                goodsLog(aig, &quot;clamps&quot;, lb);</span>
-<span class="nc" id="L890">                                newAIGoods.add(aig);</span>
-                            } else {
-<span class="nc" id="L892">                                goodsLog(aig, &quot;unexports&quot;, lb);</span>
-<span class="nc" id="L893">                                dropExportGoods(aig);</span>
-                            }
-                        }
-<span class="nc" id="L896">                        continue outer;</span>
-                    }
-<span class="nc" id="L898">                }</span>
-                // Export new goods, to Europe if possible.
-<span class="nc bnc" id="L900" title="All 2 branches missed.">                Location destination = (colony.getOwner().canTrade(gt))</span>
-                    ? europe : null;
-<span class="nc bnc" id="L902" title="All 2 branches missed.">                if (exportAmount &gt;= EXPORT_MINIMUM) {</span>
-<span class="nc" id="L903">                    AIGoods newGoods = new AIGoods(getAIMain(), colony, gt,</span>
-                                                   exportAmount, destination);
-<span class="nc" id="L905">                    newGoods.setTransportPriority(priority);</span>
-<span class="nc" id="L906">                    newAIGoods.add(newGoods);</span>
-<span class="nc" id="L907">                    goodsLog(newGoods, &quot;makes&quot;, lb);</span>
-                }
-<span class="nc" id="L909">            }</span>
-<span class="nc" id="L910">            setExportGoods(newAIGoods);</span>
-        }
-<span class="nc" id="L912">    }</span>
-
-
-    /**
-     * Adds a &lt;code&gt;Wish&lt;/code&gt; to the wishes list.
-     *
-     * @param wish The &lt;code&gt;Wish&lt;/code&gt; to be added.
-     */
-    public void addWish(Wish wish) {
-<span class="nc" id="L921">        wishes.add(wish);</span>
-<span class="nc" id="L922">    }</span>
-
-    /**
-     * Tries to complete a supplied wish.
-     *
-     * @param wish The &lt;code&gt;Wish&lt;/code&gt; to complete.
-     * @param reason A reason for wish completion.
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     * @return True if this wish was successfully completed.
-     */
-    public boolean completeWish(Wish wish, String reason, LogBuilder lb) {
-<span class="nc bnc" id="L933" title="All 2 branches missed.">        if (!wishes.remove(wish)) {</span>
-<span class="nc" id="L934">            lb.add(&quot;, &quot;, reason, &quot; not wished for at &quot;, colony.getName());</span>
-<span class="nc" id="L935">            return false;</span>
-        }
-<span class="nc" id="L937">        ((EuropeanAIPlayer)getAIOwner()).completeWish(wish);</span>
-<span class="nc" id="L938">        lb.add(&quot;, &quot;, reason, &quot; fulfills at &quot;, colony.getName());</span>
-<span class="nc" id="L939">        wish.dispose();</span>
-<span class="nc" id="L940">        requestRearrange();</span>
-<span class="nc" id="L941">        return true;</span>
-    }
-
-    /**
-     * Tries to complete any wishes for some goods that have just arrived.
-     *
-     * @param goods Some &lt;code&gt;Goods&lt;/code&gt; that are arriving in this colony.
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     * @return True if a wish was successfully completed.
-     */
-    public boolean completeWish(Goods goods, LogBuilder lb) {
-<span class="nc" id="L952">        boolean ret = false;</span>
-<span class="nc" id="L953">        int i = 0;</span>
-<span class="nc bnc" id="L954" title="All 2 branches missed.">        while (i &lt; wishes.size()) {</span>
-<span class="nc bnc" id="L955" title="All 2 branches missed.">            if (wishes.get(i) instanceof GoodsWish) {</span>
-<span class="nc" id="L956">                GoodsWish gw = (GoodsWish)wishes.get(i);</span>
-<span class="nc bnc" id="L957" title="All 2 branches missed.">                if (gw.satisfiedBy(goods)</span>
-<span class="nc bnc" id="L958" title="All 2 branches missed.">                    &amp;&amp; completeWish(gw, goods.toString(), lb)) {</span>
-<span class="nc" id="L959">                    ret = true;</span>
-<span class="nc" id="L960">                    continue;</span>
-                }
-            }
-<span class="nc" id="L963">            i++;</span>
-        }
-<span class="nc" id="L965">        return ret;</span>
-    }
-
-    /**
-     * Tries to complete any wishes for a unit that has just arrived.
-     *
-     * @param unit A &lt;code&gt;Unit&lt;/code&gt; that is arriving in this colony.
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     * @return True if a wish was successfully completed.
-     */
-    public boolean completeWish(Unit unit, LogBuilder lb) {
-<span class="nc" id="L976">        boolean ret = false;</span>
-<span class="nc" id="L977">        int i = 0;</span>
-<span class="nc bnc" id="L978" title="All 2 branches missed.">        while (i &lt; wishes.size()) {</span>
-<span class="nc bnc" id="L979" title="All 2 branches missed.">            if (wishes.get(i) instanceof WorkerWish) {</span>
-<span class="nc" id="L980">                WorkerWish ww = (WorkerWish)wishes.get(i);</span>
-<span class="nc bnc" id="L981" title="All 2 branches missed.">                if (ww.satisfiedBy(unit)</span>
-<span class="nc bnc" id="L982" title="All 2 branches missed.">                    &amp;&amp; completeWish(ww, unit.toShortString(), lb)) {</span>
-<span class="nc" id="L983">                    ret = true;</span>
-<span class="nc" id="L984">                    continue;</span>
-                }
-            }
-<span class="nc" id="L987">            i++;</span>
-        }
-<span class="nc" id="L989">        return ret;</span>
-    }
-
-    /**
-     * Tries to complete any wishes for a transportable that has just arrived.
-     *
-     * @param t The arriving &lt;code&gt;TransportableAIObject&lt;/code&gt;.
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     * @return True if a wish was successfully completed.
-     */
-    public boolean completeWish(TransportableAIObject t, LogBuilder lb) {
-<span class="nc bnc" id="L1000" title="All 2 branches missed.">        if (t instanceof AIGoods) {</span>
-<span class="nc" id="L1001">            return completeWish((Goods)t.getTransportLocatable(), lb);</span>
-<span class="nc bnc" id="L1002" title="All 2 branches missed.">        } else if (t instanceof AIUnit) {</span>
-<span class="nc" id="L1003">            AIUnit aiUnit = (AIUnit)t;</span>
-<span class="nc" id="L1004">            WishRealizationMission wm</span>
-<span class="nc" id="L1005">                = aiUnit.getMission(WishRealizationMission.class);</span>
-<span class="nc bnc" id="L1006" title="All 4 branches missed.">            if (wm != null &amp;&amp; Map.isSameLocation(wm.getTarget(), colony)) {</span>
-<span class="nc" id="L1007">                lb.add(&quot;, at wish-target&quot;);</span>
-<span class="nc" id="L1008">                completeWish(aiUnit.getUnit(), lb);</span>
-<span class="nc" id="L1009">                aiUnit.changeMission(null);</span>
-<span class="nc" id="L1010">                return true;</span>
-            }
-        }
-<span class="nc" id="L1013">        return false;</span>
-    }
-            
-    /**
-     * Gets the wishes this colony has.
-     *
-     * @return A copy of the wishes list.
-     */
-    public List&lt;Wish&gt; getWishes() {
-<span class="fc" id="L1022">        return new ArrayList&lt;&gt;(wishes);</span>
-    }
-
-    /**
-     * Gets the goods wishes this colony has.
-     *
-     * @return A copy of the wishes list with non-goods wishes removed.
-     */
-    public List&lt;GoodsWish&gt; getGoodsWishes() {
-<span class="nc" id="L1031">        List&lt;GoodsWish&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L1032" title="All 2 branches missed.">        for (Wish wish : wishes) {</span>
-<span class="nc bnc" id="L1033" title="All 2 branches missed.">            if (wish instanceof GoodsWish) {</span>
-<span class="nc" id="L1034">                result.add((GoodsWish) wish);</span>
-            }
-<span class="nc" id="L1036">        }</span>
-<span class="nc" id="L1037">        return result;</span>
-    }
-
-    /**
-     * Gets the worker wishes this colony has.
-     *
-     * @return A copy of the wishes list with non-worker wishes removed.
-     */
-    public List&lt;WorkerWish&gt; getWorkerWishes() {
-<span class="nc" id="L1046">        List&lt;WorkerWish&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L1047" title="All 2 branches missed.">        for (Wish wish : wishes) {</span>
-<span class="nc bnc" id="L1048" title="All 2 branches missed.">            if (wish instanceof WorkerWish) {</span>
-<span class="nc" id="L1049">                result.add((WorkerWish) wish);</span>
-            }
-<span class="nc" id="L1051">        }</span>
-<span class="nc" id="L1052">        return result;</span>
-    }
-
-    /**
-     * Requires a goods wish for a specified goods type be present at this
-     * AI colony.  If one is already present, the amount specified here
-     * takes precedence as it is more likely to be up to date.  The value
-     * is treated as a minimum requirement.
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to wish for.
-     * @param amount The amount of goods wished for.
-     * @param value The urgency of the wish.
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     */
-    public void requireGoodsWish(GoodsType type, int amount, int value,
-                                 LogBuilder lb) {
-<span class="nc bnc" id="L1068" title="All 2 branches missed.">        GoodsWish gw = (GoodsWish)find(wishes, w -&gt; w instanceof GoodsWish</span>
-<span class="nc bnc" id="L1069" title="All 2 branches missed.">            &amp;&amp; ((GoodsWish)w).getGoodsType() == type);</span>
-<span class="nc bnc" id="L1070" title="All 2 branches missed.">        if (gw != null) {</span>
-<span class="nc" id="L1071">            gw.update(type, amount, gw.getValue() + 1);</span>
-<span class="nc" id="L1072">            lb.add(&quot;, update &quot;, gw);</span>
-        } else {
-<span class="nc" id="L1074">            gw = new GoodsWish(getAIMain(), colony, value, amount, type);</span>
-<span class="nc" id="L1075">            wishes.add(gw);</span>
-<span class="nc" id="L1076">            lb.add(&quot;, add &quot;, gw);</span>
-        }
-<span class="nc" id="L1078">    }</span>
-
-    /**
-     * Requires a worker wish for a unit type to be provided to this AIColony.
-     * If a suitable wish is already present, the expert and value parameters
-     * take precedence as they are more likely to be up to date.
-     *
-     * @param type The &lt;code&gt;UnitType&lt;/code&gt; to wish for.
-     * @param expertNeeded Is an expert unit required?
-     * @param value The urgency of the wish.
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     */
-    public void requireWorkerWish(UnitType type, boolean expertNeeded,
-                                  int value, LogBuilder lb) {
-<span class="nc bnc" id="L1092" title="All 2 branches missed.">        WorkerWish ww = (WorkerWish)find(wishes, w -&gt; w instanceof WorkerWish</span>
-<span class="nc bnc" id="L1093" title="All 2 branches missed.">            &amp;&amp; ((WorkerWish)w).getUnitType() == type);</span>
-<span class="nc bnc" id="L1094" title="All 2 branches missed.">        if (ww != null) {</span>
-<span class="nc" id="L1095">            ww.update(type, expertNeeded, ww.getValue() + 1);</span>
-<span class="nc" id="L1096">            lb.add(&quot;, update &quot;, ww);</span>
-        } else {
-<span class="nc" id="L1098">            ww = new WorkerWish(getAIMain(), colony, value, type, expertNeeded);</span>
-<span class="nc" id="L1099">            wishes.add(ww);</span>
-<span class="nc" id="L1100">            lb.add(&quot;, add &quot;, ww);</span>
-        }
-<span class="nc" id="L1102">    }</span>
-
-    /**
-     * Updates the wishes for the &lt;code&gt;Colony&lt;/code&gt;.
-     *
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     */
-    private void updateWishes(LogBuilder lb) {
-<span class="nc" id="L1110">        updateWorkerWishes(lb);</span>
-<span class="nc" id="L1111">        updateGoodsWishes(lb);</span>
-<span class="nc" id="L1112">        Collections.sort(wishes);</span>
-<span class="nc" id="L1113">    }</span>
-
-    /**
-     * Updates the worker wishes.
-     *
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     */
-    private void updateWorkerWishes(LogBuilder lb) {
-<span class="nc" id="L1121">        final Specification spec = getSpecification();</span>
-<span class="nc" id="L1122">        final int baseValue = 25;</span>
-<span class="nc" id="L1123">        final int priorityMax = 50;</span>
-<span class="nc" id="L1124">        final int priorityDecay = 5;</span>
-<span class="nc" id="L1125">        final int multipleBonus = 5;</span>
-<span class="nc" id="L1126">        final int multipleMax = 5;</span>
-
-        // For every non-expert, request expert replacement.
-        // Prioritize by lowest net production among the goods that are
-        // being produced by units (note that we have to traverse the work
-        // locations/unit-lists, rather than just check for non-zero
-        // production because it could be in balance).
-        // Add some weight when multiple cases of the same expert are
-        // needed, rather than generating heaps of wishes.
-<span class="nc" id="L1135">        List&lt;GoodsType&gt; producing = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L1136" title="All 2 branches missed.">        for (WorkLocation wl : colony.getAvailableWorkLocations()) {</span>
-<span class="nc bnc" id="L1137" title="All 2 branches missed.">            for (Unit u : wl.getUnitList()) {</span>
-<span class="nc" id="L1138">                GoodsType work = u.getWorkType();</span>
-<span class="nc bnc" id="L1139" title="All 2 branches missed.">                if (work != null) {</span>
-<span class="nc" id="L1140">                    work = work.getStoredAs();</span>
-<span class="nc bnc" id="L1141" title="All 2 branches missed.">                    if (!producing.contains(work)) producing.add(work);</span>
-                }
-<span class="nc" id="L1143">            }</span>
-<span class="nc" id="L1144">        }</span>
-<span class="nc" id="L1145">        Collections.sort(producing, new Comparator&lt;GoodsType&gt;() {</span>
-                @Override
-                public int compare(GoodsType g1, GoodsType g2) {
-<span class="nc" id="L1148">                    return colony.getAdjustedNetProductionOf(g1)</span>
-<span class="nc" id="L1149">                        - colony.getAdjustedNetProductionOf(g2);</span>
-                }
-            });
-<span class="nc" id="L1152">        TypeCountMap&lt;UnitType&gt; experts = new TypeCountMap&lt;&gt;();</span>
-<span class="nc bnc" id="L1153" title="All 2 branches missed.">        for (Unit unit : colony.getUnitList()) {</span>
-<span class="nc" id="L1154">            GoodsType goods = unit.getWorkType();</span>
-<span class="nc bnc" id="L1155" title="All 2 branches missed.">            UnitType expert = (goods == null</span>
-<span class="nc bnc" id="L1156" title="All 2 branches missed.">                || goods == unit.getType().getExpertProduction()) ? null</span>
-<span class="nc" id="L1157">                : spec.getExpertForProducing(goods);</span>
-<span class="nc bnc" id="L1158" title="All 2 branches missed.">            if (expert != null) {</span>
-<span class="nc" id="L1159">                experts.incrementCount(expert, 1);</span>
-            }
-<span class="nc" id="L1161">        }</span>
-<span class="nc bnc" id="L1162" title="All 2 branches missed.">        for (UnitType expert : experts.keySet()) {</span>
-<span class="nc" id="L1163">            GoodsType goods = expert.getExpertProduction();</span>
-<span class="nc" id="L1164">            int value = baseValue</span>
-<span class="nc" id="L1165">                + Math.max(0, priorityMax</span>
-<span class="nc" id="L1166">                    - priorityDecay * producing.indexOf(goods))</span>
-<span class="nc" id="L1167">                + (Math.min(multipleMax, experts.getCount(expert) - 1)</span>
-                    * multipleBonus);
-<span class="nc" id="L1169">            requireWorkerWish(expert, true, value, lb);</span>
-<span class="nc" id="L1170">        }</span>
-
-        // Request population increase if no worker wishes and the bonus
-        // can take it.
-<span class="nc bnc" id="L1174" title="All 2 branches missed.">        if (colonyPlan != null</span>
-<span class="nc bnc" id="L1175" title="All 2 branches missed.">            &amp;&amp; experts.isEmpty()</span>
-<span class="nc bnc" id="L1176" title="All 2 branches missed.">            &amp;&amp; colony.governmentChange(colony.getUnitCount() + 1) &gt;= 0) {</span>
-<span class="nc" id="L1177">            boolean needFood = colony.getFoodProduction()</span>
-<span class="nc" id="L1178">                &lt;= colony.getFoodConsumption()</span>
-<span class="nc bnc" id="L1179" title="All 2 branches missed.">                + colony.getOwner().getMaximumFoodConsumption();</span>
-            // Choose expert for best work location plan
-<span class="nc" id="L1181">            final Player owner = colony.getOwner();</span>
-<span class="nc" id="L1182">            UnitType expert = spec.getDefaultUnitType(owner);</span>
-<span class="nc bnc" id="L1183" title="All 4 branches missed.">            for (WorkLocationPlan plan : (needFood) ? colonyPlan.getFoodPlans()</span>
-<span class="nc" id="L1184">                     : colonyPlan.getWorkPlans()) {</span>
-<span class="nc" id="L1185">                WorkLocation location = plan.getWorkLocation();</span>
-<span class="nc bnc" id="L1186" title="All 2 branches missed.">                if (!location.canBeWorked()) continue;</span>
-<span class="nc" id="L1187">                expert = spec.getExpertForProducing(plan.getGoodsType());</span>
-<span class="nc" id="L1188">                break;</span>
-            }
-<span class="nc" id="L1190">            requireWorkerWish(expert, false, 50, lb);</span>
-        }
-
-        // FIXME: check for students
-        // FIXME: add missionaries
-
-        // Improve defence.
-<span class="nc bnc" id="L1197" title="All 2 branches missed.">        if (isBadlyDefended()) {</span>
-<span class="nc" id="L1198">            UnitType bestDefender = colony.getBestDefenderType();</span>
-<span class="nc bnc" id="L1199" title="All 2 branches missed.">            if (bestDefender != null) {</span>
-<span class="nc" id="L1200">                requireWorkerWish(bestDefender, true, 100, lb);</span>
-            }
-        }
-<span class="nc" id="L1203">    }</span>
-
-    /**
-     * Updates the goods wishes.
-     *
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     */
-    private void updateGoodsWishes(LogBuilder lb) {
-<span class="nc" id="L1211">        final Specification spec = getSpecification();</span>
-<span class="nc" id="L1212">        int goodsWishValue = 50;</span>
-
-        // Request goods.
-        // FIXME: improve heuristics
-<span class="nc" id="L1216">        TypeCountMap&lt;GoodsType&gt; required = new TypeCountMap&lt;&gt;();</span>
-
-        // Add building materials.
-<span class="nc bnc" id="L1219" title="All 2 branches missed.">        if (colony.getCurrentlyBuilding() != null) {</span>
-<span class="nc bnc" id="L1220" title="All 2 branches missed.">            for (AbstractGoods ag : colony.getCurrentlyBuilding()</span>
-<span class="nc" id="L1221">                     .getRequiredGoods()) {</span>
-<span class="nc bnc" id="L1222" title="All 2 branches missed.">                if (colony.getAdjustedNetProductionOf(ag.getType()) &lt;= 0) {</span>
-<span class="nc" id="L1223">                    required.incrementCount(ag.getType(), ag.getAmount());</span>
-                }
-<span class="nc" id="L1225">            }</span>
-        }
-
-        // Add materials required to improve tiles.
-<span class="nc bnc" id="L1229" title="All 2 branches missed.">        for (TileImprovementPlan plan : tileImprovementPlans) {</span>
-<span class="nc" id="L1230">            Role role = plan.getType().getRequiredRole();</span>
-<span class="nc bnc" id="L1231" title="All 2 branches missed.">            if (role == null) continue;</span>
-<span class="nc bnc" id="L1232" title="All 2 branches missed.">            for (AbstractGoods ag : role.getRequiredGoods()) {</span>
-<span class="nc" id="L1233">                required.incrementCount(ag.getType(), ag.getAmount());</span>
-<span class="nc" id="L1234">            }</span>
-<span class="nc" id="L1235">        }</span>
-
-        // Add raw materials for buildings.
-<span class="nc bnc" id="L1238" title="All 2 branches missed.">        for (WorkLocation workLocation : colony.getCurrentWorkLocations()) {</span>
-<span class="nc bnc" id="L1239" title="All 2 branches missed.">            if (workLocation instanceof Building) {</span>
-<span class="nc" id="L1240">                Building building = (Building) workLocation;</span>
-<span class="nc" id="L1241">                List&lt;AbstractGoods&gt; inputs = building.getInputs();</span>
-<span class="nc bnc" id="L1242" title="All 2 branches missed.">                if (!inputs.isEmpty()) {</span>
-<span class="nc" id="L1243">                    ProductionInfo info = colony.getProductionInfo(building);</span>
-<span class="nc bnc" id="L1244" title="All 2 branches missed.">                    if (!info.hasMaximumProduction()) {</span>
-<span class="nc bnc" id="L1245" title="All 2 branches missed.">                        for (AbstractGoods goods : inputs) {</span>
-                            // FIXME: find better heuristics
-<span class="nc" id="L1247">                            required.incrementCount(goods.getType(), 100);</span>
-<span class="nc" id="L1248">                        }</span>
-                    }
-                }
-            }
-<span class="nc" id="L1252">        }</span>
-
-        // Add breedable goods
-<span class="nc bnc" id="L1255" title="All 2 branches missed.">        for (GoodsType g : spec.getGoodsTypeList()) {</span>
-<span class="nc bnc" id="L1256" title="All 2 branches missed.">            if (g.isBreedable()</span>
-<span class="nc bnc" id="L1257" title="All 2 branches missed.">                &amp;&amp; colony.getGoodsCount(g) &lt; g.getBreedingNumber()) {</span>
-<span class="nc" id="L1258">                required.incrementCount(g, g.getBreedingNumber());</span>
-            }
-<span class="nc" id="L1260">        }</span>
-
-        // Add materials required to build military equipment,
-        // but make sure there is a unit present that can use it.
-<span class="nc bnc" id="L1264" title="All 2 branches missed.">        if (isBadlyDefended()) {</span>
-<span class="nc" id="L1265">            Role role = spec.getMilitaryRoles().get(0);</span>
-<span class="nc" id="L1266">            Player owner = colony.getOwner();</span>
-<span class="nc bnc" id="L1267" title="All 2 branches missed.">            for (Unit unit : colony.getTile().getUnitList()) {</span>
-<span class="nc bnc" id="L1268" title="All 2 branches missed.">                if (!unit.roleIsAvailable(role)</span>
-<span class="nc bnc" id="L1269" title="All 2 branches missed.">                    || (!unit.hasDefaultRole()</span>
-<span class="nc bnc" id="L1270" title="All 2 branches missed.">                        &amp;&amp; !Role.isCompatibleWith(role, unit.getRole())))</span>
-<span class="nc" id="L1271">                    continue;</span>
-<span class="nc bnc" id="L1272" title="All 2 branches missed.">                for (AbstractGoods ag : role.getRequiredGoods()) {</span>
-<span class="nc" id="L1273">                    required.incrementCount(ag.getType(), ag.getAmount());</span>
-<span class="nc" id="L1274">                }</span>
-<span class="nc" id="L1275">                break;</span>
-            }
-        }
-
-        // Drop wishes that are no longer needed.
-<span class="nc" id="L1280">        int i = 0;</span>
-<span class="nc bnc" id="L1281" title="All 2 branches missed.">        while (i &lt; wishes.size()) {</span>
-<span class="nc bnc" id="L1282" title="All 2 branches missed.">            if (wishes.get(i) instanceof GoodsWish) {</span>
-<span class="nc" id="L1283">                GoodsWish g = (GoodsWish)wishes.get(i);</span>
-<span class="nc" id="L1284">                GoodsType t = g.getGoodsType();</span>
-<span class="nc bnc" id="L1285" title="All 2 branches missed.">                if (required.getCount(t) &lt; colony.getGoodsCount(t)) {</span>
-<span class="nc" id="L1286">                    completeWish(g, &quot;redundant&quot;, lb);</span>
-<span class="nc" id="L1287">                    continue;</span>
-                }
-            }
-<span class="nc" id="L1290">            i++;</span>
-        }
-
-        // Require wishes for what is missing.
-<span class="nc bnc" id="L1294" title="All 2 branches missed.">        for (GoodsType type : required.keySet()) {</span>
-<span class="nc" id="L1295">            GoodsType requiredType = type;</span>
-<span class="nc bnc" id="L1296" title="All 2 branches missed.">            while (requiredType != null) {</span>
-<span class="nc bnc" id="L1297" title="All 2 branches missed.">                if (requiredType.isStorable()) break;</span>
-<span class="nc" id="L1298">                requiredType = requiredType.getInputType();</span>
-            }
-<span class="nc bnc" id="L1300" title="All 2 branches missed.">            if (requiredType == null) continue;</span>
-<span class="nc" id="L1301">            int amount = Math.min(colony.getWarehouseCapacity(),</span>
-<span class="nc" id="L1302">                (required.getCount(type)</span>
-<span class="nc" id="L1303">                    - colony.getGoodsCount(requiredType)));</span>
-<span class="nc bnc" id="L1304" title="All 2 branches missed.">            if (amount &gt; 0) {</span>
-<span class="nc" id="L1305">                int value = goodsWishValue;</span>
-<span class="nc bnc" id="L1306" title="All 2 branches missed.">                if (colony.canProduce(requiredType)) value /= 10;</span>
-<span class="nc" id="L1307">                requireGoodsWish(requiredType, amount, value, lb);</span>
-            }
-<span class="nc" id="L1309">        }</span>
-
-<span class="nc" id="L1311">    }</span>
-
-    /**
-     * Gets the tile improvements planned for this colony.
-     *
-     * @return A copy of the tile improvement plan list.
-     */
-    public List&lt;TileImprovementPlan&gt; getTileImprovementPlans() {
-<span class="fc" id="L1319">        return new ArrayList&lt;&gt;(tileImprovementPlans);</span>
-    }
-
-    /**
-     * Removes a &lt;code&gt;TileImprovementPlan&lt;/code&gt; from the list
-     *
-     * @return True if it was successfully deleted, false otherwise
-     */
-    public boolean removeTileImprovementPlan(TileImprovementPlan plan) {
-<span class="fc" id="L1328">        return tileImprovementPlans.remove(plan);</span>
-    }
-
-    /**
-     * Gets the first plan for a specified tile from a list of tile
-     * improvement plans.
-     *
-     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to look for.
-     * @param plans A list of &lt;code&gt;TileImprovementPlan&lt;/code&gt;s to search.
-     * @return A matching plan, or null if not found.
-     */
-    private TileImprovementPlan getPlanFor(Tile tile,
-                                           List&lt;TileImprovementPlan&gt; plans) {
-<span class="pc bpc" id="L1341" title="1 of 2 branches missed.">        return find(plans, tip -&gt; tip.getTarget() == tile);</span>
-    }
-
-    /**
-     * Creates a list of the &lt;code&gt;Tile&lt;/code&gt;-improvements which will
-     * increase the production by this &lt;code&gt;Colony&lt;/code&gt;.
-     *
-     * @see TileImprovementPlan
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     */
-    public void updateTileImprovementPlans(LogBuilder lb) {
-<span class="fc" id="L1352">        List&lt;TileImprovementPlan&gt; newPlans = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L1353" title="All 2 branches covered.">        for (WorkLocation wl : colony.getAvailableWorkLocations()) {</span>
-<span class="fc bfc" id="L1354" title="All 2 branches covered.">            if (!(wl instanceof ColonyTile)) continue;</span>
-<span class="fc" id="L1355">            ColonyTile colonyTile = (ColonyTile) wl;</span>
-<span class="fc" id="L1356">            Tile workTile = colonyTile.getWorkTile();</span>
-<span class="pc bpc" id="L1357" title="1 of 2 branches missed.">            if (workTile.getOwningSettlement() != colony</span>
-<span class="pc bpc" id="L1358" title="1 of 2 branches missed.">                || getPlanFor(workTile, newPlans) != null) continue;</span>
-
-            // Require food for the center tile, but otherwise insist
-            // the tile is being used, and try to improve the
-            // production that is underway.
-<span class="fc" id="L1363">            GoodsType goodsType = null;</span>
-<span class="fc bfc" id="L1364" title="All 2 branches covered.">            if (colonyTile.isColonyCenterTile()) {</span>
-<span class="pc bpc" id="L1365" title="1 of 2 branches missed.">                for (AbstractGoods ag : colonyTile.getProduction()) {</span>
-<span class="pc bpc" id="L1366" title="1 of 2 branches missed.">                    if (ag.getType().isFoodType()) {</span>
-<span class="fc" id="L1367">                        goodsType = ag.getType();</span>
-<span class="fc" id="L1368">                        break;</span>
-                    }
-<span class="pc" id="L1370">                }</span>
-            } else {
-<span class="fc bfc" id="L1372" title="All 2 branches covered.">                if (colonyTile.isEmpty()) continue;</span>
-<span class="fc" id="L1373">                goodsType = colonyTile.getCurrentWorkType();</span>
-            }
-<span class="pc bpc" id="L1375" title="1 of 2 branches missed.">            if (goodsType == null) continue;</span>
-
-<span class="fc" id="L1377">            TileImprovementPlan plan = getPlanFor(workTile,</span>
-                                                  tileImprovementPlans);
-<span class="pc bpc" id="L1379" title="1 of 2 branches missed.">            if (plan == null) {</span>
-<span class="fc" id="L1380">                TileImprovementType type = TileImprovementPlan</span>
-<span class="fc" id="L1381">                    .getBestTileImprovementType(workTile, goodsType);</span>
-<span class="pc bpc" id="L1382" title="1 of 2 branches missed.">                if (type != null) {</span>
-<span class="fc" id="L1383">                    plan = new TileImprovementPlan(getAIMain(), workTile,</span>
-<span class="fc" id="L1384">                        type, type.getImprovementValue(workTile, goodsType));</span>
-                }
-<span class="fc" id="L1386">            } else {</span>
-<span class="nc bnc" id="L1387" title="All 2 branches missed.">                if (!plan.update(goodsType)) plan = null;</span>
-            }
-<span class="pc bpc" id="L1389" title="1 of 2 branches missed.">            if (plan == null) continue;</span>
-
-            // Defend against clearing the last forested tile.
-<span class="fc" id="L1392">            TileType change = plan.getType().getChange(workTile.getType());</span>
-<span class="pc bpc" id="L1393" title="1 of 2 branches missed.">            if (change != null</span>
-<span class="nc bnc" id="L1394" title="All 2 branches missed.">                &amp;&amp; !change.isForested()</span>
-<span class="nc bnc" id="L1395" title="All 2 branches missed.">                &amp;&amp; !colonyTile.isColonyCenterTile()</span>
-<span class="nc" id="L1396">                &amp;&amp; colony.getAvailableWorkLocations().stream()</span>
-<span class="nc bnc" id="L1397" title="All 2 branches missed.">                    .filter(ct -&gt; ct instanceof ColonyTile</span>
-<span class="nc bnc" id="L1398" title="All 2 branches missed.">                        &amp;&amp; !((ColonyTile)ct).isColonyCenterTile()</span>
-<span class="nc bnc" id="L1399" title="All 2 branches missed.">                        &amp;&amp; ((ColonyTile)ct).getWorkTile().isForested())</span>
-<span class="nc bnc" id="L1400" title="All 2 branches missed.">                    .count() &lt;= FOREST_MINIMUM) continue;</span>
-
-<span class="fc" id="L1402">            newPlans.add(plan); // Otherwise add the plan.</span>
-<span class="fc" id="L1403">        }</span>
-<span class="fc" id="L1404">        tileImprovementPlans.clear();</span>
-<span class="fc" id="L1405">        tileImprovementPlans.addAll(newPlans);</span>
-<span class="fc" id="L1406">        Collections.sort(tileImprovementPlans);</span>
-<span class="pc bpc" id="L1407" title="1 of 2 branches missed.">        if (!tileImprovementPlans.isEmpty()) {</span>
-<span class="fc" id="L1408">            lb.add(&quot;, improve:&quot;);</span>
-<span class="fc bfc" id="L1409" title="All 2 branches covered.">            for (TileImprovementPlan tip : tileImprovementPlans) {</span>
-<span class="fc" id="L1410">                lb.add(&quot; &quot;, tip.getTarget(), &quot;-&quot;, tip.getType().getSuffix());</span>
-<span class="fc" id="L1411">            }</span>
-        }
-<span class="fc" id="L1413">    }</span>
-
-    /**
-     * Get the list of buildables in the colony plan.
-     *
-     * Public for the test suite.
-     *
-     * @return A list of planned &lt;code&gt;BuildableType&lt;/code&gt;.
-     */
-    public List&lt;BuildableType&gt; getPlannedBuildableTypes() {
-<span class="pc bpc" id="L1423" title="1 of 2 branches missed.">        return (colonyPlan == null) ? Collections.&lt;BuildableType&gt;emptyList()</span>
-<span class="fc" id="L1424">            : colonyPlan.getBuildableTypes();</span>
-    }
-
-    /**
-     * Summarize the colony plan as a string.
-     *
-     * @return A summary of the colony plan.
-     */
-    public String planToString() {
-<span class="nc bnc" id="L1433" title="All 2 branches missed.">        if (colonyPlan == null) return &quot;No plan.&quot;;</span>
-
-<span class="nc" id="L1435">        LogBuilder lb = new LogBuilder(256);</span>
-<span class="nc" id="L1436">        lb.add(colonyPlan, &quot;\n\nTILE IMPROVEMENTS:\n&quot;);</span>
-<span class="nc bnc" id="L1437" title="All 2 branches missed.">        for (TileImprovementPlan tip : getTileImprovementPlans()) {</span>
-<span class="nc" id="L1438">            lb.add(tip, &quot;\n&quot;);</span>
-<span class="nc" id="L1439">        }</span>
-<span class="nc" id="L1440">        lb.add(&quot;\n\nWISHES:\n&quot;);</span>
-<span class="nc bnc" id="L1441" title="All 2 branches missed.">        for (Wish w : getWishes()) lb.add(w, &quot;\n&quot;);</span>
-<span class="nc" id="L1442">        lb.add(&quot;\n\nEXPORT GOODS:\n&quot;);</span>
-<span class="nc bnc" id="L1443" title="All 2 branches missed.">        for (AIGoods aig : getExportGoods()) lb.add(aig, &quot;\n&quot;);</span>
-<span class="nc" id="L1444">        return lb.toString();</span>
-    }
-
-    /**
-     * Handle REARRANGE_WORKERS property change events.
-     *
-     * @param event The &lt;code&gt;PropertyChangeEvent&lt;/code&gt;.
-     */
-    @Override
-    public void propertyChange(PropertyChangeEvent event) {
-<span class="fc" id="L1454">        logger.finest(&quot;Property change REARRANGE_WORKERS fired.&quot;);</span>
-<span class="fc" id="L1455">        requestRearrange();</span>
-
-        // Check for goods party!
-<span class="fc bfc" id="L1458" title="All 2 branches covered.">        if (event != null </span>
-<span class="pc bpc" id="L1459" title="1 of 2 branches missed.">            &amp;&amp; event.getOldValue() instanceof GoodsType) {</span>
-<span class="nc" id="L1460">            GoodsType goodsType = (GoodsType)event.getOldValue();</span>
-<span class="nc" id="L1461">            int left = colony.getGoodsCount(goodsType);</span>
-<span class="nc bnc" id="L1462" title="All 2 branches missed.">            for (AIGoods aig : getExportGoods()) {</span>
-<span class="nc" id="L1463">                boolean remove = false;</span>
-<span class="nc bnc" id="L1464" title="All 2 branches missed.">                if (aig.isDisposed()) {</span>
-<span class="nc" id="L1465">                    remove = true;</span>
-<span class="nc bnc" id="L1466" title="All 2 branches missed.">                } else if (aig.getGoods() == null) {</span>
-<span class="nc" id="L1467">                    aig.changeTransport(null);</span>
-<span class="nc" id="L1468">                    remove = true;</span>
-<span class="nc bnc" id="L1469" title="All 2 branches missed.">                } else if (aig.getGoodsType() == goodsType) {</span>
-<span class="nc bnc" id="L1470" title="All 2 branches missed.">                    if (left &gt; 0) {</span>
-<span class="nc" id="L1471">                        aig.getGoods().setAmount(left);</span>
-                    } else {
-<span class="nc" id="L1473">                        aig.changeTransport(null);</span>
-<span class="nc" id="L1474">                        remove = true;</span>
-                    }
-                }
-<span class="nc bnc" id="L1477" title="All 2 branches missed.">                if (remove) {</span>
-<span class="nc" id="L1478">                    removeExportGoods(aig);</span>
-<span class="nc" id="L1479">                    break;</span>
-                }
-<span class="nc" id="L1481">            }</span>
-        }
-<span class="fc" id="L1483">    }</span>
-
-    /**
-     * Sets the rearrangeTurn variable such that rearrangeWorkers will
-     * run fully next time it is invoked.
-     */
-    public void requestRearrange() {
-<span class="fc" id="L1490">        rearrangeTurn = new Turn(0);</span>
-<span class="fc" id="L1491">    }</span>
-
-
-    // Override AIObject
-
-    /**
-     * Disposes this &lt;code&gt;AIColony&lt;/code&gt;.
-     */
-    @Override
-    public void dispose() {
-<span class="fc" id="L1501">        List&lt;AIObject&gt; objects = getExportGoods().stream()</span>
-<span class="pc bnc" id="L1502" title="All 4 branches missed.">            .filter(ag -&gt; !ag.isDisposed() &amp;&amp; ag.getGoods() != null</span>
-<span class="nc bnc" id="L1503" title="All 2 branches missed.">                &amp;&amp; ag.getGoods().getLocation() == colony)</span>
-<span class="fc" id="L1504">            .collect(Collectors.toList());</span>
-<span class="fc" id="L1505">        objects.addAll(wishes);</span>
-<span class="fc" id="L1506">        wishes.clear();</span>
-<span class="fc" id="L1507">        objects.addAll(tileImprovementPlans);</span>
-<span class="fc" id="L1508">        tileImprovementPlans.clear();</span>
-<span class="pc bpc" id="L1509" title="1 of 2 branches missed.">        for (AIObject o : objects) o.dispose();</span>
-<span class="fc" id="L1510">        colonyPlan = null;</span>
-        // Do not clear this.colony, the identifier is still required.
-<span class="fc" id="L1512">        super.dispose();</span>
-<span class="fc" id="L1513">    }</span>
-
-    /**
-     * Checks the integrity of a this AIColony
-     *
-     * @param fix Fix problems if possible.
-     * @return Negative if there are problems remaining, zero if
-     *     problems were fixed, positive if no problems found at all.
-     */
-    @Override
-    public int checkIntegrity(boolean fix) {
-<span class="nc" id="L1524">        int result = super.checkIntegrity(fix);</span>
-<span class="nc bnc" id="L1525" title="All 4 branches missed.">        if (colony == null || colony.isDisposed()) result = -1;</span>
-<span class="nc" id="L1526">        return result;</span>
-    }
-
-
-    // Serialization
-
-<span class="fc" id="L1532">    private static final String AI_GOODS_LIST_TAG</span>
-<span class="fc" id="L1533">        = AIGoods.getXMLElementTagName() + LIST_ELEMENT;</span>
-<span class="fc" id="L1534">    private static final String GOODS_WISH_LIST_TAG</span>
-<span class="fc" id="L1535">        = GoodsWish.getXMLElementTagName() + LIST_ELEMENT;</span>
-<span class="fc" id="L1536">    private static final String TILE_IMPROVEMENT_PLAN_LIST_TAG</span>
-<span class="fc" id="L1537">        = TileImprovementPlan.getXMLElementTagName() + LIST_ELEMENT;</span>
-<span class="fc" id="L1538">    private static final String WORKER_WISH_LIST_TAG</span>
-<span class="fc" id="L1539">        = WorkerWish.getXMLElementTagName() + LIST_ELEMENT;</span>
-    // @compat 0.10.3
-<span class="fc" id="L1541">    private static final String OLD_GOODS_WISH_TAG</span>
-<span class="fc" id="L1542">        = GoodsWish.getXMLElementTagName() + &quot;Wish&quot; + LIST_ELEMENT;</span>
-    private static final String OLD_TILE_IMPROVEMENT_PLAN_LIST_TAG
-        = &quot;tileimprovementplan&quot; + LIST_ELEMENT;
-<span class="fc" id="L1545">    private static final String OLD_WORKER_WISH_TAG</span>
-<span class="fc" id="L1546">        = WorkerWish.getXMLElementTagName() + &quot;Wish&quot; + LIST_ELEMENT;</span>
-    // end @compat
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="nc" id="L1555">        super.writeChildren(xw);</span>
-
-<span class="nc bnc" id="L1557" title="All 2 branches missed.">        for (AIGoods ag : getExportGoods()) {</span>
-<span class="nc bnc" id="L1558" title="All 2 branches missed.">            if (ag.checkIntegrity(true) &lt; 0) continue;</span>
-<span class="nc" id="L1559">            xw.writeStartElement(AI_GOODS_LIST_TAG);</span>
-
-<span class="nc" id="L1561">            xw.writeAttribute(ID_ATTRIBUTE_TAG, ag);</span>
-
-<span class="nc" id="L1563">            xw.writeEndElement();</span>
-<span class="nc" id="L1564">        }</span>
-
-<span class="nc bnc" id="L1566" title="All 2 branches missed.">        for (TileImprovementPlan tip : tileImprovementPlans) {</span>
-<span class="nc bnc" id="L1567" title="All 2 branches missed.">            if (tip.checkIntegrity(true) &lt; 0) continue;</span>
-
-<span class="nc" id="L1569">            xw.writeStartElement(TILE_IMPROVEMENT_PLAN_LIST_TAG);</span>
-
-<span class="nc" id="L1571">            xw.writeAttribute(ID_ATTRIBUTE_TAG, tip);</span>
-
-<span class="nc" id="L1573">            xw.writeEndElement();</span>
-<span class="nc" id="L1574">        }</span>
-
-<span class="nc bnc" id="L1576" title="All 2 branches missed.">        for (Wish w : wishes) {</span>
-<span class="nc bnc" id="L1577" title="All 4 branches missed.">            String tag = (w instanceof GoodsWish) ? GOODS_WISH_LIST_TAG</span>
-                : (w instanceof WorkerWish) ? WORKER_WISH_LIST_TAG
-                : null;
-<span class="nc bnc" id="L1580" title="All 6 branches missed.">            if (w.checkIntegrity(true) &lt; 0 || !w.shouldBeStored()</span>
-<span class="nc" id="L1581">                || tag == null) continue;</span>
-
-<span class="nc" id="L1583">            xw.writeStartElement(tag);</span>
-
-<span class="nc" id="L1585">            xw.writeAttribute(ID_ATTRIBUTE_TAG, w);</span>
-
-<span class="nc" id="L1587">            xw.writeEndElement();</span>
-<span class="nc" id="L1588">        }</span>
-<span class="nc" id="L1589">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-<span class="nc" id="L1596">        super.readAttributes(xr);</span>
-
-<span class="nc" id="L1598">        final AIMain aiMain = getAIMain();</span>
-
-<span class="nc" id="L1600">        colony = xr.getAttribute(aiMain.getGame(), ID_ATTRIBUTE_TAG,</span>
-                                 Colony.class, (Colony)null);
-<span class="nc" id="L1602">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
-        // Clear containers.
-<span class="nc" id="L1610">        clearExportGoods();</span>
-<span class="nc" id="L1611">        tileImprovementPlans.clear();</span>
-<span class="nc" id="L1612">        wishes.clear();</span>
-
-<span class="nc" id="L1614">        super.readChildren(xr);</span>
-<span class="nc" id="L1615">        sortExportGoods();</span>
-        
-<span class="nc bnc" id="L1617" title="All 2 branches missed.">        if (getColony() != null) uninitialized = false;</span>
-<span class="nc" id="L1618">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
-<span class="nc" id="L1625">        final AIMain aiMain = getAIMain();</span>
-<span class="nc" id="L1626">        final String tag = xr.getLocalName();</span>
-
-<span class="nc bnc" id="L1628" title="All 2 branches missed.">        if (AI_GOODS_LIST_TAG.equals(tag)) {</span>
-<span class="nc" id="L1629">            addExportGoods(xr.makeAIObject(aiMain, ID_ATTRIBUTE_TAG,</span>
-                                           AIGoods.class, (AIGoods)null, true));
-<span class="nc" id="L1631">            xr.closeTag(AI_GOODS_LIST_TAG);</span>
-
-<span class="nc bnc" id="L1633" title="All 2 branches missed.">        } else if (GOODS_WISH_LIST_TAG.equals(tag)</span>
-            // @compat 0.10.3
-<span class="nc bnc" id="L1635" title="All 2 branches missed.">            || OLD_GOODS_WISH_TAG.equals(tag)</span>
-            // end @compat
-                   ) {
-<span class="nc" id="L1638">            wishes.add(xr.makeAIObject(aiMain, ID_ATTRIBUTE_TAG,</span>
-                                       GoodsWish.class, (GoodsWish)null, true));
-<span class="nc" id="L1640">            xr.closeTag(tag);// FIXME: tag -&gt; GOODS_WISH_LIST_TAG</span>
-
-<span class="nc bnc" id="L1642" title="All 2 branches missed.">        } else if (TILE_IMPROVEMENT_PLAN_LIST_TAG.equals(tag)</span>
-            // @compat 0.10.3
-<span class="nc bnc" id="L1644" title="All 2 branches missed.">            || OLD_TILE_IMPROVEMENT_PLAN_LIST_TAG.equals(tag)</span>
-            // end @compat
-                   ) {
-<span class="nc" id="L1647">            tileImprovementPlans.add(xr.makeAIObject(aiMain, ID_ATTRIBUTE_TAG,</span>
-                    TileImprovementPlan.class, (TileImprovementPlan)null, true));
-<span class="nc" id="L1649">            xr.closeTag(tag);// FIXME: tag -&gt; TILE_IMPROVEMENT_PLAN_LIST_TAG</span>
-
-<span class="nc bnc" id="L1651" title="All 2 branches missed.">        } else if (WORKER_WISH_LIST_TAG.equals(tag)</span>
-            // @compat 0.10.3
-<span class="nc bnc" id="L1653" title="All 2 branches missed.">            || OLD_WORKER_WISH_TAG.equals(tag)</span>
-            // end @compat
-                   ) {
-<span class="nc" id="L1656">            wishes.add(xr.makeAIObject(aiMain, ID_ATTRIBUTE_TAG,</span>
-                                       WorkerWish.class, (WorkerWish)null, true));
-<span class="nc" id="L1658">            xr.closeTag(tag);// FIXME: tag -&gt; WORKER_WISH_LIST_TAG</span>
-
-        } else {
-<span class="nc" id="L1661">            super.readChild(xr);</span>
-        }
-<span class="nc" id="L1663">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-<span class="nc" id="L1669">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return &quot;aiColony&quot;
-     */
-    public static String getXMLElementTagName() {
-<span class="fc" id="L1677">        return &quot;aiColony&quot;;</span>
-    }
+	/** The Constant logger. */
+<span class="fc" id="L88">	private static final Logger logger = Logger.getLogger(AIColony.class.getName());</span>
+
+	/** The Constant LIST_ELEMENT. */
+	private static final String LIST_ELEMENT = &quot;ListElement&quot;;
+
+	/**
+	 * Do not perform tile improvements that would leave less than this amount
+	 * of forested work locations available to the colony.
+	 */
+	private static final int FOREST_MINIMUM = 1;
+
+	/** Do not bother trying to ship out less than this amount of goods. */
+	private static final int EXPORT_MINIMUM = 10;
+
+	/** The colony this AIColony is managing. */
+	private Colony colony;
+
+	/** The current plan for the colony. Does not need to be serialized. */
+<span class="fc" id="L106">	private ColonyPlan colonyPlan = null;</span>
+
+	/** Goods to export from the colony. */
+<span class="fc" id="L109">	private final List&lt;AIGoods&gt; exportGoods = new ArrayList&lt;&gt;();</span>
+
+	/** Useful things for the colony. */
+<span class="fc" id="L112">	private final List&lt;Wish&gt; wishes = new ArrayList&lt;&gt;();</span>
+
+	/** Plans to improve neighbouring tiles. */
+<span class="fc" id="L115">	private final List&lt;TileImprovementPlan&gt; tileImprovementPlans = new ArrayList&lt;&gt;();</span>
+
+	/** When should the workers in this Colony be rearranged?. */
+<span class="fc" id="L118">	private Turn rearrangeTurn = new Turn(0);</span>
+
+	/**
+	 * Goods that should be completely exported and only exported to prevent the
+	 * warehouse filling.
+	 */
+<span class="fc" id="L124">	private static final Set&lt;GoodsType&gt; fullExport = new HashSet&lt;&gt;();</span>
+
+	/** The Constant partExport. */
+<span class="fc" id="L127">	private static final Set&lt;GoodsType&gt; partExport = new HashSet&lt;&gt;();</span>
+
+	/**
+	 * Comparator to favour expert pioneers, then units in that role, then least
+	 * skillful.
+	 */
+<span class="fc" id="L133">	private static final Comparator&lt;Unit&gt; pioneerComparator = new Comparator&lt;Unit&gt;() {</span>
+		private int score(Unit unit) {
+<span class="nc bnc" id="L135" title="All 2 branches missed.">			return (unit == null) ? -1000 : unit.getPioneerScore();</span>
+		}
+
+		@Override
+		public int compare(Unit u1, Unit u2) {
+<span class="nc" id="L140">			return score(u2) - score(u1);</span>
+		}
+	};
+
+	/**
+	 * Comparator to favour expert scouts, then units in that role, then least
+	 * skillful.
+	 */
+<span class="fc" id="L148">	private static final Comparator&lt;Unit&gt; scoutComparator = new Comparator&lt;Unit&gt;() {</span>
+		private int score(Unit unit) {
+<span class="nc bnc" id="L150" title="All 2 branches missed.">			return (unit == null) ? -1000 : unit.getScoutScore();</span>
+		}
+
+		@Override
+		public int compare(Unit u1, Unit u2) {
+<span class="nc" id="L155">			return score(u2) - score(u1);</span>
+		}
+	};
+
+	/**
+	 * Creates a new uninitialized &lt;code&gt;AIColony&lt;/code&gt;.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param id
+	 *            The object identifier.
+	 */
+	public AIColony(AIMain aiMain, String id) {
+<span class="fc" id="L168">		super(aiMain, id);</span>
+
+<span class="fc" id="L170">		this.colony = null;</span>
+<span class="fc" id="L171">		this.colonyPlan = null;</span>
+<span class="fc" id="L172">	}</span>
+
+	/**
+	 * Creates a new &lt;code&gt;AIColony&lt;/code&gt;.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param colony
+	 *            The colony to make an {@link AIObject} for.
+	 */
+	public AIColony(AIMain aiMain, Colony colony) {
+<span class="fc" id="L183">		this(aiMain, colony.getId());</span>
+
+<span class="fc" id="L185">		this.colony = colony;</span>
+<span class="fc" id="L186">		colony.addPropertyChangeListener(Colony.REARRANGE_WORKERS, this);</span>
+
+<span class="fc" id="L188">		uninitialized = false;</span>
+<span class="fc" id="L189">	}</span>
+
+	/**
+	 * Creates a new &lt;code&gt;AIColony&lt;/code&gt; from the given XML-representation.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param element
+	 *            The root element for the XML-representation of a
+	 *            &lt;code&gt;Wish&lt;/code&gt;.
+	 */
+	public AIColony(AIMain aiMain, Element element) {
+<span class="nc" id="L201">		this(aiMain, (String) null);</span>
+
+<span class="nc" id="L203">		readFromXMLElement(element);</span>
+<span class="nc" id="L204">		addAIObjectWithId();</span>
+
+<span class="nc bnc" id="L206" title="All 2 branches missed.">		uninitialized = getColony() == null;</span>
+<span class="nc" id="L207">	}</span>
+
+	/**
+	 * Creates a new &lt;code&gt;AIColony&lt;/code&gt; from the given XML-representation.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param xr
+	 *            The input stream containing the XML.
+	 * @exception XMLStreamException
+	 *                if a problem was encountered during parsing.
+	 */
+	public AIColony(AIMain aiMain, FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L220">		this(aiMain, (String) null);</span>
+
+<span class="nc" id="L222">		readFromXML(xr);</span>
+<span class="nc" id="L223">		addAIObjectWithId();</span>
+
+<span class="nc bnc" id="L225" title="All 2 branches missed.">		uninitialized = getColony() == null;</span>
+<span class="nc" id="L226">	}</span>
+
+	/**
+	 * Gets the &lt;code&gt;Colony&lt;/code&gt; this &lt;code&gt;AIColony&lt;/code&gt; controls.
+	 *
+	 * @return The &lt;code&gt;Colony&lt;/code&gt;.
+	 */
+	public final Colony getColony() {
+<span class="fc" id="L234">		return colony;</span>
+	}
+
+	/**
+	 * Gets the AI unit.
+	 *
+	 * @param unit
+	 *            the unit
+	 * @return the AI unit
+	 */
+	protected AIUnit getAIUnit(Unit unit) {
+<span class="fc" id="L245">		return getAIMain().getAIUnit(unit);</span>
+	}
+
+	/**
+	 * Gets the AI owner.
+	 *
+	 * @return the AI owner
+	 */
+	protected AIPlayer getAIOwner() {
+<span class="fc" id="L254">		return getAIMain().getAIPlayer(colony.getOwner());</span>
+	}
+
+	/**
+	 * Is this AI colony badly defended?.
+	 *
+	 * @return True if this colony needs more defenders.
+	 */
+	public boolean isBadlyDefended() {
+<span class="nc" id="L263">		return colony.isBadlyDefended();</span>
+	}
+
+	/**
+	 * Update any relatively static properties of the colony: - export state -
+	 * disposition of export goods in this colony - tile improvements (might
+	 * ignore freshly grabbed tiles) - wishes.
+	 *
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 */
+	public void update(LogBuilder lb) {
+<span class="nc" id="L275">		lb.add(&quot;\n  &quot;, colony.getName());</span>
+<span class="nc" id="L276">		resetExports();</span>
+<span class="nc" id="L277">		updateExportGoods(lb);</span>
+<span class="nc" id="L278">		updateTileImprovementPlans(lb);</span>
+<span class="nc" id="L279">		updateWishes(lb);</span>
+<span class="nc" id="L280">	}</span>
+
+	/**
+	 * Rearranges the workers within this colony using the {@link ColonyPlan}.
+	 *
+	 * FIXME: Detect military threats and boost defence.
+	 *
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 * @return A collection of worker &lt;code&gt;AIUnit&lt;/code&gt;s that now need a
+	 *         &lt;code&gt;WorkInsideColonyMission&lt;/code&gt;.
+	 */
+	public Collection&lt;AIUnit&gt; rearrangeWorkers(LogBuilder lb) {
+<span class="fc" id="L293">		final AIMain aiMain = getAIMain();</span>
+<span class="fc" id="L294">		Set&lt;AIUnit&gt; result = new HashSet&lt;&gt;();</span>
+
+		// First check if it is collapsing.
+<span class="pc bpc" id="L297" title="1 of 2 branches missed.">		if (colony.getUnitCount() &lt;= 0) {</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">			if (!avertAutoDestruction())</span>
+<span class="nc" id="L299">				return result;</span>
+		}
+
+		// Skip this colony if it does not yet need rearranging.
+<span class="fc" id="L303">		final int turn = getGame().getTurn().getNumber();</span>
+<span class="pc bpc" id="L304" title="1 of 2 branches missed.">		if (rearrangeTurn.getNumber() &gt; turn) {</span>
+<span class="nc bnc" id="L305" title="All 4 branches missed.">			if (colony.getCurrentlyBuilding() == null &amp;&amp; colonyPlan != null</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">					&amp;&amp; colonyPlan.getBestBuildableType() != null) {</span>
+<span class="nc" id="L307">				logger.warning(colony.getName() + &quot; could be building but&quot; + &quot; is asleep until turn: &quot;</span>
+<span class="nc" id="L308">						+ rearrangeTurn.getNumber() + &quot;( &gt; &quot; + turn + &quot;)&quot;);</span>
+			} else {
+<span class="nc" id="L310">				return result;</span>
+			}
+		}
+
+<span class="fc" id="L314">		final Tile tile = colony.getTile();</span>
+<span class="fc" id="L315">		final Player player = colony.getOwner();</span>
+<span class="fc" id="L316">		final Specification spec = getSpecification();</span>
+<span class="fc" id="L317">		lb.add(&quot;\n  &quot;, colony.getName());</span>
+
+		// For now, cap the rearrangement horizon, because confidence
+		// that we are triggering on all relevant changes is low.
+<span class="fc" id="L321">		int nextRearrange = 15;</span>
+
+		// See if there are neighbouring LCRs to explore, or tiles
+		// to steal, or just unclaimed tiles (a neighbouring settlement
+		// might have disappeared or relinquished a tile).
+		// This needs to be done early so that new tiles can be
+		// included in any new colony plan.
+<span class="fc" id="L328">		exploreLCRs();</span>
+<span class="fc" id="L329">		stealTiles(lb);</span>
+<span class="fc bfc" id="L330" title="All 2 branches covered.">		for (Tile t : tile.getSurroundingTiles(1)) {</span>
+<span class="pc bpc" id="L331" title="3 of 4 branches missed.">			if (!player.owns(t) &amp;&amp; player.canClaimForSettlement(t)) {</span>
+<span class="nc" id="L332">				AIMessage.askClaimLand(t, this, 0);</span>
+<span class="nc bnc" id="L333" title="All 2 branches missed.">				if (player.owns(t))</span>
+<span class="nc" id="L334">					lb.add(&quot;, claimed tile &quot;, t);</span>
+			}
+<span class="fc" id="L336">		}</span>
+
+		// Update the colony plan.
+<span class="fc bfc" id="L339" title="All 2 branches covered.">		if (colonyPlan == null)</span>
+<span class="fc" id="L340">			colonyPlan = new ColonyPlan(aiMain, colony);</span>
+<span class="fc" id="L341">		colonyPlan.update();</span>
+
+		// Now that we know what raw materials are available in the
+		// colony plan, set the current buildable, first backing out
+		// of anything currently being built that is now impossible.
+		// If a buildable is chosen, refine the worker allocation in
+		// the colony plan in case the required building materials
+		// have changed.
+<span class="fc" id="L349">		BuildableType oldBuild = colony.getCurrentlyBuilding();</span>
+<span class="fc" id="L350">		BuildableType build = colonyPlan.getBestBuildableType();</span>
+<span class="fc bfc" id="L351" title="All 2 branches covered.">		if (build != oldBuild) {</span>
+<span class="fc" id="L352">			List&lt;BuildableType&gt; queue = new ArrayList&lt;&gt;();</span>
+<span class="pc bpc" id="L353" title="1 of 2 branches missed.">			if (build != null)</span>
+<span class="fc" id="L354">				queue.add(build);</span>
+<span class="fc" id="L355">			AIMessage.askSetBuildQueue(this, queue);</span>
+<span class="fc" id="L356">			build = colony.getCurrentlyBuilding();</span>
+		}
+<span class="fc" id="L358">		colonyPlan.refine(build, lb);</span>
+
+		// Collect all potential workers from the colony and from the tile,
+		// being careful not to disturb existing non-colony missions.
+		// Note the special case of a unit aiming to build a colony on this
+		// tile, which happens regularly with the initial AI colony.
+		// Remember where the units came from.
+<span class="fc" id="L365">		List&lt;Unit&gt; workers = colony.getUnitList();</span>
+<span class="fc" id="L366">		List&lt;UnitWas&gt; was = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L367" title="All 2 branches covered.">		for (Unit u : workers) {</span>
+<span class="fc" id="L368">			Location loc = u.getLocation();</span>
+<span class="fc" id="L369">			was.add(new UnitWas(u));</span>
+<span class="fc" id="L370">		}</span>
+<span class="pc bpc" id="L371" title="1 of 2 branches missed.">		for (Unit u : tile.getUnitList()) {</span>
+<span class="nc bnc" id="L372" title="All 6 branches missed.">			if (!u.isPerson() || u.hasAbility(Ability.REF_UNIT) || getAIUnit(u) == null)</span>
+<span class="nc" id="L373">				continue;</span>
+<span class="nc" id="L374">			Mission m = getAIUnit(u).getMission();</span>
+<span class="nc bnc" id="L375" title="All 4 branches missed.">			if (m == null || (m instanceof BuildColonyMission</span>
+<span class="nc bnc" id="L376" title="All 10 branches missed.">					&amp;&amp; (Map.isSameLocation(m.getTarget(), tile) || colony.getUnitCount() &lt;= 1))</span>
+			// FIXME: drop this when the AI stops building excessive armies
+					|| m instanceof DefendSettlementMission || m instanceof IdleAtSettlementMission
+					|| m instanceof WorkInsideColonyMission) {
+<span class="nc" id="L380">				workers.add(u);</span>
+<span class="nc" id="L381">				was.add(new UnitWas(u));</span>
+			}
+<span class="nc" id="L383">		}</span>
+		// Assign the workers according to the colony plan.
+		// ATM we just accept this assignment unless it failed, in
+		// which case restore original state.
+<span class="fc" id="L387">		EuropeanAIPlayer aiPlayer = (EuropeanAIPlayer) getAIOwner();</span>
+<span class="fc" id="L388">		LogBuilder aw = new LogBuilder(256);</span>
+<span class="pc bpc" id="L389" title="1 of 2 branches missed.">		boolean preferScouts = aiPlayer.scoutsNeeded() &gt; 0;</span>
+<span class="fc" id="L390">		Colony scratch = colonyPlan.assignWorkers(new ArrayList&lt;&gt;(workers), preferScouts, aw);</span>
+<span class="pc bpc" id="L391" title="1 of 2 branches missed.">		if (scratch == null) {</span>
+<span class="nc" id="L392">			lb.add(&quot;, failed to assign workers.&quot;);</span>
+<span class="nc" id="L393">			rearrangeTurn = new Turn(turn + 1);</span>
+<span class="nc" id="L394">			return result;</span>
+		} else {
+<span class="fc" id="L396">			lb.add(&quot;, assigned &quot;, workers.size(), &quot; workers&quot;);</span>
+		}
+
+		// Apply the arrangement, and give suitable missions to all units.
+<span class="fc" id="L400">		AIMessage.askRearrangeColony(this, workers, scratch);</span>
+
+		// Emergency recovery if something broke and the colony is empty.
+<span class="pc bpc" id="L403" title="1 of 2 branches missed.">		if (colony.getUnitCount() &lt;= 0) {</span>
+<span class="nc" id="L404">			lb.add(&quot;, autodestruct detected&quot;);</span>
+<span class="nc" id="L405">			String destruct = &quot;Autodestruct at &quot; + colony.getName() + &quot; in &quot; + turn + &quot;:&quot;;</span>
+<span class="nc bnc" id="L406" title="All 2 branches missed.">			for (UnitWas uw : was)</span>
+<span class="nc" id="L407">				destruct += &quot;\n&quot; + uw;</span>
+<span class="nc" id="L408">			logger.warning(destruct);</span>
+<span class="nc bnc" id="L409" title="All 2 branches missed.">			if (!avertAutoDestruction())</span>
+<span class="nc" id="L410">				return result;</span>
+		}
+
+		// Argh. We may have chosen to build something we can no
+		// longer build due to some limitation. Try to find a
+		// replacement, but do not re-refine as that process is
+		// sufficiently complex that we can not be confident that this
+		// will not loop indefinitely. The compromise is to just
+		// rearrange next turn until we get out of this state.
+<span class="pc bpc" id="L419" title="2 of 4 branches missed.">		if (build != null &amp;&amp; !colony.canBuild(build)) {</span>
+<span class="nc" id="L420">			BuildableType newBuild = colonyPlan.getBestBuildableType();</span>
+<span class="nc" id="L421">			lb.add(&quot;, reneged building &quot;, build.getSuffix(), &quot; (&quot;, colony.getNoBuildReason(build, null), &quot;)&quot;);</span>
+<span class="nc" id="L422">			List&lt;BuildableType&gt; queue = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L423" title="All 2 branches missed.">			if (newBuild != null)</span>
+<span class="nc" id="L424">				queue.add(newBuild);</span>
+<span class="nc" id="L425">			AIMessage.askSetBuildQueue(this, queue);</span>
+<span class="nc" id="L426">			nextRearrange = 1;</span>
+		}
+
+		// Now that all production has been stabilized, plan to
+		// rearrange when the warehouse hits a limit.
+<span class="pc bpc" id="L431" title="1 of 2 branches missed.">		if (colony.getNetProductionOf(spec.getPrimaryFoodType()) &lt; 0) {</span>
+<span class="nc" id="L432">			int net = colony.getNetProductionOf(spec.getPrimaryFoodType());</span>
+<span class="nc" id="L433">			int when = colony.getGoodsCount(spec.getPrimaryFoodType()) / -net;</span>
+<span class="nc" id="L434">			nextRearrange = Math.max(0, Math.min(nextRearrange, when - 1));</span>
+		}
+<span class="fc" id="L436">		int warehouse = colony.getWarehouseCapacity();</span>
+<span class="fc bfc" id="L437" title="All 2 branches covered.">		for (GoodsType g : spec.getStorableGoodsTypeList()) {</span>
+<span class="fc bfc" id="L438" title="All 2 branches covered.">			if (g.isFoodType())</span>
+<span class="fc" id="L439">				continue;</span>
+<span class="fc" id="L440">			int have = colony.getGoodsCount(g);</span>
+<span class="fc" id="L441">			int net = colony.getAdjustedNetProductionOf(g);</span>
+<span class="pc bpc" id="L442" title="1 of 6 branches missed.">			if (net &gt;= 0 &amp;&amp; (have &gt;= warehouse || g.limitIgnored()))</span>
+<span class="nc" id="L443">				continue;</span>
+<span class="fc bfc" id="L444" title="All 4 branches covered.">			int when = (net &lt; 0) ? (have / -net - 1) : (net &gt; 0) ? ((warehouse - have) / net - 1) : Integer.MAX_VALUE;</span>
+<span class="fc" id="L445">			nextRearrange = Math.max(1, Math.min(nextRearrange, when));</span>
+<span class="fc" id="L446">		}</span>
+
+		// Return any units with the wrong mission
+<span class="fc bfc" id="L449" title="All 2 branches covered.">		for (Unit u : colony.getUnitList()) {</span>
+<span class="fc" id="L450">			final AIUnit aiu = getAIUnit(u);</span>
+<span class="fc" id="L451">			WorkInsideColonyMission wic = aiu.getMission(WorkInsideColonyMission.class);</span>
+<span class="fc bfc" id="L452" title="All 2 branches covered.">			if (wic == null) {</span>
+<span class="pc bpc" id="L453" title="1 of 2 branches missed.">				if (aiPlayer.getWorkInsideColonyMission(aiu, this) == null) {</span>
+<span class="nc" id="L454">					result.add(aiu);</span>
+				} else {
+<span class="fc" id="L456">					lb.add(&quot;, &quot;, aiu.getMission());</span>
+<span class="fc" id="L457">					aiu.dropTransport();</span>
+				}
+			}
+<span class="fc" id="L460">		}</span>
+
+		// Allocate pioneers if possible.
+<span class="fc" id="L463">		int tipSize = tileImprovementPlans.size();</span>
+<span class="pc bpc" id="L464" title="1 of 2 branches missed.">		if (tipSize &gt; 0) {</span>
+<span class="nc" id="L465">			List&lt;Unit&gt; pioneers = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L466" title="All 2 branches missed.">			for (Unit u : tile.getUnitList()) {</span>
+<span class="nc bnc" id="L467" title="All 2 branches missed.">				if (u.getPioneerScore() &gt;= 0)</span>
+<span class="nc" id="L468">					pioneers.add(u);</span>
+<span class="nc" id="L469">			}</span>
+<span class="nc" id="L470">			Collections.sort(pioneers, pioneerComparator);</span>
+<span class="nc bnc" id="L471" title="All 2 branches missed.">			for (Unit u : pioneers) {</span>
+<span class="nc" id="L472">				final AIUnit aiu = getAIUnit(u);</span>
+<span class="nc" id="L473">				Mission m = aiu.getMission();</span>
+<span class="nc bnc" id="L474" title="All 2 branches missed.">				Location oldTarget = (m == null) ? null : m.getTarget();</span>
+
+<span class="nc bnc" id="L476" title="All 2 branches missed.">				if ((m = aiPlayer.getPioneeringMission(aiu, null)) != null) {</span>
+<span class="nc" id="L477">					lb.add(&quot;, &quot;, aiu.getMission());</span>
+<span class="nc" id="L478">					aiPlayer.updateTransport(aiu, oldTarget, lb);</span>
+<span class="nc bnc" id="L479" title="All 2 branches missed.">					if (--tipSize &lt;= 0)</span>
+<span class="nc" id="L480">						break;</span>
+				}
+<span class="nc" id="L482">			}</span>
+		}
+
+<span class="pc bpc" id="L485" title="1 of 2 branches missed.">		for (Unit u : tile.getUnitList()) {</span>
+<span class="nc" id="L486">			final AIUnit aiu = getAIUnit(u);</span>
+<span class="nc" id="L487">			Mission m = aiu.getMission();</span>
+<span class="nc bnc" id="L488" title="All 12 branches missed.">			if (m instanceof BuildColonyMission || m instanceof DefendSettlementMission</span>
+					|| m instanceof MissionaryMission || m instanceof PioneeringMission || m instanceof ScoutingMission
+					|| m instanceof UnitSeekAndDestroyMission)
+<span class="nc" id="L491">				continue;</span>
+<span class="nc bnc" id="L492" title="All 2 branches missed.">			Location oldTarget = (m == null) ? null : m.getTarget();</span>
+
+<span class="nc bnc" id="L494" title="All 4 branches missed.">			if (u.hasAbility(Ability.SPEAK_WITH_CHIEF) &amp;&amp; (m = aiPlayer.getScoutingMission(aiu)) != null) {</span>
+<span class="nc" id="L495">				lb.add(&quot;, &quot;, m);</span>
+<span class="nc" id="L496">				aiPlayer.updateTransport(aiu, oldTarget, lb);</span>
+<span class="nc" id="L497">				continue;</span>
+<span class="nc bnc" id="L498" title="All 4 branches missed.">			} else if (u.isDefensiveUnit() &amp;&amp; (m = aiPlayer.getDefendSettlementMission(aiu, colony)) != null) {</span>
+<span class="nc" id="L499">				lb.add(&quot;, &quot;, m);</span>
+<span class="nc" id="L500">				aiPlayer.updateTransport(aiu, oldTarget, lb);</span>
+<span class="nc" id="L501">				continue;</span>
+<span class="nc bnc" id="L502" title="All 4 branches missed.">			} else if (u.hasAbility(Ability.ESTABLISH_MISSION) &amp;&amp; (m = aiPlayer.getMissionaryMission(aiu)) != null) {</span>
+<span class="nc" id="L503">				lb.add(&quot;, &quot;, m);</span>
+<span class="nc" id="L504">				aiPlayer.updateTransport(aiu, oldTarget, lb);</span>
+<span class="nc" id="L505">				continue;</span>
+			}
+<span class="nc" id="L507">			result.add(aiu);</span>
+<span class="nc" id="L508">		}</span>
+
+		// Log the changes.
+<span class="fc" id="L511">		build = colony.getCurrentlyBuilding();</span>
+<span class="pc bpc" id="L512" title="1 of 2 branches missed.">		String buildStr = (build != null) ? build.toString()</span>
+<span class="pc bnc" id="L513" title="All 2 branches missed.">				: ((build = colonyPlan.getBestBuildableType()) != null) ? &quot;unexpected-null(&quot; + build + &quot;)&quot;</span>
+						: &quot;expected-null&quot;;
+<span class="fc" id="L515">		lb.add(&quot;, building &quot;, buildStr, &quot;, population &quot;, colony.getUnitCount(), &quot;, rearrange &quot;, nextRearrange, &quot;.\n&quot;);</span>
+<span class="fc" id="L516">		lb.add(aw.toString());</span>
+<span class="fc" id="L517">		lb.shrink(&quot;\n&quot;);</span>
+<span class="fc bfc" id="L518" title="All 2 branches covered.">		for (UnitWas uw : was)</span>
+<span class="fc" id="L519">			lb.add(&quot;\n  &quot;, uw);</span>
+
+		// Set the next rearrangement turn.
+<span class="fc" id="L522">		rearrangeTurn = new Turn(turn + nextRearrange);</span>
+<span class="fc" id="L523">		return result;</span>
+	}
+
+	/**
+	 * Reset the export settings. This is always needed even when there is no
+	 * customs house, because updateExportGoods needs to know what to export by
+	 * transport.
+	 *
+	 * FIXME: consider market prices?
+	 */
+	private void resetExports() {
+<span class="nc" id="L534">		final Specification spec = getSpecification();</span>
+<span class="nc" id="L535">		final Player player = colony.getOwner();</span>
+
+<span class="nc" id="L537">		fullExport.clear();</span>
+<span class="nc" id="L538">		partExport.clear();</span>
+		// Initialize the exportable sets.
+		// Luxury goods, non-raw materials (silver), and raw materials
+		// we do not produce (might have been gifted) should always be
+		// fully exported. Other raw and manufactured goods should be
+		// exported only to the extent of not filling the warehouse.
+<span class="nc bnc" id="L544" title="All 2 branches missed.">		for (GoodsType g : spec.getStorableGoodsTypeList()) {</span>
+<span class="nc bnc" id="L545" title="All 8 branches missed.">			if (!g.isFoodType() &amp;&amp; !g.isBuildingMaterial() &amp;&amp; !g.isMilitaryGoods() &amp;&amp; !g.isTradeGoods()) {</span>
+<span class="nc bnc" id="L546" title="All 2 branches missed.">				if (g.isRawMaterial()) {</span>
+<span class="nc" id="L547">					partExport.add(g);</span>
+				} else {
+<span class="nc" id="L549">					fullExport.add(g);</span>
+				}
+			}
+<span class="nc" id="L552">		}</span>
+<span class="nc bnc" id="L553" title="All 2 branches missed.">		for (Role role : spec.getRoles()) {</span>
+<span class="nc bnc" id="L554" title="All 2 branches missed.">			if (role.isAvailableTo(player, spec.getDefaultUnitType(player))) {</span>
+<span class="nc bnc" id="L555" title="All 2 branches missed.">				for (AbstractGoods ag : role.getRequiredGoods()) {</span>
+<span class="nc bnc" id="L556" title="All 2 branches missed.">					if (fullExport.contains(ag.getType())) {</span>
+<span class="nc" id="L557">						fullExport.remove(ag.getType());</span>
+<span class="nc" id="L558">						partExport.add(ag.getType());</span>
+					}
+<span class="nc" id="L560">				}</span>
+			}
+<span class="nc" id="L562">		}</span>
+
+<span class="nc bnc" id="L564" title="All 2 branches missed.">		if (colony.getOwner().getMarket() == null) {</span>
+			// Do not export when there is no market!
+<span class="nc bnc" id="L566" title="All 2 branches missed.">			for (GoodsType g : spec.getGoodsTypeList()) {</span>
+<span class="nc" id="L567">				colony.getExportData(g).setExported(false);</span>
+<span class="nc" id="L568">			}</span>
+		} else {
+<span class="nc" id="L570">			int exportLevel = 4 * colony.getWarehouseCapacity() / 5;</span>
+<span class="nc bnc" id="L571" title="All 2 branches missed.">			for (GoodsType g : spec.getGoodsTypeList()) {</span>
+<span class="nc bnc" id="L572" title="All 2 branches missed.">				if (fullExport.contains(g)) {</span>
+<span class="nc" id="L573">					colony.getExportData(g).setExportLevel(0);</span>
+<span class="nc" id="L574">					colony.getExportData(g).setExported(true);</span>
+<span class="nc bnc" id="L575" title="All 2 branches missed.">				} else if (partExport.contains(g)) {</span>
+<span class="nc" id="L576">					colony.getExportData(g).setExportLevel(exportLevel);</span>
+<span class="nc" id="L577">					colony.getExportData(g).setExported(true);</span>
+				} else {
+<span class="nc" id="L579">					colony.getExportData(g).setExported(false);</span>
+				}
+<span class="nc" id="L581">			}</span>
+		}
+<span class="nc" id="L583">	}</span>
+
+	/**
+	 * Explores any neighbouring LCRs. Choose non-expert persons for the
+	 * exploration.
+	 */
+	private void exploreLCRs() {
+<span class="fc" id="L590">		final Tile tile = colony.getTile();</span>
+<span class="fc" id="L591">		List&lt;Unit&gt; explorers = tile.getUnitList().stream()</span>
+<span class="pc bnc" id="L592" title="All 6 branches missed.">				.filter(u -&gt; u.isPerson() &amp;&amp; (u.getType().getSkill() &lt;= 0 || u.hasAbility(Ability.EXPERT_SCOUT)))</span>
+<span class="fc" id="L593">				.sorted(scoutComparator).collect(Collectors.toList());</span>
+<span class="fc bfc" id="L594" title="All 2 branches covered.">		for (Tile t : tile.getSurroundingTiles(1)) {</span>
+<span class="pc bpc" id="L595" title="1 of 2 branches missed.">			if (t.hasLostCityRumour()) {</span>
+<span class="nc" id="L596">				Direction direction = tile.getDirection(t);</span>
+				for (;;) {
+<span class="nc bnc" id="L598" title="All 2 branches missed.">					if (explorers.isEmpty())</span>
+<span class="nc" id="L599">						return;</span>
+<span class="nc" id="L600">					Unit u = explorers.remove(0);</span>
+<span class="nc bnc" id="L601" title="All 2 branches missed.">					if (!u.getMoveType(t).isProgress())</span>
+<span class="nc" id="L602">						continue;</span>
+<span class="nc bnc" id="L603" title="All 4 branches missed.">					if (getAIUnit(u).move(direction) &amp;&amp; !t.hasLostCityRumour()) {</span>
+<span class="nc" id="L604">						u.setDestination(tile);</span>
+<span class="nc" id="L605">						break;</span>
+					}
+<span class="nc" id="L607">				}</span>
+			}
+<span class="fc" id="L609">		}</span>
+<span class="fc" id="L610">	}</span>
+
+	/**
+	 * Steals neighbouring tiles but only if the colony has some defence. Grab
+	 * everything if at war with the owner, otherwise just take the tile that
+	 * best helps with the currently required raw building materials, with a
+	 * lesser interest in food.
+	 *
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 */
+	private void stealTiles(LogBuilder lb) {
+<span class="fc" id="L622">		final Specification spec = getSpecification();</span>
+<span class="fc" id="L623">		final Tile tile = colony.getTile();</span>
+<span class="fc" id="L624">		final Player player = colony.getOwner();</span>
+<span class="fc" id="L625">		boolean hasDefender = any(tile.getUnitList(),</span>
+<span class="nc bnc" id="L626" title="All 4 branches missed.">				u -&gt; u.isDefensiveUnit() &amp;&amp; getAIUnit(u).getMission(DefendSettlementMission.class) != null);</span>
+<span class="pc bpc" id="L627" title="1 of 2 branches missed.">		if (!hasDefender)</span>
+<span class="fc" id="L628">			return;</span>
+
+		// What goods are really needed?
+<span class="nc" id="L631">		List&lt;GoodsType&gt; needed = spec.getRawBuildingGoodsTypeList().stream()</span>
+<span class="nc bnc" id="L632" title="All 2 branches missed.">				.filter(gt -&gt; colony.getTotalProductionOf(gt) &lt;= 0).collect(Collectors.toList());</span>
+
+		// If a tile can be stolen, do so if already at war with the
+		// owner or if it is the best one available.
+<span class="nc" id="L636">		UnitType unitType = spec.getDefaultUnitType(player);</span>
+<span class="nc" id="L637">		Tile steal = null;</span>
+<span class="nc" id="L638">		double score = 1.0;</span>
+<span class="nc bnc" id="L639" title="All 2 branches missed.">		for (Tile t : tile.getSurroundingTiles(1)) {</span>
+<span class="nc" id="L640">			Player owner = t.getOwner();</span>
+<span class="nc bnc" id="L641" title="All 8 branches missed.">			if (owner == null || owner == player || owner.isEuropean() || !player.canClaimForSettlement(t))</span>
+<span class="nc" id="L642">				continue;</span>
+<span class="nc bnc" id="L643" title="All 2 branches missed.">			if (owner.atWarWith(player)) {</span>
+<span class="nc bnc" id="L644" title="All 4 branches missed.">				if (AIMessage.askClaimLand(t, this, NetworkConstants.STEAL_LAND) &amp;&amp; player.owns(t)) {</span>
+<span class="nc" id="L645">					lb.add(&quot;, stole tile &quot;, t, &quot; from hostile &quot;, owner.getName());</span>
+				}
+			} else {
+				// Pick the best tile to steal, considering mainly the
+				// building goods needed, but including food at a lower
+				// weight.
+<span class="nc" id="L651">				double s = needed.stream().mapToInt(gt -&gt; t.getPotentialProduction(gt, unitType)).sum()</span>
+<span class="nc" id="L652">						+ spec.getFoodGoodsTypeList().stream()</span>
+<span class="nc" id="L653">								.mapToDouble(ft -&gt; 0.1 * t.getPotentialProduction(ft, unitType)).sum();</span>
+<span class="nc bnc" id="L654" title="All 2 branches missed.">				if (s &gt; score) {</span>
+<span class="nc" id="L655">					score = s;</span>
+<span class="nc" id="L656">					steal = t;</span>
+				}
+			}
+<span class="nc" id="L659">		}</span>
+<span class="nc bnc" id="L660" title="All 2 branches missed.">		if (steal != null) {</span>
+<span class="nc" id="L661">			Player owner = steal.getOwner();</span>
+<span class="nc bnc" id="L662" title="All 4 branches missed.">			if (AIMessage.askClaimLand(steal, this, NetworkConstants.STEAL_LAND) &amp;&amp; player.owns(steal)) {</span>
+<span class="nc" id="L663">				lb.add(&quot;, stole tile &quot;, steal, &quot; (score = &quot;, score, &quot;) from &quot;, owner.getName());</span>
+			}
+		}
+<span class="nc" id="L666">	}</span>
+
+	/**
+	 * Something bad happened, there is no remaining unit working in the colony.
+	 *
+	 * Throwing an exception stalls the AI and wrecks the colony in a weird way.
+	 * Try to recover by hopefully finding a unit outside the colony and
+	 * stuffing it into the town hall.
+	 *
+	 * @return True if autodestruction has been averted.
+	 */
+	private boolean avertAutoDestruction() {
+<span class="nc" id="L678">		LogBuilder lb = new LogBuilder(64);</span>
+<span class="nc" id="L679">		lb.add(&quot;Colony &quot;, colony.getName(), &quot; rearrangement leaves no units, &quot;, colony.getTile().getUnitCount(),</span>
+				&quot; available:&quot;);
+<span class="nc bnc" id="L681" title="All 2 branches missed.">		for (Unit u : colony.getTile().getUnitList())</span>
+<span class="nc" id="L682">			lb.add(&quot; &quot;, u);</span>
+<span class="nc" id="L683">		List&lt;GoodsType&gt; libertyGoods = getSpecification().getLibertyGoodsTypeList();</span>
+<span class="nc bnc" id="L684" title="All 2 branches missed.">		out: for (Unit u : colony.getTile().getUnitList()) {</span>
+<span class="nc bnc" id="L685" title="All 2 branches missed.">			if (!u.isPerson())</span>
+<span class="nc" id="L686">				continue;</span>
+<span class="nc bnc" id="L687" title="All 2 branches missed.">			for (WorkLocation wl : colony.getAvailableWorkLocations()) {</span>
+<span class="nc bnc" id="L688" title="All 2 branches missed.">				if (!wl.canAdd(u))</span>
+<span class="nc" id="L689">					continue;</span>
+<span class="nc bnc" id="L690" title="All 2 branches missed.">				for (GoodsType type : libertyGoods) {</span>
+<span class="nc bnc" id="L691" title="All 4 branches missed.">					if (wl.getPotentialProduction(type, u.getType()) &gt; 0 &amp;&amp; AIMessage.askWork(getAIUnit(u), wl)</span>
+<span class="nc bnc" id="L692" title="All 2 branches missed.">							&amp;&amp; u.getLocation() == wl) {</span>
+<span class="nc" id="L693">						AIMessage.askChangeWorkType(getAIUnit(u), type);</span>
+<span class="nc" id="L694">						lb.add(&quot;, averts destruction with &quot;, u);</span>
+<span class="nc" id="L695">						break out;</span>
+					}
+<span class="nc" id="L697">				}</span>
+<span class="nc" id="L698">			}</span>
+<span class="nc" id="L699">		}</span>
+<span class="nc" id="L700">		lb.log(logger, Level.WARNING);</span>
+<span class="nc bnc" id="L701" title="All 2 branches missed.">		return colony.getUnitCount() &gt; 0;</span>
+	}
+
+	/**
+	 * Stop using a work location.
+	 *
+	 * Called from BuildColonyMission to clear a colony tile that is about to
+	 * have a colony built on it.
+	 *
+	 * @param wl
+	 *            The &lt;code&gt;WorkLocation&lt;/code&gt; to stop using.
+	 */
+	public void stopUsing(WorkLocation wl) {
+<span class="nc bnc" id="L714" title="All 2 branches missed.">		for (Unit u : wl.getUnitList()) {</span>
+<span class="nc" id="L715">			AIMessage.askPutOutsideColony(getAIUnit(u));</span>
+<span class="nc" id="L716">		}</span>
+<span class="nc bnc" id="L717" title="All 2 branches missed.">		if (colony.getUnitCount() &lt;= 0)</span>
+<span class="nc" id="L718">			avertAutoDestruction();</span>
+<span class="nc" id="L719">		rearrangeTurn = new Turn(getGame().getTurn().getNumber());</span>
+<span class="nc" id="L720">	}</span>
+
+	/**
+	 * Gets the goods to be exported from this AI colony.
+	 *
+	 * @return A copy of the exportGoods list.
+	 */
+	public List&lt;AIGoods&gt; getExportGoods() {
+<span class="fc" id="L728">		synchronized (exportGoods) {</span>
+			// firePropertyChanges can hit exportGoods
+<span class="fc" id="L730">			return new ArrayList&lt;&gt;(exportGoods);</span>
+<span class="nc" id="L731">		}</span>
+	}
+
+	/**
+	 * Clear the export goods.
+	 */
+	private void clearExportGoods() {
+<span class="nc" id="L738">		synchronized (exportGoods) {</span>
+<span class="nc" id="L739">			exportGoods.clear();</span>
+<span class="nc" id="L740">		}</span>
+<span class="nc" id="L741">	}</span>
+
+	/**
+	 * Add to the export goods list, and resort.
+	 *
+	 * @param aiGoods
+	 *            The &lt;code&gt;AIGoods&lt;/code&gt; to add.
+	 */
+	private void addExportGoods(AIGoods aiGoods) {
+<span class="nc" id="L750">		synchronized (exportGoods) {</span>
+<span class="nc" id="L751">			exportGoods.add(aiGoods);</span>
+<span class="nc" id="L752">		}</span>
+<span class="nc" id="L753">	}</span>
+
+	/**
+	 * Set the export goods list.
+	 *
+	 * @param aiGoods
+	 *            The new list of &lt;code&gt;AIGoods&lt;/code&gt;.
+	 */
+	private void setExportGoods(List&lt;AIGoods&gt; aiGoods) {
+<span class="nc" id="L762">		clearExportGoods();</span>
+<span class="nc" id="L763">		synchronized (exportGoods) {</span>
+<span class="nc" id="L764">			exportGoods.addAll(aiGoods);</span>
+<span class="nc" id="L765">		}</span>
+<span class="nc" id="L766">		sortExportGoods();</span>
+<span class="nc" id="L767">	}</span>
+
+	/**
+	 * Sort the export goods.
+	 */
+	private void sortExportGoods() {
+<span class="nc" id="L773">		synchronized (exportGoods) {</span>
+<span class="nc" id="L774">			Collections.sort(exportGoods);</span>
+<span class="nc" id="L775">		}</span>
+<span class="nc" id="L776">	}</span>
+
+	/**
+	 * Removes the given &lt;code&gt;AIGoods&lt;/code&gt; from the export goods for this
+	 * colony. The &lt;code&gt;AIGoods&lt;/code&gt;-object is not disposed as part of this
+	 * operation. Use dropExportGoods instead to remove the object completely
+	 * (this method would then be called indirectly).
+	 *
+	 * @param ag
+	 *            The &lt;code&gt;AIGoods&lt;/code&gt; to be removed.
+	 * @see AIGoods#dispose()
+	 */
+	public void removeExportGoods(AIGoods ag) {
+<span class="nc" id="L789">		synchronized (exportGoods) {</span>
+<span class="nc bnc" id="L790" title="All 2 branches missed.">			while (exportGoods.remove(ag)) {</span>
+			} /* Do nothing here */
+<span class="nc" id="L792">		}</span>
+<span class="nc" id="L793">	}</span>
+
+	/**
+	 * Drops some goods from the goods list, and cancels any transport.
+	 *
+	 * @param ag
+	 *            The &lt;code&gt;AIGoods&lt;/code&gt; to drop.
+	 */
+	private void dropExportGoods(AIGoods ag) {
+		TransportMission tm;
+<span class="nc bnc" id="L803" title="All 4 branches missed.">		if (ag.getTransport() != null &amp;&amp; (tm = ag.getTransport().getMission(TransportMission.class)) != null) {</span>
+<span class="nc" id="L804">			tm.removeTransportable(ag);</span>
+		}
+<span class="nc" id="L806">		removeExportGoods(ag);</span>
+<span class="nc" id="L807">		ag.dispose();</span>
+<span class="nc" id="L808">	}</span>
+
+	/**
+	 * Emits a standard message regarding the state of AIGoods.
+	 *
+	 * @param ag
+	 *            The &lt;code&gt;AIGoods&lt;/code&gt; to log.
+	 * @param action
+	 *            The state of the goods.
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 */
+	private void goodsLog(AIGoods ag, String action, LogBuilder lb) {
+<span class="nc bnc" id="L821" title="All 2 branches missed.">		Goods goods = (ag == null) ? null : ag.getGoods();</span>
+<span class="nc bnc" id="L822" title="All 2 branches missed.">		int amount = (goods == null) ? -1 : goods.getAmount();</span>
+<span class="nc bnc" id="L823" title="All 2 branches missed.">		String type = (goods == null) ? &quot;(null)&quot; : ag.getGoods().getType().getSuffix();</span>
+<span class="nc bnc" id="L824" title="All 4 branches missed.">		lb.add(&quot;, &quot;, action, &quot; &quot;, ((ag == null) ? &quot;(null)&quot; : ag.getId()), &quot; &quot;,</span>
+<span class="nc" id="L825">				((amount &gt;= GoodsContainer.CARGO_SIZE) ? &quot;full &quot; : Integer.toString(amount) + &quot; &quot;), type);</span>
+<span class="nc" id="L826">	}</span>
+
+	/**
+	 * Creates a list of the goods which should be shipped out of this colony.
+	 *
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 */
+	private void updateExportGoods(LogBuilder lb) {
+<span class="nc bnc" id="L835" title="All 2 branches missed.">		if (colony.hasAbility(Ability.EXPORT)) {</span>
+<span class="nc bnc" id="L836" title="All 2 branches missed.">			for (AIGoods aig : getExportGoods()) {</span>
+<span class="nc" id="L837">				goodsLog(aig, &quot;customizes&quot;, lb);</span>
+<span class="nc" id="L838">				dropExportGoods(aig);</span>
+<span class="nc" id="L839">			}</span>
+
+		} else { // does not have a customs house
+<span class="nc bnc" id="L842" title="All 2 branches missed.">			for (AIGoods aig : getExportGoods()) {</span>
+<span class="nc bnc" id="L843" title="All 2 branches missed.">				if (aig == null) {</span>
+<span class="nc" id="L844">					removeExportGoods(aig);</span>
+<span class="nc bnc" id="L845" title="All 2 branches missed.">				} else if (aig.checkIntegrity(false) &lt; 0) {</span>
+<span class="nc" id="L846">					goodsLog(aig, &quot;reaps&quot;, lb);</span>
+<span class="nc" id="L847">					dropExportGoods(aig);</span>
+<span class="nc bnc" id="L848" title="All 2 branches missed.">				} else if (aig.getGoods().getLocation() != colony) {</span>
+					// On its way, no longer of interest here, but do
+					// not dispose as that will happen when delivered.
+<span class="nc" id="L851">					goodsLog(aig, &quot;sends&quot;, lb);</span>
+<span class="nc" id="L852">					removeExportGoods(aig);</span>
+<span class="nc bnc" id="L853" title="All 2 branches missed.">				} else if (colony.getAdjustedNetProductionOf(aig.getGoods().getType()) &lt; 0) {</span>
+<span class="nc" id="L854">					goodsLog(aig, &quot;needs&quot;, lb);</span>
+<span class="nc" id="L855">					dropExportGoods(aig);</span>
+				}
+<span class="nc" id="L857">			}</span>
+
+			// Create a new batch of exported goods.
+<span class="nc" id="L860">			final Europe europe = colony.getOwner().getEurope();</span>
+<span class="nc" id="L861">			final int capacity = colony.getWarehouseCapacity();</span>
+<span class="nc" id="L862">			List&lt;AIGoods&gt; newAIGoods = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L863" title="All 2 branches missed.">			outer: for (GoodsType gt : getSpecification().getGoodsTypeList()) {</span>
+<span class="nc bnc" id="L864" title="All 2 branches missed.">				if (colony.getAdjustedNetProductionOf(gt) &lt; 0)</span>
+<span class="nc" id="L865">					continue;</span>
+<span class="nc" id="L866">				int count = colony.getGoodsCount(gt);</span>
+<span class="nc bnc" id="L867" title="All 2 branches missed.">				int exportAmount = (fullExport.contains(gt)) ? count</span>
+<span class="nc bnc" id="L868" title="All 2 branches missed.">						: (partExport.contains(gt)) ? count - colony.getExportData(gt).getExportLevel() : -1;</span>
+<span class="nc bnc" id="L869" title="All 2 branches missed.">				if (exportAmount &lt;= 0)</span>
+<span class="nc" id="L870">					continue;</span>
+<span class="nc bnc" id="L871" title="All 4 branches missed.">				int priority = (exportAmount &gt;= capacity) ? TransportableAIObject.IMPORTANT_DELIVERY</span>
+						: (exportAmount &gt;= GoodsContainer.CARGO_SIZE) ? TransportableAIObject.FULL_DELIVERY : 0;
+
+				// Find all existing AI goods of type gt, update
+				// amount of goods to export to that present in the
+				// colony, and drop exports of trivial amounts. If
+				// existing goods are found we do not continue with
+				// this goods type but add the updated goods to the
+				// new goods batch.
+<span class="nc bnc" id="L880" title="All 2 branches missed.">				for (AIGoods aig : getExportGoods()) {</span>
+<span class="nc" id="L881">					Goods goods = aig.getGoods();</span>
+<span class="nc bnc" id="L882" title="All 2 branches missed.">					if (goods.getType() == gt) {</span>
+<span class="nc" id="L883">						int amount = goods.getAmount();</span>
+<span class="nc bnc" id="L884" title="All 2 branches missed.">						if (amount &lt;= exportAmount) {</span>
+<span class="nc" id="L885">							goods.setAmount(exportAmount);</span>
+<span class="nc" id="L886">							goodsLog(aig, &quot;updates&quot;, lb);</span>
+<span class="nc" id="L887">							newAIGoods.add(aig);</span>
+						} else {
+<span class="nc bnc" id="L889" title="All 2 branches missed.">							if (exportAmount &gt;= EXPORT_MINIMUM) {</span>
+<span class="nc" id="L890">								goods.setAmount(exportAmount);</span>
+<span class="nc" id="L891">								goodsLog(aig, &quot;clamps&quot;, lb);</span>
+<span class="nc" id="L892">								newAIGoods.add(aig);</span>
+							} else {
+<span class="nc" id="L894">								goodsLog(aig, &quot;unexports&quot;, lb);</span>
+<span class="nc" id="L895">								dropExportGoods(aig);</span>
+							}
+						}
+<span class="nc" id="L898">						continue outer;</span>
+					}
+<span class="nc" id="L900">				}</span>
+				// Export new goods, to Europe if possible.
+<span class="nc bnc" id="L902" title="All 2 branches missed.">				Location destination = (colony.getOwner().canTrade(gt)) ? europe : null;</span>
+<span class="nc bnc" id="L903" title="All 2 branches missed.">				if (exportAmount &gt;= EXPORT_MINIMUM) {</span>
+<span class="nc" id="L904">					AIGoods newGoods = new AIGoods(getAIMain(), colony, gt, exportAmount, destination);</span>
+<span class="nc" id="L905">					newGoods.setTransportPriority(priority);</span>
+<span class="nc" id="L906">					newAIGoods.add(newGoods);</span>
+<span class="nc" id="L907">					goodsLog(newGoods, &quot;makes&quot;, lb);</span>
+				}
+<span class="nc" id="L909">			}</span>
+<span class="nc" id="L910">			setExportGoods(newAIGoods);</span>
+		}
+<span class="nc" id="L912">	}</span>
+
+	/**
+	 * Adds a &lt;code&gt;Wish&lt;/code&gt; to the wishes list.
+	 *
+	 * @param wish
+	 *            The &lt;code&gt;Wish&lt;/code&gt; to be added.
+	 */
+	public void addWish(Wish wish) {
+<span class="nc" id="L921">		wishes.add(wish);</span>
+<span class="nc" id="L922">	}</span>
+
+	/**
+	 * Tries to complete a supplied wish.
+	 *
+	 * @param wish
+	 *            The &lt;code&gt;Wish&lt;/code&gt; to complete.
+	 * @param reason
+	 *            A reason for wish completion.
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 * @return True if this wish was successfully completed.
+	 */
+	public boolean completeWish(Wish wish, String reason, LogBuilder lb) {
+<span class="nc bnc" id="L936" title="All 2 branches missed.">		if (!wishes.remove(wish)) {</span>
+<span class="nc" id="L937">			lb.add(&quot;, &quot;, reason, &quot; not wished for at &quot;, colony.getName());</span>
+<span class="nc" id="L938">			return false;</span>
+		}
+<span class="nc" id="L940">		((EuropeanAIPlayer) getAIOwner()).completeWish(wish);</span>
+<span class="nc" id="L941">		lb.add(&quot;, &quot;, reason, &quot; fulfills at &quot;, colony.getName());</span>
+<span class="nc" id="L942">		wish.dispose();</span>
+<span class="nc" id="L943">		requestRearrange();</span>
+<span class="nc" id="L944">		return true;</span>
+	}
+
+	/**
+	 * Tries to complete any wishes for some goods that have just arrived.
+	 *
+	 * @param goods
+	 *            Some &lt;code&gt;Goods&lt;/code&gt; that are arriving in this colony.
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 * @return True if a wish was successfully completed.
+	 */
+	public boolean completeWish(Goods goods, LogBuilder lb) {
+<span class="nc" id="L957">		boolean ret = false;</span>
+<span class="nc" id="L958">		int i = 0;</span>
+<span class="nc bnc" id="L959" title="All 2 branches missed.">		while (i &lt; wishes.size()) {</span>
+<span class="nc bnc" id="L960" title="All 2 branches missed.">			if (wishes.get(i) instanceof GoodsWish) {</span>
+<span class="nc" id="L961">				GoodsWish gw = (GoodsWish) wishes.get(i);</span>
+<span class="nc bnc" id="L962" title="All 4 branches missed.">				if (gw.satisfiedBy(goods) &amp;&amp; completeWish(gw, goods.toString(), lb)) {</span>
+<span class="nc" id="L963">					ret = true;</span>
+<span class="nc" id="L964">					continue;</span>
+				}
+			}
+<span class="nc" id="L967">			i++;</span>
+		}
+<span class="nc" id="L969">		return ret;</span>
+	}
+
+	/**
+	 * Tries to complete any wishes for a unit that has just arrived.
+	 *
+	 * @param unit
+	 *            A &lt;code&gt;Unit&lt;/code&gt; that is arriving in this colony.
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 * @return True if a wish was successfully completed.
+	 */
+	public boolean completeWish(Unit unit, LogBuilder lb) {
+<span class="nc" id="L982">		boolean ret = false;</span>
+<span class="nc" id="L983">		int i = 0;</span>
+<span class="nc bnc" id="L984" title="All 2 branches missed.">		while (i &lt; wishes.size()) {</span>
+<span class="nc bnc" id="L985" title="All 2 branches missed.">			if (wishes.get(i) instanceof WorkerWish) {</span>
+<span class="nc" id="L986">				WorkerWish ww = (WorkerWish) wishes.get(i);</span>
+<span class="nc bnc" id="L987" title="All 4 branches missed.">				if (ww.satisfiedBy(unit) &amp;&amp; completeWish(ww, unit.toShortString(), lb)) {</span>
+<span class="nc" id="L988">					ret = true;</span>
+<span class="nc" id="L989">					continue;</span>
+				}
+			}
+<span class="nc" id="L992">			i++;</span>
+		}
+<span class="nc" id="L994">		return ret;</span>
+	}
+
+	/**
+	 * Tries to complete any wishes for a transportable that has just arrived.
+	 *
+	 * @param t
+	 *            The arriving &lt;code&gt;TransportableAIObject&lt;/code&gt;.
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 * @return True if a wish was successfully completed.
+	 */
+	public boolean completeWish(TransportableAIObject t, LogBuilder lb) {
+<span class="nc bnc" id="L1007" title="All 2 branches missed.">		if (t instanceof AIGoods) {</span>
+<span class="nc" id="L1008">			return completeWish((Goods) t.getTransportLocatable(), lb);</span>
+<span class="nc bnc" id="L1009" title="All 2 branches missed.">		} else if (t instanceof AIUnit) {</span>
+<span class="nc" id="L1010">			AIUnit aiUnit = (AIUnit) t;</span>
+<span class="nc" id="L1011">			WishRealizationMission wm = aiUnit.getMission(WishRealizationMission.class);</span>
+<span class="nc bnc" id="L1012" title="All 4 branches missed.">			if (wm != null &amp;&amp; Map.isSameLocation(wm.getTarget(), colony)) {</span>
+<span class="nc" id="L1013">				lb.add(&quot;, at wish-target&quot;);</span>
+<span class="nc" id="L1014">				completeWish(aiUnit.getUnit(), lb);</span>
+<span class="nc" id="L1015">				aiUnit.changeMission(null);</span>
+<span class="nc" id="L1016">				return true;</span>
+			}
+		}
+<span class="nc" id="L1019">		return false;</span>
+	}
+
+	/**
+	 * Gets the wishes this colony has.
+	 *
+	 * @return A copy of the wishes list.
+	 */
+	public List&lt;Wish&gt; getWishes() {
+<span class="fc" id="L1028">		return new ArrayList&lt;&gt;(wishes);</span>
+	}
+
+	/**
+	 * Gets the goods wishes this colony has.
+	 *
+	 * @return A copy of the wishes list with non-goods wishes removed.
+	 */
+	public List&lt;GoodsWish&gt; getGoodsWishes() {
+<span class="nc" id="L1037">		List&lt;GoodsWish&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L1038" title="All 2 branches missed.">		for (Wish wish : wishes) {</span>
+<span class="nc bnc" id="L1039" title="All 2 branches missed.">			if (wish instanceof GoodsWish) {</span>
+<span class="nc" id="L1040">				result.add((GoodsWish) wish);</span>
+			}
+<span class="nc" id="L1042">		}</span>
+<span class="nc" id="L1043">		return result;</span>
+	}
+
+	/**
+	 * Gets the worker wishes this colony has.
+	 *
+	 * @return A copy of the wishes list with non-worker wishes removed.
+	 */
+	public List&lt;WorkerWish&gt; getWorkerWishes() {
+<span class="nc" id="L1052">		List&lt;WorkerWish&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L1053" title="All 2 branches missed.">		for (Wish wish : wishes) {</span>
+<span class="nc bnc" id="L1054" title="All 2 branches missed.">			if (wish instanceof WorkerWish) {</span>
+<span class="nc" id="L1055">				result.add((WorkerWish) wish);</span>
+			}
+<span class="nc" id="L1057">		}</span>
+<span class="nc" id="L1058">		return result;</span>
+	}
+
+	/**
+	 * Requires a goods wish for a specified goods type be present at this AI
+	 * colony. If one is already present, the amount specified here takes
+	 * precedence as it is more likely to be up to date. The value is treated as
+	 * a minimum requirement.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to wish for.
+	 * @param amount
+	 *            The amount of goods wished for.
+	 * @param value
+	 *            The urgency of the wish.
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 */
+	public void requireGoodsWish(GoodsType type, int amount, int value, LogBuilder lb) {
+<span class="nc bnc" id="L1077" title="All 4 branches missed.">		GoodsWish gw = (GoodsWish) find(wishes, w -&gt; w instanceof GoodsWish &amp;&amp; ((GoodsWish) w).getGoodsType() == type);</span>
+<span class="nc bnc" id="L1078" title="All 2 branches missed.">		if (gw != null) {</span>
+<span class="nc" id="L1079">			gw.update(type, amount, gw.getValue() + 1);</span>
+<span class="nc" id="L1080">			lb.add(&quot;, update &quot;, gw);</span>
+		} else {
+<span class="nc" id="L1082">			gw = new GoodsWish(getAIMain(), colony, value, amount, type);</span>
+<span class="nc" id="L1083">			wishes.add(gw);</span>
+<span class="nc" id="L1084">			lb.add(&quot;, add &quot;, gw);</span>
+		}
+<span class="nc" id="L1086">	}</span>
+
+	/**
+	 * Requires a worker wish for a unit type to be provided to this AIColony.
+	 * If a suitable wish is already present, the expert and value parameters
+	 * take precedence as they are more likely to be up to date.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;UnitType&lt;/code&gt; to wish for.
+	 * @param expertNeeded
+	 *            Is an expert unit required?
+	 * @param value
+	 *            The urgency of the wish.
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 */
+	public void requireWorkerWish(UnitType type, boolean expertNeeded, int value, LogBuilder lb) {
+<span class="nc" id="L1103">		WorkerWish ww = (WorkerWish) find(wishes,</span>
+<span class="nc bnc" id="L1104" title="All 4 branches missed.">				w -&gt; w instanceof WorkerWish &amp;&amp; ((WorkerWish) w).getUnitType() == type);</span>
+<span class="nc bnc" id="L1105" title="All 2 branches missed.">		if (ww != null) {</span>
+<span class="nc" id="L1106">			ww.update(type, expertNeeded, ww.getValue() + 1);</span>
+<span class="nc" id="L1107">			lb.add(&quot;, update &quot;, ww);</span>
+		} else {
+<span class="nc" id="L1109">			ww = new WorkerWish(getAIMain(), colony, value, type, expertNeeded);</span>
+<span class="nc" id="L1110">			wishes.add(ww);</span>
+<span class="nc" id="L1111">			lb.add(&quot;, add &quot;, ww);</span>
+		}
+<span class="nc" id="L1113">	}</span>
+
+	/**
+	 * Updates the wishes for the &lt;code&gt;Colony&lt;/code&gt;.
+	 *
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 */
+	private void updateWishes(LogBuilder lb) {
+<span class="nc" id="L1122">		updateWorkerWishes(lb);</span>
+<span class="nc" id="L1123">		updateGoodsWishes(lb);</span>
+<span class="nc" id="L1124">		Collections.sort(wishes);</span>
+<span class="nc" id="L1125">	}</span>
+
+	/**
+	 * Updates the worker wishes.
+	 *
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 */
+	private void updateWorkerWishes(LogBuilder lb) {
+<span class="nc" id="L1134">		final Specification spec = getSpecification();</span>
+<span class="nc" id="L1135">		final int baseValue = 25;</span>
+<span class="nc" id="L1136">		final int priorityMax = 50;</span>
+<span class="nc" id="L1137">		final int priorityDecay = 5;</span>
+<span class="nc" id="L1138">		final int multipleBonus = 5;</span>
+<span class="nc" id="L1139">		final int multipleMax = 5;</span>
+
+		// For every non-expert, request expert replacement.
+		// Prioritize by lowest net production among the goods that are
+		// being produced by units (note that we have to traverse the work
+		// locations/unit-lists, rather than just check for non-zero
+		// production because it could be in balance).
+		// Add some weight when multiple cases of the same expert are
+		// needed, rather than generating heaps of wishes.
+<span class="nc" id="L1148">		List&lt;GoodsType&gt; producing = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L1149" title="All 2 branches missed.">		for (WorkLocation wl : colony.getAvailableWorkLocations()) {</span>
+<span class="nc bnc" id="L1150" title="All 2 branches missed.">			for (Unit u : wl.getUnitList()) {</span>
+<span class="nc" id="L1151">				GoodsType work = u.getWorkType();</span>
+<span class="nc bnc" id="L1152" title="All 2 branches missed.">				if (work != null) {</span>
+<span class="nc" id="L1153">					work = work.getStoredAs();</span>
+<span class="nc bnc" id="L1154" title="All 2 branches missed.">					if (!producing.contains(work))</span>
+<span class="nc" id="L1155">						producing.add(work);</span>
+				}
+<span class="nc" id="L1157">			}</span>
+<span class="nc" id="L1158">		}</span>
+<span class="nc" id="L1159">		Collections.sort(producing, new Comparator&lt;GoodsType&gt;() {</span>
+			@Override
+			public int compare(GoodsType g1, GoodsType g2) {
+<span class="nc" id="L1162">				return colony.getAdjustedNetProductionOf(g1) - colony.getAdjustedNetProductionOf(g2);</span>
+			}
+		});
+<span class="nc" id="L1165">		TypeCountMap&lt;UnitType&gt; experts = new TypeCountMap&lt;&gt;();</span>
+<span class="nc bnc" id="L1166" title="All 2 branches missed.">		for (Unit unit : colony.getUnitList()) {</span>
+<span class="nc" id="L1167">			GoodsType goods = unit.getWorkType();</span>
+<span class="nc bnc" id="L1168" title="All 4 branches missed.">			UnitType expert = (goods == null || goods == unit.getType().getExpertProduction()) ? null</span>
+<span class="nc" id="L1169">					: spec.getExpertForProducing(goods);</span>
+<span class="nc bnc" id="L1170" title="All 2 branches missed.">			if (expert != null) {</span>
+<span class="nc" id="L1171">				experts.incrementCount(expert, 1);</span>
+			}
+<span class="nc" id="L1173">		}</span>
+<span class="nc bnc" id="L1174" title="All 2 branches missed.">		for (UnitType expert : experts.keySet()) {</span>
+<span class="nc" id="L1175">			GoodsType goods = expert.getExpertProduction();</span>
+<span class="nc" id="L1176">			int value = baseValue + Math.max(0, priorityMax - priorityDecay * producing.indexOf(goods))</span>
+<span class="nc" id="L1177">					+ (Math.min(multipleMax, experts.getCount(expert) - 1) * multipleBonus);</span>
+<span class="nc" id="L1178">			requireWorkerWish(expert, true, value, lb);</span>
+<span class="nc" id="L1179">		}</span>
+
+		// Request population increase if no worker wishes and the bonus
+		// can take it.
+<span class="nc bnc" id="L1183" title="All 6 branches missed.">		if (colonyPlan != null &amp;&amp; experts.isEmpty() &amp;&amp; colony.governmentChange(colony.getUnitCount() + 1) &gt;= 0) {</span>
+<span class="nc" id="L1184">			boolean needFood = colony.getFoodProduction() &lt;= colony.getFoodConsumption()</span>
+<span class="nc bnc" id="L1185" title="All 2 branches missed.">					+ colony.getOwner().getMaximumFoodConsumption();</span>
+			// Choose expert for best work location plan
+<span class="nc" id="L1187">			final Player owner = colony.getOwner();</span>
+<span class="nc" id="L1188">			UnitType expert = spec.getDefaultUnitType(owner);</span>
+<span class="nc bnc" id="L1189" title="All 4 branches missed.">			for (WorkLocationPlan plan : (needFood) ? colonyPlan.getFoodPlans() : colonyPlan.getWorkPlans()) {</span>
+<span class="nc" id="L1190">				WorkLocation location = plan.getWorkLocation();</span>
+<span class="nc bnc" id="L1191" title="All 2 branches missed.">				if (!location.canBeWorked())</span>
+<span class="nc" id="L1192">					continue;</span>
+<span class="nc" id="L1193">				expert = spec.getExpertForProducing(plan.getGoodsType());</span>
+<span class="nc" id="L1194">				break;</span>
+			}
+<span class="nc" id="L1196">			requireWorkerWish(expert, false, 50, lb);</span>
+		}
+
+		// FIXME: check for students
+		// FIXME: add missionaries
+
+		// Improve defence.
+<span class="nc bnc" id="L1203" title="All 2 branches missed.">		if (isBadlyDefended()) {</span>
+<span class="nc" id="L1204">			UnitType bestDefender = colony.getBestDefenderType();</span>
+<span class="nc bnc" id="L1205" title="All 2 branches missed.">			if (bestDefender != null) {</span>
+<span class="nc" id="L1206">				requireWorkerWish(bestDefender, true, 100, lb);</span>
+			}
+		}
+<span class="nc" id="L1209">	}</span>
+
+	/**
+	 * Updates the goods wishes.
+	 *
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 */
+	private void updateGoodsWishes(LogBuilder lb) {
+<span class="nc" id="L1218">		final Specification spec = getSpecification();</span>
+<span class="nc" id="L1219">		int goodsWishValue = 50;</span>
+
+		// Request goods.
+		// FIXME: improve heuristics
+<span class="nc" id="L1223">		TypeCountMap&lt;GoodsType&gt; required = new TypeCountMap&lt;&gt;();</span>
+
+		// Add building materials.
+<span class="nc bnc" id="L1226" title="All 2 branches missed.">		if (colony.getCurrentlyBuilding() != null) {</span>
+<span class="nc bnc" id="L1227" title="All 2 branches missed.">			for (AbstractGoods ag : colony.getCurrentlyBuilding().getRequiredGoods()) {</span>
+<span class="nc bnc" id="L1228" title="All 2 branches missed.">				if (colony.getAdjustedNetProductionOf(ag.getType()) &lt;= 0) {</span>
+<span class="nc" id="L1229">					required.incrementCount(ag.getType(), ag.getAmount());</span>
+				}
+<span class="nc" id="L1231">			}</span>
+		}
+
+		// Add materials required to improve tiles.
+<span class="nc bnc" id="L1235" title="All 2 branches missed.">		for (TileImprovementPlan plan : tileImprovementPlans) {</span>
+<span class="nc" id="L1236">			Role role = plan.getType().getRequiredRole();</span>
+<span class="nc bnc" id="L1237" title="All 2 branches missed.">			if (role == null)</span>
+<span class="nc" id="L1238">				continue;</span>
+<span class="nc bnc" id="L1239" title="All 2 branches missed.">			for (AbstractGoods ag : role.getRequiredGoods()) {</span>
+<span class="nc" id="L1240">				required.incrementCount(ag.getType(), ag.getAmount());</span>
+<span class="nc" id="L1241">			}</span>
+<span class="nc" id="L1242">		}</span>
+
+		// Add raw materials for buildings.
+<span class="nc bnc" id="L1245" title="All 2 branches missed.">		for (WorkLocation workLocation : colony.getCurrentWorkLocations()) {</span>
+<span class="nc bnc" id="L1246" title="All 2 branches missed.">			if (workLocation instanceof Building) {</span>
+<span class="nc" id="L1247">				Building building = (Building) workLocation;</span>
+<span class="nc" id="L1248">				List&lt;AbstractGoods&gt; inputs = building.getInputs();</span>
+<span class="nc bnc" id="L1249" title="All 2 branches missed.">				if (!inputs.isEmpty()) {</span>
+<span class="nc" id="L1250">					ProductionInfo info = colony.getProductionInfo(building);</span>
+<span class="nc bnc" id="L1251" title="All 2 branches missed.">					if (!info.hasMaximumProduction()) {</span>
+<span class="nc bnc" id="L1252" title="All 2 branches missed.">						for (AbstractGoods goods : inputs) {</span>
+							// FIXME: find better heuristics
+<span class="nc" id="L1254">							required.incrementCount(goods.getType(), 100);</span>
+<span class="nc" id="L1255">						}</span>
+					}
+				}
+			}
+<span class="nc" id="L1259">		}</span>
+
+		// Add breedable goods
+<span class="nc bnc" id="L1262" title="All 2 branches missed.">		for (GoodsType g : spec.getGoodsTypeList()) {</span>
+<span class="nc bnc" id="L1263" title="All 4 branches missed.">			if (g.isBreedable() &amp;&amp; colony.getGoodsCount(g) &lt; g.getBreedingNumber()) {</span>
+<span class="nc" id="L1264">				required.incrementCount(g, g.getBreedingNumber());</span>
+			}
+<span class="nc" id="L1266">		}</span>
+
+		// Add materials required to build military equipment,
+		// but make sure there is a unit present that can use it.
+<span class="nc bnc" id="L1270" title="All 2 branches missed.">		if (isBadlyDefended()) {</span>
+<span class="nc" id="L1271">			Role role = spec.getMilitaryRoles().get(0);</span>
+<span class="nc" id="L1272">			Player owner = colony.getOwner();</span>
+<span class="nc bnc" id="L1273" title="All 2 branches missed.">			for (Unit unit : colony.getTile().getUnitList()) {</span>
+<span class="nc bnc" id="L1274" title="All 2 branches missed.">				if (!unit.roleIsAvailable(role)</span>
+<span class="nc bnc" id="L1275" title="All 4 branches missed.">						|| (!unit.hasDefaultRole() &amp;&amp; !Role.isCompatibleWith(role, unit.getRole())))</span>
+<span class="nc" id="L1276">					continue;</span>
+<span class="nc bnc" id="L1277" title="All 2 branches missed.">				for (AbstractGoods ag : role.getRequiredGoods()) {</span>
+<span class="nc" id="L1278">					required.incrementCount(ag.getType(), ag.getAmount());</span>
+<span class="nc" id="L1279">				}</span>
+<span class="nc" id="L1280">				break;</span>
+			}
+		}
+
+		// Drop wishes that are no longer needed.
+<span class="nc" id="L1285">		int i = 0;</span>
+<span class="nc bnc" id="L1286" title="All 2 branches missed.">		while (i &lt; wishes.size()) {</span>
+<span class="nc bnc" id="L1287" title="All 2 branches missed.">			if (wishes.get(i) instanceof GoodsWish) {</span>
+<span class="nc" id="L1288">				GoodsWish g = (GoodsWish) wishes.get(i);</span>
+<span class="nc" id="L1289">				GoodsType t = g.getGoodsType();</span>
+<span class="nc bnc" id="L1290" title="All 2 branches missed.">				if (required.getCount(t) &lt; colony.getGoodsCount(t)) {</span>
+<span class="nc" id="L1291">					completeWish(g, &quot;redundant&quot;, lb);</span>
+<span class="nc" id="L1292">					continue;</span>
+				}
+			}
+<span class="nc" id="L1295">			i++;</span>
+		}
+
+		// Require wishes for what is missing.
+<span class="nc bnc" id="L1299" title="All 2 branches missed.">		for (GoodsType type : required.keySet()) {</span>
+<span class="nc" id="L1300">			GoodsType requiredType = type;</span>
+<span class="nc bnc" id="L1301" title="All 2 branches missed.">			while (requiredType != null) {</span>
+<span class="nc bnc" id="L1302" title="All 2 branches missed.">				if (requiredType.isStorable())</span>
+<span class="nc" id="L1303">					break;</span>
+<span class="nc" id="L1304">				requiredType = requiredType.getInputType();</span>
+			}
+<span class="nc bnc" id="L1306" title="All 2 branches missed.">			if (requiredType == null)</span>
+<span class="nc" id="L1307">				continue;</span>
+<span class="nc" id="L1308">			int amount = Math.min(colony.getWarehouseCapacity(),</span>
+<span class="nc" id="L1309">					(required.getCount(type) - colony.getGoodsCount(requiredType)));</span>
+<span class="nc bnc" id="L1310" title="All 2 branches missed.">			if (amount &gt; 0) {</span>
+<span class="nc" id="L1311">				int value = goodsWishValue;</span>
+<span class="nc bnc" id="L1312" title="All 2 branches missed.">				if (colony.canProduce(requiredType))</span>
+<span class="nc" id="L1313">					value /= 10;</span>
+<span class="nc" id="L1314">				requireGoodsWish(requiredType, amount, value, lb);</span>
+			}
+<span class="nc" id="L1316">		}</span>
+
+<span class="nc" id="L1318">	}</span>
+
+	/**
+	 * Gets the tile improvements planned for this colony.
+	 *
+	 * @return A copy of the tile improvement plan list.
+	 */
+	public List&lt;TileImprovementPlan&gt; getTileImprovementPlans() {
+<span class="fc" id="L1326">		return new ArrayList&lt;&gt;(tileImprovementPlans);</span>
+	}
+
+	/**
+	 * Removes a &lt;code&gt;TileImprovementPlan&lt;/code&gt; from the list.
+	 *
+	 * @param plan
+	 *            the plan
+	 * @return True if it was successfully deleted, false otherwise
+	 */
+	public boolean removeTileImprovementPlan(TileImprovementPlan plan) {
+<span class="fc" id="L1337">		return tileImprovementPlans.remove(plan);</span>
+	}
+
+	/**
+	 * Gets the first plan for a specified tile from a list of tile improvement
+	 * plans.
+	 *
+	 * @param tile
+	 *            The &lt;code&gt;Tile&lt;/code&gt; to look for.
+	 * @param plans
+	 *            A list of &lt;code&gt;TileImprovementPlan&lt;/code&gt;s to search.
+	 * @return A matching plan, or null if not found.
+	 */
+	private TileImprovementPlan getPlanFor(Tile tile, List&lt;TileImprovementPlan&gt; plans) {
+<span class="pc bpc" id="L1351" title="1 of 2 branches missed.">		return find(plans, tip -&gt; tip.getTarget() == tile);</span>
+	}
+
+	/**
+	 * Creates a list of the &lt;code&gt;Tile&lt;/code&gt;-improvements which will increase
+	 * the production by this &lt;code&gt;Colony&lt;/code&gt;.
+	 *
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 * @see TileImprovementPlan
+	 */
+	public void updateTileImprovementPlans(LogBuilder lb) {
+<span class="fc" id="L1363">		List&lt;TileImprovementPlan&gt; newPlans = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L1364" title="All 2 branches covered.">		for (WorkLocation wl : colony.getAvailableWorkLocations()) {</span>
+<span class="fc bfc" id="L1365" title="All 2 branches covered.">			if (!(wl instanceof ColonyTile))</span>
+<span class="fc" id="L1366">				continue;</span>
+<span class="fc" id="L1367">			ColonyTile colonyTile = (ColonyTile) wl;</span>
+<span class="fc" id="L1368">			Tile workTile = colonyTile.getWorkTile();</span>
+<span class="pc bpc" id="L1369" title="2 of 4 branches missed.">			if (workTile.getOwningSettlement() != colony || getPlanFor(workTile, newPlans) != null)</span>
+<span class="nc" id="L1370">				continue;</span>
+
+			// Require food for the center tile, but otherwise insist
+			// the tile is being used, and try to improve the
+			// production that is underway.
+<span class="fc" id="L1375">			GoodsType goodsType = null;</span>
+<span class="fc bfc" id="L1376" title="All 2 branches covered.">			if (colonyTile.isColonyCenterTile()) {</span>
+<span class="pc bpc" id="L1377" title="1 of 2 branches missed.">				for (AbstractGoods ag : colonyTile.getProduction()) {</span>
+<span class="pc bpc" id="L1378" title="1 of 2 branches missed.">					if (ag.getType().isFoodType()) {</span>
+<span class="fc" id="L1379">						goodsType = ag.getType();</span>
+<span class="fc" id="L1380">						break;</span>
+					}
+<span class="pc" id="L1382">				}</span>
+			} else {
+<span class="fc bfc" id="L1384" title="All 2 branches covered.">				if (colonyTile.isEmpty())</span>
+<span class="fc" id="L1385">					continue;</span>
+<span class="fc" id="L1386">				goodsType = colonyTile.getCurrentWorkType();</span>
+			}
+<span class="pc bpc" id="L1388" title="1 of 2 branches missed.">			if (goodsType == null)</span>
+<span class="nc" id="L1389">				continue;</span>
+
+<span class="fc" id="L1391">			TileImprovementPlan plan = getPlanFor(workTile, tileImprovementPlans);</span>
+<span class="pc bpc" id="L1392" title="1 of 2 branches missed.">			if (plan == null) {</span>
+<span class="fc" id="L1393">				TileImprovementType type = TileImprovementPlan.getBestTileImprovementType(workTile, goodsType);</span>
+<span class="pc bpc" id="L1394" title="1 of 2 branches missed.">				if (type != null) {</span>
+<span class="fc" id="L1395">					plan = new TileImprovementPlan(getAIMain(), workTile, type,</span>
+<span class="fc" id="L1396">							type.getImprovementValue(workTile, goodsType));</span>
+				}
+<span class="fc" id="L1398">			} else {</span>
+<span class="nc bnc" id="L1399" title="All 2 branches missed.">				if (!plan.update(goodsType))</span>
+<span class="nc" id="L1400">					plan = null;</span>
+			}
+<span class="pc bpc" id="L1402" title="1 of 2 branches missed.">			if (plan == null)</span>
+<span class="nc" id="L1403">				continue;</span>
+
+			// Defend against clearing the last forested tile.
+<span class="fc" id="L1406">			TileType change = plan.getType().getChange(workTile.getType());</span>
+<span class="pc bpc" id="L1407" title="5 of 6 branches missed.">			if (change != null &amp;&amp; !change.isForested() &amp;&amp; !colonyTile.isColonyCenterTile()</span>
+<span class="nc bnc" id="L1408" title="All 2 branches missed.">					&amp;&amp; colony.getAvailableWorkLocations().stream().filter(ct -&gt; ct instanceof ColonyTile</span>
+<span class="nc bnc" id="L1409" title="All 4 branches missed.">							&amp;&amp; !((ColonyTile) ct).isColonyCenterTile() &amp;&amp; ((ColonyTile) ct).getWorkTile().isForested())</span>
+<span class="nc bnc" id="L1410" title="All 2 branches missed.">							.count() &lt;= FOREST_MINIMUM)</span>
+<span class="nc" id="L1411">				continue;</span>
+
+<span class="fc" id="L1413">			newPlans.add(plan); // Otherwise add the plan.</span>
+<span class="fc" id="L1414">		}</span>
+<span class="fc" id="L1415">		tileImprovementPlans.clear();</span>
+<span class="fc" id="L1416">		tileImprovementPlans.addAll(newPlans);</span>
+<span class="fc" id="L1417">		Collections.sort(tileImprovementPlans);</span>
+<span class="pc bpc" id="L1418" title="1 of 2 branches missed.">		if (!tileImprovementPlans.isEmpty()) {</span>
+<span class="fc" id="L1419">			lb.add(&quot;, improve:&quot;);</span>
+<span class="fc bfc" id="L1420" title="All 2 branches covered.">			for (TileImprovementPlan tip : tileImprovementPlans) {</span>
+<span class="fc" id="L1421">				lb.add(&quot; &quot;, tip.getTarget(), &quot;-&quot;, tip.getType().getSuffix());</span>
+<span class="fc" id="L1422">			}</span>
+		}
+<span class="fc" id="L1424">	}</span>
+
+	/**
+	 * Get the list of buildables in the colony plan.
+	 *
+	 * Public for the test suite.
+	 *
+	 * @return A list of planned &lt;code&gt;BuildableType&lt;/code&gt;.
+	 */
+	public List&lt;BuildableType&gt; getPlannedBuildableTypes() {
+<span class="pc bpc" id="L1434" title="1 of 2 branches missed.">		return (colonyPlan == null) ? Collections.&lt;BuildableType&gt;emptyList() : colonyPlan.getBuildableTypes();</span>
+	}
+
+	/**
+	 * Summarize the colony plan as a string.
+	 *
+	 * @return A summary of the colony plan.
+	 */
+	public String planToString() {
+<span class="nc bnc" id="L1443" title="All 2 branches missed.">		if (colonyPlan == null)</span>
+<span class="nc" id="L1444">			return &quot;No plan.&quot;;</span>
+
+<span class="nc" id="L1446">		LogBuilder lb = new LogBuilder(256);</span>
+<span class="nc" id="L1447">		lb.add(colonyPlan, &quot;\n\nTILE IMPROVEMENTS:\n&quot;);</span>
+<span class="nc bnc" id="L1448" title="All 2 branches missed.">		for (TileImprovementPlan tip : getTileImprovementPlans()) {</span>
+<span class="nc" id="L1449">			lb.add(tip, &quot;\n&quot;);</span>
+<span class="nc" id="L1450">		}</span>
+<span class="nc" id="L1451">		lb.add(&quot;\n\nWISHES:\n&quot;);</span>
+<span class="nc bnc" id="L1452" title="All 2 branches missed.">		for (Wish w : getWishes())</span>
+<span class="nc" id="L1453">			lb.add(w, &quot;\n&quot;);</span>
+<span class="nc" id="L1454">		lb.add(&quot;\n\nEXPORT GOODS:\n&quot;);</span>
+<span class="nc bnc" id="L1455" title="All 2 branches missed.">		for (AIGoods aig : getExportGoods())</span>
+<span class="nc" id="L1456">			lb.add(aig, &quot;\n&quot;);</span>
+<span class="nc" id="L1457">		return lb.toString();</span>
+	}
+
+	/**
+	 * Handle REARRANGE_WORKERS property change events.
+	 *
+	 * @param event
+	 *            The &lt;code&gt;PropertyChangeEvent&lt;/code&gt;.
+	 */
+	@Override
+	public void propertyChange(PropertyChangeEvent event) {
+<span class="fc" id="L1468">		logger.finest(&quot;Property change REARRANGE_WORKERS fired.&quot;);</span>
+<span class="fc" id="L1469">		requestRearrange();</span>
+
+		// Check for goods party!
+<span class="pc bpc" id="L1472" title="1 of 4 branches missed.">		if (event != null &amp;&amp; event.getOldValue() instanceof GoodsType) {</span>
+<span class="nc" id="L1473">			GoodsType goodsType = (GoodsType) event.getOldValue();</span>
+<span class="nc" id="L1474">			int left = colony.getGoodsCount(goodsType);</span>
+<span class="nc bnc" id="L1475" title="All 2 branches missed.">			for (AIGoods aig : getExportGoods()) {</span>
+<span class="nc" id="L1476">				boolean remove = false;</span>
+<span class="nc bnc" id="L1477" title="All 2 branches missed.">				if (aig.isDisposed()) {</span>
+<span class="nc" id="L1478">					remove = true;</span>
+<span class="nc bnc" id="L1479" title="All 2 branches missed.">				} else if (aig.getGoods() == null) {</span>
+<span class="nc" id="L1480">					aig.changeTransport(null);</span>
+<span class="nc" id="L1481">					remove = true;</span>
+<span class="nc bnc" id="L1482" title="All 2 branches missed.">				} else if (aig.getGoodsType() == goodsType) {</span>
+<span class="nc bnc" id="L1483" title="All 2 branches missed.">					if (left &gt; 0) {</span>
+<span class="nc" id="L1484">						aig.getGoods().setAmount(left);</span>
+					} else {
+<span class="nc" id="L1486">						aig.changeTransport(null);</span>
+<span class="nc" id="L1487">						remove = true;</span>
+					}
+				}
+<span class="nc bnc" id="L1490" title="All 2 branches missed.">				if (remove) {</span>
+<span class="nc" id="L1491">					removeExportGoods(aig);</span>
+<span class="nc" id="L1492">					break;</span>
+				}
+<span class="nc" id="L1494">			}</span>
+		}
+<span class="fc" id="L1496">	}</span>
+
+	/**
+	 * Sets the rearrangeTurn variable such that rearrangeWorkers will run fully
+	 * next time it is invoked.
+	 */
+	public void requestRearrange() {
+<span class="fc" id="L1503">		rearrangeTurn = new Turn(0);</span>
+<span class="fc" id="L1504">	}</span>
+
+	// Override AIObject
+
+	/**
+	 * Disposes this &lt;code&gt;AIColony&lt;/code&gt;.
+	 */
+	@Override
+	public void dispose() {
+<span class="fc" id="L1513">		List&lt;AIObject&gt; objects = getExportGoods().stream()</span>
+<span class="pc bnc" id="L1514" title="All 6 branches missed.">				.filter(ag -&gt; !ag.isDisposed() &amp;&amp; ag.getGoods() != null &amp;&amp; ag.getGoods().getLocation() == colony)</span>
+<span class="fc" id="L1515">				.collect(Collectors.toList());</span>
+<span class="fc" id="L1516">		objects.addAll(wishes);</span>
+<span class="fc" id="L1517">		wishes.clear();</span>
+<span class="fc" id="L1518">		objects.addAll(tileImprovementPlans);</span>
+<span class="fc" id="L1519">		tileImprovementPlans.clear();</span>
+<span class="pc bpc" id="L1520" title="1 of 2 branches missed.">		for (AIObject o : objects)</span>
+<span class="nc" id="L1521">			o.dispose();</span>
+<span class="fc" id="L1522">		colonyPlan = null;</span>
+		// Do not clear this.colony, the identifier is still required.
+<span class="fc" id="L1524">		super.dispose();</span>
+<span class="fc" id="L1525">	}</span>
+
+	/**
+	 * Checks the integrity of a this AIColony.
+	 *
+	 * @param fix
+	 *            Fix problems if possible.
+	 * @return Negative if there are problems remaining, zero if problems were
+	 *         fixed, positive if no problems found at all.
+	 */
+	@Override
+	public int checkIntegrity(boolean fix) {
+<span class="nc" id="L1537">		int result = super.checkIntegrity(fix);</span>
+<span class="nc bnc" id="L1538" title="All 4 branches missed.">		if (colony == null || colony.isDisposed())</span>
+<span class="nc" id="L1539">			result = -1;</span>
+<span class="nc" id="L1540">		return result;</span>
+	}
+
+	// Serialization
+
+	/** The Constant AI_GOODS_LIST_TAG. */
+<span class="fc" id="L1546">	private static final String AI_GOODS_LIST_TAG = AIGoods.getXMLElementTagName() + LIST_ELEMENT;</span>
+
+	/** The Constant GOODS_WISH_LIST_TAG. */
+<span class="fc" id="L1549">	private static final String GOODS_WISH_LIST_TAG = GoodsWish.getXMLElementTagName() + LIST_ELEMENT;</span>
+
+	/** The Constant TILE_IMPROVEMENT_PLAN_LIST_TAG. */
+<span class="fc" id="L1552">	private static final String TILE_IMPROVEMENT_PLAN_LIST_TAG = TileImprovementPlan.getXMLElementTagName()</span>
+			+ LIST_ELEMENT;
+
+	/** The Constant WORKER_WISH_LIST_TAG. */
+<span class="fc" id="L1556">	private static final String WORKER_WISH_LIST_TAG = WorkerWish.getXMLElementTagName() + LIST_ELEMENT;</span>
+
+	/** The Constant OLD_GOODS_WISH_TAG. */
+	// @compat 0.10.3
+<span class="fc" id="L1560">	private static final String OLD_GOODS_WISH_TAG = GoodsWish.getXMLElementTagName() + &quot;Wish&quot; + LIST_ELEMENT;</span>
+
+	/** The Constant OLD_TILE_IMPROVEMENT_PLAN_LIST_TAG. */
+	private static final String OLD_TILE_IMPROVEMENT_PLAN_LIST_TAG = &quot;tileimprovementplan&quot; + LIST_ELEMENT;
+
+	/** The Constant OLD_WORKER_WISH_TAG. */
+<span class="fc" id="L1566">	private static final String OLD_WORKER_WISH_TAG = WorkerWish.getXMLElementTagName() + &quot;Wish&quot; + LIST_ELEMENT;</span>
+	// end @compat
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="nc" id="L1574">		super.writeChildren(xw);</span>
+
+<span class="nc bnc" id="L1576" title="All 2 branches missed.">		for (AIGoods ag : getExportGoods()) {</span>
+<span class="nc bnc" id="L1577" title="All 2 branches missed.">			if (ag.checkIntegrity(true) &lt; 0)</span>
+<span class="nc" id="L1578">				continue;</span>
+<span class="nc" id="L1579">			xw.writeStartElement(AI_GOODS_LIST_TAG);</span>
+
+<span class="nc" id="L1581">			xw.writeAttribute(ID_ATTRIBUTE_TAG, ag);</span>
+
+<span class="nc" id="L1583">			xw.writeEndElement();</span>
+<span class="nc" id="L1584">		}</span>
+
+<span class="nc bnc" id="L1586" title="All 2 branches missed.">		for (TileImprovementPlan tip : tileImprovementPlans) {</span>
+<span class="nc bnc" id="L1587" title="All 2 branches missed.">			if (tip.checkIntegrity(true) &lt; 0)</span>
+<span class="nc" id="L1588">				continue;</span>
+
+<span class="nc" id="L1590">			xw.writeStartElement(TILE_IMPROVEMENT_PLAN_LIST_TAG);</span>
+
+<span class="nc" id="L1592">			xw.writeAttribute(ID_ATTRIBUTE_TAG, tip);</span>
+
+<span class="nc" id="L1594">			xw.writeEndElement();</span>
+<span class="nc" id="L1595">		}</span>
+
+<span class="nc bnc" id="L1597" title="All 2 branches missed.">		for (Wish w : wishes) {</span>
+<span class="nc bnc" id="L1598" title="All 4 branches missed.">			String tag = (w instanceof GoodsWish) ? GOODS_WISH_LIST_TAG</span>
+					: (w instanceof WorkerWish) ? WORKER_WISH_LIST_TAG : null;
+<span class="nc bnc" id="L1600" title="All 6 branches missed.">			if (w.checkIntegrity(true) &lt; 0 || !w.shouldBeStored() || tag == null)</span>
+<span class="nc" id="L1601">				continue;</span>
+
+<span class="nc" id="L1603">			xw.writeStartElement(tag);</span>
+
+<span class="nc" id="L1605">			xw.writeAttribute(ID_ATTRIBUTE_TAG, w);</span>
+
+<span class="nc" id="L1607">			xw.writeEndElement();</span>
+<span class="nc" id="L1608">		}</span>
+<span class="nc" id="L1609">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L1616">		super.readAttributes(xr);</span>
+
+<span class="nc" id="L1618">		final AIMain aiMain = getAIMain();</span>
+
+<span class="nc" id="L1620">		colony = xr.getAttribute(aiMain.getGame(), ID_ATTRIBUTE_TAG, Colony.class, (Colony) null);</span>
+<span class="nc" id="L1621">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+		// Clear containers.
+<span class="nc" id="L1629">		clearExportGoods();</span>
+<span class="nc" id="L1630">		tileImprovementPlans.clear();</span>
+<span class="nc" id="L1631">		wishes.clear();</span>
+
+<span class="nc" id="L1633">		super.readChildren(xr);</span>
+<span class="nc" id="L1634">		sortExportGoods();</span>
+
+<span class="nc bnc" id="L1636" title="All 2 branches missed.">		if (getColony() != null)</span>
+<span class="nc" id="L1637">			uninitialized = false;</span>
+<span class="nc" id="L1638">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L1645">		final AIMain aiMain = getAIMain();</span>
+<span class="nc" id="L1646">		final String tag = xr.getLocalName();</span>
+
+<span class="nc bnc" id="L1648" title="All 2 branches missed.">		if (AI_GOODS_LIST_TAG.equals(tag)) {</span>
+<span class="nc" id="L1649">			addExportGoods(xr.makeAIObject(aiMain, ID_ATTRIBUTE_TAG, AIGoods.class, (AIGoods) null, true));</span>
+<span class="nc" id="L1650">			xr.closeTag(AI_GOODS_LIST_TAG);</span>
+
+<span class="nc bnc" id="L1652" title="All 2 branches missed.">		} else if (GOODS_WISH_LIST_TAG.equals(tag)</span>
+				// @compat 0.10.3
+<span class="nc bnc" id="L1654" title="All 2 branches missed.">				|| OLD_GOODS_WISH_TAG.equals(tag)</span>
+		// end @compat
+		) {
+<span class="nc" id="L1657">			wishes.add(xr.makeAIObject(aiMain, ID_ATTRIBUTE_TAG, GoodsWish.class, (GoodsWish) null, true));</span>
+<span class="nc" id="L1658">			xr.closeTag(tag);// FIXME: tag -&gt; GOODS_WISH_LIST_TAG</span>
+
+<span class="nc bnc" id="L1660" title="All 2 branches missed.">		} else if (TILE_IMPROVEMENT_PLAN_LIST_TAG.equals(tag)</span>
+				// @compat 0.10.3
+<span class="nc bnc" id="L1662" title="All 2 branches missed.">				|| OLD_TILE_IMPROVEMENT_PLAN_LIST_TAG.equals(tag)</span>
+		// end @compat
+		) {
+<span class="nc" id="L1665">			tileImprovementPlans.add(xr.makeAIObject(aiMain, ID_ATTRIBUTE_TAG, TileImprovementPlan.class,</span>
+					(TileImprovementPlan) null, true));
+<span class="nc" id="L1667">			xr.closeTag(tag);// FIXME: tag -&gt; TILE_IMPROVEMENT_PLAN_LIST_TAG</span>
+
+<span class="nc bnc" id="L1669" title="All 2 branches missed.">		} else if (WORKER_WISH_LIST_TAG.equals(tag)</span>
+				// @compat 0.10.3
+<span class="nc bnc" id="L1671" title="All 2 branches missed.">				|| OLD_WORKER_WISH_TAG.equals(tag)</span>
+		// end @compat
+		) {
+<span class="nc" id="L1674">			wishes.add(xr.makeAIObject(aiMain, ID_ATTRIBUTE_TAG, WorkerWish.class, (WorkerWish) null, true));</span>
+<span class="nc" id="L1675">			xr.closeTag(tag);// FIXME: tag -&gt; WORKER_WISH_LIST_TAG</span>
+
+		} else {
+<span class="nc" id="L1678">			super.readChild(xr);</span>
+		}
+<span class="nc" id="L1680">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+<span class="nc" id="L1687">		return getXMLElementTagName();</span>
+	}
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return &quot;aiColony&quot;
+	 */
+	public static String getXMLElementTagName() {
+<span class="fc" id="L1696">		return &quot;aiColony&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

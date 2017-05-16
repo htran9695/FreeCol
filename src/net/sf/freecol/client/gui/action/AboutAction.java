@@ -24,34 +24,33 @@ import java.awt.event.ActionEvent;
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for displaying an about box with version numbers.
  */
 public class AboutAction extends FreeColAction {
 
-    public static final String id = "aboutAction";
+	/** The Constant id. */
+	public static final String id = "aboutAction";
 
+	/**
+	 * Creates a new <code>AboutAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public AboutAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
 
-    /**
-     * Creates a new <code>AboutAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public AboutAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
+		putValue(NAME, "FreeCol " + FreeCol.getRevision());
+	}
 
-        putValue(NAME, "FreeCol " + FreeCol.getRevision());
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        getGUI().showAboutPanel();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		getGUI().showAboutPanel();
+	}
 }

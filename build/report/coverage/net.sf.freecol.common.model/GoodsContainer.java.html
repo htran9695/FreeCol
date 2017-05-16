@@ -36,609 +36,623 @@ import static net.sf.freecol.common.util.CollectionUtils.*;
 
 import org.w3c.dom.Element;
 
-
 /**
- * Contains goods and can be used by a {@link Location} to make certain
- * tasks easier.
+ * Contains goods and can be used by a {@link Location} to make certain tasks
+ * easier.
  */
 public class GoodsContainer extends FreeColGameObject implements Ownable {
 
-    @SuppressWarnings(&quot;unused&quot;)
-<span class="fc" id="L47">    private static final Logger logger = Logger.getLogger(Location.class.getName());</span>
-
-    /** The size of a standard `hold' of data. */
-    public static final int CARGO_SIZE = 100;
-
-    /**
-     * Value to use for apparent unlimited quantities of goods
-     * (e.g. warehouse contents in Europe, amount of food a colony can
-     * import).  Has to be signficantly bigger than any one unit could
-     * expect to carry, but not so huge as to look silly in user
-     * messages.
-     */
-    public static final int HUGE_CARGO_SIZE = 100 * CARGO_SIZE;
-
-    /**
-     * The list of Goods stored in this &lt;code&gt;GoodsContainer&lt;/code&gt;.
-     *
-     * Always accessed synchronized (except I/O).
-     */
-<span class="pc" id="L66">    private final Map&lt;GoodsType, Integer&gt; storedGoods = new HashMap&lt;&gt;();</span>
-
-    /** 
-     * The previous list of Goods stored in this
-     * &lt;code&gt;GoodsContainer&lt;/code&gt;.
-     *
-     * Always accessed synchronized and *after synchronized(storedGoods)*.
-     * This is only touched rarely so the extra lock is tolerable.
-     * (Not synchronized during I/O)
-     */
-<span class="pc" id="L76">    private final Map&lt;GoodsType, Integer&gt; oldStoredGoods = new HashMap&lt;&gt;();</span>
-
-    /** The location for this &lt;code&gt;GoodsContainer&lt;/code&gt;. */
-<span class="pc" id="L79">    private Location parent = null;</span>
-
-
-    /**
-     * Creates an empty &lt;code&gt;GoodsContainer&lt;/code&gt;.
-     *
-     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
-     * @param parent The &lt;code&gt;Location&lt;/code&gt; this
-     *     &lt;code&gt;GoodsContainer&lt;/code&gt; contains goods for.
-     */
-    public GoodsContainer(Game game, Location parent) {
-<span class="fc" id="L90">        super(game);</span>
-
-<span class="fc" id="L92">        this.parent = parent;</span>
-<span class="fc" id="L93">    }</span>
-
-    /**
-     * Create a new &lt;code&gt;GoodsContainer&lt;/code&gt;.
-     *
-     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
-     * @param id The object identifier.
-     */
-    public GoodsContainer(Game game, String id) {
-<span class="fc" id="L102">        super(game, id);</span>
-<span class="fc" id="L103">    }</span>
-
-    /**
-     * Create a new &lt;code&gt;GoodsContainer&lt;/code&gt; from an
-     * &lt;code&gt;Element&lt;/code&gt;.
-     *
-     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
-     * @param parent The &lt;code&gt;Location&lt;/code&gt; this
-     *     &lt;code&gt;GoodsContainer&lt;/code&gt; contains goods for.
-     * @param e An XML-element that will be used to initialize
-     *     this object.
-     */
-    public GoodsContainer(Game game, Location parent, Element e) {
-<span class="nc" id="L116">        super(game, null);</span>
-
-<span class="nc" id="L118">        this.parent = parent;</span>
-
-<span class="nc" id="L120">        readFromXMLElement(e);</span>
-<span class="nc" id="L121">    }</span>
-
-
-    /**
-     * Set the goods location.
-     *
-     * @param location The &lt;code&gt;Location&lt;/code&gt; to set.
-     */
-    public void setLocation(Location location) {
-<span class="pc bpc" id="L130" title="1 of 2 branches missed.">        if (location == null) {</span>
-<span class="nc" id="L131">            throw new IllegalArgumentException(&quot;Null GoodsContainer Location.&quot;);</span>
-        }
-<span class="fc" id="L133">        this.parent = location;</span>
-<span class="fc" id="L134">    }</span>
-
-    /**
-     * Checks if the specified &lt;code&gt;Goods&lt;/code&gt; is in this container.
-     *
-     * @param g The &lt;code&gt;Goods&lt;/code&gt; to test the presence of.
-     * @return True if there is enough of the specified goods present that it
-     *     can be removed without error.
-     */
-    public boolean contains(Goods g) {
-<span class="nc bnc" id="L144" title="All 2 branches missed.">        return getGoodsCount(g.getType()) &gt;= g.getAmount();</span>
-    }
-
-    /**
-     * Gets the amount of one type of goods in this container.
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; being looked for.
-     * @return The amount of this type of goods in this container.
-     */
-    public int getGoodsCount(GoodsType type) {
-<span class="fc" id="L154">        synchronized (storedGoods) {</span>
-<span class="fc bfc" id="L155" title="All 2 branches covered.">            return (storedGoods.containsKey(type)) </span>
-<span class="fc" id="L156">                ? storedGoods.get(type)</span>
-                : 0;
-<span class="nc" id="L158">        }</span>
-    }
-
-    /**
-     * Gets the amount of one type of goods at the beginning of the turn.
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; being looked for.
-     * @return The amount of this type of goods in this container at
-     *     the beginning of the turn
-     */
-    public int getOldGoodsCount(GoodsType type) {
-<span class="fc" id="L169">        synchronized (storedGoods) {</span>
-<span class="fc" id="L170">            synchronized (oldStoredGoods) {</span>
-<span class="fc bfc" id="L171" title="All 2 branches covered.">                return (oldStoredGoods.containsKey(type))</span>
-<span class="fc" id="L172">                    ? oldStoredGoods.get(type)</span>
-                    : 0;
-<span class="nc" id="L174">            }</span>
-<span class="nc" id="L175">        }</span>
-    }
-
-    /**
-     * Adds goods to this goods container.
-     *
-     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to add.
-     * @return True if the addition succeeds.
-     */
-    public boolean addGoods(AbstractGoods goods) {
-<span class="nc" id="L185">        return addGoods(goods.getType(), goods.getAmount());</span>
-    }
-
-    /**
-     * Adds goods by type and amount to this goods container.
-     *
-     * Note: negative amounts are allowed.
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to add.
-     * @param amount The amount of goods to add.
-     * @return True if the addition succeeds.
-     */
-    public boolean addGoods(GoodsType type, int amount) {
-<span class="fc" id="L198">        int oldAmount = getGoodsCount(type);</span>
-<span class="fc" id="L199">        int newAmount = oldAmount + amount;</span>
-
-<span class="pc bpc" id="L201" title="1 of 2 branches missed.">        if (newAmount &lt; 0) {</span>
-<span class="nc" id="L202">            throw new IllegalStateException(&quot;Operation would leave &quot;</span>
-                + newAmount + &quot; goods of type &quot; + type
-                + &quot; in Location &quot; + parent);
-<span class="fc bfc" id="L205" title="All 2 branches covered.">        } else if (newAmount == 0) {</span>
-<span class="fc" id="L206">            synchronized (storedGoods) {</span>
-<span class="fc" id="L207">                storedGoods.remove(type);</span>
-<span class="pc" id="L208">            }</span>
-        } else {
-<span class="fc" id="L210">            synchronized (storedGoods) {</span>
-<span class="fc" id="L211">                storedGoods.put(type, newAmount);</span>
-<span class="pc" id="L212">            }</span>
-        }
-<span class="fc" id="L214">        return true;</span>
-    }
-
-    /**
-     * Removes goods from this goods container.
-     *
-     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to remove from this container.
-     * @return The &lt;code&gt;Goods&lt;/code&gt; actually removed.
-     */
-    public Goods removeGoods(AbstractGoods goods) {
-<span class="nc" id="L224">        return removeGoods(goods.getType(), goods.getAmount());</span>
-    }
-
-    /**
-     * Removes all goods of a given type from this goods container.
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to remove.
-     * @return The &lt;code&gt;Goods&lt;/code&gt; actually removed.
-     */
-    public Goods removeGoods(GoodsType type) {
-<span class="nc" id="L234">        return removeGoods(type, INFINITY);</span>
-    }
-
-    /**
-     * Removes goods by type and amount from this goods container.
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to remove.
-     * @param amount The amount of goods to remove.
-     * @return The &lt;code&gt;Goods&lt;/code&gt; actually removed, which may have a
-     *     lower actual amount, or null if nothing removed.
-     */
-    public Goods removeGoods(GoodsType type, int amount) {
-<span class="fc" id="L246">        int oldAmount = getGoodsCount(type);</span>
-<span class="fc bfc" id="L247" title="All 2 branches covered.">        if (oldAmount &lt;= 0) return null;</span>
-
-<span class="fc" id="L249">        int newAmount = oldAmount - amount;</span>
-        Goods removedGoods;
-<span class="fc bfc" id="L251" title="All 2 branches covered.">        if (newAmount &gt; 0) {</span>
-<span class="fc" id="L252">            removedGoods = new Goods(getGame(), null, type, amount);</span>
-<span class="fc" id="L253">            synchronized (storedGoods) {</span>
-<span class="fc" id="L254">                storedGoods.put(type, newAmount);</span>
-<span class="pc" id="L255">            }</span>
-        } else {
-<span class="fc" id="L257">            removedGoods = new Goods(getGame(), null, type, oldAmount);</span>
-<span class="fc" id="L258">            synchronized (storedGoods) {</span>
-<span class="fc" id="L259">                storedGoods.remove(type);</span>
-<span class="pc" id="L260">            }</span>
-        }
-<span class="fc" id="L262">        return removedGoods;</span>
-    }
-
-    /**
-     * Set the amount of goods in this container.
-     *
-     * @param goodsType The &lt;code&gt;GoodsType&lt;/code&gt; to set the amount of.
-     * @param newAmount The new amount.
-     */
-    public void setAmount(GoodsType goodsType, int newAmount) {
-<span class="pc bpc" id="L272" title="1 of 2 branches missed.">        if (newAmount == 0) {</span>
-<span class="nc" id="L273">            synchronized (storedGoods) {</span>
-<span class="nc" id="L274">                storedGoods.remove(goodsType);</span>
-<span class="nc" id="L275">            }</span>
-        } else {
-<span class="fc" id="L277">            synchronized (storedGoods) {</span>
-<span class="fc" id="L278">                storedGoods.put(goodsType, newAmount);</span>
-<span class="pc" id="L279">            }</span>
-        }
-<span class="fc" id="L281">    }</span>
-
-    /**
-     * Remove all goods.
-     */
-    public void removeAll() {
-<span class="fc" id="L287">        synchronized (storedGoods) {</span>
-<span class="fc" id="L288">            storedGoods.clear();</span>
-<span class="pc" id="L289">        }</span>
-<span class="fc" id="L290">    }</span>
-
-    /**
-     * Clear both containers.
-     */
-    private void clearContainers() {
-<span class="fc" id="L296">        synchronized (storedGoods) {</span>
-<span class="fc" id="L297">            storedGoods.clear();</span>
-<span class="fc" id="L298">            synchronized (oldStoredGoods) {</span>
-<span class="fc" id="L299">                oldStoredGoods.clear();</span>
-<span class="pc" id="L300">            }</span>
-<span class="pc" id="L301">        }</span>
-<span class="fc" id="L302">    }</span>
-
-    /**
-     * Removes all goods above given amount, provided that the goods
-     * are storable and do not ignore warehouse limits.
-     *
-     * @param newAmount The threshold.
-     */
-    public void removeAbove(int newAmount) {
-<span class="fc" id="L311">        synchronized (storedGoods) {</span>
-<span class="pc bpc" id="L312" title="1 of 2 branches missed.">            if (newAmount &lt;= 0) {</span>
-<span class="nc" id="L313">                storedGoods.clear();</span>
-<span class="nc" id="L314">                return;</span>
-            }
-<span class="fc bfc" id="L316" title="All 2 branches covered.">            for (GoodsType goodsType : storedGoods.keySet()) {</span>
-<span class="fc bfc" id="L317" title="All 4 branches covered.">                if (goodsType.isStorable() &amp;&amp; !goodsType.limitIgnored()</span>
-<span class="fc bfc" id="L318" title="All 2 branches covered.">                    &amp;&amp; storedGoods.get(goodsType) &gt; newAmount) {</span>
-<span class="fc" id="L319">                    setAmount(goodsType, newAmount);</span>
-                }
-<span class="fc" id="L321">            }</span>
-<span class="pc" id="L322">        }</span>
-<span class="fc" id="L323">    }</span>
-
-    /**
-     * Checks if any storable type of goods has reached the given amount.
-     *
-     * @param amount The amount to check.
-     * @return True if any storable, capacity limited goods has reached the
-     *     given amount.
-     */
-    public boolean hasReachedCapacity(int amount) {
-<span class="nc" id="L333">        synchronized (storedGoods) {</span>
-<span class="nc bnc" id="L334" title="All 2 branches missed.">            return any(storedGoods.keySet(), gt -&gt; gt.isStorable()</span>
-<span class="nc bnc" id="L335" title="All 4 branches missed.">                &amp;&amp; !gt.limitIgnored() &amp;&amp; storedGoods.get(gt) &gt; amount);</span>
-<span class="nc" id="L336">        }</span>
-    }
-
-    /**
-     * Gets the amount of space that the goods in this container will consume.
-     * Each occupied cargo slot contains an amount in [1, CARGO_SIZE].
-     *
-     * @return The amount of space taken by this containers goods.
-     */
-    public int getSpaceTaken() {
-<span class="fc" id="L346">        synchronized (storedGoods) {</span>
-<span class="fc" id="L347">            return storedGoods.values().stream()</span>
-<span class="fc bfc" id="L348" title="All 2 branches covered.">                .mapToInt(amount -&gt; (amount % CARGO_SIZE == 0)</span>
-<span class="fc" id="L349">                    ? amount/CARGO_SIZE</span>
-<span class="fc" id="L350">                    : amount/CARGO_SIZE + 1).sum();</span>
-<span class="nc" id="L351">        }</span>
-    }
-
-    /**
-     * Gets an iterator over all holds of goods in this goods container.
-     * Each &lt;code&gt;Goods&lt;/code&gt; returned has a maximum amount of CARGO_SIZE.
-     *
-     * @return The &lt;code&gt;Iterator&lt;/code&gt;.
-     * @see #getCompactGoods
-     */
-    public Iterator&lt;Goods&gt; getGoodsIterator() {
-<span class="nc" id="L362">        return getGoods().iterator();</span>
-    }
-
-    /**
-     * Gets a list containing all holds of goods in this goods container.
-     * Each &lt;code&gt;Goods&lt;/code&gt; returned has a maximum amount of CARGO_SIZE.
-     *
-     * @return A list of &lt;code&gt;Goods&lt;/code&gt;.
-     * @see #getGoodsIterator
-     */
-    public List&lt;Goods&gt; getGoods() {
-<span class="fc" id="L373">        List&lt;Goods&gt; totalGoods = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L374">        synchronized (storedGoods) {</span>
-<span class="fc bfc" id="L375" title="All 2 branches covered.">            for (GoodsType goodsType : storedGoods.keySet()) {</span>
-<span class="fc" id="L376">                int amount = storedGoods.get(goodsType);</span>
-<span class="fc bfc" id="L377" title="All 2 branches covered.">                while (amount &gt; 0) {</span>
-<span class="pc bpc" id="L378" title="1 of 2 branches missed.">                    totalGoods.add(new Goods(getGame(), parent, goodsType,</span>
-                            ((amount &gt;= CARGO_SIZE) ? CARGO_SIZE : amount)));
-<span class="fc" id="L380">                    amount -= CARGO_SIZE;</span>
-                }
-<span class="fc" id="L382">            }</span>
-<span class="pc" id="L383">        }</span>
-<span class="fc" id="L384">        return totalGoods;</span>
-    }
-
-    /**
-     * Gets a list of all goods in this goods container.
-     * There is only one &lt;code&gt;Goods&lt;/code&gt; for each distinct
-     * &lt;code&gt;GoodsType&lt;/code&gt;.
-     *
-     * @return A list of &lt;code&gt;Goods&lt;/code&gt;.
-     */
-    public List&lt;Goods&gt; getCompactGoods() {
-<span class="fc" id="L395">        List&lt;Goods&gt; totalGoods = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L396">        synchronized (storedGoods) {</span>
-<span class="fc bfc" id="L397" title="All 2 branches covered.">            for (Entry&lt;GoodsType, Integer&gt; entry : storedGoods.entrySet()) {</span>
-<span class="pc bpc" id="L398" title="1 of 2 branches missed.">                if (entry.getValue() &gt; 0) {</span>
-<span class="fc" id="L399">                    totalGoods.add(new Goods(getGame(), parent, entry.getKey(),</span>
-<span class="fc" id="L400">                                             entry.getValue()));</span>
-                }
-<span class="fc" id="L402">            }</span>
-<span class="pc" id="L403">        }</span>
-<span class="fc" id="L404">        return totalGoods;</span>
-    }
-
-    /**
-     * Save the current stored goods of this goods container in the old
-     * stored goods.
-     */
-    public void saveState() {
-<span class="fc" id="L412">        synchronized (storedGoods) {</span>
-<span class="fc" id="L413">            synchronized (oldStoredGoods) {</span>
-<span class="fc" id="L414">                oldStoredGoods.clear();</span>
-<span class="fc" id="L415">                oldStoredGoods.putAll(storedGoods);</span>
-<span class="pc" id="L416">            }</span>
-<span class="pc" id="L417">        }</span>
-<span class="fc" id="L418">    }</span>
-
-    /**
-     * Restore the current stored goods of this goods container to the
-     * old state.
-     */
-    public void restoreState() {
-<span class="nc" id="L425">        synchronized (storedGoods) {</span>
-<span class="nc" id="L426">            synchronized (oldStoredGoods) {</span>
-<span class="nc" id="L427">                storedGoods.clear();</span>
-<span class="nc" id="L428">                storedGoods.putAll(oldStoredGoods);</span>
-<span class="nc" id="L429">            }</span>
-<span class="nc" id="L430">        }</span>
-<span class="nc" id="L431">    }</span>
-
-    /**
-     * Has this goods containers contents changed from what was recorded
-     * last time the state was saved?
-     *
-     * @return True if the contents have changed.
-     */
-    public boolean hasChanged() {
-<span class="nc" id="L440">        return any(getSpecification().getGoodsTypeList(),</span>
-<span class="nc bnc" id="L441" title="All 2 branches missed.">            gt -&gt; getOldGoodsCount(gt) != getGoodsCount(gt));</span>
-    }
-
-    /**
-     * Fire property changes for all goods that have seen level changes
-     * since the last saveState().
-     *
-     * @return True if something changed.
-     */
-    public boolean fireChanges() {
-<span class="nc" id="L451">        boolean ret = false;</span>
-<span class="nc bnc" id="L452" title="All 2 branches missed.">        for (GoodsType type : getSpecification().getGoodsTypeList()) {</span>
-<span class="nc" id="L453">            int oldCount = getOldGoodsCount(type);</span>
-<span class="nc" id="L454">            int newCount = getGoodsCount(type);</span>
-<span class="nc bnc" id="L455" title="All 2 branches missed.">            if (oldCount != newCount) {</span>
-<span class="nc" id="L456">                firePropertyChange(type.getId(), oldCount, newCount);</span>
-<span class="nc" id="L457">                ret = true;</span>
-            }
-<span class="nc" id="L459">        }</span>
-<span class="nc" id="L460">        return ret;</span>
-    }
-
-    // Interface Ownable
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Player getOwner() {
-<span class="pc bpc" id="L470" title="1 of 2 branches missed.">        return (parent instanceof Ownable) ? ((Ownable)parent).getOwner()</span>
-            : null;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setOwner(Player p) {
-<span class="nc" id="L479">        throw new UnsupportedOperationException(&quot;Can not set GoodsContainer owner&quot;);</span>
-    }
-
-    // Override FreeColGameObject
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void disposeResources() {
-<span class="fc" id="L489">        clearContainers();</span>
-<span class="fc" id="L490">        super.disposeResources();</span>
-<span class="fc" id="L491">    }</span>
-
-
-    // Serialization
-
-    public static final String AMOUNT_TAG = &quot;amount&quot;;
-    public static final String OLD_STORED_GOODS_TAG = &quot;oldStoredGoods&quot;;
-    public static final String STORED_GOODS_TAG = &quot;storedGoods&quot;;
-    public static final String TYPE_TAG = &quot;type&quot;;
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="fc" id="L507">        super.writeChildren(xw);</span>
-
-<span class="pc bpc" id="L509" title="1 of 2 branches missed.">        if (xw.validFor(getOwner())) {</span>
-
-<span class="fc" id="L511">            writeStorage(xw, STORED_GOODS_TAG, storedGoods);</span>
-
-<span class="fc" id="L513">            writeStorage(xw, OLD_STORED_GOODS_TAG, oldStoredGoods);</span>
-        }
-<span class="fc" id="L515">    }</span>
-
-    /**
-     * Write a storage container to a stream.
-     *
-     * @param xw The &lt;code&gt;FreeColXMLWriter&lt;/code&gt; to write to.
-     * @param tag The element tag.
-     * @param storage The storage container.
-     * @exception XMLStreamException if there is a problem writing to
-     *     the stream.
-     */
-    private void writeStorage(FreeColXMLWriter xw, String tag,
-                              Map&lt;GoodsType, Integer&gt; storage) throws XMLStreamException {
-<span class="fc bfc" id="L528" title="All 2 branches covered.">        if (storage.isEmpty()) return;</span>
-
-<span class="fc" id="L530">        xw.writeStartElement(tag);</span>
-
-<span class="fc bfc" id="L532" title="All 2 branches covered.">        for (GoodsType goodsType : getSortedCopy(storage.keySet())) {</span>
-
-<span class="fc" id="L534">            xw.writeStartElement(Goods.getXMLElementTagName());</span>
-
-<span class="fc" id="L536">            xw.writeAttribute(TYPE_TAG, goodsType);</span>
-
-<span class="fc" id="L538">            xw.writeAttribute(AMOUNT_TAG, storage.get(goodsType));</span>
-
-<span class="fc" id="L540">            xw.writeEndElement();</span>
-<span class="fc" id="L541">        }</span>
-
-<span class="fc" id="L543">        xw.writeEndElement();</span>
-<span class="fc" id="L544">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
-        // Clear containers.
-<span class="fc" id="L552">        clearContainers();</span>
-
-<span class="fc" id="L554">        super.readChildren(xr);</span>
-<span class="fc" id="L555">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
-<span class="fc" id="L562">        final String tag = xr.getLocalName();</span>
-
-<span class="fc bfc" id="L564" title="All 2 branches covered.">        if (OLD_STORED_GOODS_TAG.equals(tag)) {</span>
-<span class="fc" id="L565">            readStorage(xr, oldStoredGoods);</span>
-
-<span class="pc bpc" id="L567" title="1 of 2 branches missed.">        } else if (STORED_GOODS_TAG.equals(tag)) {</span>
-<span class="fc" id="L568">            readStorage(xr, storedGoods);</span>
-
-        } else {
-<span class="nc" id="L571">            super.readChild(xr);</span>
-        }
-<span class="fc" id="L573">    }</span>
-
-    /**
-     * Read a storage container from a stream.
-     *
-     * @param xr The &lt;code&gt;FreeColXMLReader&lt;/code&gt; to read from.
-     * @param storage The storage container.
-     * @exception XMLStreamException if there is a problem reading from
-     *     the stream.
-     */
-    private void readStorage(FreeColXMLReader xr,
-        Map&lt;GoodsType, Integer&gt; storage) throws XMLStreamException {
-<span class="fc" id="L585">        final Specification spec = getGame().getSpecification();</span>
-
-<span class="fc bfc" id="L587" title="All 2 branches covered.">        while (xr.nextTag() != XMLStreamConstants.END_ELEMENT) {</span>
-<span class="fc" id="L588">            String tag = xr.getLocalName();</span>
-
-<span class="pc bpc" id="L590" title="1 of 2 branches missed.">            if (Goods.getXMLElementTagName().equals(tag)) {</span>
-<span class="fc" id="L591">                GoodsType goodsType = xr.getType(spec, TYPE_TAG,</span>
-                    GoodsType.class, (GoodsType)null);
-
-<span class="fc" id="L594">                int amount = xr.getAttribute(AMOUNT_TAG, 0);</span>
-
-<span class="fc" id="L596">                storage.put(goodsType, amount);</span>
-
-<span class="fc" id="L598">            } else {</span>
-<span class="nc" id="L599">                throw new XMLStreamException(&quot;Bogus GoodsContainer tag: &quot;</span>
-                    + tag);
-            }
-<span class="fc" id="L602">            xr.closeTag(tag);</span>
-<span class="fc" id="L603">        }</span>
-<span class="fc" id="L604">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-<span class="nc" id="L611">        StringBuilder sb = new StringBuilder(128);</span>
-<span class="nc" id="L612">        sb.append(&quot;[&quot;).append(getId()).append(&quot; [&quot;);</span>
-        // Do not bother to synchronize containers for display
-<span class="nc bnc" id="L614" title="All 2 branches missed.">        for (Map.Entry&lt;GoodsType, Integer&gt; entry : storedGoods.entrySet()) {</span>
-<span class="nc" id="L615">            sb.append(entry.getKey()).append(&quot;=&quot;).append(entry.getValue())</span>
-<span class="nc" id="L616">                .append(&quot;, &quot;);</span>
-<span class="nc" id="L617">        }</span>
-<span class="nc" id="L618">        sb.setLength(sb.length() - &quot;, &quot;.length());</span>
-<span class="nc" id="L619">        sb.append(&quot;][&quot;);</span>
-<span class="nc bnc" id="L620" title="All 2 branches missed.">        for (Map.Entry&lt;GoodsType, Integer&gt; entry : oldStoredGoods.entrySet()) {</span>
-<span class="nc" id="L621">            sb.append(entry.getKey()).append(&quot;=&quot;).append(entry.getValue())</span>
-<span class="nc" id="L622">                .append(&quot;, &quot;);</span>
-<span class="nc" id="L623">        }</span>
-<span class="nc" id="L624">        sb.setLength(sb.length() - &quot;, &quot;.length());</span>
-<span class="nc" id="L625">        sb.append(&quot;]]&quot;);</span>
-<span class="nc" id="L626">        return sb.toString();</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-<span class="fc" id="L633">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return &quot;goodsContainer&quot;.
-     */
-    public static String getXMLElementTagName() {
-<span class="fc" id="L641">        return &quot;goodsContainer&quot;;</span>
-    }
+	/** The Constant logger. */
+	@SuppressWarnings(&quot;unused&quot;)
+<span class="fc" id="L47">	private static final Logger logger = Logger.getLogger(Location.class.getName());</span>
+
+	/** The size of a standard `hold' of data. */
+	public static final int CARGO_SIZE = 100;
+
+	/**
+	 * Value to use for apparent unlimited quantities of goods (e.g. warehouse
+	 * contents in Europe, amount of food a colony can import). Has to be
+	 * signficantly bigger than any one unit could expect to carry, but not so
+	 * huge as to look silly in user messages.
+	 */
+	public static final int HUGE_CARGO_SIZE = 100 * CARGO_SIZE;
+
+	/**
+	 * The list of Goods stored in this &lt;code&gt;GoodsContainer&lt;/code&gt;.
+	 *
+	 * Always accessed synchronized (except I/O).
+	 */
+<span class="pc" id="L65">	private final Map&lt;GoodsType, Integer&gt; storedGoods = new HashMap&lt;&gt;();</span>
+
+	/**
+	 * The previous list of Goods stored in this &lt;code&gt;GoodsContainer&lt;/code&gt;.
+	 *
+	 * Always accessed synchronized and *after synchronized(storedGoods)*. This
+	 * is only touched rarely so the extra lock is tolerable. (Not synchronized
+	 * during I/O)
+	 */
+<span class="pc" id="L74">	private final Map&lt;GoodsType, Integer&gt; oldStoredGoods = new HashMap&lt;&gt;();</span>
+
+	/** The location for this &lt;code&gt;GoodsContainer&lt;/code&gt;. */
+<span class="pc" id="L77">	private Location parent = null;</span>
+
+	/**
+	 * Creates an empty &lt;code&gt;GoodsContainer&lt;/code&gt;.
+	 *
+	 * @param game
+	 *            The enclosing &lt;code&gt;Game&lt;/code&gt;.
+	 * @param parent
+	 *            The &lt;code&gt;Location&lt;/code&gt; this &lt;code&gt;GoodsContainer&lt;/code&gt;
+	 *            contains goods for.
+	 */
+	public GoodsContainer(Game game, Location parent) {
+<span class="fc" id="L89">		super(game);</span>
+
+<span class="fc" id="L91">		this.parent = parent;</span>
+<span class="fc" id="L92">	}</span>
+
+	/**
+	 * Create a new &lt;code&gt;GoodsContainer&lt;/code&gt;.
+	 *
+	 * @param game
+	 *            The enclosing &lt;code&gt;Game&lt;/code&gt;.
+	 * @param id
+	 *            The object identifier.
+	 */
+	public GoodsContainer(Game game, String id) {
+<span class="fc" id="L103">		super(game, id);</span>
+<span class="fc" id="L104">	}</span>
+
+	/**
+	 * Create a new &lt;code&gt;GoodsContainer&lt;/code&gt; from an &lt;code&gt;Element&lt;/code&gt;.
+	 *
+	 * @param game
+	 *            The enclosing &lt;code&gt;Game&lt;/code&gt;.
+	 * @param parent
+	 *            The &lt;code&gt;Location&lt;/code&gt; this &lt;code&gt;GoodsContainer&lt;/code&gt;
+	 *            contains goods for.
+	 * @param e
+	 *            An XML-element that will be used to initialize this object.
+	 */
+	public GoodsContainer(Game game, Location parent, Element e) {
+<span class="nc" id="L118">		super(game, null);</span>
+
+<span class="nc" id="L120">		this.parent = parent;</span>
+
+<span class="nc" id="L122">		readFromXMLElement(e);</span>
+<span class="nc" id="L123">	}</span>
+
+	/**
+	 * Set the goods location.
+	 *
+	 * @param location
+	 *            The &lt;code&gt;Location&lt;/code&gt; to set.
+	 */
+	public void setLocation(Location location) {
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">		if (location == null) {</span>
+<span class="nc" id="L133">			throw new IllegalArgumentException(&quot;Null GoodsContainer Location.&quot;);</span>
+		}
+<span class="fc" id="L135">		this.parent = location;</span>
+<span class="fc" id="L136">	}</span>
+
+	/**
+	 * Checks if the specified &lt;code&gt;Goods&lt;/code&gt; is in this container.
+	 *
+	 * @param g
+	 *            The &lt;code&gt;Goods&lt;/code&gt; to test the presence of.
+	 * @return True if there is enough of the specified goods present that it
+	 *         can be removed without error.
+	 */
+	public boolean contains(Goods g) {
+<span class="nc bnc" id="L147" title="All 2 branches missed.">		return getGoodsCount(g.getType()) &gt;= g.getAmount();</span>
+	}
+
+	/**
+	 * Gets the amount of one type of goods in this container.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; being looked for.
+	 * @return The amount of this type of goods in this container.
+	 */
+	public int getGoodsCount(GoodsType type) {
+<span class="fc" id="L158">		synchronized (storedGoods) {</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">			return (storedGoods.containsKey(type)) ? storedGoods.get(type) : 0;</span>
+<span class="nc" id="L160">		}</span>
+	}
+
+	/**
+	 * Gets the amount of one type of goods at the beginning of the turn.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; being looked for.
+	 * @return The amount of this type of goods in this container at the
+	 *         beginning of the turn
+	 */
+	public int getOldGoodsCount(GoodsType type) {
+<span class="fc" id="L172">		synchronized (storedGoods) {</span>
+<span class="fc" id="L173">			synchronized (oldStoredGoods) {</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">				return (oldStoredGoods.containsKey(type)) ? oldStoredGoods.get(type) : 0;</span>
+<span class="nc" id="L175">			}</span>
+<span class="nc" id="L176">		}</span>
+	}
+
+	/**
+	 * Adds goods to this goods container.
+	 *
+	 * @param goods
+	 *            The &lt;code&gt;Goods&lt;/code&gt; to add.
+	 * @return True if the addition succeeds.
+	 */
+	public boolean addGoods(AbstractGoods goods) {
+<span class="nc" id="L187">		return addGoods(goods.getType(), goods.getAmount());</span>
+	}
+
+	/**
+	 * Adds goods by type and amount to this goods container.
+	 *
+	 * Note: negative amounts are allowed.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to add.
+	 * @param amount
+	 *            The amount of goods to add.
+	 * @return True if the addition succeeds.
+	 */
+	public boolean addGoods(GoodsType type, int amount) {
+<span class="fc" id="L202">		int oldAmount = getGoodsCount(type);</span>
+<span class="fc" id="L203">		int newAmount = oldAmount + amount;</span>
+
+<span class="pc bpc" id="L205" title="1 of 2 branches missed.">		if (newAmount &lt; 0) {</span>
+<span class="nc" id="L206">			throw new IllegalStateException(</span>
+					&quot;Operation would leave &quot; + newAmount + &quot; goods of type &quot; + type + &quot; in Location &quot; + parent);
+<span class="fc bfc" id="L208" title="All 2 branches covered.">		} else if (newAmount == 0) {</span>
+<span class="fc" id="L209">			synchronized (storedGoods) {</span>
+<span class="fc" id="L210">				storedGoods.remove(type);</span>
+<span class="pc" id="L211">			}</span>
+		} else {
+<span class="fc" id="L213">			synchronized (storedGoods) {</span>
+<span class="fc" id="L214">				storedGoods.put(type, newAmount);</span>
+<span class="pc" id="L215">			}</span>
+		}
+<span class="fc" id="L217">		return true;</span>
+	}
+
+	/**
+	 * Removes goods from this goods container.
+	 *
+	 * @param goods
+	 *            The &lt;code&gt;Goods&lt;/code&gt; to remove from this container.
+	 * @return The &lt;code&gt;Goods&lt;/code&gt; actually removed.
+	 */
+	public Goods removeGoods(AbstractGoods goods) {
+<span class="nc" id="L228">		return removeGoods(goods.getType(), goods.getAmount());</span>
+	}
+
+	/**
+	 * Removes all goods of a given type from this goods container.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to remove.
+	 * @return The &lt;code&gt;Goods&lt;/code&gt; actually removed.
+	 */
+	public Goods removeGoods(GoodsType type) {
+<span class="nc" id="L239">		return removeGoods(type, INFINITY);</span>
+	}
+
+	/**
+	 * Removes goods by type and amount from this goods container.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to remove.
+	 * @param amount
+	 *            The amount of goods to remove.
+	 * @return The &lt;code&gt;Goods&lt;/code&gt; actually removed, which may have a lower
+	 *         actual amount, or null if nothing removed.
+	 */
+	public Goods removeGoods(GoodsType type, int amount) {
+<span class="fc" id="L253">		int oldAmount = getGoodsCount(type);</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">		if (oldAmount &lt;= 0)</span>
+<span class="fc" id="L255">			return null;</span>
+
+<span class="fc" id="L257">		int newAmount = oldAmount - amount;</span>
+		Goods removedGoods;
+<span class="fc bfc" id="L259" title="All 2 branches covered.">		if (newAmount &gt; 0) {</span>
+<span class="fc" id="L260">			removedGoods = new Goods(getGame(), null, type, amount);</span>
+<span class="fc" id="L261">			synchronized (storedGoods) {</span>
+<span class="fc" id="L262">				storedGoods.put(type, newAmount);</span>
+<span class="pc" id="L263">			}</span>
+		} else {
+<span class="fc" id="L265">			removedGoods = new Goods(getGame(), null, type, oldAmount);</span>
+<span class="fc" id="L266">			synchronized (storedGoods) {</span>
+<span class="fc" id="L267">				storedGoods.remove(type);</span>
+<span class="pc" id="L268">			}</span>
+		}
+<span class="fc" id="L270">		return removedGoods;</span>
+	}
+
+	/**
+	 * Set the amount of goods in this container.
+	 *
+	 * @param goodsType
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to set the amount of.
+	 * @param newAmount
+	 *            The new amount.
+	 */
+	public void setAmount(GoodsType goodsType, int newAmount) {
+<span class="pc bpc" id="L282" title="1 of 2 branches missed.">		if (newAmount == 0) {</span>
+<span class="nc" id="L283">			synchronized (storedGoods) {</span>
+<span class="nc" id="L284">				storedGoods.remove(goodsType);</span>
+<span class="nc" id="L285">			}</span>
+		} else {
+<span class="fc" id="L287">			synchronized (storedGoods) {</span>
+<span class="fc" id="L288">				storedGoods.put(goodsType, newAmount);</span>
+<span class="pc" id="L289">			}</span>
+		}
+<span class="fc" id="L291">	}</span>
+
+	/**
+	 * Remove all goods.
+	 */
+	public void removeAll() {
+<span class="fc" id="L297">		synchronized (storedGoods) {</span>
+<span class="fc" id="L298">			storedGoods.clear();</span>
+<span class="pc" id="L299">		}</span>
+<span class="fc" id="L300">	}</span>
+
+	/**
+	 * Clear both containers.
+	 */
+	private void clearContainers() {
+<span class="fc" id="L306">		synchronized (storedGoods) {</span>
+<span class="fc" id="L307">			storedGoods.clear();</span>
+<span class="fc" id="L308">			synchronized (oldStoredGoods) {</span>
+<span class="fc" id="L309">				oldStoredGoods.clear();</span>
+<span class="pc" id="L310">			}</span>
+<span class="pc" id="L311">		}</span>
+<span class="fc" id="L312">	}</span>
+
+	/**
+	 * Removes all goods above given amount, provided that the goods are
+	 * storable and do not ignore warehouse limits.
+	 *
+	 * @param newAmount
+	 *            The threshold.
+	 */
+	public void removeAbove(int newAmount) {
+<span class="fc" id="L322">		synchronized (storedGoods) {</span>
+<span class="pc bpc" id="L323" title="1 of 2 branches missed.">			if (newAmount &lt;= 0) {</span>
+<span class="nc" id="L324">				storedGoods.clear();</span>
+<span class="nc" id="L325">				return;</span>
+			}
+<span class="fc bfc" id="L327" title="All 2 branches covered.">			for (GoodsType goodsType : storedGoods.keySet()) {</span>
+<span class="fc bfc" id="L328" title="All 6 branches covered.">				if (goodsType.isStorable() &amp;&amp; !goodsType.limitIgnored() &amp;&amp; storedGoods.get(goodsType) &gt; newAmount) {</span>
+<span class="fc" id="L329">					setAmount(goodsType, newAmount);</span>
+				}
+<span class="fc" id="L331">			}</span>
+<span class="pc" id="L332">		}</span>
+<span class="fc" id="L333">	}</span>
+
+	/**
+	 * Checks if any storable type of goods has reached the given amount.
+	 *
+	 * @param amount
+	 *            The amount to check.
+	 * @return True if any storable, capacity limited goods has reached the
+	 *         given amount.
+	 */
+	public boolean hasReachedCapacity(int amount) {
+<span class="nc" id="L344">		synchronized (storedGoods) {</span>
+<span class="nc" id="L345">			return any(storedGoods.keySet(),</span>
+<span class="nc bnc" id="L346" title="All 6 branches missed.">					gt -&gt; gt.isStorable() &amp;&amp; !gt.limitIgnored() &amp;&amp; storedGoods.get(gt) &gt; amount);</span>
+<span class="nc" id="L347">		}</span>
+	}
+
+	/**
+	 * Gets the amount of space that the goods in this container will consume.
+	 * Each occupied cargo slot contains an amount in [1, CARGO_SIZE].
+	 *
+	 * @return The amount of space taken by this containers goods.
+	 */
+	public int getSpaceTaken() {
+<span class="fc" id="L357">		synchronized (storedGoods) {</span>
+<span class="fc" id="L358">			return storedGoods.values().stream()</span>
+<span class="fc bfc" id="L359" title="All 2 branches covered.">					.mapToInt(amount -&gt; (amount % CARGO_SIZE == 0) ? amount / CARGO_SIZE : amount / CARGO_SIZE + 1)</span>
+<span class="fc" id="L360">					.sum();</span>
+<span class="nc" id="L361">		}</span>
+	}
+
+	/**
+	 * Gets an iterator over all holds of goods in this goods container. Each
+	 * &lt;code&gt;Goods&lt;/code&gt; returned has a maximum amount of CARGO_SIZE.
+	 *
+	 * @return The &lt;code&gt;Iterator&lt;/code&gt;.
+	 * @see #getCompactGoods
+	 */
+	public Iterator&lt;Goods&gt; getGoodsIterator() {
+<span class="nc" id="L372">		return getGoods().iterator();</span>
+	}
+
+	/**
+	 * Gets a list containing all holds of goods in this goods container. Each
+	 * &lt;code&gt;Goods&lt;/code&gt; returned has a maximum amount of CARGO_SIZE.
+	 *
+	 * @return A list of &lt;code&gt;Goods&lt;/code&gt;.
+	 * @see #getGoodsIterator
+	 */
+	public List&lt;Goods&gt; getGoods() {
+<span class="fc" id="L383">		List&lt;Goods&gt; totalGoods = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L384">		synchronized (storedGoods) {</span>
+<span class="fc bfc" id="L385" title="All 2 branches covered.">			for (GoodsType goodsType : storedGoods.keySet()) {</span>
+<span class="fc" id="L386">				int amount = storedGoods.get(goodsType);</span>
+<span class="fc bfc" id="L387" title="All 2 branches covered.">				while (amount &gt; 0) {</span>
+<span class="fc" id="L388">					totalGoods.add(</span>
+<span class="pc bpc" id="L389" title="1 of 2 branches missed.">							new Goods(getGame(), parent, goodsType, ((amount &gt;= CARGO_SIZE) ? CARGO_SIZE : amount)));</span>
+<span class="fc" id="L390">					amount -= CARGO_SIZE;</span>
+				}
+<span class="fc" id="L392">			}</span>
+<span class="pc" id="L393">		}</span>
+<span class="fc" id="L394">		return totalGoods;</span>
+	}
+
+	/**
+	 * Gets a list of all goods in this goods container. There is only one
+	 * &lt;code&gt;Goods&lt;/code&gt; for each distinct &lt;code&gt;GoodsType&lt;/code&gt;.
+	 *
+	 * @return A list of &lt;code&gt;Goods&lt;/code&gt;.
+	 */
+	public List&lt;Goods&gt; getCompactGoods() {
+<span class="fc" id="L404">		List&lt;Goods&gt; totalGoods = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L405">		synchronized (storedGoods) {</span>
+<span class="fc bfc" id="L406" title="All 2 branches covered.">			for (Entry&lt;GoodsType, Integer&gt; entry : storedGoods.entrySet()) {</span>
+<span class="pc bpc" id="L407" title="1 of 2 branches missed.">				if (entry.getValue() &gt; 0) {</span>
+<span class="fc" id="L408">					totalGoods.add(new Goods(getGame(), parent, entry.getKey(), entry.getValue()));</span>
+				}
+<span class="fc" id="L410">			}</span>
+<span class="pc" id="L411">		}</span>
+<span class="fc" id="L412">		return totalGoods;</span>
+	}
+
+	/**
+	 * Save the current stored goods of this goods container in the old stored
+	 * goods.
+	 */
+	public void saveState() {
+<span class="fc" id="L420">		synchronized (storedGoods) {</span>
+<span class="fc" id="L421">			synchronized (oldStoredGoods) {</span>
+<span class="fc" id="L422">				oldStoredGoods.clear();</span>
+<span class="fc" id="L423">				oldStoredGoods.putAll(storedGoods);</span>
+<span class="pc" id="L424">			}</span>
+<span class="pc" id="L425">		}</span>
+<span class="fc" id="L426">	}</span>
+
+	/**
+	 * Restore the current stored goods of this goods container to the old
+	 * state.
+	 */
+	public void restoreState() {
+<span class="nc" id="L433">		synchronized (storedGoods) {</span>
+<span class="nc" id="L434">			synchronized (oldStoredGoods) {</span>
+<span class="nc" id="L435">				storedGoods.clear();</span>
+<span class="nc" id="L436">				storedGoods.putAll(oldStoredGoods);</span>
+<span class="nc" id="L437">			}</span>
+<span class="nc" id="L438">		}</span>
+<span class="nc" id="L439">	}</span>
+
+	/**
+	 * Has this goods containers contents changed from what was recorded last
+	 * time the state was saved?.
+	 *
+	 * @return True if the contents have changed.
+	 */
+	public boolean hasChanged() {
+<span class="nc bnc" id="L448" title="All 2 branches missed.">		return any(getSpecification().getGoodsTypeList(), gt -&gt; getOldGoodsCount(gt) != getGoodsCount(gt));</span>
+	}
+
+	/**
+	 * Fire property changes for all goods that have seen level changes since
+	 * the last saveState().
+	 *
+	 * @return True if something changed.
+	 */
+	public boolean fireChanges() {
+<span class="nc" id="L458">		boolean ret = false;</span>
+<span class="nc bnc" id="L459" title="All 2 branches missed.">		for (GoodsType type : getSpecification().getGoodsTypeList()) {</span>
+<span class="nc" id="L460">			int oldCount = getOldGoodsCount(type);</span>
+<span class="nc" id="L461">			int newCount = getGoodsCount(type);</span>
+<span class="nc bnc" id="L462" title="All 2 branches missed.">			if (oldCount != newCount) {</span>
+<span class="nc" id="L463">				firePropertyChange(type.getId(), oldCount, newCount);</span>
+<span class="nc" id="L464">				ret = true;</span>
+			}
+<span class="nc" id="L466">		}</span>
+<span class="nc" id="L467">		return ret;</span>
+	}
+
+	// Interface Ownable
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Player getOwner() {
+<span class="pc bpc" id="L477" title="1 of 2 branches missed.">		return (parent instanceof Ownable) ? ((Ownable) parent).getOwner() : null;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void setOwner(Player p) {
+<span class="nc" id="L485">		throw new UnsupportedOperationException(&quot;Can not set GoodsContainer owner&quot;);</span>
+	}
+
+	// Override FreeColGameObject
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void disposeResources() {
+<span class="fc" id="L495">		clearContainers();</span>
+<span class="fc" id="L496">		super.disposeResources();</span>
+<span class="fc" id="L497">	}</span>
+
+	// Serialization
+
+	/** The Constant AMOUNT_TAG. */
+	public static final String AMOUNT_TAG = &quot;amount&quot;;
+
+	/** The Constant OLD_STORED_GOODS_TAG. */
+	public static final String OLD_STORED_GOODS_TAG = &quot;oldStoredGoods&quot;;
+
+	/** The Constant STORED_GOODS_TAG. */
+	public static final String STORED_GOODS_TAG = &quot;storedGoods&quot;;
+
+	/** The Constant TYPE_TAG. */
+	public static final String TYPE_TAG = &quot;type&quot;;
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L518">		super.writeChildren(xw);</span>
+
+<span class="pc bpc" id="L520" title="1 of 2 branches missed.">		if (xw.validFor(getOwner())) {</span>
+
+<span class="fc" id="L522">			writeStorage(xw, STORED_GOODS_TAG, storedGoods);</span>
+
+<span class="fc" id="L524">			writeStorage(xw, OLD_STORED_GOODS_TAG, oldStoredGoods);</span>
+		}
+<span class="fc" id="L526">	}</span>
+
+	/**
+	 * Write a storage container to a stream.
+	 *
+	 * @param xw
+	 *            The &lt;code&gt;FreeColXMLWriter&lt;/code&gt; to write to.
+	 * @param tag
+	 *            The element tag.
+	 * @param storage
+	 *            The storage container.
+	 * @exception XMLStreamException
+	 *                if there is a problem writing to the stream.
+	 */
+	private void writeStorage(FreeColXMLWriter xw, String tag, Map&lt;GoodsType, Integer&gt; storage)
+			throws XMLStreamException {
+<span class="fc bfc" id="L542" title="All 2 branches covered.">		if (storage.isEmpty())</span>
+<span class="fc" id="L543">			return;</span>
+
+<span class="fc" id="L545">		xw.writeStartElement(tag);</span>
+
+<span class="fc bfc" id="L547" title="All 2 branches covered.">		for (GoodsType goodsType : getSortedCopy(storage.keySet())) {</span>
+
+<span class="fc" id="L549">			xw.writeStartElement(Goods.getXMLElementTagName());</span>
+
+<span class="fc" id="L551">			xw.writeAttribute(TYPE_TAG, goodsType);</span>
+
+<span class="fc" id="L553">			xw.writeAttribute(AMOUNT_TAG, storage.get(goodsType));</span>
+
+<span class="fc" id="L555">			xw.writeEndElement();</span>
+<span class="fc" id="L556">		}</span>
+
+<span class="fc" id="L558">		xw.writeEndElement();</span>
+<span class="fc" id="L559">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+		// Clear containers.
+<span class="fc" id="L567">		clearContainers();</span>
+
+<span class="fc" id="L569">		super.readChildren(xr);</span>
+<span class="fc" id="L570">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L577">		final String tag = xr.getLocalName();</span>
+
+<span class="fc bfc" id="L579" title="All 2 branches covered.">		if (OLD_STORED_GOODS_TAG.equals(tag)) {</span>
+<span class="fc" id="L580">			readStorage(xr, oldStoredGoods);</span>
+
+<span class="pc bpc" id="L582" title="1 of 2 branches missed.">		} else if (STORED_GOODS_TAG.equals(tag)) {</span>
+<span class="fc" id="L583">			readStorage(xr, storedGoods);</span>
+
+		} else {
+<span class="nc" id="L586">			super.readChild(xr);</span>
+		}
+<span class="fc" id="L588">	}</span>
+
+	/**
+	 * Read a storage container from a stream.
+	 *
+	 * @param xr
+	 *            The &lt;code&gt;FreeColXMLReader&lt;/code&gt; to read from.
+	 * @param storage
+	 *            The storage container.
+	 * @exception XMLStreamException
+	 *                if there is a problem reading from the stream.
+	 */
+	private void readStorage(FreeColXMLReader xr, Map&lt;GoodsType, Integer&gt; storage) throws XMLStreamException {
+<span class="fc" id="L601">		final Specification spec = getGame().getSpecification();</span>
+
+<span class="fc bfc" id="L603" title="All 2 branches covered.">		while (xr.nextTag() != XMLStreamConstants.END_ELEMENT) {</span>
+<span class="fc" id="L604">			String tag = xr.getLocalName();</span>
+
+<span class="pc bpc" id="L606" title="1 of 2 branches missed.">			if (Goods.getXMLElementTagName().equals(tag)) {</span>
+<span class="fc" id="L607">				GoodsType goodsType = xr.getType(spec, TYPE_TAG, GoodsType.class, (GoodsType) null);</span>
+
+<span class="fc" id="L609">				int amount = xr.getAttribute(AMOUNT_TAG, 0);</span>
+
+<span class="fc" id="L611">				storage.put(goodsType, amount);</span>
+
+<span class="fc" id="L613">			} else {</span>
+<span class="nc" id="L614">				throw new XMLStreamException(&quot;Bogus GoodsContainer tag: &quot; + tag);</span>
+			}
+<span class="fc" id="L616">			xr.closeTag(tag);</span>
+<span class="fc" id="L617">		}</span>
+<span class="fc" id="L618">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+<span class="nc" id="L625">		StringBuilder sb = new StringBuilder(128);</span>
+<span class="nc" id="L626">		sb.append(&quot;[&quot;).append(getId()).append(&quot; [&quot;);</span>
+		// Do not bother to synchronize containers for display
+<span class="nc bnc" id="L628" title="All 2 branches missed.">		for (Map.Entry&lt;GoodsType, Integer&gt; entry : storedGoods.entrySet()) {</span>
+<span class="nc" id="L629">			sb.append(entry.getKey()).append(&quot;=&quot;).append(entry.getValue()).append(&quot;, &quot;);</span>
+<span class="nc" id="L630">		}</span>
+<span class="nc" id="L631">		sb.setLength(sb.length() - &quot;, &quot;.length());</span>
+<span class="nc" id="L632">		sb.append(&quot;][&quot;);</span>
+<span class="nc bnc" id="L633" title="All 2 branches missed.">		for (Map.Entry&lt;GoodsType, Integer&gt; entry : oldStoredGoods.entrySet()) {</span>
+<span class="nc" id="L634">			sb.append(entry.getKey()).append(&quot;=&quot;).append(entry.getValue()).append(&quot;, &quot;);</span>
+<span class="nc" id="L635">		}</span>
+<span class="nc" id="L636">		sb.setLength(sb.length() - &quot;, &quot;.length());</span>
+<span class="nc" id="L637">		sb.append(&quot;]]&quot;);</span>
+<span class="nc" id="L638">		return sb.toString();</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+<span class="fc" id="L646">		return getXMLElementTagName();</span>
+	}
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return &quot;goodsContainer&quot;.
+	 */
+	public static String getXMLElementTagName() {
+<span class="fc" id="L655">		return &quot;goodsContainer&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

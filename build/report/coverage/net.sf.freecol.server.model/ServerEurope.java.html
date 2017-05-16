@@ -43,276 +43,291 @@ import static net.sf.freecol.common.util.RandomUtils.*;
 import net.sf.freecol.server.control.ChangeSet;
 import net.sf.freecol.server.control.ChangeSet.See;
 
-
 /**
  * The server version of Europe.
  */
 public class ServerEurope extends Europe implements ServerModelObject {
 
-<span class="fc" id="L52">    private static final Logger logger = Logger.getLogger(ServerEurope.class.getName());</span>
+	/** The Constant logger. */
+<span class="fc" id="L52">	private static final Logger logger = Logger.getLogger(ServerEurope.class.getName());</span>
 
+	/**
+	 * Trivial constructor required for all ServerModelObjects.
+	 *
+	 * @param game
+	 *            the game
+	 * @param id
+	 *            the id
+	 */
+	public ServerEurope(Game game, String id) {
+<span class="fc" id="L63">		super(game, id);</span>
+<span class="fc" id="L64">	}</span>
 
-    /**
-     * Trivial constructor required for all ServerModelObjects.
-     */
-    public ServerEurope(Game game, String id) {
-<span class="fc" id="L59">        super(game, id);</span>
-<span class="fc" id="L60">    }</span>
+	/**
+	 * Creates a new ServerEurope.
+	 *
+	 * @param game
+	 *            The &lt;code&gt;Game&lt;/code&gt; in which this object belong.
+	 * @param owner
+	 *            The &lt;code&gt;Player&lt;/code&gt; that will be using this object of
+	 *            &lt;code&gt;Europe&lt;/code&gt;.
+	 */
+	public ServerEurope(Game game, Player owner) {
+<span class="fc" id="L76">		super(game, owner);</span>
+<span class="fc" id="L77">	}</span>
 
-    /**
-     * Creates a new ServerEurope.
-     *
-     * @param game The &lt;code&gt;Game&lt;/code&gt; in which this object belong.
-     * @param owner The &lt;code&gt;Player&lt;/code&gt; that will be using this object of
-     *            &lt;code&gt;Europe&lt;/code&gt;.
-     */
-    public ServerEurope(Game game, Player owner) {
-<span class="fc" id="L70">        super(game, owner);</span>
-<span class="fc" id="L71">    }</span>
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean equipForRole(Unit unit, Role role, int roleCount) {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">		if (!unit.roleIsAvailable(role))</span>
+<span class="nc" id="L85">			return false;</span>
 
+		// Get the change in goods
+<span class="nc" id="L88">		List&lt;AbstractGoods&gt; required = unit.getGoodsDifference(role, roleCount);</span>
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean equipForRole(Unit unit, Role role, int roleCount) {
-<span class="nc bnc" id="L79" title="All 2 branches missed.">        if (!unit.roleIsAvailable(role)) return false;</span>
+		// Check the pricing
+<span class="nc" id="L91">		int price = priceGoods(required);</span>
+<span class="nc bnc" id="L92" title="All 4 branches missed.">		if (price &lt; 0 || !unit.getOwner().checkGold(price))</span>
+<span class="nc" id="L93">			return false;</span>
 
-        // Get the change in goods
-<span class="nc" id="L82">        List&lt;AbstractGoods&gt; required = unit.getGoodsDifference(role, roleCount);</span>
+		// Sell any excess
+<span class="nc" id="L96">		final ServerPlayer owner = (ServerPlayer) getOwner();</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">		for (AbstractGoods ag : required) {</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">			if (ag.getAmount() &gt;= 0)</span>
+<span class="nc" id="L99">				continue;</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">			if (owner.canTrade(ag.getType(), Market.Access.EUROPE)) {</span>
+<span class="nc" id="L101">				int rm = owner.sell(null, ag.getType(), -ag.getAmount());</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">				if (rm &gt; 0) {</span>
+<span class="nc" id="L103">					owner.addExtraTrade(new AbstractGoods(ag.getType(), rm));</span>
+				}
+			}
+<span class="nc" id="L106">		}</span>
+		// Buy what is needed
+<span class="nc bnc" id="L108" title="All 2 branches missed.">		for (AbstractGoods ag : required) {</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">			if (ag.getAmount() &lt;= 0)</span>
+<span class="nc" id="L110">				continue;</span>
+<span class="nc" id="L111">			int m = owner.buy(null, ag.getType(), ag.getAmount());</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">			if (m &gt; 0) {</span>
+<span class="nc" id="L113">				owner.addExtraTrade(new AbstractGoods(ag.getType(), -m));</span>
+			}
+<span class="nc" id="L115">		}</span>
 
-        // Check the pricing
-<span class="nc" id="L85">        int price = priceGoods(required);</span>
-<span class="nc bnc" id="L86" title="All 4 branches missed.">        if (price &lt; 0 || !unit.getOwner().checkGold(price)) return false;</span>
+<span class="nc" id="L117">		unit.changeRole(role, roleCount);</span>
+<span class="nc" id="L118">		return true;</span>
+	}
 
-        // Sell any excess
-<span class="nc" id="L89">        final ServerPlayer owner = (ServerPlayer)getOwner();</span>
-<span class="nc bnc" id="L90" title="All 2 branches missed.">        for (AbstractGoods ag : required) {</span>
-<span class="nc bnc" id="L91" title="All 2 branches missed.">            if (ag.getAmount() &gt;= 0) continue;</span>
-<span class="nc bnc" id="L92" title="All 2 branches missed.">            if (owner.canTrade(ag.getType(), Market.Access.EUROPE)) {</span>
-<span class="nc" id="L93">                int rm = owner.sell(null, ag.getType(), -ag.getAmount());</span>
-<span class="nc bnc" id="L94" title="All 2 branches missed.">                if (rm &gt; 0) {</span>
-<span class="nc" id="L95">                    owner.addExtraTrade(new AbstractGoods(ag.getType(), rm));</span>
-                }
-            }
-<span class="nc" id="L98">        }</span>
-        // Buy what is needed
-<span class="nc bnc" id="L100" title="All 2 branches missed.">        for (AbstractGoods ag : required) {</span>
-<span class="nc bnc" id="L101" title="All 2 branches missed.">            if (ag.getAmount() &lt;= 0) continue;</span>
-<span class="nc" id="L102">            int m = owner.buy(null, ag.getType(), ag.getAmount());</span>
-<span class="nc bnc" id="L103" title="All 2 branches missed.">            if (m &gt; 0) {</span>
-<span class="nc" id="L104">                owner.addExtraTrade(new AbstractGoods(ag.getType(), -m));</span>
-            }
-<span class="nc" id="L106">        }</span>
+	/**
+	 * Generates the initial recruits for this player. Recruits may be
+	 * determined by the difficulty level, or generated randomly.
+	 *
+	 * @param random
+	 *            A pseudo-random number source.
+	 */
+	public void initializeMigration(Random random) {
+<span class="fc" id="L129">		final Specification spec = getGame().getSpecification();</span>
+		UnitType unitType;
 
-<span class="nc" id="L108">        unit.changeRole(role, roleCount);</span>
-<span class="nc" id="L109">        return true;</span>
-    }
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">		if (spec.hasOption(GameOptions.IMMIGRANTS)) {</span>
+<span class="fc" id="L133">			UnitListOption option = (UnitListOption) spec.getOption(GameOptions.IMMIGRANTS);</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">			for (AbstractUnit au : option.getOptionValues()) {</span>
+<span class="fc" id="L135">				unitType = au.getType(spec);</span>
+<span class="fc" id="L136">				addRecruitable(au.getType(spec));</span>
+<span class="fc" id="L137">			}</span>
+<span class="fc" id="L138">		} else {</span>
+			// @compat 0.10.3
+<span class="nc" id="L140">			for (int index = 0;; index++) {</span>
+<span class="nc" id="L141">				String optionId = &quot;model.option.recruitable.slot&quot; + index;</span>
+				String unitTypeId;
+<span class="nc bnc" id="L143" title="All 4 branches missed.">				if (spec.hasOption(optionId) &amp;&amp; (unitTypeId = spec.getString(optionId)) != null</span>
+<span class="nc bnc" id="L144" title="All 4 branches missed.">						&amp;&amp; (unitType = spec.getUnitType(unitTypeId)) != null &amp;&amp; addRecruitable(unitType))</span>
+<span class="nc" id="L145">					continue;</span>
+				break; // Failed
+			}
+			// end @compat
+		}
 
-    /**
-     * Generates the initial recruits for this player.  Recruits may
-     * be determined by the difficulty level, or generated randomly.
-     *
-     * @param random A pseudo-random number source.
-     */
-    public void initializeMigration(Random random) {
-<span class="fc" id="L119">        final Specification spec = getGame().getSpecification();</span>
-        UnitType unitType;
+		// Fill out to the full amount of recruits if the above failed
+<span class="fc" id="L152">		List&lt;RandomChoice&lt;UnitType&gt;&gt; recruits = generateRecruitablesList();</span>
+		do {
+<span class="fc" id="L154">			unitType = RandomChoice.getWeightedRandom(logger, &quot;Recruits&quot;, recruits, random);</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">		} while (addRecruitable(unitType));</span>
+<span class="fc" id="L156">	}</span>
 
-<span class="pc bpc" id="L122" title="1 of 2 branches missed.">        if (spec.hasOption(GameOptions.IMMIGRANTS)) {</span>
-<span class="fc" id="L123">            UnitListOption option</span>
-<span class="fc" id="L124">                = (UnitListOption)spec.getOption(GameOptions.IMMIGRANTS);</span>
-<span class="fc bfc" id="L125" title="All 2 branches covered.">            for (AbstractUnit au : option.getOptionValues()) {</span>
-<span class="fc" id="L126">                unitType = au.getType(spec);</span>
-<span class="fc" id="L127">                addRecruitable(au.getType(spec));</span>
-<span class="fc" id="L128">            }</span>
-<span class="fc" id="L129">        } else {</span>
-            // @compat 0.10.3
-<span class="nc" id="L131">            for (int index = 0;; index++) {</span>
-<span class="nc" id="L132">                String optionId = &quot;model.option.recruitable.slot&quot; + index;</span>
-                String unitTypeId;
-<span class="nc bnc" id="L134" title="All 2 branches missed.">                if (spec.hasOption(optionId)</span>
-<span class="nc bnc" id="L135" title="All 2 branches missed.">                    &amp;&amp; (unitTypeId = spec.getString(optionId)) != null</span>
-<span class="nc bnc" id="L136" title="All 2 branches missed.">                    &amp;&amp; (unitType = spec.getUnitType(unitTypeId)) != null</span>
-<span class="nc bnc" id="L137" title="All 2 branches missed.">                    &amp;&amp; addRecruitable(unitType)) continue;</span>
-                break; // Failed
-            }
-            // end @compat
-        }
+	/**
+	 * Increases the base price and lower cap for recruits.
+	 */
+	public void increaseRecruitmentDifficulty() {
+<span class="nc" id="L162">		final Specification spec = getSpecification();</span>
+<span class="nc" id="L163">		recruitPrice += spec.getInteger(GameOptions.RECRUIT_PRICE_INCREASE);</span>
+<span class="nc" id="L164">		recruitLowerCap += spec.getInteger(GameOptions.LOWER_CAP_INCREASE);</span>
+<span class="nc" id="L165">	}</span>
 
-        // Fill out to the full amount of recruits if the above failed
-<span class="fc" id="L144">        List&lt;RandomChoice&lt;UnitType&gt;&gt; recruits = generateRecruitablesList();</span>
-        do {
-<span class="fc" id="L146">            unitType = RandomChoice.getWeightedRandom(logger, &quot;Recruits&quot;,</span>
-                                                      recruits, random);
-<span class="fc bfc" id="L148" title="All 2 branches covered.">        } while (addRecruitable(unitType));</span>
-<span class="fc" id="L149">    }</span>
+	/**
+	 * Extract the recruitable at a given slot, and replace it with the given
+	 * new recruitable type.
+	 *
+	 * Note that we shift the old units down, because the AI always recruits
+	 * from the lowest slot.
+	 *
+	 * @param slot
+	 *            The slot to recruit with.
+	 * @param random
+	 *            A pseudo-random number source.
+	 * @return The recruited &lt;code&gt;UnitType&lt;/code&gt;.
+	 */
+	public UnitType extractRecruitable(int slot, Random random) {
+		// An invalid slot is normal when the player has no control over
+		// recruit type.
+<span class="fc" id="L183">		final int count = MigrationType.getMigrantCount();</span>
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">		int index = (MigrationType.specificMigrantSlot(slot)) ? MigrationType.migrantSlotToIndex(slot)</span>
+<span class="fc" id="L185">				: randomInt(logger, &quot;Choose emigrant&quot;, random, count);</span>
+<span class="fc" id="L186">		UnitType result = recruitables.get(index);</span>
+<span class="fc bfc" id="L187" title="All 2 branches covered.">		for (int i = index; i &lt; count - 1; i++) {</span>
+<span class="fc" id="L188">			recruitables.set(i, recruitables.get(i + 1));</span>
+		}
+<span class="fc" id="L190">		recruitables.set(count - 1,</span>
+<span class="fc" id="L191">				RandomChoice.getWeightedRandom(logger, &quot;Replace recruit&quot;, generateRecruitablesList(), random));</span>
+<span class="fc" id="L192">		return result;</span>
+	}
 
-    /**
-     * Increases the base price and lower cap for recruits.
-     */
-    public void increaseRecruitmentDifficulty() {
-<span class="nc" id="L155">        final Specification spec = getSpecification();</span>
-<span class="nc" id="L156">        recruitPrice += spec.getInteger(GameOptions.RECRUIT_PRICE_INCREASE);</span>
-<span class="nc" id="L157">        recruitLowerCap += spec.getInteger(GameOptions.LOWER_CAP_INCREASE);</span>
-<span class="nc" id="L158">    }</span>
+	/**
+	 * Generate a weighted list of unit types recruitable by this player.
+	 *
+	 * @return A weighted list of recruitable unit types.
+	 */
+	public List&lt;RandomChoice&lt;UnitType&gt;&gt; generateRecruitablesList() {
+<span class="fc" id="L201">		final Player owner = getOwner();</span>
+<span class="fc" id="L202">		List&lt;RandomChoice&lt;UnitType&gt;&gt; recruits = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L203" title="All 2 branches covered.">		for (UnitType unitType : getSpecification().getUnitTypeList()) {</span>
+<span class="pc bpc" id="L204" title="1 of 4 branches missed.">			if (unitType.isRecruitable() &amp;&amp; owner.hasAbility(Ability.CAN_RECRUIT_UNIT, unitType)) {</span>
+<span class="fc" id="L205">				recruits.add(new RandomChoice&lt;&gt;(unitType, unitType.getRecruitProbability()));</span>
+			}
+<span class="fc" id="L207">		}</span>
+<span class="fc" id="L208">		return recruits;</span>
+	}
 
-    /**
-     * Extract the recruitable at a given slot, and replace it with
-     * the given new recruitable type.
-     *
-     * Note that we shift the old units down, because the AI always
-     * recruits from the lowest slot.
-     *
-     * @param slot The slot to recruit with.
-     * @param random A pseudo-random number source.
-     * @return The recruited &lt;code&gt;UnitType&lt;/code&gt;.
-     */
-    public UnitType extractRecruitable(int slot, Random random) {
-        // An invalid slot is normal when the player has no control over
-        // recruit type.
-<span class="fc" id="L174">        final int count = MigrationType.getMigrantCount();</span>
-<span class="pc bpc" id="L175" title="1 of 2 branches missed.">        int index = (MigrationType.specificMigrantSlot(slot))</span>
-<span class="pc" id="L176">            ? MigrationType.migrantSlotToIndex(slot)</span>
-<span class="fc" id="L177">            : randomInt(logger, &quot;Choose emigrant&quot;, random, count);</span>
-<span class="fc" id="L178">        UnitType result = recruitables.get(index);</span>
-<span class="fc bfc" id="L179" title="All 2 branches covered.">        for (int i = index; i &lt; count-1; i++) {</span>
-<span class="fc" id="L180">            recruitables.set(i, recruitables.get(i+1));</span>
-        }
-<span class="fc" id="L182">        recruitables.set(count-1, RandomChoice.getWeightedRandom(logger,</span>
-<span class="fc" id="L183">                &quot;Replace recruit&quot;, generateRecruitablesList(), random));</span>
-<span class="fc" id="L184">        return result;</span>
-    }
+	/**
+	 * Replace any non-recruitable recruits.
+	 *
+	 * @param random
+	 *            A pseudo-random number source.
+	 * @return True if any recruit was replaced.
+	 */
+	public boolean replaceRecruits(Random random) {
+<span class="nc" id="L219">		List&lt;RandomChoice&lt;UnitType&gt;&gt; recruits = generateRecruitablesList();</span>
+<span class="nc" id="L220">		boolean result = false;</span>
+<span class="nc" id="L221">		int i = 0;</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">		for (UnitType ut : recruitables) {</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">			if (hasAbility(Ability.CAN_RECRUIT_UNIT, ut))</span>
+<span class="nc" id="L224">				continue;</span>
+<span class="nc" id="L225">			UnitType newType = RandomChoice.getWeightedRandom(logger, &quot;Replace recruit&quot;, recruits, random);</span>
+<span class="nc" id="L226">			recruitables.set(i, newType);</span>
+<span class="nc" id="L227">			result = true;</span>
+<span class="nc" id="L228">			i++;</span>
+<span class="nc" id="L229">		}</span>
+<span class="nc" id="L230">		return result;</span>
+	}
 
-    /**
-     * Generate a weighted list of unit types recruitable by this player.
-     *
-     * @return A weighted list of recruitable unit types.
-     */
-    public List&lt;RandomChoice&lt;UnitType&gt;&gt; generateRecruitablesList() {
-<span class="fc" id="L193">        final Player owner = getOwner();</span>
-<span class="fc" id="L194">        List&lt;RandomChoice&lt;UnitType&gt;&gt; recruits = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L195" title="All 2 branches covered.">        for (UnitType unitType : getSpecification().getUnitTypeList()) {</span>
-<span class="fc bfc" id="L196" title="All 2 branches covered.">            if (unitType.isRecruitable()</span>
-<span class="pc bpc" id="L197" title="1 of 2 branches missed.">                &amp;&amp; owner.hasAbility(Ability.CAN_RECRUIT_UNIT, unitType)) {</span>
-<span class="fc" id="L198">                recruits.add(new RandomChoice&lt;&gt;(unitType,</span>
-<span class="fc" id="L199">                        unitType.getRecruitProbability()));</span>
-            }
-<span class="fc" id="L201">        }</span>
-<span class="fc" id="L202">        return recruits;</span>
-    }
+	/**
+	 * Generate new recruits following a Fountain of Youth discovery.
+	 *
+	 * FIXME: Get rid of this, it is only used because the AI is stupid.
+	 *
+	 * @param n
+	 *            The number of new units.
+	 * @param random
+	 *            A pseudo-random number source.
+	 */
+	public void generateFountainRecruits(int n, Random random) {
+<span class="nc" id="L244">		final Game game = getGame();</span>
+<span class="nc" id="L245">		final Player owner = getOwner();</span>
+<span class="nc" id="L246">		List&lt;RandomChoice&lt;UnitType&gt;&gt; recruits = generateRecruitablesList();</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">		for (int k = 0; k &lt; n; k++) {</span>
+<span class="nc" id="L248">			UnitType ut = RandomChoice.getWeightedRandom(logger, &quot;Choose FoY&quot;, recruits, random);</span>
+<span class="nc" id="L249">			new ServerUnit(game, this, owner, ut);// -vis: safe, Europe</span>
+		}
+<span class="nc" id="L251">	}</span>
 
-    /**
-     * Replace any non-recruitable recruits.
-     *
-     * @param random A pseudo-random number source.
-     * @return True if any recruit was replaced.
-     */
-    public boolean replaceRecruits(Random random) {
-<span class="nc" id="L212">        List&lt;RandomChoice&lt;UnitType&gt;&gt; recruits = generateRecruitablesList();</span>
-<span class="nc" id="L213">        boolean result = false;</span>
-<span class="nc" id="L214">        int i = 0;</span>
-<span class="nc bnc" id="L215" title="All 2 branches missed.">        for (UnitType ut : recruitables) {</span>
-<span class="nc bnc" id="L216" title="All 2 branches missed.">            if (hasAbility(Ability.CAN_RECRUIT_UNIT, ut)) continue;</span>
-<span class="nc" id="L217">            UnitType newType = RandomChoice.getWeightedRandom(logger,</span>
-                &quot;Replace recruit&quot;, recruits, random);
-<span class="nc" id="L219">            recruitables.set(i, newType);</span>
-<span class="nc" id="L220">            result = true;</span>
-<span class="nc" id="L221">            i++;</span>
-<span class="nc" id="L222">        }</span>
-<span class="nc" id="L223">        return result;</span>
-    }
+	/**
+	 * Increases the price for a unit.
+	 *
+	 * @param unitType
+	 *            The &lt;code&gt;UnitType&lt;/code&gt;, trained or purchased
+	 * @param price
+	 *            The current price of the unit
+	 */
+	public void increasePrice(UnitType unitType, int price) {
+<span class="nc" id="L262">		final Specification spec = getSpecification();</span>
+<span class="nc" id="L263">		String baseOption = GameOptions.PRICE_INCREASE_PER_TYPE;</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">		String option = (spec.getBoolean(baseOption)) ? &quot;model.option.priceIncrease.&quot; + unitType.getSuffix()</span>
+				: &quot;model.option.priceIncrease&quot;;
+<span class="nc bnc" id="L266" title="All 2 branches missed.">		int increase = (spec.hasOption(option)) ? spec.getInteger(option) : 0;</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">		if (increase != 0) {</span>
+<span class="nc" id="L268">			unitPrices.put(unitType, price + increase);</span>
+		}
+<span class="nc" id="L270">	}</span>
 
-    /**
-     * Generate new recruits following a Fountain of Youth discovery.
-     *
-     * FIXME: Get rid of this, it is only used because the AI is stupid.
-     *
-     * @param n The number of new units.
-     * @param random A pseudo-random number source.
-     */
-    public void generateFountainRecruits(int n, Random random) {
-<span class="nc" id="L235">        final Game game = getGame();</span>
-<span class="nc" id="L236">        final Player owner = getOwner();</span>
-<span class="nc" id="L237">        List&lt;RandomChoice&lt;UnitType&gt;&gt; recruits = generateRecruitablesList();</span>
-<span class="nc bnc" id="L238" title="All 2 branches missed.">        for (int k = 0; k &lt; n; k++) {</span>
-<span class="nc" id="L239">            UnitType ut = RandomChoice.getWeightedRandom(logger, &quot;Choose FoY&quot;,</span>
-                                                         recruits, random);
-<span class="nc" id="L241">            new ServerUnit(game, this, owner, ut);//-vis: safe, Europe</span>
-        }
-<span class="nc" id="L243">    }</span>
+	/**
+	 * New turn for this colony tile.
+	 *
+	 * FIXME: give Europe a shipyard and remove this?
+	 *
+	 * @param random
+	 *            A &lt;code&gt;Random&lt;/code&gt; number source.
+	 * @param lb
+	 *            A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
+	 * @param cs
+	 *            A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+	 */
+	@Override
+	public void csNewTurn(Random random, LogBuilder lb, ChangeSet cs) {
+<span class="fc" id="L286">		logger.finest(&quot;ServerEurope.csNewTurn, for &quot; + this);</span>
 
-    /**
-     * Increases the price for a unit.
-     *
-     * @param unitType The &lt;code&gt;UnitType&lt;/code&gt;, trained or purchased
-     * @param price The current price of the unit
-     */
-    public void increasePrice(UnitType unitType, int price) {
-<span class="nc" id="L252">        final Specification spec = getSpecification();</span>
-<span class="nc" id="L253">        String baseOption = GameOptions.PRICE_INCREASE_PER_TYPE;</span>
-<span class="nc bnc" id="L254" title="All 2 branches missed.">        String option = (spec.getBoolean(baseOption))</span>
-<span class="nc" id="L255">            ? &quot;model.option.priceIncrease.&quot; + unitType.getSuffix()</span>
-            : &quot;model.option.priceIncrease&quot;;
-<span class="nc bnc" id="L257" title="All 2 branches missed.">        int increase = (spec.hasOption(option)) ? spec.getInteger(option) : 0;</span>
-<span class="nc bnc" id="L258" title="All 2 branches missed.">        if (increase != 0) {</span>
-<span class="nc" id="L259">            unitPrices.put(unitType, price + increase);</span>
-        }
-<span class="nc" id="L261">    }</span>
+<span class="fc bfc" id="L288" title="All 2 branches covered.">		for (Unit unit : getUnitList()) {</span>
+<span class="pc bpc" id="L289" title="3 of 4 branches missed.">			if (unit.isNaval() &amp;&amp; unit.isDamaged()) {</span>
+<span class="nc" id="L290">				((ServerUnit) unit).csRepairUnit(cs);</span>
+			}
+<span class="fc" id="L292">		}</span>
+<span class="fc" id="L293">	}</span>
 
-    /**
-     * New turn for this colony tile.
-     *
-     * FIXME: give Europe a shipyard and remove this?
-     *
-     * @param random A &lt;code&gt;Random&lt;/code&gt; number source.
-     * @param lb A &lt;code&gt;LogBuilder&lt;/code&gt; to log to.
-     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
-     */
-    @Override
-    public void csNewTurn(Random random, LogBuilder lb, ChangeSet cs) {
-<span class="fc" id="L274">        logger.finest(&quot;ServerEurope.csNewTurn, for &quot; + this);</span>
+	/**
+	 * Equip a unit for a specific role.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to equip.
+	 * @param role
+	 *            The &lt;code&gt;Role&lt;/code&gt; to equip for.
+	 * @param roleCount
+	 *            The role count.
+	 * @param random
+	 *            A pseudo-random number source.
+	 * @param cs
+	 *            A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
+	 * @return True if the equipping succeeds.
+	 */
+	public boolean csEquipForRole(Unit unit, Role role, int roleCount, Random random, ChangeSet cs) {
+<span class="nc" id="L311">		boolean ret = equipForRole(unit, role, roleCount);</span>
 
-<span class="fc bfc" id="L276" title="All 2 branches covered.">        for (Unit unit : getUnitList()) {</span>
-<span class="pc bpc" id="L277" title="3 of 4 branches missed.">            if (unit.isNaval() &amp;&amp; unit.isDamaged()) {</span>
-<span class="nc" id="L278">                ((ServerUnit)unit).csRepairUnit(cs);</span>
-            }
-<span class="fc" id="L280">        }</span>
-<span class="fc" id="L281">    }</span>
+<span class="nc bnc" id="L313" title="All 2 branches missed.">		if (ret) {</span>
+<span class="nc" id="L314">			ServerPlayer serverPlayer = (ServerPlayer) getOwner();</span>
+<span class="nc" id="L315">			cs.addPartial(See.only(serverPlayer), serverPlayer, &quot;gold&quot;);</span>
+<span class="nc" id="L316">			cs.add(See.only(serverPlayer), unit);</span>
+<span class="nc" id="L317">			serverPlayer.flushExtraTrades(random);</span>
+<span class="nc" id="L318">			serverPlayer.csFlushMarket(cs);</span>
+		}
+<span class="nc" id="L320">		return ret;</span>
+	}
 
-    /**
-     * Equip a unit for a specific role.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to equip.
-     * @param role The &lt;code&gt;Role&lt;/code&gt; to equip for.
-     * @param roleCount The role count.
-     * @param random A pseudo-random number source.
-     * @param cs A &lt;code&gt;ChangeSet&lt;/code&gt; to update.
-     * @return True if the equipping succeeds.
-     */
-    public boolean csEquipForRole(Unit unit, Role role, int roleCount,
-                                  Random random, ChangeSet cs) {
-<span class="nc" id="L295">        boolean ret = equipForRole(unit, role, roleCount);</span>
-
-<span class="nc bnc" id="L297" title="All 2 branches missed.">        if (ret) {</span>
-<span class="nc" id="L298">            ServerPlayer serverPlayer = (ServerPlayer)getOwner();</span>
-<span class="nc" id="L299">            cs.addPartial(See.only(serverPlayer), serverPlayer, &quot;gold&quot;);</span>
-<span class="nc" id="L300">            cs.add(See.only(serverPlayer), unit);</span>
-<span class="nc" id="L301">            serverPlayer.flushExtraTrades(random);</span>
-<span class="nc" id="L302">            serverPlayer.csFlushMarket(cs);</span>
-        }
-<span class="nc" id="L304">        return ret;</span>
-    }
-
-
-    /**
-     * Returns the tag name of the root element representing this object.
-     *
-     * @return &quot;serverEurope&quot;
-     */
-    @Override
-    public String getServerXMLElementTagName() {
-<span class="fc" id="L315">        return &quot;serverEurope&quot;;</span>
-    }
+	/**
+	 * Returns the tag name of the root element representing this object.
+	 *
+	 * @return &quot;serverEurope&quot;
+	 */
+	@Override
+	public String getServerXMLElementTagName() {
+<span class="fc" id="L330">		return &quot;serverEurope&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

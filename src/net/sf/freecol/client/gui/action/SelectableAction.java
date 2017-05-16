@@ -25,112 +25,116 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.common.model.Player;
 
-
 /**
  * An action for selecting one of several options.
  */
 public abstract class SelectableAction extends MapboardAction {
 
-    public static final String id = "selectableAction";
+	/** The Constant id. */
+	public static final String id = "selectableAction";
 
-    private final String optionId;
+	/** The option id. */
+	private final String optionId;
 
-    protected boolean selected = false;
+	/** The selected. */
+	protected boolean selected = false;
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param id
+	 *            The object identifier.
+	 * @param optionId
+	 *            The identifier of a boolean client option.
+	 */
+	protected SelectableAction(FreeColClient freeColClient, String id, String optionId) {
+		super(freeColClient, id);
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param id The object identifier.
-     * @param optionId The identifier of a boolean client option.
-     */
-    protected SelectableAction(FreeColClient freeColClient,
-                               String id, String optionId) {
-        super(freeColClient, id);
+		this.optionId = optionId;
+		setSelected(shouldBeSelected());
+	}
 
-        this.optionId = optionId;
-        setSelected(shouldBeSelected());
-    }
+	/**
+	 * Get the value of the underlying option.
+	 *
+	 * @return The option value.
+	 */
+	public final boolean getOption() {
+		ClientOptions co = freeColClient.getClientOptions();
+		if (co != null && optionId != null) {
+			try {
+				return co.getBoolean(optionId);
+			} catch (Exception e) {
+				logger.log(Level.WARNING, "Failure with option: " + optionId, e);
+			}
+		}
+		return false;
+	}
 
+	/**
+	 * Set the option value.
+	 *
+	 * @param value
+	 *            The new boolean value.
+	 */
+	public final void setOption(boolean value) {
+		ClientOptions co = freeColClient.getClientOptions();
+		if (co != null && optionId != null)
+			co.setBoolean(optionId, value);
+	}
 
-    /**
-     * Get the value of the underlying option.
-     *
-     * @return The option value.
-     */
-    public final boolean getOption() {
-        ClientOptions co = freeColClient.getClientOptions();
-        if (co != null && optionId != null) {
-            try {
-                return co.getBoolean(optionId);
-            } catch (Exception e) {
-                logger.log(Level.WARNING, "Failure with option: " + optionId, e);
-            }
-        }
-        return false;
-    }
+	/**
+	 * Gets whether the action is selected.
+	 *
+	 * @return True if this action is selected.
+	 */
+	public final boolean isSelected() {
+		return selected;
+	}
 
-    /**
-     * Set the option value.
-     *
-     * @param value The new boolean value.
-     */
-    public final void setOption(boolean value) {
-        ClientOptions co = freeColClient.getClientOptions();
-        if (co != null && optionId != null) co.setBoolean(optionId, value);
-    }
+	/**
+	 * Sets whether the action is selected.
+	 *
+	 * @param b
+	 *            The new selection value.
+	 */
+	public final void setSelected(boolean b) {
+		this.selected = b;
+	}
 
-    /**
-     * Gets whether the action is selected.
-     *
-     * @return True if this action is selected.
-     */
-    public final boolean isSelected() {
-        return selected;
-    }
+	/**
+	 * Should this action be selected?
+	 *
+	 * Override this in subclasses.
+	 *
+	 * @return True of this action should be selected.
+	 */
+	protected boolean shouldBeSelected() {
+		return getOption();
+	}
 
-    /**
-     * Sets whether the action is selected.
-     *
-     * @param b The new selection value.
-     */
-    public final void setSelected(boolean b) {
-        this.selected = b;
-    }
+	// Override FreeColAction
 
-    /**
-     * Should this action be selected?
-     *
-     * Override this in subclasses.
-     *
-     * @return True of this action should be selected.
-     */
-    protected boolean shouldBeSelected() {
-        return getOption();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		final Player player = getFreeColClient().getMyPlayer();
+		return super.shouldBeEnabled() && getFreeColClient().getGame() != null && player != null
+				&& player.getNewModelMessages().isEmpty();
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void update() {
+		super.update();
 
-    // Override FreeColAction
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        final Player player = getFreeColClient().getMyPlayer();
-        return super.shouldBeEnabled() && getFreeColClient().getGame() != null
-            && player != null && player.getNewModelMessages().isEmpty();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void update() {
-        super.update();
-
-        // Augment functionality to also update selection state.
-        setSelected(shouldBeSelected());
-    }
+		// Augment functionality to also update selection state.
+		setSelected(shouldBeSelected());
+	}
 }

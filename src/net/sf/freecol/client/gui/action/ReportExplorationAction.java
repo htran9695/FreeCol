@@ -23,33 +23,31 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for displaying an Exploration Report.
  */
 public class ReportExplorationAction extends FreeColAction {
 
-    /** The Constant id. */
-    public static final String id = "reportExplorationAction";
+	/** The Constant id. */
+	public static final String id = "reportExplorationAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The main controller object for the client.
+	 */
+	public ReportExplorationAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The main controller object for the client.
-     */
-    public ReportExplorationAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        freeColClient.getGUI().showReportExplorationPanel();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		freeColClient.getGUI().showReportExplorationPanel();
+	}
 }

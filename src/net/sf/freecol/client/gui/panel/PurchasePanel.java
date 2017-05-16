@@ -24,21 +24,19 @@ import net.miginfocom.swing.MigLayout;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
 
-
 /**
  * The panel that allows a user to purchase a new unit in Europe.
  */
 public final class PurchasePanel extends NewUnitPanel {
 
-    /**
-     * The constructor to use.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public PurchasePanel(FreeColClient freeColClient) {
-        super(freeColClient, new MigLayout("wrap 2", "[sg]", ""),
-            Messages.message("purchasePanel.clickOn"),
-            freeColClient.getGame().getSpecification()
-                .getUnitTypesPurchasedInEurope());
-    }
+	/**
+	 * The constructor to use.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public PurchasePanel(FreeColClient freeColClient) {
+		super(freeColClient, new MigLayout("wrap 2", "[sg]", ""), Messages.message("purchasePanel.clickOn"),
+				freeColClient.getGame().getSpecification().getUnitTypesPurchasedInEurope());
+	}
 }

@@ -26,185 +26,206 @@ import net.sf.freecol.common.io.FreeColXMLWriter;
 
 import org.w3c.dom.Element;
 
-
 /**
- * Objects of this class hold the export data for a particular type of
- * goods.
+ * Objects of this class hold the export data for a particular type of goods.
  */
 public class ExportData extends FreeColObject {
 
-    private static final int HIGH_LEVEL_DEFAULT = 90;
-    private static final int LOW_LEVEL_DEFAULT = 10;
-    private static final int EXPORT_LEVEL_DEFAULT = 50;
+	/** The Constant HIGH_LEVEL_DEFAULT. */
+	private static final int HIGH_LEVEL_DEFAULT = 90;
 
-    /** The high water mark for the goods type. */
-    private int highLevel = HIGH_LEVEL_DEFAULT;
+	/** The Constant LOW_LEVEL_DEFAULT. */
+	private static final int LOW_LEVEL_DEFAULT = 10;
 
-    /** The low water mark for the goods type. */
-    private int lowLevel = LOW_LEVEL_DEFAULT;
+	/** The Constant EXPORT_LEVEL_DEFAULT. */
+	private static final int EXPORT_LEVEL_DEFAULT = 50;
 
-    /** The amount of goods to retain, goods beyond this amount are exported. */
-    private int exportLevel = EXPORT_LEVEL_DEFAULT;
+	/** The high water mark for the goods type. */
+	private int highLevel = HIGH_LEVEL_DEFAULT;
 
-    /** Whether to export or not. */
-    private boolean exported = false;
+	/** The low water mark for the goods type. */
+	private int lowLevel = LOW_LEVEL_DEFAULT;
 
+	/** The amount of goods to retain, goods beyond this amount are exported. */
+	private int exportLevel = EXPORT_LEVEL_DEFAULT;
 
-    /**
-     * Creates a new <code>ExportData</code> instance with default settings.
-     *
-     * @param goodsType The <code>GoodsType</code> this data refers to.
-     */
-    public ExportData(GoodsType goodsType) {
-        setId(goodsType.getId());
-    }
+	/** Whether to export or not. */
+	private boolean exported = false;
 
-    /**
-     * Create a new <code>ExportData</code> by reading a stream.
-     *
-     * @param xr The <code>FreeColXMLReader</code> to read.
-     * @exception XMLStreamException if there is a problem reading the stream.
-     */
-    public ExportData(FreeColXMLReader xr) throws XMLStreamException {
-        readFromXML(xr);
-    }
+	/**
+	 * Creates a new <code>ExportData</code> instance with default settings.
+	 *
+	 * @param goodsType
+	 *            The <code>GoodsType</code> this data refers to.
+	 */
+	public ExportData(GoodsType goodsType) {
+		setId(goodsType.getId());
+	}
 
-    /**
-     * Create a new <code>ExportData</code> by reading an element.
-     *
-     * @param element The <code>Element</code> to read.
-     */
-    public ExportData(Element element) {
-        readFromXMLElement(element);
-    }
+	/**
+	 * Create a new <code>ExportData</code> by reading a stream.
+	 *
+	 * @param xr
+	 *            The <code>FreeColXMLReader</code> to read.
+	 * @exception XMLStreamException
+	 *                if there is a problem reading the stream.
+	 */
+	public ExportData(FreeColXMLReader xr) throws XMLStreamException {
+		readFromXML(xr);
+	}
 
+	/**
+	 * Create a new <code>ExportData</code> by reading an element.
+	 *
+	 * @param element
+	 *            The <code>Element</code> to read.
+	 */
+	public ExportData(Element element) {
+		readFromXMLElement(element);
+	}
 
-    /**
-     * Get the high water mark for this data.
-     *
-     * @return The high water mark.
-     */
-    public final int getHighLevel() {
-        return highLevel;
-    }
+	/**
+	 * Get the high water mark for this data.
+	 *
+	 * @return The high water mark.
+	 */
+	public final int getHighLevel() {
+		return highLevel;
+	}
 
-    /**
-     * Set the high water mark for this data.
-     *
-     * @param newHighLevel The new high water mark value.
-     * @return This export data.
-     */
-    public final ExportData setHighLevel(final int newHighLevel) {
-        this.highLevel = newHighLevel;
-        return this;
-    }
+	/**
+	 * Set the high water mark for this data.
+	 *
+	 * @param newHighLevel
+	 *            The new high water mark value.
+	 * @return This export data.
+	 */
+	public final ExportData setHighLevel(final int newHighLevel) {
+		this.highLevel = newHighLevel;
+		return this;
+	}
 
-    /**
-     * Get the low water mark for this data.
-     *
-     * @return The low water mark.
-     */
-    public final int getLowLevel() {
-        return lowLevel;
-    }
+	/**
+	 * Get the low water mark for this data.
+	 *
+	 * @return The low water mark.
+	 */
+	public final int getLowLevel() {
+		return lowLevel;
+	}
 
-    /**
-     * Set the low water mark for this data.
-     *
-     * @param newLowLevel The new low water mark value.
-     * @return This export data.
-     */
-    public final ExportData setLowLevel(final int newLowLevel) {
-        this.lowLevel = newLowLevel;
-        return this;
-    }
+	/**
+	 * Set the low water mark for this data.
+	 *
+	 * @param newLowLevel
+	 *            The new low water mark value.
+	 * @return This export data.
+	 */
+	public final ExportData setLowLevel(final int newLowLevel) {
+		this.lowLevel = newLowLevel;
+		return this;
+	}
 
-    /**
-     * Get the export level.
-     *
-     * @return The export level.
-     */
-    public final int getExportLevel() {
-        return exportLevel;
-    }
+	/**
+	 * Get the export level.
+	 *
+	 * @return The export level.
+	 */
+	public final int getExportLevel() {
+		return exportLevel;
+	}
 
-    /**
-     * Set the export level.
-     *
-     * @param newExportLevel The new export level value.
-     * @return This export data.
-     */
-    public final ExportData setExportLevel(final int newExportLevel) {
-        this.exportLevel = newExportLevel;
-        return this;
-    }
+	/**
+	 * Set the export level.
+	 *
+	 * @param newExportLevel
+	 *            The new export level value.
+	 * @return This export data.
+	 */
+	public final ExportData setExportLevel(final int newExportLevel) {
+		this.exportLevel = newExportLevel;
+		return this;
+	}
 
-    /**
-     * Is the goods type of this export data to be exported?
-     *
-     * @return True if this goods type is to be exported.
-     */
-    public final boolean getExported() {
-        return exported;
-    }
+	/**
+	 * Is the goods type of this export data to be exported?.
+	 *
+	 * @return True if this goods type is to be exported.
+	 */
+	public final boolean getExported() {
+		return exported;
+	}
 
-    public final void setExported(final boolean newExport) {
-        this.exported = newExport;
-    }
+	/**
+	 * Sets the exported.
+	 *
+	 * @param newExport
+	 *            the new exported
+	 */
+	public final void setExported(final boolean newExport) {
+		this.exported = newExport;
+	}
 
+	// Serialization
 
-    // Serialization
+	/** The Constant EXPORTED_TAG. */
+	private static final String EXPORTED_TAG = "exported";
 
-    private static final String EXPORTED_TAG = "exported";
-    private static final String EXPORT_LEVEL_TAG = "exportLevel";
-    private static final String HIGH_LEVEL_TAG = "highLevel";
-    private static final String LOW_LEVEL_TAG = "lowLevel";
+	/** The Constant EXPORT_LEVEL_TAG. */
+	private static final String EXPORT_LEVEL_TAG = "exportLevel";
 
+	/** The Constant HIGH_LEVEL_TAG. */
+	private static final String HIGH_LEVEL_TAG = "highLevel";
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
+	/** The Constant LOW_LEVEL_TAG. */
+	private static final String LOW_LEVEL_TAG = "lowLevel";
 
-        xw.writeAttribute(EXPORTED_TAG, exported);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-        xw.writeAttribute(HIGH_LEVEL_TAG, highLevel);
+		xw.writeAttribute(EXPORTED_TAG, exported);
 
-        xw.writeAttribute(LOW_LEVEL_TAG, lowLevel);
+		xw.writeAttribute(HIGH_LEVEL_TAG, highLevel);
 
-        xw.writeAttribute(EXPORT_LEVEL_TAG, exportLevel);
-    }
+		xw.writeAttribute(LOW_LEVEL_TAG, lowLevel);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        super.readAttributes(xr);
+		xw.writeAttribute(EXPORT_LEVEL_TAG, exportLevel);
+	}
 
-        exported = xr.getAttribute(EXPORTED_TAG, false);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		super.readAttributes(xr);
 
-        highLevel = xr.getAttribute(HIGH_LEVEL_TAG, HIGH_LEVEL_DEFAULT);
+		exported = xr.getAttribute(EXPORTED_TAG, false);
 
-        lowLevel = xr.getAttribute(LOW_LEVEL_TAG, LOW_LEVEL_DEFAULT);
+		highLevel = xr.getAttribute(HIGH_LEVEL_TAG, HIGH_LEVEL_DEFAULT);
 
-        exportLevel = xr.getAttribute(EXPORT_LEVEL_TAG, EXPORT_LEVEL_DEFAULT);
-    }
+		lowLevel = xr.getAttribute(LOW_LEVEL_TAG, LOW_LEVEL_DEFAULT);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
+		exportLevel = xr.getAttribute(EXPORT_LEVEL_TAG, EXPORT_LEVEL_DEFAULT);
+	}
 
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "exportData".
-     */
-    public static String getXMLElementTagName() {
-        return "exportData";
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "exportData".
+	 */
+	public static String getXMLElementTagName() {
+		return "exportData";
+	}
 }

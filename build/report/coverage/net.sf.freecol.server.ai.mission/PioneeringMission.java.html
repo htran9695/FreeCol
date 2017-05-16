@@ -49,751 +49,752 @@ import net.sf.freecol.server.ai.AIUnit;
 import net.sf.freecol.server.ai.EuropeanAIPlayer;
 import net.sf.freecol.server.ai.TileImprovementPlan;
 
-
 /**
  * Mission for controlling a pioneer.
  */
 public class PioneeringMission extends Mission {
 
-<span class="fc" id="L58">    private static final Logger logger = Logger.getLogger(PioneeringMission.class.getName());</span>
-
-    /** The tag for this mission. */
-    private static final String tag = &quot;AI pioneer&quot;;
-
-
-    /**
-     * Default distance in turns to a threatening unit.
-     */
-    private static final int DEFAULT_THREAT_TURNS = 3;
-
-    /** The improvement this pioneer is to work on. */
-    private TileImprovementPlan tileImprovementPlan;
-
-    /**
-     * The target location to go to:
-     *   - a tile where the tileImprovement is
-     *   - a colony to go to to equip
-     *   - just an initial colony to retarget from
-     */
-    private Location target;
-
-
-    /**
-     * Creates a pioneering mission for the given &lt;code&gt;AIUnit&lt;/code&gt;.
-     * Note that PioneeringMission.isValid(aiUnit) should be called
-     * before this, to guarantee that
-     * findTileImprovementPlan/findColonyWithTools succeed.
-     *
-     * @param aiMain The main AI-object.
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
-     * @param target The target &lt;code&gt;Location&lt;/code&gt;.
-     */
-    public PioneeringMission(AIMain aiMain, AIUnit aiUnit, Location target) {
-<span class="fc" id="L92">        super(aiMain, aiUnit, target);</span>
-<span class="fc" id="L93">    }</span>
-
-    /**
-     * Creates a new &lt;code&gt;PioneeringMission&lt;/code&gt; and reads the
-     * given element.
-     *
-     * @param aiMain The main AI-object.
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
-     * @param xr The input stream containing the XML.
-     * @throws XMLStreamException if a problem was encountered
-     *      during parsing.
-     * @see net.sf.freecol.server.ai.AIObject#readFromXML
-     */
-    public PioneeringMission(AIMain aiMain, AIUnit aiUnit,
-                             FreeColXMLReader xr) throws XMLStreamException {
-<span class="nc" id="L108">        super(aiMain, aiUnit);</span>
-
-<span class="nc" id="L110">        readFromXML(xr);</span>
-<span class="nc" id="L111">    }</span>
-
-
-    /**
-     * Get the best improvement associated with a tile.
-     *
-     * @return The &lt;code&gt;TileImprovementPlan&lt;/code&gt;, or null if not found.
-     */
-    private TileImprovementPlan getBestPlan(Tile tile) {
-<span class="fc" id="L120">        return getEuropeanAIPlayer().getBestPlan(tile);</span>
-    }
-
-    /**
-     * Get the best improvement associated with a tile for a given unit.
-     * Take care to first check if the unit has a plan already, if so,
-     * return that.
-     *
-     * @return The &lt;code&gt;TileImprovementPlan&lt;/code&gt;, or null if not found.
-     */
-    private static TileImprovementPlan getBestPlan(AIUnit aiUnit, Tile tile) {
-<span class="fc" id="L131">        return ((EuropeanAIPlayer)aiUnit.getAIOwner()).getBestPlan(tile);</span>
-    }
-
-    /**
-     * Gets the &lt;code&gt;TileImprovementPlan&lt;/code&gt; for this mission.
-     *
-     * @return The &lt;code&gt;TileImprovementPlan&lt;/code&gt;.
-     */
-    public TileImprovementPlan getTileImprovementPlan() {
-<span class="fc" id="L140">        return tileImprovementPlan;</span>
-    }
-
-    /**
-     * Sets the &lt;code&gt;TileImprovementPlan&lt;/code&gt; which should
-     * be the next target.
-     *
-     * @param tip The &lt;code&gt;TileImprovementPlan&lt;/code&gt;.
-     */
-    public void setTileImprovementPlan(TileImprovementPlan tip) {
-<span class="fc" id="L150">        TileImprovementPlan old = tileImprovementPlan;</span>
-<span class="fc" id="L151">        this.tileImprovementPlan = tip;</span>
-<span class="fc" id="L152">        AIUnit aiUnit = getAIUnit();</span>
-<span class="pc bpc" id="L153" title="1 of 2 branches missed.">        if (old != tileImprovementPlan) {</span>
-<span class="pc bpc" id="L154" title="3 of 4 branches missed.">            if (old != null &amp;&amp; old.getPioneer() == aiUnit) {</span>
-<span class="nc" id="L155">                old.setPioneer(null);</span>
-            }
-<span class="pc bpc" id="L157" title="1 of 2 branches missed.">            if (tileImprovementPlan != null) {</span>
-<span class="fc" id="L158">                tileImprovementPlan.setPioneer(aiUnit);</span>
-<span class="fc" id="L159">                getEuropeanAIPlayer().removeTileImprovementPlan(tip);</span>
-            }
-        }
-<span class="fc" id="L162">    }</span>
-
-    /**
-     * Abandons the current plan if any.
-     */
-    private void abandonTileImprovementPlan() {
-<span class="nc bnc" id="L168" title="All 2 branches missed.">        if (tileImprovementPlan != null) {</span>
-<span class="nc bnc" id="L169" title="All 2 branches missed.">            if (tileImprovementPlan.getPioneer() == getAIUnit()) {</span>
-<span class="nc" id="L170">                tileImprovementPlan.setPioneer(null);</span>
-            }
-<span class="nc" id="L172">            setTileImprovementPlan(null);</span>
-        }
-<span class="nc" id="L174">    }</span>
-
-    /**
-     * Disposes of this pioneering mission.
-     */
-    @Override
-    public void dispose() {
-<span class="nc" id="L181">        abandonTileImprovementPlan();</span>
-<span class="nc" id="L182">        super.dispose();</span>
-<span class="nc" id="L183">    }</span>
-
-    /**
-     * Does a supplied unit have tools?
-     *
-     * @param aiUnit The pioneer &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @return True if the pioneer has tools.
-     */
-    private static boolean hasTools(AIUnit aiUnit) {
-<span class="fc" id="L192">        return aiUnit.getUnit().hasAbility(Ability.IMPROVE_TERRAIN);</span>
-    }
-
-    /**
-     * Does this pioneer have tools?
-     *
-     * @return True if the pioneer has tools.
-     */
-    private boolean hasTools() {
-<span class="nc" id="L201">        return hasTools(getAIUnit());</span>
-    }
-
-    /**
-     * Extract a valid target for this mission from a path.
-     *
-     * @param aiUnit A &lt;code&gt;AIUnit&lt;/code&gt; to perform the mission.
-     * @param path A &lt;code&gt;PathNode&lt;/code&gt; to extract a target from.
-     * @return A target for this mission, or null if none found.
-     */
-    public static Location extractTarget(AIUnit aiUnit, PathNode path) {
-<span class="pc bpc" id="L212" title="1 of 2 branches missed.">        if (path == null) return null;</span>
-<span class="fc" id="L213">        final Location loc = path.getLastNode().getLocation();</span>
-<span class="pc bpc" id="L214" title="1 of 2 branches missed.">        return (loc == null) ? null</span>
-<span class="fc bfc" id="L215" title="All 2 branches covered.">            : ((hasTools(aiUnit))</span>
-<span class="pc bpc" id="L216" title="1 of 2 branches missed.">                ? ((invalidReason(aiUnit, loc.getTile()) != null) ? null</span>
-<span class="fc" id="L217">                    : loc.getTile())</span>
-<span class="fc bfc" id="L218" title="All 2 branches covered.">                : ((invalidReason(aiUnit, loc.getColony()) != null) ? null</span>
-<span class="fc" id="L219">                    : loc.getColony()));</span>
-    }
-
-    /**
-     * Evaluate a potential pioneering mission for a given unit and
-     * path.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to do the mission.
-     * @param path A &lt;code&gt;PathNode&lt;/code&gt; to take to the target.
-     * @return A score for the proposed mission.
-     */
-    public static int scorePath(AIUnit aiUnit, PathNode path) {
-<span class="fc" id="L231">        final Location loc = extractTarget(aiUnit, path);</span>
-<span class="fc bfc" id="L232" title="All 2 branches covered.">        if (hasTools(aiUnit)) {</span>
-            TileImprovementPlan tip;
-<span class="pc bpc" id="L234" title="1 of 2 branches missed.">            if (loc instanceof Tile</span>
-<span class="pc bpc" id="L235" title="1 of 2 branches missed.">                &amp;&amp; (tip = getBestPlan(aiUnit, (Tile)loc)) != null) {</span>
-<span class="fc" id="L236">                return 1000 * tip.getValue() / (path.getTotalTurns() + 1);</span>
-            }
-<span class="nc" id="L238">        } else {</span>
-<span class="fc bfc" id="L239" title="All 2 branches covered.">            if (loc instanceof Colony) {</span>
-<span class="fc" id="L240">                return 1000 / (path.getTotalTurns() + 1);</span>
-            }
-        }
-<span class="fc" id="L243">        return Integer.MIN_VALUE;</span>
-    }
-
-    /**
-     * Makes a goal decider that checks pioneering sites.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to search with.
-     * @param deferOK Keep track of the nearest colonies to use as a
-     *     fallback destination.
-     * @return A suitable &lt;code&gt;GoalDecider&lt;/code&gt;.
-     */
-    private static GoalDecider getGoalDecider(final AIUnit aiUnit,
-                                              final boolean deferOK) {
-<span class="fc" id="L256">        final GoalDecider gd = new GoalDecider() {</span>
-<span class="fc" id="L257">                private PathNode bestPath = null;</span>
-<span class="fc" id="L258">                private int bestValue = Integer.MIN_VALUE;</span>
-
-                @Override
-<span class="fc" id="L261">                public PathNode getGoal() { return bestPath; }</span>
-                @Override
-<span class="fc" id="L263">                public boolean hasSubGoals() { return true; }</span>
-                @Override
-                public boolean check(Unit u, PathNode path) {
-<span class="fc" id="L266">                    int value = scorePath(aiUnit, path);</span>
-<span class="fc bfc" id="L267" title="All 2 branches covered.">                    if (bestValue &lt; value) {</span>
-<span class="fc" id="L268">                        bestValue = value;</span>
-<span class="fc" id="L269">                        bestPath = path;</span>
-<span class="fc" id="L270">                        return true;</span>
-                    }
-<span class="fc" id="L272">                    return false;</span>
-                }
-            };
-<span class="pc bpc" id="L275" title="1 of 2 branches missed.">        return (deferOK) ? GoalDeciders.getComposedGoalDecider(false, gd,</span>
-<span class="nc" id="L276">            GoalDeciders.getOurClosestSettlementGoalDecider())</span>
-            : gd;
-    }
-
-    /**
-     * Finds a suitable pioneering target for the supplied unit.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to execute this mission.
-     * @param range An upper bound on the number of moves.
-     * @param deferOK Enables deferring to a fallback colony.
-     * @return A path to the new target, or null if none found.
-     */
-    public static PathNode findTargetPath(AIUnit aiUnit, int range,
-                                          boolean deferOK) {
-<span class="pc bpc" id="L290" title="1 of 2 branches missed.">        if (invalidAIUnitReason(aiUnit) != null) return null;</span>
-<span class="fc" id="L291">        final Unit unit = aiUnit.getUnit();</span>
-<span class="fc" id="L292">        final Location start = unit.getPathStartLocation();</span>
-<span class="fc" id="L293">        final Unit carrier = unit.getCarrier();</span>
-<span class="fc" id="L294">        final GoalDecider gd = getGoalDecider(aiUnit, deferOK);</span>
-        final CostDecider standardCd
-<span class="fc" id="L296">            = CostDeciders.avoidSettlementsAndBlockingUnits();</span>
-
-        // Try for something sensible nearby.
-<span class="fc" id="L299">        return unit.search(start, gd, standardCd, range, carrier);</span>
-    }
-
-    /**
-     * Gets the Colony that most needs a pioneer.
-     *
-     * @param aiUnit The pioneer &lt;code&gt;AIUnit&lt;/code&gt;.
-     * @return The colony with the most outstanding tile improvement plans.
-     */
-    private static Colony getBestPioneeringColony(AIUnit aiUnit) {
-<span class="nc" id="L309">        EuropeanAIPlayer aiPlayer = (EuropeanAIPlayer)aiUnit.getAIOwner();</span>
-<span class="nc" id="L310">        AIColony bestColony = null;</span>
-<span class="nc" id="L311">        int bestValue = -1;</span>
-<span class="nc bnc" id="L312" title="All 2 branches missed.">        for (AIColony aic : aiPlayer.getAIColonies()) {</span>
-<span class="nc" id="L313">            int value = aic.getTileImprovementPlans().size();</span>
-<span class="nc bnc" id="L314" title="All 2 branches missed.">            if (value &gt; bestValue) {</span>
-<span class="nc" id="L315">                bestValue = value;</span>
-<span class="nc" id="L316">                bestColony = aic;</span>
-            }
-<span class="nc" id="L318">        }</span>
-<span class="nc bnc" id="L319" title="All 2 branches missed.">        if (bestColony == null) return null;</span>
-<span class="nc" id="L320">        Colony colony = bestColony.getColony();</span>
-<span class="nc bnc" id="L321" title="All 2 branches missed.">        if (colony.isConnectedPort()) return colony;</span>
-<span class="nc" id="L322">        PathNode path = aiUnit.getUnit().findOurNearestPort();</span>
-<span class="nc bnc" id="L323" title="All 2 branches missed.">        return (path == null) ? colony</span>
-<span class="nc" id="L324">            : path.getLastNode().getLocation().getColony();</span>
-    }
-
-    /**
-     * Finds a suitable pioneering target for the supplied unit.
-     * Falls back to the best settlement if the unit is not on the map.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to test.
-     * @param range An upper bound on the number of moves.
-     * @param deferOK Enables deferring to a fallback colony.
-     * @return A target for this mission.
-     */
-    public static Location findTarget(AIUnit aiUnit, int range,
-                                      boolean deferOK) {
-<span class="fc" id="L338">        PathNode path = findTargetPath(aiUnit, range, false);</span>
-<span class="fc bfc" id="L339" title="All 2 branches covered.">        if (path != null) return extractTarget(aiUnit, path);</span>
-<span class="pc bpc" id="L340" title="1 of 2 branches missed.">        if (deferOK) return getBestPioneeringColony(aiUnit);</span>
-<span class="fc" id="L341">        Location loc = findCircleTarget(aiUnit, getGoalDecider(aiUnit, false),</span>
-                                        range*3, false);
-<span class="pc bpc" id="L343" title="1 of 2 branches missed.">        return (hasTools(aiUnit)) ? loc : Location.upLoc(loc);</span>
-    }
-
-    /**
-     * Prepare a unit for this mission.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to prepare.
-     * @return A reason why the unit can not perform this mission, or null
-     *     if none.
-     */
-    public static String prepare(AIUnit aiUnit) {
-<span class="nc" id="L354">        String reason = invalidReason(aiUnit);</span>
-<span class="nc bnc" id="L355" title="All 2 branches missed.">        if (reason != null) return reason;</span>
-<span class="nc" id="L356">        final Unit unit = aiUnit.getUnit();</span>
-<span class="nc bnc" id="L357" title="All 2 branches missed.">        if (!hasTools(aiUnit)</span>
-<span class="nc bnc" id="L358" title="All 2 branches missed.">            &amp;&amp; !aiUnit.equipForRole(unit.getSpecification().getPioneerRole())) {</span>
-<span class="nc" id="L359">            return &quot;unit-could-not-equip&quot;;</span>
-        }
-<span class="nc bnc" id="L361" title="All 4 branches missed.">        return (hasTools(aiUnit) || unit.hasAbility(Ability.EXPERT_PIONEER))</span>
-            ? null
-            : &quot;unit-missing-tools&quot;;
-    }
-
-    /**
-     * Why would a PioneeringMission be invalid with the given unit.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @return A reason why the mission would be invalid with the unit,
-     *     or null if none found.
-     */
-    private static String invalidMissionReason(AIUnit aiUnit) {
-<span class="fc" id="L374">        String reason = invalidAIUnitReason(aiUnit);</span>
-<span class="pc bpc" id="L375" title="1 of 2 branches missed.">        return (reason != null) ? reason</span>
-<span class="pc bpc" id="L376" title="1 of 2 branches missed.">            : (!aiUnit.getUnit().isPerson()) ? Mission.UNITNOTAPERSON</span>
-            : null;
-    }
-
-    /**
-     * Why would a PioneeringMission be invalid with the given unit and colony.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to check.
-     * @return A reason why the mission would be invalid, or null if
-     *     none found.
-     */
-    private static String invalidColonyReason(AIUnit aiUnit, Colony colony) {
-<span class="fc" id="L389">        String reason = invalidTargetReason(colony, aiUnit.getUnit().getOwner());</span>
-<span class="fc" id="L390">        Role role = aiUnit.getUnit().getSpecification().getRole(&quot;model.role.pioneer&quot;);</span>
-<span class="pc bpc" id="L391" title="1 of 2 branches missed.">        return (reason != null)</span>
-            ? reason
-<span class="pc bpc" id="L393" title="1 of 2 branches missed.">            : (!hasTools(aiUnit)</span>
-<span class="fc bfc" id="L394" title="All 2 branches covered.">               &amp;&amp; !colony.canProvideGoods(role.getRequiredGoods()))</span>
-            ? &quot;colony-can-not-provide-equipment&quot;
-            : null;
-    }
-
-    /**
-     * Gets the existing tile improvement plan for a unit and tile.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to check.
-     * @return The associated &lt;code&gt;TileImprovementPlan&lt;/code&gt;.
-     */
-    private static TileImprovementPlan getPlan(AIUnit aiUnit, Tile tile) {
-<span class="fc" id="L407">        PioneeringMission pm = aiUnit.getMission(PioneeringMission.class);</span>
-<span class="fc bfc" id="L408" title="All 2 branches covered.">        return (pm != null</span>
-<span class="pc bpc" id="L409" title="1 of 2 branches missed.">            &amp;&amp; pm.getTileImprovementPlan() != null</span>
-<span class="pc bpc" id="L410" title="1 of 2 branches missed.">            &amp;&amp; pm.getTileImprovementPlan().getTarget() == tile)</span>
-<span class="fc" id="L411">            ? pm.getTileImprovementPlan()</span>
-            : null;
-    }
-
-    /**
-     * Why would a PioneeringMission be invalid with the given unit and tile.
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @param tile The &lt;code&gt;Tile&lt;/code&gt; to check.
-     * @return A reason why the mission would be invalid, or null if
-     *      none found.
-     */
-    private static String invalidTileReason(AIUnit aiUnit, Tile tile) {
-<span class="pc bpc" id="L424" title="1 of 2 branches missed.">        return (tile == null)</span>
-            ? Mission.TARGETINVALID
-<span class="pc bpc" id="L426" title="1 of 2 branches missed.">            : (!hasTools(aiUnit))</span>
-            ? &quot;unit-needs-tools&quot;
-<span class="fc bfc" id="L428" title="All 2 branches covered.">            : (getPlan(aiUnit, tile) == null</span>
-<span class="pc bpc" id="L429" title="1 of 2 branches missed.">                &amp;&amp; getBestPlan(aiUnit, tile) == null)</span>
-            ? &quot;tile-has-no-plan&quot;
-<span class="pc bpc" id="L431" title="1 of 2 branches missed.">            : (tile.getOwningSettlement() != null)</span>
-<span class="pc" id="L432">            ? invalidTargetReason(tile.getOwningSettlement(),</span>
-<span class="fc" id="L433">                                  aiUnit.getUnit().getOwner())</span>
-            : null;
-    }
-
-    /**
-     * Why would this mission be invalid with the given AI unit?
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @return A reason for mission invalidity, or null if none found.
-     */
-    public static String invalidReason(AIUnit aiUnit) {
-<span class="fc" id="L444">        return invalidMissionReason(aiUnit);</span>
-    }
-
-    /**
-     * Why would this mission be invalid with the given AI unit and location?
-     *
-     * @param aiUnit The &lt;code&gt;AIUnit&lt;/code&gt; to check.
-     * @param loc The &lt;code&gt;Location&lt;/code&gt; to check.
-     * @return A reason for invalidity, or null if none found.
-     */
-    public static String invalidReason(AIUnit aiUnit, Location loc) {
-<span class="fc" id="L455">        String reason = invalidMissionReason(aiUnit);</span>
-<span class="pc bpc" id="L456" title="1 of 4 branches missed.">        return (reason != null)</span>
-            ? reason
-            : (loc instanceof Tile)
-<span class="fc bfc" id="L459" title="All 2 branches covered.">            ? invalidTileReason(aiUnit, (Tile)loc)</span>
-            : (loc instanceof Colony)
-<span class="pc bpc" id="L461" title="1 of 2 branches missed.">            ? ((aiUnit.getUnit().getLocation() instanceof Tile)</span>
-<span class="pc" id="L462">                ? invalidColonyReason(aiUnit, (Colony)loc)</span>
-<span class="pc" id="L463">                : invalidTargetReason(loc, aiUnit.getUnit().getOwner()))</span>
-            : Mission.TARGETINVALID;
-    }
-
-
-    // Implement Mission
-    //   Inherit dispose, getTransportDestination, isOneTime
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getBaseTransportPriority() {
-<span class="fc" id="L476">        return NORMAL_TRANSPORT_PRIORITY;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location getTarget() {
-<span class="fc" id="L484">        return target;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setTarget(Location target) {
-<span class="pc bpc" id="L492" title="3 of 6 branches missed.">        if (target == null</span>
-            || target instanceof Colony || target instanceof Tile) {
-<span class="fc" id="L494">            this.target = target;</span>
-<span class="pc bpc" id="L495" title="1 of 2 branches missed.">            setTileImprovementPlan((target instanceof Tile)</span>
-<span class="pc" id="L496">                ? getBestPlan((Tile)target)</span>
-                : null);
-        }
-<span class="fc" id="L499">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location findTarget() {
-<span class="nc" id="L506">        return findTarget(getAIUnit(), 10, true);</span>
-    }
-    
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String invalidReason() {
-        // Prevent invalidation for improvements that are just completing.
-<span class="pc bpc" id="L515" title="1 of 2 branches missed.">        if (tileImprovementPlan != null) {</span>
-<span class="pc bpc" id="L516" title="1 of 2 branches missed.">            if (tileImprovementPlan.isDisposed()) {</span>
-<span class="nc" id="L517">                return &quot;target-plan-disposed&quot;;</span>
-            }
-<span class="pc bpc" id="L519" title="1 of 2 branches missed.">            if (tileImprovementPlan.isComplete()) return null;</span>
-        }
-<span class="fc" id="L521">        return invalidReason(getAIUnit(), getTarget());</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected Mission lbFail(LogBuilder lb, boolean cont, Object... reasons) {
-<span class="nc bnc" id="L529" title="All 4 branches missed.">        if (hasTools() &amp;&amp; getUnit().getColony() != null) {</span>
-<span class="nc" id="L530">            getAIUnit().equipForRole(getSpecification().getDefaultRole());</span>
-        }
-<span class="nc" id="L532">        return super.lbFail(lb, false, reasons);</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Mission doMission(LogBuilder lb) {
-<span class="nc" id="L540">        lb.add(tag);</span>
-<span class="nc" id="L541">        final AIUnit aiUnit = getAIUnit();</span>
-
-        // Check for completion and tileImprovement failure up front.
-<span class="nc bnc" id="L544" title="All 2 branches missed.">        if (tileImprovementPlan != null) {</span>
-<span class="nc bnc" id="L545" title="All 2 branches missed.">            if (tileImprovementPlan.isComplete()) {</span>
-<span class="nc" id="L546">                lbDone(lb, true, tileImprovementPlan.getType(),</span>
-<span class="nc" id="L547">                       &quot; at &quot;, getTarget());</span>
-<span class="nc" id="L548">                setTarget(null);</span>
-<span class="nc bnc" id="L549" title="All 2 branches missed.">            } else if (!tileImprovementPlan.validate()) {</span>
-<span class="nc" id="L550">                lbFail(lb, true, &quot;abandoned invalid plan at &quot;,</span>
-<span class="nc" id="L551">                       getTarget(), &quot;/&quot;, tileImprovementPlan);</span>
-<span class="nc" id="L552">                setTarget(null);</span>
-            }
-        }
-
-        /*if (retarget) {
-            newTarget = findTarget(aiUnit, 10, unit.isInEurope());
-            if (newTarget == null) {
-                setTarget(null);
-                return lbFail(lb, false, &quot; found no target&quot;);
-            }
-            setTarget(newTarget);
-            lb.add(&quot;, retargeting &quot;, newTarget, &quot;/&quot;, tileImprovementPlan);
-        }*/
-
-<span class="nc" id="L566">        String reason = invalidReason();</span>
-<span class="nc bnc" id="L567" title="All 2 branches missed.">        if (isTargetReason(reason)) {</span>
-<span class="nc" id="L568">            return retargetMission(reason, lb);</span>
-<span class="nc bnc" id="L569" title="All 2 branches missed.">        } else if (reason != null) {</span>
-<span class="nc" id="L570">            return lbFail(lb, false, reason);</span>
-        }
-
-<span class="nc" id="L573">        final Unit unit = getUnit();</span>
-<span class="nc" id="L574">        final Player player = unit.getOwner();</span>
-<span class="nc" id="L575">        final EuropeanAIPlayer aiPlayer = getEuropeanAIPlayer();</span>
-        final CostDecider costDecider
-<span class="nc" id="L577">            = CostDeciders.avoidSettlementsAndBlockingUnits();</span>
-        Location newTarget;
-
-<span class="nc bnc" id="L580" title="All 2 branches missed.">        if (!hasTools()) { // Get tools first.</span>
-            // Go there and clear target on arrival.
-<span class="nc" id="L582">            Unit.MoveType mt = travelToTarget(getTarget(), costDecider, lb);</span>
-<span class="nc bnc" id="L583" title="All 4 branches missed.">            switch (mt) {</span>
-            case MOVE: // Arrived
-<span class="nc" id="L585">                break;</span>
-
-            case MOVE_HIGH_SEAS: case MOVE_NO_MOVES:
-            case MOVE_NO_REPAIR: case MOVE_ILLEGAL:
-<span class="nc" id="L589">                return lbWait(lb);</span>
-
-            case MOVE_NO_ACCESS_EMBARK: case MOVE_NO_TILE:
-<span class="nc" id="L592">                return this;</span>
-
-            default:
-<span class="nc" id="L595">                return lbMove(lb, mt);</span>
-            }
-
-            // Try to equip
-<span class="nc" id="L599">            lbAt(lb);</span>
-<span class="nc bnc" id="L600" title="All 2 branches missed.">            if (aiUnit.equipForRole(getSpecification().getPioneerRole())</span>
-<span class="nc bnc" id="L601" title="All 2 branches missed.">                &amp;&amp; hasTools()) {</span>
-<span class="nc" id="L602">                lb.add(&quot;, equips&quot;);</span>
-<span class="nc" id="L603">                newTarget = findTarget(aiUnit, 10, false);</span>
-<span class="nc bnc" id="L604" title="All 2 branches missed.">                if (newTarget == null) {</span>
-<span class="nc" id="L605">                    return lbFail(lb, false, &quot;no pioneering target&quot;);</span>
-                }
-            } else {
-<span class="nc" id="L608">                lb.add(&quot;, fails to equip&quot;);</span>
-<span class="nc" id="L609">                newTarget = findTarget(aiUnit, 10, false);</span>
-<span class="nc bnc" id="L610" title="All 2 branches missed.">                if (newTarget == null</span>
-<span class="nc bnc" id="L611" title="All 2 branches missed.">                    || Map.isSameLocation(newTarget, getTarget())) {</span>
-<span class="nc" id="L612">                    return lbFail(lb, false, &quot;no tools target&quot;);</span>
-                }
-            }
-<span class="nc" id="L615">            setTarget(newTarget);</span>
-<span class="nc" id="L616">            return lbRetarget(lb);</span>
-        }
-
-        // Going to an intermediate colony?
-<span class="nc bnc" id="L620" title="All 2 branches missed.">        if (getTarget() instanceof Colony</span>
-<span class="nc bnc" id="L621" title="All 2 branches missed.">            &amp;&amp; invalidTargetReason(getTarget(), player) == null) {</span>
-<span class="nc" id="L622">            Unit.MoveType mt = travelToTarget(getTarget(), costDecider, lb);</span>
-<span class="nc bnc" id="L623" title="All 4 branches missed.">            switch (mt) {</span>
-            case MOVE_HIGH_SEAS: case MOVE_NO_REPAIR:
-<span class="nc" id="L625">                return lbWait(lb);</span>
-
-            case MOVE_NO_MOVES: case MOVE_NO_TILE: case MOVE_ILLEGAL:
-<span class="nc" id="L628">                return this;</span>
-
-            case MOVE:
-<span class="nc" id="L631">                break;</span>
-
-            default:
-<span class="nc" id="L634">                return lbMove(lb, mt);</span>
-            }
-
-<span class="nc" id="L637">            lbAt(lb);</span>
-<span class="nc" id="L638">            newTarget = findTarget(aiUnit, 10, false);</span>
-<span class="nc bnc" id="L639" title="All 2 branches missed.">            if (newTarget == null) {</span>
-<span class="nc" id="L640">                return lbFail(lb, false, &quot;found no pioneering target&quot;);</span>
-            }
-<span class="nc" id="L642">            setTarget(newTarget);</span>
-<span class="nc" id="L643">            return lbRetarget(lb);</span>
-        }
-
-        // Check for threats.
-        // The code below is very conservative.  When enabled it
-        // reduces the number of completed improvements by a factor of
-        // 4 -- 5, which is unacceptable.  Therefore, disabled for
-        // now.  FIXME: do something better.
-        /*
-        int turnsNeeded = DEFAULT_THREAT_TURNS;
-        if (unit.getWorkImprovement() != null) {
-            turnsNeeded = Math.min(turnsNeeded, unit.getWorkLeft());
-        }
-        if (unit.isInDanger(turnsNeeded, 0.25f)) {
-            if (unit.getTile().getColony() != null) {
-                logger.finest(tag + &quot; avoiding danger: &quot; + this);
-                return lbDrop(lb);
-            }
-            PathNode safe = unit.findOurNearestSettlement(false, 1, false);
-            if (safe != null) {
-                travelToTarget(tag + &quot; (evading)&quot;,
-                               safe.getLastNode().getTile(), costDecider);
-                return lbDrop(lb);
-            }
-        }
-        */
-
-        // Going to a tile to perform an improvement.
-<span class="nc" id="L671">        Tile tile = getTarget().getTile();</span>
-        for (;;) {
-<span class="nc" id="L673">            Unit.MoveType mt = travelToTarget(getTarget(), costDecider, lb);</span>
-<span class="nc bnc" id="L674" title="All 5 branches missed.">            switch (mt) {</span>
-            case MOVE_HIGH_SEAS: case MOVE_NO_REPAIR:
-<span class="nc" id="L676">                return lbWait(lb);</span>
-                
-            case MOVE_NO_MOVES: case MOVE_NO_TILE: case MOVE_ILLEGAL:
-<span class="nc" id="L679">                return this;</span>
-                
-            case MOVE: // Arrived
-<span class="nc" id="L682">                break;</span>
-                
-            case MOVE_NO_ATTACK_CIVILIAN:
-                // Might be a temporary blockage due to an occupying
-                // unit at the target.  Move randomly and retry if
-                // adjacent.
-<span class="nc" id="L688">                Direction d = unit.getTile().getDirection(tile);</span>
-<span class="nc bnc" id="L689" title="All 2 branches missed.">                if (d != null) moveRandomly(tag, d);</span>
-                continue;
-
-            default:
-<span class="nc" id="L693">                return lbMove(lb, mt);</span>
-            }
-            break;
-        }
-
-        // Take control of the land before proceeding to improve.
-<span class="nc" id="L699">        lbAt(lb);</span>
-<span class="nc bnc" id="L700" title="All 2 branches missed.">        if (!player.owns(tile)) {</span>
-            // FIXME: Better choice whether to pay or steal.
-            // Currently always pay if we can, steal if we can not.
-<span class="nc" id="L703">            boolean fail = false;</span>
-<span class="nc" id="L704">            int price = player.getLandPrice(tile);</span>
-<span class="nc bnc" id="L705" title="All 2 branches missed.">            if (price &lt; 0) {</span>
-<span class="nc" id="L706">                fail = true;</span>
-            } else {
-<span class="nc bnc" id="L708" title="All 4 branches missed.">                if (price &gt; 0 &amp;&amp; !player.checkGold(price)) {</span>
-<span class="nc" id="L709">                    price = NetworkConstants.STEAL_LAND;</span>
-                }
-<span class="nc bnc" id="L711" title="All 2 branches missed.">                fail = !AIMessage.askClaimLand(tile, aiUnit, price)</span>
-<span class="nc bnc" id="L712" title="All 2 branches missed.">                    || !player.owns(tile); // Failed to claim ownership</span>
-            }
-<span class="nc bnc" id="L714" title="All 2 branches missed.">            if (fail) {</span>
-<span class="nc" id="L715">                aiPlayer.removeTileImprovementPlan(tileImprovementPlan);</span>
-<span class="nc" id="L716">                tileImprovementPlan.dispose();</span>
-<span class="nc" id="L717">                lb.add(&quot;, land claim failed at &quot;, tile);</span>
-<span class="nc bnc" id="L718" title="All 2 branches missed.">                if ((newTarget = findTarget(aiUnit, 10, false)) == null) {</span>
-<span class="nc" id="L719">                    return lbFail(lb, false, &quot;no alternate target&quot;);</span>
-                }
-<span class="nc" id="L721">                setTarget(newTarget);</span>
-<span class="nc" id="L722">                return lbRetarget(lb);</span>
-            }
-        }
-
-        // Work on the improvement
-<span class="nc bnc" id="L727" title="All 2 branches missed.">        if (unit.getState() == UnitState.IMPROVING) {</span>
-<span class="nc" id="L728">            return lbWait(lb, &quot;, improving &quot;, tileImprovementPlan);</span>
-<span class="nc bnc" id="L729" title="All 2 branches missed.">        } else if (unit.checkSetState(UnitState.IMPROVING)) {</span>
-<span class="nc" id="L730">            aiPlayer.removeTileImprovementPlan(tileImprovementPlan);</span>
-<span class="nc bnc" id="L731" title="All 2 branches missed.">            if (AIMessage.askChangeWorkImprovementType(aiUnit,</span>
-<span class="nc" id="L732">                    tileImprovementPlan.getType())) {</span>
-<span class="nc" id="L733">                return lbWait(lb, &quot;, began &quot;, tileImprovementPlan);</span>
-            } else {
-<span class="nc" id="L735">                tileImprovementPlan.dispose();</span>
-<span class="nc" id="L736">                return lbFail(lb, false, &quot;to change work type at &quot;, tile);</span>
-            }
-        }
-        // Probably just out of moves.
-<span class="nc" id="L740">        return lbWait(lb, &quot;, waiting to improve at &quot;, tile);</span>
-    }
-
-
-    // Serialization
-
-    private static final String TARGET_TAG = &quot;target&quot;;
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="nc" id="L754">        super.writeAttributes(xw);</span>
-
-<span class="nc bnc" id="L756" title="All 2 branches missed.">        if (target != null) {</span>
-<span class="nc" id="L757">            xw.writeAttribute(TARGET_TAG, target.getId());</span>
-
-<span class="nc bnc" id="L759" title="All 2 branches missed.">            if (tileImprovementPlan != null) {</span>
-<span class="nc" id="L760">                xw.writeAttribute(TileImprovementPlan.getXMLElementTagName(),</span>
-                                  tileImprovementPlan);
-            }
-        }
-<span class="nc" id="L764">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-<span class="nc" id="L771">        super.readAttributes(xr);</span>
-
-<span class="nc" id="L773">        final AIMain aiMain = getAIMain();</span>
-
-        // Do not use setTarget in serialization
-<span class="nc" id="L776">        target = xr.getLocationAttribute(getGame(), TARGET_TAG, false);</span>
-
-<span class="nc bnc" id="L778" title="All 2 branches missed.">        tileImprovementPlan = (xr.hasAttribute(TileImprovementPlan.getXMLElementTagName()))</span>
-<span class="nc" id="L779">            ? xr.makeAIObject(aiMain, TileImprovementPlan.getXMLElementTagName(),</span>
-                TileImprovementPlan.class, (TileImprovementPlan)null, true)
-            : null;
-<span class="nc" id="L782">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-<span class="nc" id="L788">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return &quot;pioneeringMission&quot;.
-     */
-    public static String getXMLElementTagName() {
-<span class="nc" id="L796">        return &quot;pioneeringMission&quot;;</span>
-    }
+	/** The Constant logger. */
+<span class="fc" id="L58">	private static final Logger logger = Logger.getLogger(PioneeringMission.class.getName());</span>
+
+	/** The tag for this mission. */
+	private static final String tag = &quot;AI pioneer&quot;;
+
+	/**
+	 * Default distance in turns to a threatening unit.
+	 */
+	private static final int DEFAULT_THREAT_TURNS = 3;
+
+	/** The improvement this pioneer is to work on. */
+	private TileImprovementPlan tileImprovementPlan;
+
+	/**
+	 * The target location to go to: - a tile where the tileImprovement is - a
+	 * colony to go to to equip - just an initial colony to retarget from.
+	 */
+	private Location target;
+
+	/**
+	 * Creates a pioneering mission for the given &lt;code&gt;AIUnit&lt;/code&gt;. Note that
+	 * PioneeringMission.isValid(aiUnit) should be called before this, to
+	 * guarantee that findTileImprovementPlan/findColonyWithTools succeed.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
+	 * @param target
+	 *            The target &lt;code&gt;Location&lt;/code&gt;.
+	 */
+	public PioneeringMission(AIMain aiMain, AIUnit aiUnit, Location target) {
+<span class="fc" id="L90">		super(aiMain, aiUnit, target);</span>
+<span class="fc" id="L91">	}</span>
+
+	/**
+	 * Creates a new &lt;code&gt;PioneeringMission&lt;/code&gt; and reads the given element.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; this mission is created for.
+	 * @param xr
+	 *            The input stream containing the XML.
+	 * @throws XMLStreamException
+	 *             if a problem was encountered during parsing.
+	 * @see net.sf.freecol.server.ai.AIObject#readFromXML
+	 */
+	public PioneeringMission(AIMain aiMain, AIUnit aiUnit, FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L107">		super(aiMain, aiUnit);</span>
+
+<span class="nc" id="L109">		readFromXML(xr);</span>
+<span class="nc" id="L110">	}</span>
+
+	/**
+	 * Get the best improvement associated with a tile.
+	 *
+	 * @param tile
+	 *            the tile
+	 * @return The &lt;code&gt;TileImprovementPlan&lt;/code&gt;, or null if not found.
+	 */
+	private TileImprovementPlan getBestPlan(Tile tile) {
+<span class="fc" id="L120">		return getEuropeanAIPlayer().getBestPlan(tile);</span>
+	}
+
+	/**
+	 * Get the best improvement associated with a tile for a given unit. Take
+	 * care to first check if the unit has a plan already, if so, return that.
+	 *
+	 * @param aiUnit
+	 *            the ai unit
+	 * @param tile
+	 *            the tile
+	 * @return The &lt;code&gt;TileImprovementPlan&lt;/code&gt;, or null if not found.
+	 */
+	private static TileImprovementPlan getBestPlan(AIUnit aiUnit, Tile tile) {
+<span class="fc" id="L134">		return ((EuropeanAIPlayer) aiUnit.getAIOwner()).getBestPlan(tile);</span>
+	}
+
+	/**
+	 * Gets the &lt;code&gt;TileImprovementPlan&lt;/code&gt; for this mission.
+	 *
+	 * @return The &lt;code&gt;TileImprovementPlan&lt;/code&gt;.
+	 */
+	public TileImprovementPlan getTileImprovementPlan() {
+<span class="fc" id="L143">		return tileImprovementPlan;</span>
+	}
+
+	/**
+	 * Sets the &lt;code&gt;TileImprovementPlan&lt;/code&gt; which should be the next
+	 * target.
+	 *
+	 * @param tip
+	 *            The &lt;code&gt;TileImprovementPlan&lt;/code&gt;.
+	 */
+	public void setTileImprovementPlan(TileImprovementPlan tip) {
+<span class="fc" id="L154">		TileImprovementPlan old = tileImprovementPlan;</span>
+<span class="fc" id="L155">		this.tileImprovementPlan = tip;</span>
+<span class="fc" id="L156">		AIUnit aiUnit = getAIUnit();</span>
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">		if (old != tileImprovementPlan) {</span>
+<span class="pc bpc" id="L158" title="3 of 4 branches missed.">			if (old != null &amp;&amp; old.getPioneer() == aiUnit) {</span>
+<span class="nc" id="L159">				old.setPioneer(null);</span>
+			}
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">			if (tileImprovementPlan != null) {</span>
+<span class="fc" id="L162">				tileImprovementPlan.setPioneer(aiUnit);</span>
+<span class="fc" id="L163">				getEuropeanAIPlayer().removeTileImprovementPlan(tip);</span>
+			}
+		}
+<span class="fc" id="L166">	}</span>
+
+	/**
+	 * Abandons the current plan if any.
+	 */
+	private void abandonTileImprovementPlan() {
+<span class="nc bnc" id="L172" title="All 2 branches missed.">		if (tileImprovementPlan != null) {</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">			if (tileImprovementPlan.getPioneer() == getAIUnit()) {</span>
+<span class="nc" id="L174">				tileImprovementPlan.setPioneer(null);</span>
+			}
+<span class="nc" id="L176">			setTileImprovementPlan(null);</span>
+		}
+<span class="nc" id="L178">	}</span>
+
+	/**
+	 * Disposes of this pioneering mission.
+	 */
+	@Override
+	public void dispose() {
+<span class="nc" id="L185">		abandonTileImprovementPlan();</span>
+<span class="nc" id="L186">		super.dispose();</span>
+<span class="nc" id="L187">	}</span>
+
+	/**
+	 * Does a supplied unit have tools?.
+	 *
+	 * @param aiUnit
+	 *            The pioneer &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @return True if the pioneer has tools.
+	 */
+	private static boolean hasTools(AIUnit aiUnit) {
+<span class="fc" id="L197">		return aiUnit.getUnit().hasAbility(Ability.IMPROVE_TERRAIN);</span>
+	}
+
+	/**
+	 * Does this pioneer have tools?.
+	 *
+	 * @return True if the pioneer has tools.
+	 */
+	private boolean hasTools() {
+<span class="nc" id="L206">		return hasTools(getAIUnit());</span>
+	}
+
+	/**
+	 * Extract a valid target for this mission from a path.
+	 *
+	 * @param aiUnit
+	 *            A &lt;code&gt;AIUnit&lt;/code&gt; to perform the mission.
+	 * @param path
+	 *            A &lt;code&gt;PathNode&lt;/code&gt; to extract a target from.
+	 * @return A target for this mission, or null if none found.
+	 */
+	public static Location extractTarget(AIUnit aiUnit, PathNode path) {
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">		if (path == null)</span>
+<span class="nc" id="L220">			return null;</span>
+<span class="fc" id="L221">		final Location loc = path.getLastNode().getLocation();</span>
+<span class="pc bpc" id="L222" title="1 of 2 branches missed.">		return (loc == null) ? null</span>
+<span class="pc bpc" id="L223" title="1 of 4 branches missed.">				: ((hasTools(aiUnit)) ? ((invalidReason(aiUnit, loc.getTile()) != null) ? null : loc.getTile())</span>
+<span class="fc bfc" id="L224" title="All 2 branches covered.">						: ((invalidReason(aiUnit, loc.getColony()) != null) ? null : loc.getColony()));</span>
+	}
+
+	/**
+	 * Evaluate a potential pioneering mission for a given unit and path.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to do the mission.
+	 * @param path
+	 *            A &lt;code&gt;PathNode&lt;/code&gt; to take to the target.
+	 * @return A score for the proposed mission.
+	 */
+	public static int scorePath(AIUnit aiUnit, PathNode path) {
+<span class="fc" id="L237">		final Location loc = extractTarget(aiUnit, path);</span>
+<span class="fc bfc" id="L238" title="All 2 branches covered.">		if (hasTools(aiUnit)) {</span>
+			TileImprovementPlan tip;
+<span class="pc bpc" id="L240" title="2 of 4 branches missed.">			if (loc instanceof Tile &amp;&amp; (tip = getBestPlan(aiUnit, (Tile) loc)) != null) {</span>
+<span class="fc" id="L241">				return 1000 * tip.getValue() / (path.getTotalTurns() + 1);</span>
+			}
+<span class="nc" id="L243">		} else {</span>
+<span class="fc bfc" id="L244" title="All 2 branches covered.">			if (loc instanceof Colony) {</span>
+<span class="fc" id="L245">				return 1000 / (path.getTotalTurns() + 1);</span>
+			}
+		}
+<span class="fc" id="L248">		return Integer.MIN_VALUE;</span>
+	}
+
+	/**
+	 * Makes a goal decider that checks pioneering sites.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to search with.
+	 * @param deferOK
+	 *            Keep track of the nearest colonies to use as a fallback
+	 *            destination.
+	 * @return A suitable &lt;code&gt;GoalDecider&lt;/code&gt;.
+	 */
+	private static GoalDecider getGoalDecider(final AIUnit aiUnit, final boolean deferOK) {
+<span class="fc" id="L262">		final GoalDecider gd = new GoalDecider() {</span>
+<span class="fc" id="L263">			private PathNode bestPath = null;</span>
+<span class="fc" id="L264">			private int bestValue = Integer.MIN_VALUE;</span>
+
+			@Override
+			public PathNode getGoal() {
+<span class="fc" id="L268">				return bestPath;</span>
+			}
+
+			@Override
+			public boolean hasSubGoals() {
+<span class="fc" id="L273">				return true;</span>
+			}
+
+			@Override
+			public boolean check(Unit u, PathNode path) {
+<span class="fc" id="L278">				int value = scorePath(aiUnit, path);</span>
+<span class="fc bfc" id="L279" title="All 2 branches covered.">				if (bestValue &lt; value) {</span>
+<span class="fc" id="L280">					bestValue = value;</span>
+<span class="fc" id="L281">					bestPath = path;</span>
+<span class="fc" id="L282">					return true;</span>
+				}
+<span class="fc" id="L284">				return false;</span>
+			}
+		};
+<span class="pc bpc" id="L287" title="1 of 2 branches missed.">		return (deferOK)</span>
+<span class="pc" id="L288">				? GoalDeciders.getComposedGoalDecider(false, gd, GoalDeciders.getOurClosestSettlementGoalDecider())</span>
+				: gd;
+	}
+
+	/**
+	 * Finds a suitable pioneering target for the supplied unit.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to execute this mission.
+	 * @param range
+	 *            An upper bound on the number of moves.
+	 * @param deferOK
+	 *            Enables deferring to a fallback colony.
+	 * @return A path to the new target, or null if none found.
+	 */
+	public static PathNode findTargetPath(AIUnit aiUnit, int range, boolean deferOK) {
+<span class="pc bpc" id="L304" title="1 of 2 branches missed.">		if (invalidAIUnitReason(aiUnit) != null)</span>
+<span class="nc" id="L305">			return null;</span>
+<span class="fc" id="L306">		final Unit unit = aiUnit.getUnit();</span>
+<span class="fc" id="L307">		final Location start = unit.getPathStartLocation();</span>
+<span class="fc" id="L308">		final Unit carrier = unit.getCarrier();</span>
+<span class="fc" id="L309">		final GoalDecider gd = getGoalDecider(aiUnit, deferOK);</span>
+<span class="fc" id="L310">		final CostDecider standardCd = CostDeciders.avoidSettlementsAndBlockingUnits();</span>
+
+		// Try for something sensible nearby.
+<span class="fc" id="L313">		return unit.search(start, gd, standardCd, range, carrier);</span>
+	}
+
+	/**
+	 * Gets the Colony that most needs a pioneer.
+	 *
+	 * @param aiUnit
+	 *            The pioneer &lt;code&gt;AIUnit&lt;/code&gt;.
+	 * @return The colony with the most outstanding tile improvement plans.
+	 */
+	private static Colony getBestPioneeringColony(AIUnit aiUnit) {
+<span class="nc" id="L324">		EuropeanAIPlayer aiPlayer = (EuropeanAIPlayer) aiUnit.getAIOwner();</span>
+<span class="nc" id="L325">		AIColony bestColony = null;</span>
+<span class="nc" id="L326">		int bestValue = -1;</span>
+<span class="nc bnc" id="L327" title="All 2 branches missed.">		for (AIColony aic : aiPlayer.getAIColonies()) {</span>
+<span class="nc" id="L328">			int value = aic.getTileImprovementPlans().size();</span>
+<span class="nc bnc" id="L329" title="All 2 branches missed.">			if (value &gt; bestValue) {</span>
+<span class="nc" id="L330">				bestValue = value;</span>
+<span class="nc" id="L331">				bestColony = aic;</span>
+			}
+<span class="nc" id="L333">		}</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">		if (bestColony == null)</span>
+<span class="nc" id="L335">			return null;</span>
+<span class="nc" id="L336">		Colony colony = bestColony.getColony();</span>
+<span class="nc bnc" id="L337" title="All 2 branches missed.">		if (colony.isConnectedPort())</span>
+<span class="nc" id="L338">			return colony;</span>
+<span class="nc" id="L339">		PathNode path = aiUnit.getUnit().findOurNearestPort();</span>
+<span class="nc bnc" id="L340" title="All 2 branches missed.">		return (path == null) ? colony : path.getLastNode().getLocation().getColony();</span>
+	}
+
+	/**
+	 * Finds a suitable pioneering target for the supplied unit. Falls back to
+	 * the best settlement if the unit is not on the map.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to test.
+	 * @param range
+	 *            An upper bound on the number of moves.
+	 * @param deferOK
+	 *            Enables deferring to a fallback colony.
+	 * @return A target for this mission.
+	 */
+	public static Location findTarget(AIUnit aiUnit, int range, boolean deferOK) {
+<span class="fc" id="L356">		PathNode path = findTargetPath(aiUnit, range, false);</span>
+<span class="fc bfc" id="L357" title="All 2 branches covered.">		if (path != null)</span>
+<span class="fc" id="L358">			return extractTarget(aiUnit, path);</span>
+<span class="pc bpc" id="L359" title="1 of 2 branches missed.">		if (deferOK)</span>
+<span class="nc" id="L360">			return getBestPioneeringColony(aiUnit);</span>
+<span class="fc" id="L361">		Location loc = findCircleTarget(aiUnit, getGoalDecider(aiUnit, false), range * 3, false);</span>
+<span class="pc bpc" id="L362" title="1 of 2 branches missed.">		return (hasTools(aiUnit)) ? loc : Location.upLoc(loc);</span>
+	}
+
+	/**
+	 * Prepare a unit for this mission.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to prepare.
+	 * @return A reason why the unit can not perform this mission, or null if
+	 *         none.
+	 */
+	public static String prepare(AIUnit aiUnit) {
+<span class="nc" id="L374">		String reason = invalidReason(aiUnit);</span>
+<span class="nc bnc" id="L375" title="All 2 branches missed.">		if (reason != null)</span>
+<span class="nc" id="L376">			return reason;</span>
+<span class="nc" id="L377">		final Unit unit = aiUnit.getUnit();</span>
+<span class="nc bnc" id="L378" title="All 4 branches missed.">		if (!hasTools(aiUnit) &amp;&amp; !aiUnit.equipForRole(unit.getSpecification().getPioneerRole())) {</span>
+<span class="nc" id="L379">			return &quot;unit-could-not-equip&quot;;</span>
+		}
+<span class="nc bnc" id="L381" title="All 4 branches missed.">		return (hasTools(aiUnit) || unit.hasAbility(Ability.EXPERT_PIONEER)) ? null : &quot;unit-missing-tools&quot;;</span>
+	}
+
+	/**
+	 * Why would a PioneeringMission be invalid with the given unit.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @return A reason why the mission would be invalid with the unit, or null
+	 *         if none found.
+	 */
+	private static String invalidMissionReason(AIUnit aiUnit) {
+<span class="fc" id="L393">		String reason = invalidAIUnitReason(aiUnit);</span>
+<span class="pc bpc" id="L394" title="2 of 4 branches missed.">		return (reason != null) ? reason : (!aiUnit.getUnit().isPerson()) ? Mission.UNITNOTAPERSON : null;</span>
+	}
+
+	/**
+	 * Why would a PioneeringMission be invalid with the given unit and colony.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; to check.
+	 * @return A reason why the mission would be invalid, or null if none found.
+	 */
+	private static String invalidColonyReason(AIUnit aiUnit, Colony colony) {
+<span class="fc" id="L407">		String reason = invalidTargetReason(colony, aiUnit.getUnit().getOwner());</span>
+<span class="fc" id="L408">		Role role = aiUnit.getUnit().getSpecification().getRole(&quot;model.role.pioneer&quot;);</span>
+<span class="pc bpc" id="L409" title="1 of 2 branches missed.">		return (reason != null) ? reason</span>
+<span class="pc bpc" id="L410" title="1 of 4 branches missed.">				: (!hasTools(aiUnit) &amp;&amp; !colony.canProvideGoods(role.getRequiredGoods()))</span>
+						? &quot;colony-can-not-provide-equipment&quot; : null;
+	}
+
+	/**
+	 * Gets the existing tile improvement plan for a unit and tile.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @param tile
+	 *            The &lt;code&gt;Tile&lt;/code&gt; to check.
+	 * @return The associated &lt;code&gt;TileImprovementPlan&lt;/code&gt;.
+	 */
+	private static TileImprovementPlan getPlan(AIUnit aiUnit, Tile tile) {
+<span class="fc" id="L424">		PioneeringMission pm = aiUnit.getMission(PioneeringMission.class);</span>
+<span class="pc bpc" id="L425" title="2 of 6 branches missed.">		return (pm != null &amp;&amp; pm.getTileImprovementPlan() != null &amp;&amp; pm.getTileImprovementPlan().getTarget() == tile)</span>
+<span class="fc" id="L426">				? pm.getTileImprovementPlan() : null;</span>
+	}
+
+	/**
+	 * Why would a PioneeringMission be invalid with the given unit and tile.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @param tile
+	 *            The &lt;code&gt;Tile&lt;/code&gt; to check.
+	 * @return A reason why the mission would be invalid, or null if none found.
+	 */
+	private static String invalidTileReason(AIUnit aiUnit, Tile tile) {
+<span class="pc bpc" id="L439" title="1 of 2 branches missed.">		return (tile == null) ? Mission.TARGETINVALID</span>
+<span class="pc bpc" id="L440" title="1 of 2 branches missed.">				: (!hasTools(aiUnit)) ? &quot;unit-needs-tools&quot;</span>
+<span class="pc bpc" id="L441" title="1 of 4 branches missed.">						: (getPlan(aiUnit, tile) == null &amp;&amp; getBestPlan(aiUnit, tile) == null) ? &quot;tile-has-no-plan&quot;</span>
+<span class="pc bpc" id="L442" title="1 of 2 branches missed.">								: (tile.getOwningSettlement() != null)</span>
+<span class="pc" id="L443">										? invalidTargetReason(tile.getOwningSettlement(), aiUnit.getUnit().getOwner())</span>
+										: null;
+	}
+
+	/**
+	 * Why would this mission be invalid with the given AI unit?.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @return A reason for mission invalidity, or null if none found.
+	 */
+	public static String invalidReason(AIUnit aiUnit) {
+<span class="fc" id="L455">		return invalidMissionReason(aiUnit);</span>
+	}
+
+	/**
+	 * Why would this mission be invalid with the given AI unit and location?.
+	 *
+	 * @param aiUnit
+	 *            The &lt;code&gt;AIUnit&lt;/code&gt; to check.
+	 * @param loc
+	 *            The &lt;code&gt;Location&lt;/code&gt; to check.
+	 * @return A reason for invalidity, or null if none found.
+	 */
+	public static String invalidReason(AIUnit aiUnit, Location loc) {
+<span class="fc" id="L468">		String reason = invalidMissionReason(aiUnit);</span>
+<span class="pc bpc" id="L469" title="1 of 4 branches missed.">		return (reason != null) ? reason</span>
+<span class="fc bfc" id="L470" title="All 2 branches covered.">				: (loc instanceof Tile) ? invalidTileReason(aiUnit, (Tile) loc)</span>
+						: (loc instanceof Colony)
+<span class="pc bpc" id="L472" title="1 of 2 branches missed.">								? ((aiUnit.getUnit().getLocation() instanceof Tile)</span>
+<span class="pc" id="L473">										? invalidColonyReason(aiUnit, (Colony) loc)</span>
+<span class="pc" id="L474">										: invalidTargetReason(loc, aiUnit.getUnit().getOwner()))</span>
+								: Mission.TARGETINVALID;
+	}
+
+	// Implement Mission
+	// Inherit dispose, getTransportDestination, isOneTime
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getBaseTransportPriority() {
+<span class="fc" id="L486">		return NORMAL_TRANSPORT_PRIORITY;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location getTarget() {
+<span class="fc" id="L494">		return target;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void setTarget(Location target) {
+<span class="pc bpc" id="L502" title="3 of 6 branches missed.">		if (target == null || target instanceof Colony || target instanceof Tile) {</span>
+<span class="fc" id="L503">			this.target = target;</span>
+<span class="pc bpc" id="L504" title="1 of 2 branches missed.">			setTileImprovementPlan((target instanceof Tile) ? getBestPlan((Tile) target) : null);</span>
+		}
+<span class="fc" id="L506">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location findTarget() {
+<span class="nc" id="L513">		return findTarget(getAIUnit(), 10, true);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String invalidReason() {
+		// Prevent invalidation for improvements that are just completing.
+<span class="pc bpc" id="L522" title="1 of 2 branches missed.">		if (tileImprovementPlan != null) {</span>
+<span class="pc bpc" id="L523" title="1 of 2 branches missed.">			if (tileImprovementPlan.isDisposed()) {</span>
+<span class="nc" id="L524">				return &quot;target-plan-disposed&quot;;</span>
+			}
+<span class="pc bpc" id="L526" title="1 of 2 branches missed.">			if (tileImprovementPlan.isComplete())</span>
+<span class="nc" id="L527">				return null;</span>
+		}
+<span class="fc" id="L529">		return invalidReason(getAIUnit(), getTarget());</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected Mission lbFail(LogBuilder lb, boolean cont, Object... reasons) {
+<span class="nc bnc" id="L537" title="All 4 branches missed.">		if (hasTools() &amp;&amp; getUnit().getColony() != null) {</span>
+<span class="nc" id="L538">			getAIUnit().equipForRole(getSpecification().getDefaultRole());</span>
+		}
+<span class="nc" id="L540">		return super.lbFail(lb, false, reasons);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Mission doMission(LogBuilder lb) {
+<span class="nc" id="L548">		lb.add(tag);</span>
+<span class="nc" id="L549">		final AIUnit aiUnit = getAIUnit();</span>
+
+		// Check for completion and tileImprovement failure up front.
+<span class="nc bnc" id="L552" title="All 2 branches missed.">		if (tileImprovementPlan != null) {</span>
+<span class="nc bnc" id="L553" title="All 2 branches missed.">			if (tileImprovementPlan.isComplete()) {</span>
+<span class="nc" id="L554">				lbDone(lb, true, tileImprovementPlan.getType(), &quot; at &quot;, getTarget());</span>
+<span class="nc" id="L555">				setTarget(null);</span>
+<span class="nc bnc" id="L556" title="All 2 branches missed.">			} else if (!tileImprovementPlan.validate()) {</span>
+<span class="nc" id="L557">				lbFail(lb, true, &quot;abandoned invalid plan at &quot;, getTarget(), &quot;/&quot;, tileImprovementPlan);</span>
+<span class="nc" id="L558">				setTarget(null);</span>
+			}
+		}
+
+		/*
+		 * if (retarget) { newTarget = findTarget(aiUnit, 10,
+		 * unit.isInEurope()); if (newTarget == null) { setTarget(null); return
+		 * lbFail(lb, false, &quot; found no target&quot;); } setTarget(newTarget);
+		 * lb.add(&quot;, retargeting &quot;, newTarget, &quot;/&quot;, tileImprovementPlan); }
+		 */
+
+<span class="nc" id="L569">		String reason = invalidReason();</span>
+<span class="nc bnc" id="L570" title="All 2 branches missed.">		if (isTargetReason(reason)) {</span>
+<span class="nc" id="L571">			return retargetMission(reason, lb);</span>
+<span class="nc bnc" id="L572" title="All 2 branches missed.">		} else if (reason != null) {</span>
+<span class="nc" id="L573">			return lbFail(lb, false, reason);</span>
+		}
+
+<span class="nc" id="L576">		final Unit unit = getUnit();</span>
+<span class="nc" id="L577">		final Player player = unit.getOwner();</span>
+<span class="nc" id="L578">		final EuropeanAIPlayer aiPlayer = getEuropeanAIPlayer();</span>
+<span class="nc" id="L579">		final CostDecider costDecider = CostDeciders.avoidSettlementsAndBlockingUnits();</span>
+		Location newTarget;
+
+<span class="nc bnc" id="L582" title="All 2 branches missed.">		if (!hasTools()) { // Get tools first.</span>
+			// Go there and clear target on arrival.
+<span class="nc" id="L584">			Unit.MoveType mt = travelToTarget(getTarget(), costDecider, lb);</span>
+<span class="nc bnc" id="L585" title="All 4 branches missed.">			switch (mt) {</span>
+			case MOVE: // Arrived
+<span class="nc" id="L587">				break;</span>
+
+			case MOVE_HIGH_SEAS:
+			case MOVE_NO_MOVES:
+			case MOVE_NO_REPAIR:
+			case MOVE_ILLEGAL:
+<span class="nc" id="L593">				return lbWait(lb);</span>
+
+			case MOVE_NO_ACCESS_EMBARK:
+			case MOVE_NO_TILE:
+<span class="nc" id="L597">				return this;</span>
+
+			default:
+<span class="nc" id="L600">				return lbMove(lb, mt);</span>
+			}
+
+			// Try to equip
+<span class="nc" id="L604">			lbAt(lb);</span>
+<span class="nc bnc" id="L605" title="All 4 branches missed.">			if (aiUnit.equipForRole(getSpecification().getPioneerRole()) &amp;&amp; hasTools()) {</span>
+<span class="nc" id="L606">				lb.add(&quot;, equips&quot;);</span>
+<span class="nc" id="L607">				newTarget = findTarget(aiUnit, 10, false);</span>
+<span class="nc bnc" id="L608" title="All 2 branches missed.">				if (newTarget == null) {</span>
+<span class="nc" id="L609">					return lbFail(lb, false, &quot;no pioneering target&quot;);</span>
+				}
+			} else {
+<span class="nc" id="L612">				lb.add(&quot;, fails to equip&quot;);</span>
+<span class="nc" id="L613">				newTarget = findTarget(aiUnit, 10, false);</span>
+<span class="nc bnc" id="L614" title="All 4 branches missed.">				if (newTarget == null || Map.isSameLocation(newTarget, getTarget())) {</span>
+<span class="nc" id="L615">					return lbFail(lb, false, &quot;no tools target&quot;);</span>
+				}
+			}
+<span class="nc" id="L618">			setTarget(newTarget);</span>
+<span class="nc" id="L619">			return lbRetarget(lb);</span>
+		}
+
+		// Going to an intermediate colony?
+<span class="nc bnc" id="L623" title="All 4 branches missed.">		if (getTarget() instanceof Colony &amp;&amp; invalidTargetReason(getTarget(), player) == null) {</span>
+<span class="nc" id="L624">			Unit.MoveType mt = travelToTarget(getTarget(), costDecider, lb);</span>
+<span class="nc bnc" id="L625" title="All 4 branches missed.">			switch (mt) {</span>
+			case MOVE_HIGH_SEAS:
+			case MOVE_NO_REPAIR:
+<span class="nc" id="L628">				return lbWait(lb);</span>
+
+			case MOVE_NO_MOVES:
+			case MOVE_NO_TILE:
+			case MOVE_ILLEGAL:
+<span class="nc" id="L633">				return this;</span>
+
+			case MOVE:
+<span class="nc" id="L636">				break;</span>
+
+			default:
+<span class="nc" id="L639">				return lbMove(lb, mt);</span>
+			}
+
+<span class="nc" id="L642">			lbAt(lb);</span>
+<span class="nc" id="L643">			newTarget = findTarget(aiUnit, 10, false);</span>
+<span class="nc bnc" id="L644" title="All 2 branches missed.">			if (newTarget == null) {</span>
+<span class="nc" id="L645">				return lbFail(lb, false, &quot;found no pioneering target&quot;);</span>
+			}
+<span class="nc" id="L647">			setTarget(newTarget);</span>
+<span class="nc" id="L648">			return lbRetarget(lb);</span>
+		}
+
+		// Check for threats.
+		// The code below is very conservative. When enabled it
+		// reduces the number of completed improvements by a factor of
+		// 4 -- 5, which is unacceptable. Therefore, disabled for
+		// now. FIXME: do something better.
+		/*
+		 * int turnsNeeded = DEFAULT_THREAT_TURNS; if (unit.getWorkImprovement()
+		 * != null) { turnsNeeded = Math.min(turnsNeeded, unit.getWorkLeft()); }
+		 * if (unit.isInDanger(turnsNeeded, 0.25f)) { if
+		 * (unit.getTile().getColony() != null) { logger.finest(tag +
+		 * &quot; avoiding danger: &quot; + this); return lbDrop(lb); } PathNode safe =
+		 * unit.findOurNearestSettlement(false, 1, false); if (safe != null) {
+		 * travelToTarget(tag + &quot; (evading)&quot;, safe.getLastNode().getTile(),
+		 * costDecider); return lbDrop(lb); } }
+		 */
+
+		// Going to a tile to perform an improvement.
+<span class="nc" id="L668">		Tile tile = getTarget().getTile();</span>
+		for (;;) {
+<span class="nc" id="L670">			Unit.MoveType mt = travelToTarget(getTarget(), costDecider, lb);</span>
+<span class="nc bnc" id="L671" title="All 5 branches missed.">			switch (mt) {</span>
+			case MOVE_HIGH_SEAS:
+			case MOVE_NO_REPAIR:
+<span class="nc" id="L674">				return lbWait(lb);</span>
+
+			case MOVE_NO_MOVES:
+			case MOVE_NO_TILE:
+			case MOVE_ILLEGAL:
+<span class="nc" id="L679">				return this;</span>
+
+			case MOVE: // Arrived
+<span class="nc" id="L682">				break;</span>
+
+			case MOVE_NO_ATTACK_CIVILIAN:
+				// Might be a temporary blockage due to an occupying
+				// unit at the target. Move randomly and retry if
+				// adjacent.
+<span class="nc" id="L688">				Direction d = unit.getTile().getDirection(tile);</span>
+<span class="nc bnc" id="L689" title="All 2 branches missed.">				if (d != null)</span>
+<span class="nc" id="L690">					moveRandomly(tag, d);</span>
+				continue;
+
+			default:
+<span class="nc" id="L694">				return lbMove(lb, mt);</span>
+			}
+			break;
+		}
+
+		// Take control of the land before proceeding to improve.
+<span class="nc" id="L700">		lbAt(lb);</span>
+<span class="nc bnc" id="L701" title="All 2 branches missed.">		if (!player.owns(tile)) {</span>
+			// FIXME: Better choice whether to pay or steal.
+			// Currently always pay if we can, steal if we can not.
+<span class="nc" id="L704">			boolean fail = false;</span>
+<span class="nc" id="L705">			int price = player.getLandPrice(tile);</span>
+<span class="nc bnc" id="L706" title="All 2 branches missed.">			if (price &lt; 0) {</span>
+<span class="nc" id="L707">				fail = true;</span>
+			} else {
+<span class="nc bnc" id="L709" title="All 4 branches missed.">				if (price &gt; 0 &amp;&amp; !player.checkGold(price)) {</span>
+<span class="nc" id="L710">					price = NetworkConstants.STEAL_LAND;</span>
+				}
+<span class="nc bnc" id="L712" title="All 4 branches missed.">				fail = !AIMessage.askClaimLand(tile, aiUnit, price) || !player.owns(tile); // Failed</span>
+																							// to
+																							// claim
+																							// ownership
+			}
+<span class="nc bnc" id="L717" title="All 2 branches missed.">			if (fail) {</span>
+<span class="nc" id="L718">				aiPlayer.removeTileImprovementPlan(tileImprovementPlan);</span>
+<span class="nc" id="L719">				tileImprovementPlan.dispose();</span>
+<span class="nc" id="L720">				lb.add(&quot;, land claim failed at &quot;, tile);</span>
+<span class="nc bnc" id="L721" title="All 2 branches missed.">				if ((newTarget = findTarget(aiUnit, 10, false)) == null) {</span>
+<span class="nc" id="L722">					return lbFail(lb, false, &quot;no alternate target&quot;);</span>
+				}
+<span class="nc" id="L724">				setTarget(newTarget);</span>
+<span class="nc" id="L725">				return lbRetarget(lb);</span>
+			}
+		}
+
+		// Work on the improvement
+<span class="nc bnc" id="L730" title="All 2 branches missed.">		if (unit.getState() == UnitState.IMPROVING) {</span>
+<span class="nc" id="L731">			return lbWait(lb, &quot;, improving &quot;, tileImprovementPlan);</span>
+<span class="nc bnc" id="L732" title="All 2 branches missed.">		} else if (unit.checkSetState(UnitState.IMPROVING)) {</span>
+<span class="nc" id="L733">			aiPlayer.removeTileImprovementPlan(tileImprovementPlan);</span>
+<span class="nc bnc" id="L734" title="All 2 branches missed.">			if (AIMessage.askChangeWorkImprovementType(aiUnit, tileImprovementPlan.getType())) {</span>
+<span class="nc" id="L735">				return lbWait(lb, &quot;, began &quot;, tileImprovementPlan);</span>
+			} else {
+<span class="nc" id="L737">				tileImprovementPlan.dispose();</span>
+<span class="nc" id="L738">				return lbFail(lb, false, &quot;to change work type at &quot;, tile);</span>
+			}
+		}
+		// Probably just out of moves.
+<span class="nc" id="L742">		return lbWait(lb, &quot;, waiting to improve at &quot;, tile);</span>
+	}
+
+	// Serialization
+
+	/** The Constant TARGET_TAG. */
+	private static final String TARGET_TAG = &quot;target&quot;;
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="nc" id="L755">		super.writeAttributes(xw);</span>
+
+<span class="nc bnc" id="L757" title="All 2 branches missed.">		if (target != null) {</span>
+<span class="nc" id="L758">			xw.writeAttribute(TARGET_TAG, target.getId());</span>
+
+<span class="nc bnc" id="L760" title="All 2 branches missed.">			if (tileImprovementPlan != null) {</span>
+<span class="nc" id="L761">				xw.writeAttribute(TileImprovementPlan.getXMLElementTagName(), tileImprovementPlan);</span>
+			}
+		}
+<span class="nc" id="L764">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="nc" id="L771">		super.readAttributes(xr);</span>
+
+<span class="nc" id="L773">		final AIMain aiMain = getAIMain();</span>
+
+		// Do not use setTarget in serialization
+<span class="nc" id="L776">		target = xr.getLocationAttribute(getGame(), TARGET_TAG, false);</span>
+
+<span class="nc bnc" id="L778" title="All 2 branches missed.">		tileImprovementPlan = (xr.hasAttribute(TileImprovementPlan.getXMLElementTagName())) ? xr.makeAIObject(aiMain,</span>
+<span class="nc" id="L779">				TileImprovementPlan.getXMLElementTagName(), TileImprovementPlan.class, (TileImprovementPlan) null, true)</span>
+				: null;
+<span class="nc" id="L781">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+<span class="nc" id="L788">		return getXMLElementTagName();</span>
+	}
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return &quot;pioneeringMission&quot;.
+	 */
+	public static String getXMLElementTagName() {
+<span class="nc" id="L797">		return &quot;pioneeringMission&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

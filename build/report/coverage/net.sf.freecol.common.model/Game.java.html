@@ -48,1322 +48,1368 @@ import net.sf.freecol.common.util.Utils;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The main component of the game model.
  */
 public class Game extends FreeColGameObject {
 
-<span class="fc" id="L57">    private static final Logger logger = Logger.getLogger(Game.class.getName());</span>
-
-    /** State for the FCGO iterator, out here because it has to be static. */
-<span class="pc" id="L60">    private static enum FcgoState {</span>
-<span class="fc" id="L61">        INVALID,</span>
-<span class="fc" id="L62">        VALID,</span>
-<span class="fc" id="L63">        CONSUMED,</span>
-    };
-
-    /** Map of all classes with corresponding server classes. */
-    private static final java.util.Map&lt;Class&lt;? extends FreeColObject&gt;,
-                                       Class&lt;? extends FreeColObject&gt;&gt;
-<span class="fc" id="L69">        serverClasses = new HashMap&lt;&gt;();</span>
-    static {
-<span class="fc" id="L71">        serverClasses.put(net.sf.freecol.common.model.Building.class,</span>
-                          net.sf.freecol.server.model.ServerBuilding.class);
-<span class="fc" id="L73">        serverClasses.put(net.sf.freecol.common.model.Colony.class,</span>
-                          net.sf.freecol.server.model.ServerColony.class);
-<span class="fc" id="L75">        serverClasses.put(net.sf.freecol.common.model.ColonyTile.class,</span>
-                          net.sf.freecol.server.model.ServerColonyTile.class);
-<span class="fc" id="L77">        serverClasses.put(net.sf.freecol.common.model.Europe.class,</span>
-                          net.sf.freecol.server.model.ServerEurope.class);
-<span class="fc" id="L79">        serverClasses.put(net.sf.freecol.common.model.Game.class,</span>
-                          net.sf.freecol.server.model.ServerGame.class);
-<span class="fc" id="L81">        serverClasses.put(net.sf.freecol.common.model.IndianSettlement.class,</span>
-                          net.sf.freecol.server.model.ServerIndianSettlement.class);
-<span class="fc" id="L83">        serverClasses.put(net.sf.freecol.common.model.Region.class,</span>
-                          net.sf.freecol.server.model.ServerRegion.class);
-<span class="fc" id="L85">        serverClasses.put(net.sf.freecol.common.model.Player.class,</span>
-                          net.sf.freecol.server.model.ServerPlayer.class);
-<span class="fc" id="L87">        serverClasses.put(net.sf.freecol.common.model.Unit.class,</span>
-                          net.sf.freecol.server.model.ServerUnit.class);
-    };
-
-    /**
-     * Map of class name to class for the location classes, to speed
-     * up game loading.
-     */
-    private static final java.util.Map&lt;String, Class&lt;? extends FreeColGameObject&gt;&gt;
-<span class="fc" id="L96">        locationClasses = new HashMap&lt;&gt;();</span>
-    static {
-<span class="fc" id="L98">        locationClasses.put(&quot;Building&quot;,</span>
-                            net.sf.freecol.common.model.Building.class);
-<span class="fc" id="L100">        locationClasses.put(&quot;Colony&quot;,</span>
-                            net.sf.freecol.common.model.Colony.class);
-<span class="fc" id="L102">        locationClasses.put(&quot;ColonyTile&quot;,</span>
-                            net.sf.freecol.common.model.ColonyTile.class);
-<span class="fc" id="L104">        locationClasses.put(&quot;Europe&quot;,</span>
-                            net.sf.freecol.common.model.Europe.class);
-<span class="fc" id="L106">        locationClasses.put(&quot;HighSeas&quot;,</span>
-                            net.sf.freecol.common.model.HighSeas.class);
-<span class="fc" id="L108">        locationClasses.put(&quot;IndianSettlement&quot;,</span>
-                            net.sf.freecol.common.model.IndianSettlement.class);
-<span class="fc" id="L110">        locationClasses.put(&quot;Map&quot;,</span>
-                            net.sf.freecol.common.model.Map.class);
-<span class="fc" id="L112">        locationClasses.put(&quot;Tile&quot;,</span>
-                            net.sf.freecol.common.model.Tile.class);
-<span class="fc" id="L114">        locationClasses.put(&quot;Unit&quot;,</span>
-                            net.sf.freecol.common.model.Unit.class);
-<span class="fc" id="L116">    };</span>
-
-
-    /**
-     * The next available identifier that can be given to a new
-     * &lt;code&gt;FreeColGameObject&lt;/code&gt;.
-     */
-<span class="pc" id="L123">    protected int nextId = 1;</span>
-
-    /** Game UUID, persistent in savegame files */
-<span class="pc" id="L126">    private UUID uuid = UUID.randomUUID();</span>
-
-    /** The client player name, null in the server. */
-    private final String clientUserName;
-
-    /** All the players in the game. */
-<span class="pc" id="L132">    protected final List&lt;Player&gt; players = new ArrayList&lt;&gt;();</span>
-
-    /** A virtual player to use for enemy privateers. */
-    private Player unknownEnemy;
-
-    /** The map of the New World. */
-<span class="pc" id="L138">    private Map map = null;</span>
-
-    /**
-     * The current nation options.  Mainly used to see if a player
-     * nation is available.
-     */
-<span class="pc" id="L144">    private NationOptions nationOptions = null;</span>
-
-    /** The player whose turn it is. */
-<span class="pc" id="L147">    protected Player currentPlayer = null;</span>
-
-    /** The current turn. */
-<span class="pc" id="L150">    private Turn turn = new Turn(1);</span>
-
-    /** Whether the War of Spanish Succession has already taken place. */
-<span class="pc" id="L153">    private boolean spanishSuccession = false;</span>
-
-    // Serialization not required below.
-
-    /** The Specification this game uses. */
-<span class="pc" id="L158">    private Specification specification = null;</span>
-
-    /**
-     * References to all objects created in this game.
-     * Serialization is not needed directly as these must be completely
-     * within { players, unknownEnemy, map } which are directly serialized.
-     */
-<span class="pc" id="L165">    protected final HashMap&lt;String, WeakReference&lt;FreeColGameObject&gt;&gt; freeColGameObjects</span>
-        = new HashMap&lt;&gt;(10000);
-
-    /**
-     * The combat model this game uses. At the moment, the only combat
-     * model available is the SimpleCombatModel, which strives to
-     * implement the combat model of the original game.  However, it is
-     * anticipated that other, more complex combat models will be
-     * implemented in future.  As soon as that happens, we will also
-     * have to make the combat model selectable.
-     */
-<span class="pc" id="L176">    protected CombatModel combatModel = null;</span>
-
-    /** The number of removed FCGOs that should trigger a cache clean. */
-    private static final int REMOVE_GC_THRESHOLD = 64;
-
-    /** The number of FCGOs removed since last cache clean. */
-<span class="pc" id="L182">    private int removeCount = 0;</span>
-
-    /**
-     * A FreeColGameObjectListener to watch the objects in the game.
-     * Usually this is the AIMain instance.
-     * FIXME: is this better done with a property change listener?
-     */
-<span class="pc" id="L189">    protected FreeColGameObjectListener freeColGameObjectListener = null;</span>
-
-
-    /**
-     * Constructor used by the ServerGame constructor.
-     *
-     * @param specification The &lt;code&gt;Specification&lt;/code&gt; for this game.
-     */
-    protected Game(Specification specification) {
-<span class="fc" id="L198">        super(null);</span>
-
-<span class="fc" id="L200">        this.specification = specification;</span>
-<span class="fc" id="L201">        this.clientUserName = null;</span>
-<span class="fc" id="L202">    }</span>
-
-    /**
-     * Creates a new &lt;code&gt;Game&lt;/code&gt; object from a &lt;code&gt;Element&lt;/code&gt;
-     * in a DOM-parsed XML-tree.
-     *
-     * @param element The &lt;code&gt;Element&lt;/code&gt; containing the game.
-     * @param clientUserName The name of the owner of this view of the game.
-     */
-    public Game(Element element, String clientUserName) {
-<span class="nc" id="L212">        super(null);</span>
-     
-<span class="nc" id="L214">        this.clientUserName = clientUserName;</span>
-<span class="nc" id="L215">        this.combatModel = new SimpleCombatModel();</span>
-<span class="nc" id="L216">        readFromXMLElement(element);</span>
-        // setId() does not add Games to the freeColGameObjects
-<span class="nc" id="L218">        this.setFreeColGameObject(getId(), this);</span>
-<span class="nc" id="L219">    }</span>
-
-
-    /**
-     * Get the specification for this game.
-     *
-     * @return The &lt;code&gt;Specification&lt;/code&gt; for this game.
-     */
-    @Override
-    public Specification getSpecification() {
-<span class="fc" id="L229">        return specification;</span>
-    }
-
-    /**
-     * Get the difficulty level of this game.
-     *
-     * @return An &lt;code&gt;OptionGroup&lt;/code&gt; containing the difficulty settings.
-     */
-    public final OptionGroup getDifficultyOptionGroup() {
-<span class="nc" id="L238">        return specification.getDifficultyOptionGroup();</span>
-    }
-
-    /**
-     * Gets the game options associated with this game.
-     *
-     * @return An &lt;code&gt;OptionGroup&lt;/code&gt; containing the game options.
-     */
-    public OptionGroup getGameOptions() {
-<span class="nc" id="L247">        return specification.getGameOptions();</span>
-    }
-
-    /**
-     * Sets the game options associated with this game.
-     *
-     * @param go An &lt;code&gt;OptionGroup&lt;/code&gt; containing the game options.
-     */
-    public void setGameOptions(OptionGroup go) {
-<span class="nc" id="L256">        specification.setGameOptions(go);</span>
-<span class="nc" id="L257">    }</span>
-
-    /**
-     * Gets the map generator options associated with this game.
-     *
-     * @return An &lt;code&gt;OptionGroup&lt;/code&gt; containing the map
-     *     generator options.
-     */
-    public OptionGroup getMapGeneratorOptions() {
-<span class="fc" id="L266">        return specification.getMapGeneratorOptions();</span>
-    }
-
-    /**
-     * Sets the map generator options associated with this game.
-     *
-     * @param mgo An &lt;code&gt;OptionGroup&lt;/code&gt; containing the map
-     *     generator options.
-     */
-    public void setMapGeneratorOptions(OptionGroup mgo) {
-<span class="nc" id="L276">        specification.setMapGeneratorOptions(mgo);</span>
-<span class="nc" id="L277">    }</span>
-
-    /**
-     * Stub for routine only meaningful in the server.
-     *
-     * @return Nothing.
-     * @exception IllegalStateException, unimplemented in the client.
-     */
-    public String getNextId() {
-<span class="nc" id="L286">        throw new IllegalStateException(&quot;game.getNextId not implemented&quot;);</span>
-    }
-
-    /**
-     * Gets the &lt;code&gt;FreeColGameObject&lt;/code&gt; with the given identifier.
-     *
-     * @param id The object identifier.
-     * @return The game object, or null if not found.
-     */
-    public FreeColGameObject getFreeColGameObject(String id) {
-<span class="pc bpc" id="L296" title="1 of 4 branches missed.">        if (id == null || id.isEmpty()) return null;</span>
-<span class="fc" id="L297">        final WeakReference&lt;FreeColGameObject&gt; ro = freeColGameObjects.get(id);</span>
-<span class="fc bfc" id="L298" title="All 2 branches covered.">        if (ro == null) return null;</span>
-<span class="fc" id="L299">        final FreeColGameObject o = ro.get();</span>
-<span class="pc bpc" id="L300" title="1 of 2 branches missed.">        if (o == null) {</span>
-<span class="nc" id="L301">            removeFreeColGameObject(id, &quot;missed&quot;);</span>
-<span class="nc" id="L302">            return null;</span>
-        }
-<span class="fc" id="L304">        return o;</span>
-    }
-
-    /**
-     * Gets the &lt;code&gt;FreeColGameObject&lt;/code&gt; with the specified
-     * identifier and class.
-     *
-     * @param id The object identifier.
-     * @param returnClass The expected class of the object.
-     * @return The game object, or null if not found.
-     */
-    public &lt;T extends FreeColGameObject&gt; T getFreeColGameObject(String id,
-        Class&lt;T&gt; returnClass) {
-<span class="fc" id="L317">        FreeColGameObject fcgo = getFreeColGameObject(id);</span>
-        try {
-<span class="fc" id="L319">            return returnClass.cast(fcgo);</span>
-<span class="nc" id="L320">        } catch (ClassCastException e) {</span>
-<span class="nc" id="L321">            return null;</span>
-        }
-    }
-
-    /**
-     * Registers a new &lt;code&gt;FreeColGameObject&lt;/code&gt; with a given
-     * identifier.
-     *
-     * @param id The object identifier.
-     * @param fcgo The &lt;code&gt;FreeColGameObject&lt;/code&gt; to add to this
-     *     &lt;code&gt;Game&lt;/code&gt;.
-     * @exception IllegalArgumentException If either the identifier or
-     *     object are null.
-     */
-    public void setFreeColGameObject(String id, FreeColGameObject fcgo) {
-<span class="pc bpc" id="L336" title="2 of 4 branches missed.">        if (id == null || id.isEmpty()) {</span>
-<span class="nc" id="L337">            throw new IllegalArgumentException(&quot;Null/empty id.&quot;);</span>
-<span class="pc bpc" id="L338" title="1 of 2 branches missed.">        } else if (fcgo == null) {</span>
-<span class="nc" id="L339">            throw new IllegalArgumentException(&quot;Null FreeColGameObject.&quot;);</span>
-        }
-
-<span class="fc" id="L342">        final FreeColGameObject old = getFreeColGameObject(id);</span>
-<span class="pc bpc" id="L343" title="1 of 2 branches missed.">        if (old != null) {</span>
-<span class="nc" id="L344">            throw new IllegalArgumentException(&quot;Tried to replace FCGO &quot;</span>
-<span class="nc" id="L345">                + id + &quot; : &quot; + old.getClass()</span>
-<span class="nc" id="L346">                + &quot; with &quot; + fcgo.getId() + &quot; : &quot; + fcgo.getClass());</span>
-        }
-
-        //logger.finest(&quot;Added FCGO: &quot; + id);
-<span class="fc" id="L350">        final WeakReference&lt;FreeColGameObject&gt; wr</span>
-            = new WeakReference&lt;&gt;(fcgo);
-<span class="fc" id="L352">        freeColGameObjects.put(id, wr);</span>
-<span class="fc" id="L353">        notifySetFreeColGameObject(id, fcgo);</span>
-<span class="fc" id="L354">    }</span>
-
-    /**
-     * Removes the &lt;code&gt;FreeColGameObject&lt;/code&gt; with the specified
-     * identifier.
-     *
-     * @param id The object identifier.
-     * @param reason A reason to remove the object.
-     * @exception IllegalArgumentException If the identifier is null or empty.
-     */
-    public void removeFreeColGameObject(String id, String reason) {
-<span class="pc bpc" id="L365" title="1 of 2 branches missed.">        if (id == null) throw new IllegalArgumentException(&quot;Null identifier.&quot;);</span>
-<span class="pc bpc" id="L366" title="1 of 2 branches missed.">        if (id.isEmpty()) throw new IllegalArgumentException(&quot;Empty identifier.&quot;);</span>
-
-<span class="fc" id="L368">        logger.finest(&quot;removeFCGO/&quot; + reason + &quot;: &quot; + id);</span>
-<span class="fc" id="L369">        freeColGameObjects.remove(id);</span>
-<span class="fc" id="L370">        notifyRemoveFreeColGameObject(id);</span>
-
-        // Garbage collect the FCGOs if enough have been removed.
-<span class="fc bfc" id="L373" title="All 2 branches covered.">        if (++removeCount &gt; REMOVE_GC_THRESHOLD) {</span>
-<span class="fc bfc" id="L374" title="All 2 branches covered.">            for (FreeColGameObject fcgo : getFreeColGameObjects());</span>
-<span class="fc" id="L375">            removeCount = 0;</span>
-<span class="fc" id="L376">            System.gc(); // Probably a good opportunity.</span>
-        }
-<span class="fc" id="L378">    }</span>
-
-    /**
-     * Convenience wrapper to find a location (which is an interface,
-     * precluding using the typed version of getFreeColGameObject())
-     * by identifier.
-     *
-     * Use this routine when the object should already be present in the game.
-     *
-     * @param id The object identifier.
-     * @return The &lt;code&gt;Location&lt;/code&gt; if any.
-     */
-    public Location findFreeColLocation(String id) {
-<span class="fc" id="L391">        FreeColGameObject fcgo = getFreeColGameObject(id);</span>
-<span class="pc bpc" id="L392" title="1 of 2 branches missed.">        return (fcgo instanceof Location) ? (Location)fcgo : null;</span>
-    }
-
-    /**
-     * Gets an &lt;code&gt;Iterator&lt;/code&gt; over every registered
-     * &lt;code&gt;FreeColGameObject&lt;/code&gt;.
-     *
-     * This &lt;code&gt;Iterator&lt;/code&gt; should be iterated once in a while
-     * since it cleans the &lt;code&gt;FreeColGameObject&lt;/code&gt; cache.  Very
-     * few routines call this any more, so there is a thresholded call
-     * in removeFreeColGameObject to ensure the cache is still
-     * cleaned.  Reconsider this if the situation changes.
-     *
-     * @return An &lt;code&gt;Iterator&lt;/code&gt; containing every registered
-     *     &lt;code&gt;FreeColGameObject&lt;/code&gt;.
-     */
-    public Iterator&lt;FreeColGameObject&gt; getFreeColGameObjectIterator() {
-<span class="fc" id="L409">        return new Iterator&lt;FreeColGameObject&gt;() {</span>
-
-            /** An iterator over the freeColGameObjects map. */
-<span class="fc" id="L412">            private final Iterator&lt;Entry&lt;String,</span>
-                                         WeakReference&lt;FreeColGameObject&gt;&gt;&gt; it
-<span class="fc" id="L414">                = freeColGameObjects.entrySet().iterator();</span>
-
-            /** Read ahead to this next entry. */
-<span class="fc" id="L417">            private Entry&lt;String, WeakReference&lt;FreeColGameObject&gt;&gt; readAhead</span>
-                = null;
-
-            /** State of the readahead value. */
-<span class="fc" id="L421">            private FcgoState fcgoState = FcgoState.INVALID;</span>
-
-
-            @Override
-            public boolean hasNext() {
-<span class="fc bfc" id="L426" title="All 2 branches covered.">                if (this.fcgoState == FcgoState.VALID) return true;</span>
-<span class="fc bfc" id="L427" title="All 2 branches covered.">                while (this.it.hasNext()) {</span>
-<span class="fc" id="L428">                    this.readAhead = this.it.next();</span>
-<span class="fc bfc" id="L429" title="All 2 branches covered.">                    if (this.readAhead.getValue().get() != null) {</span>
-<span class="fc" id="L430">                        this.fcgoState = FcgoState.VALID;</span>
-<span class="fc" id="L431">                        return true;</span>
-                    }
-<span class="fc" id="L433">                    this.fcgoState = FcgoState.CONSUMED;</span>
-<span class="fc" id="L434">                    remove();</span>
-                }
-<span class="fc" id="L436">                return false;</span>
-            }
-
-            @Override
-            public FreeColGameObject next() {
-<span class="pc bpc" id="L441" title="1 of 2 branches missed.">                if (!hasNext()) throw new NoSuchElementException();</span>
-<span class="fc" id="L442">                FreeColGameObject fcgo = this.readAhead.getValue().get();</span>
-<span class="fc" id="L443">                this.fcgoState = FcgoState.CONSUMED;</span>
-<span class="fc" id="L444">                return fcgo;</span>
-            }
-
-            @Override
-            public void remove() {
-<span class="pc bpc" id="L449" title="1 of 2 branches missed.">                if (this.fcgoState == FcgoState.INVALID) {</span>
-<span class="nc" id="L450">                    throw new IllegalStateException(&quot;No current entry&quot;);</span>
-                }
-<span class="fc" id="L452">                final String key = this.readAhead.getKey();</span>
-<span class="fc" id="L453">                this.fcgoState = FcgoState.INVALID;</span>
-<span class="fc" id="L454">                this.it.remove();</span>
-<span class="fc" id="L455">                logger.finest(&quot;removeFCGO/expire: &quot; + key);</span>
-<span class="fc" id="L456">                notifyRemoveFreeColGameObject(key);</span>
-<span class="fc" id="L457">            }</span>
-        };
-    }
-
-    /**
-     * Get an &lt;code&gt;Iterable&lt;/code&gt; over the &lt;code&gt;FreeColGameObjects&lt;/code&gt;.
-     *
-     * @return A suitable &lt;code&gt;Iterable&lt;/code&gt;.
-     */
-    public Iterable&lt;FreeColGameObject&gt; getFreeColGameObjects() {
-<span class="fc" id="L467">        return new Iterable&lt;FreeColGameObject&gt;() {</span>
-            @Override
-            public Iterator&lt;FreeColGameObject&gt; iterator() {
-<span class="fc" id="L470">                return getFreeColGameObjectIterator();</span>
-            }
-        };
-    }
-
-    /**
-     * Gets the unique identifier for this game. 
-     * A game UUID persists in save game files.
-     *
-     * @return The game &lt;code&gt;UUID&lt;/code&gt;.
-     */
-    public UUID getUUID () {
-<span class="fc" id="L482">       return uuid;</span>
-    }
-
-    /**
-     * Get all the players in the game.
-     *
-     * @return The list of &lt;code&gt;Player&lt;/code&gt;s.
-     */
-    public List&lt;Player&gt; getPlayers() {
-<span class="fc" id="L491">        return players;</span>
-    }
-
-    /**
-     * Get a &lt;code&gt;Player&lt;/code&gt; identified by its nation.
-     *
-     * @param nation The &lt;code&gt;Nation&lt;/code&gt; to search for.
-     * @return The &lt;code&gt;Player&lt;/code&gt; of the given nation, or null if
-     *     not found.
-     */
-    public Player getPlayerByNation(Nation nation) {
-<span class="fc" id="L502">        return getPlayerByNationId(nation.getId());</span>
-    }
-
-    /**
-     * Get a &lt;code&gt;Player&lt;/code&gt; identified by its nation identifier.
-     *
-     * @param nationId The nation identifier to search for.
-     * @return The &lt;code&gt;Player&lt;/code&gt; of the given nation, or null if
-     *     not found.
-     */
-    public Player getPlayerByNationId(String nationId) {
-<span class="fc" id="L513">        return find(players, p -&gt; p.getNationId().equals(nationId));</span>
-    }
-
-    /**
-     * Get live players in the game.
-     *
-     * @param other An optional &lt;code&gt;Player&lt;/code&gt; to omit.
-     * @return The list of live &lt;code&gt;Player&lt;/code&gt;s.
-     */
-    public List&lt;Player&gt; getLivePlayers(Player other) {
-<span class="fc" id="L523">        return players.stream()</span>
-<span class="pc bpc" id="L524" title="2 of 6 branches missed.">            .filter(p -&gt; !p.isUnknownEnemy() &amp;&amp; !p.isDead() &amp;&amp; p != other)</span>
-<span class="fc" id="L525">            .collect(Collectors.toList());</span>
-    }
-
-    /**
-     * Get live players in the game, optionally excluding supplied ones.
-     *
-     * @param players The &lt;code&gt;Player&lt;/code&gt;s to exclude.
-     * @return A list of live &lt;code&gt;Player&lt;/code&gt;s, with exclusions.
-     */
-    public List&lt;Player&gt; getOtherLivePlayers(Player... players) {
-<span class="nc" id="L535">        List&lt;Player&gt; result = getLivePlayers(null);</span>
-<span class="nc bnc" id="L536" title="All 2 branches missed.">        for (Player other : players) result.remove(other);</span>
-<span class="nc" id="L537">        return result;</span>
-    }
-
-    /**
-     * Get the live European players in this game.
-     *
-     * @param other An optional &lt;code&gt;Player&lt;/code&gt; to omit.
-     * @return A list of live European &lt;code&gt;Player&lt;/code&gt;s in this game.
-     */
-    public List&lt;Player&gt; getLiveEuropeanPlayers(Player other) {
-<span class="fc" id="L547">        return players.stream()</span>
-<span class="pc bpc" id="L548" title="2 of 6 branches missed.">            .filter(p -&gt; !p.isUnknownEnemy() &amp;&amp; !p.isDead() &amp;&amp; p != other</span>
-<span class="fc bfc" id="L549" title="All 2 branches covered.">                &amp;&amp; p.isEuropean())</span>
-<span class="fc" id="L550">            .collect(Collectors.toList());</span>
-    }
-
-    /**
-     * Get the live native players in this game.
-     *
-     * @param other An optional &lt;code&gt;Player&lt;/code&gt; to omit.
-     * @return A list of live native &lt;code&gt;Player&lt;/code&gt;s in this game.
-     */
-    public List&lt;Player&gt; getLiveNativePlayers(Player other) {
-<span class="fc" id="L560">        return players.stream()</span>
-<span class="pc bpc" id="L561" title="2 of 6 branches missed.">            .filter(p -&gt; !p.isUnknownEnemy() &amp;&amp; !p.isDead() &amp;&amp; p != other</span>
-<span class="fc bfc" id="L562" title="All 2 branches covered.">                &amp;&amp; p.isIndian())</span>
-<span class="fc" id="L563">            .collect(Collectors.toList());</span>
-    }
-
-    /**
-     * Gets the next current player.
-     *
-     * @return The &lt;code&gt;Player&lt;/code&gt; whose turn follows the current player.
-     */
-    public Player getNextPlayer() {
-<span class="nc" id="L572">        return getPlayerAfter(currentPlayer);</span>
-    }
-
-    /**
-     * Gets the live player after the given player.
-     *
-     * @param beforePlayer The &lt;code&gt;Player&lt;/code&gt; before the
-     *     &lt;code&gt;Player&lt;/code&gt; to be returned.
-     * @return The &lt;code&gt;Player&lt;/code&gt; after the &lt;code&gt;beforePlayer&lt;/code&gt;
-     *     in the list which determines the order each player becomes the
-     *     current player.
-     * @see #getNextPlayer
-     */
-    public Player getPlayerAfter(Player beforePlayer) {
-<span class="nc bnc" id="L586" title="All 2 branches missed.">        if (players.isEmpty()) return null;</span>
-
-<span class="nc" id="L588">        final int start = players.indexOf(beforePlayer);</span>
-<span class="nc" id="L589">        int index = start;</span>
-        do {
-<span class="nc bnc" id="L591" title="All 2 branches missed.">            if (++index &gt;= players.size()) index = 0;</span>
-<span class="nc" id="L592">            Player player = players.get(index);</span>
-<span class="nc bnc" id="L593" title="All 4 branches missed.">            if (!player.isUnknownEnemy() &amp;&amp; !player.isDead()) return player;</span>
-<span class="nc bnc" id="L594" title="All 2 branches missed.">        } while (index != start);</span>
-<span class="nc" id="L595">        return null;</span>
-    }
-
-    /**
-     * Get the first player in this game.
-     *
-     * @return The first player, or null if none present.
-     */
-    public Player getFirstPlayer() {
-<span class="nc bnc" id="L604" title="All 2 branches missed.">        return (players.isEmpty()) ? null : players.get(0);</span>
-    }
-
-    /**
-     * Gets a player specified by a name.
-     *
-     * @param name The name identifying the &lt;code&gt;Player&lt;/code&gt;.
-     * @return The &lt;code&gt;Player&lt;/code&gt; or null if none found.
-     */
-    public Player getPlayerByName(String name) {
-<span class="nc" id="L614">        return find(players, p -&gt; p.getName().equals(name));</span>
-    }
-
-    /**
-     * Checks if the specified player name is in use.
-     *
-     * @param name The name to check.
-     * @return True if the name is already in use.
-     */
-    public boolean playerNameInUse(String name) {
-<span class="nc bnc" id="L624" title="All 2 branches missed.">        return getPlayerByName(name) != null;</span>
-    }
-
-    /**
-     * Adds the specified player to the game.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to add.
-     * @return True if the player was added.
-     */
-    public boolean addPlayer(Player player) {
-<span class="fc bfc" id="L634" title="All 4 branches covered.">        if (player.isAI() || canAddNewPlayer()) {</span>
-<span class="fc" id="L635">            players.add(player);</span>
-<span class="fc" id="L636">            Nation nation = getSpecification().getNation(player.getNationId());</span>
-<span class="fc" id="L637">            nationOptions.getNations().put(nation, NationState.NOT_AVAILABLE);</span>
-<span class="fc bfc" id="L638" title="All 2 branches covered.">            if (currentPlayer == null) currentPlayer = player;</span>
-<span class="fc" id="L639">            return true;</span>
-        }
-<span class="fc" id="L641">        logger.warning(&quot;Game already full, but tried to add: &quot;</span>
-<span class="fc" id="L642">            + player.getName());</span>
-<span class="fc" id="L643">        return false;</span>
-    }
-
-    /**
-     * Removes the specified player from the game.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to remove.
-     * @return True if the player was removed.
-     */
-    public boolean removePlayer(Player player) {
-<span class="nc bnc" id="L653" title="All 2 branches missed.">        Player newCurrent = (currentPlayer != player) ? null</span>
-<span class="nc" id="L654">            : getPlayerAfter(currentPlayer);</span>
-
-<span class="nc bnc" id="L656" title="All 2 branches missed.">        if (!players.remove(player)) return false;</span>
-
-<span class="nc" id="L658">        Nation nation = getSpecification().getNation(player.getNationId());</span>
-<span class="nc" id="L659">        nationOptions.getNations().put(nation, NationState.AVAILABLE);</span>
-<span class="nc" id="L660">        player.dispose();</span>
-
-<span class="nc bnc" id="L662" title="All 2 branches missed.">        if (newCurrent != null) currentPlayer = newCurrent;</span>
-<span class="nc" id="L663">        return true;</span>
-    }
-
-    /**
-     * Gets the unknown enemy player, which is used for privateers.
-     *
-     * @return The unknown enemy &lt;code&gt;Player&lt;/code&gt;.
-     */
-    public Player getUnknownEnemy() {
-<span class="fc" id="L672">        return unknownEnemy;</span>
-    }
-
-    /**
-     * Sets the unknown enemy player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to serve as the unknown enemy.
-     */
-    public void setUnknownEnemy(Player player) {
-<span class="fc" id="L681">        this.unknownEnemy = player;</span>
-<span class="fc" id="L682">    }</span>
-
-    /**
-     * Get the client player this thread is operating for.  If in the server
-     * there will be none.
-     *
-     * @return The client &lt;code&gt;Player&lt;/code&gt;.
-     */
-    public Player getClientPlayer() {
-<span class="nc bnc" id="L691" title="All 2 branches missed.">        return (clientUserName == null) ? null</span>
-<span class="nc" id="L692">            : getPlayerByName(clientUserName);</span>
-    }
-
-    /**
-     * Are we executing in a client?
-     *
-     * @return True in a client.
-     */
-    public boolean isInClient() {
-<span class="nc bnc" id="L701" title="All 2 branches missed.">        return clientUserName != null;</span>
-    }
-
-    /**
-     * Are we executing in the server?
-     *
-     * @return True in the server.
-     */
-    public boolean isInServer() {
-<span class="pc bpc" id="L710" title="1 of 2 branches missed.">        return clientUserName == null;</span>
-    }
-
-    /**
-     * Is this game in revenge mode?
-     *
-     * @return True if an undead player is present.
-     */
-    public boolean isInRevengeMode() {
-<span class="nc" id="L719">        return contains(getPlayers(), Player::isUndead);</span>
-    }
-
-    /**
-     * Gets the current player.
-     *
-     * @return The current player.
-     */
-    public Player getCurrentPlayer() {
-<span class="fc" id="L728">        return this.currentPlayer;</span>
-    }
-
-    /**
-     * Sets the current player.
-     *
-     * @param newCurrentPlayer The new current &lt;code&gt;Player&lt;/code&gt;.
-     */
-    public void setCurrentPlayer(Player newCurrentPlayer) {
-<span class="fc" id="L737">        this.currentPlayer = newCurrentPlayer;</span>
-<span class="fc" id="L738">    }</span>
-
-    /**
-     * Gets the map that is being used in this game.
-     *
-     * @return The game &lt;code&gt;Map&lt;/code&gt;.
-     */
-    public Map getMap() {
-<span class="fc" id="L746">        return map;</span>
-    }
-
-    /**
-     * Sets the game map.
-     *
-     * @param newMap The new &lt;code&gt;Map&lt;/code&gt; to use.
-     */
-    public void setMap(Map newMap) {
-<span class="fc bfc" id="L755" title="All 2 branches covered.">        if (this.map != newMap) {</span>
-<span class="fc bfc" id="L756" title="All 2 branches covered.">            for (Player player : getLivePlayers(null)) {</span>
-<span class="fc bfc" id="L757" title="All 2 branches covered.">                if (player.getHighSeas() != null) {</span>
-<span class="fc" id="L758">                    player.getHighSeas().removeDestination(this.map);</span>
-<span class="fc" id="L759">                    player.getHighSeas().addDestination(newMap);</span>
-                }
-<span class="fc" id="L761">            }</span>
-        }
-<span class="fc" id="L763">        this.map = newMap;</span>
-<span class="fc" id="L764">    }</span>
-
-    /**
-     * Get the current nation options.
-     *
-     * @return The current &lt;code&gt;NationOptions&lt;/code&gt;.
-     */
-    public final NationOptions getNationOptions() {
-<span class="fc" id="L772">        return nationOptions;</span>
-    }
-
-    /**
-     * Set the current nation options.
-     *
-     * @param newNationOptions The new &lt;code&gt;NationOptions&lt;code&gt; value.
-     */
-    public final void setNationOptions(final NationOptions newNationOptions) {
-<span class="fc" id="L781">        this.nationOptions = newNationOptions;</span>
-<span class="fc" id="L782">    }</span>
-
-    /**
-     * Find an available (i.e. vacant) nation.
-     *
-     * @return A vacant &lt;code&gt;Nation&lt;/code&gt; or null if none found.
-     */
-    public Nation getVacantNation() {
-<span class="fc" id="L790">        Entry&lt;Nation,NationState&gt; entry</span>
-<span class="fc" id="L791">            = find(nationOptions.getNations().entrySet(),</span>
-<span class="fc bfc" id="L792" title="All 2 branches covered.">                e -&gt; e.getValue() == NationState.AVAILABLE, null);</span>
-<span class="fc bfc" id="L793" title="All 2 branches covered.">        return (entry == null) ? null : entry.getKey();</span>
-    }
-
-    /**
-     * Get the currently available nations.
-     *
-     * @return A list of available &lt;code&gt;Nation&lt;/code&gt;s.
-     */
-    public final List&lt;Nation&gt; getVacantNations() {
-<span class="nc" id="L802">        List&lt;Nation&gt; result = new ArrayList&lt;&gt;();</span>
-        for (Entry&lt;Nation, NationState&gt; entry
-<span class="nc bnc" id="L804" title="All 2 branches missed.">                 : nationOptions.getNations().entrySet()) {</span>
-<span class="nc bnc" id="L805" title="All 2 branches missed.">            if (entry.getValue() == NationState.AVAILABLE) {</span>
-<span class="nc" id="L806">                result.add(entry.getKey());</span>
-            }
-<span class="nc" id="L808">        }</span>
-<span class="nc" id="L809">        return result;</span>
-    }
-
-    /**
-     * Can a new player be added to this game?
-     *
-     * @return True if a new player can be added.
-     */
-    public boolean canAddNewPlayer() {
-<span class="fc bfc" id="L818" title="All 2 branches covered.">        return getVacantNation() != null;</span>
-    }
-
-    /**
-     * Gets the current turn in this game.
-     *
-     * @return The current &lt;code&gt;Turn&lt;/code&gt;.
-     */
-    public Turn getTurn() {
-<span class="fc" id="L827">        return turn;</span>
-    }
-
-    /**
-     * Sets the current turn in this game.
-     *
-     * @param newTurn The new &lt;code&gt;Turn&lt;/code&gt; to set.
-     */
-    public void setTurn(Turn newTurn) {
-<span class="fc" id="L836">        turn = newTurn;</span>
-<span class="fc" id="L837">    }</span>
-
-    /**
-     * Get the age for the current turn.
-     *
-     * @return The age (0-2).
-     */
-    public int getAge() {
-<span class="nc" id="L845">        return getSpecification().getAge(turn);</span>
-    }
-    
-    /**
-     * Get the combat model in this game.
-     *
-     * @return The &lt;code&gt;CombatModel&lt;/code&gt;.
-     */
-    public final CombatModel getCombatModel() {
-<span class="fc" id="L854">        return combatModel;</span>
-    }
-
-    /**
-     * Set the game combat model.
-     *
-     * @param newCombatModel The new &lt;code&gt;CombatModel&lt;/code&gt; value.
-     */
-    public final void setCombatModel(final CombatModel newCombatModel) {
-<span class="nc" id="L863">        this.combatModel = newCombatModel;</span>
-<span class="nc" id="L864">    }</span>
-
-    /**
-     * Has the Spanish Succession event occured?
-     *
-     * @return True if the Spanish Succession has occurred.
-     */
-    public final boolean getSpanishSuccession() {
-<span class="fc" id="L872">        return spanishSuccession;</span>
-    }
-
-    /**
-     * Set the Spanish Succession value.
-     *
-     * @param spanishSuccession The new Spanish Succession value.
-     */
-    public final void setSpanishSuccession(final boolean spanishSuccession) {
-<span class="nc" id="L881">        this.spanishSuccession = spanishSuccession;</span>
-<span class="nc" id="L882">    }</span>
-
-    /**
-     * Sets the &lt;code&gt;FreeColGameObjectListener&lt;/code&gt; attached to this game.
-     *
-     * @param fcgol The new &lt;code&gt;FreeColGameObjectListener&lt;/code&gt;.
-     */
-    public void setFreeColGameObjectListener(FreeColGameObjectListener fcgol) {
-<span class="fc" id="L890">        freeColGameObjectListener = fcgol;</span>
-<span class="fc" id="L891">    }</span>
-
-    /**
-     * Notify a listener (if any) of a new game object.
-     *
-     * @param id The object identifier.
-     * @param fcgo The new &lt;code&gt;FreeColGameObject&lt;/code&gt;.
-     */
-    public void notifySetFreeColGameObject(String id, FreeColGameObject fcgo) {
-<span class="fc bfc" id="L900" title="All 2 branches covered.">        if (freeColGameObjectListener != null) {</span>
-<span class="fc" id="L901">            freeColGameObjectListener.setFreeColGameObject(id, fcgo);</span>
-        }
-<span class="fc" id="L903">    }</span>
-
-    /**
-     * Notify a listener (if any) of that a game object has gone.
-     *
-     * @param id The object identifier.
-     */
-    public void notifyRemoveFreeColGameObject(String id) {
-<span class="fc bfc" id="L911" title="All 2 branches covered.">        if (freeColGameObjectListener != null) {</span>
-<span class="fc" id="L912">            freeColGameObjectListener.removeFreeColGameObject(id);</span>
-        }
-<span class="fc" id="L914">    }</span>
-
-    /**
-     * Notify a listener (if any) of that a game object has changed owner.
-     *
-     * @param source The &lt;code&gt;FreeColGameObject&lt;/code&gt; that changed owner.
-     * @param oldOwner The old owning &lt;code&gt;Player&lt;/code&gt;.
-     * @param newOwner The new owning &lt;code&gt;Player&lt;/code&gt;.
-     */
-    public void notifyOwnerChanged(FreeColGameObject source,
-                                   Player oldOwner, Player newOwner) {
-<span class="fc bfc" id="L925" title="All 2 branches covered.">        if (freeColGameObjectListener != null) {</span>
-<span class="fc" id="L926">            freeColGameObjectListener.ownerChanged(source, oldOwner, newOwner);</span>
-        }
-<span class="fc" id="L928">    }</span>
-
-    /**
-     * Maintain the player containers for certain ownables.
-     * Mainly useful in the client, informing the player that it has
-     * gained or lost an ownable.
-     *
-     * @param o The &lt;code&gt;Ownable&lt;/code&gt; that may have changed.
-     * @param oldOwner The previous (possible unchanged) owning
-     *     &lt;code&gt;Player&lt;/code&gt;.
-     */
-    public void checkOwners(Ownable o, Player oldOwner) {
-<span class="fc" id="L940">        Player newOwner = o.getOwner();</span>
-<span class="fc bfc" id="L941" title="All 2 branches covered.">        if (oldOwner == newOwner) return;</span>
-
-<span class="pc bpc" id="L943" title="1 of 4 branches missed.">        if (oldOwner != null &amp;&amp; oldOwner.removeOwnable(o)) {</span>
-<span class="fc" id="L944">            oldOwner.invalidateCanSeeTiles();//+vis</span>
-        }
-<span class="pc bpc" id="L946" title="2 of 4 branches missed.">        if (newOwner != null &amp;&amp; newOwner.addOwnable(o)) {</span>
-<span class="fc" id="L947">            newOwner.invalidateCanSeeTiles();//+vis</span>
-        }
-<span class="fc" id="L949">    }</span>
-
-
-    // Miscellaneous utilities.
-
-    /**
-     * Checks if all players are ready to launch.
-     *
-     * @return True if all players are ready to launch.
-     */
-    public boolean allPlayersReadyToLaunch() {
-<span class="nc" id="L960">        return all(getLivePlayers(null), Player::isReady);</span>
-    }
-
-    /**
-     * Finds a settlement by name.
-     *
-     * @param name The name of the &lt;code&gt;Settlement&lt;/code&gt;.
-     * @return The &lt;code&gt;Settlement&lt;/code&gt; found, or &lt;code&gt;null&lt;/code&gt;
-     *     if there is no known &lt;code&gt;Settlement&lt;/code&gt; with the
-     *     specified name (the settlement might not be visible to a client).
-     */
-    public Settlement getSettlementByName(String name) {
-<span class="fc bfc" id="L972" title="All 2 branches covered.">        for (Player p : getLivePlayers(null)) {</span>
-<span class="fc bfc" id="L973" title="All 2 branches covered.">            for (Settlement s : p.getSettlements()) {</span>
-<span class="fc bfc" id="L974" title="All 2 branches covered.">                if (name.equals(s.getName())) return s;</span>
-<span class="fc" id="L975">            }</span>
-<span class="fc" id="L976">        }</span>
-<span class="fc" id="L977">        return null;</span>
-    }
-
-    /**
-     * Helper function to get the source object of a message in this game.
-     *
-     * @param message The &lt;code&gt;ModelMessage&lt;/code&gt; to find the object in.
-     * @return The source object.
-     */
-    public FreeColGameObject getMessageSource(ModelMessage message) {
-<span class="nc" id="L987">        return getFreeColGameObject(message.getSourceId());</span>
-    }
-
-    /**
-     * Helper function to get the object to display with a message in
-     * this game.
-     *
-     * @param message The &lt;code&gt;ModelMessage&lt;/code&gt; to find the object in.
-     * @return An object to display.
-     */
-    public FreeColObject getMessageDisplay(ModelMessage message) {
-<span class="nc" id="L998">        String id = message.getDisplayId();</span>
-<span class="nc bnc" id="L999" title="All 2 branches missed.">        if (id == null) id = message.getSourceId();</span>
-<span class="nc" id="L1000">        FreeColObject o = getFreeColGameObject(id);</span>
-<span class="nc bnc" id="L1001" title="All 2 branches missed.">        if (o == null) {</span>
-            try {
-<span class="nc" id="L1003">                o = getSpecification().findType(id);</span>
-<span class="nc" id="L1004">            } catch (Exception e) {</span>
-<span class="nc" id="L1005">                o = null; // Ignore</span>
-<span class="nc" id="L1006">            }</span>
-        }
-<span class="nc" id="L1008">        return o;</span>
-    }
-
-    /**
-     * Gets the statistics of this game.
-     *
-     * @return A &lt;code&gt;Map&lt;/code&gt; of the statistics.
-     */
-    public java.util.Map&lt;String, String&gt; getStatistics() {
-<span class="nc" id="L1017">        java.util.Map&lt;String, String&gt; stats = new HashMap&lt;&gt;();</span>
-
-        // Memory
-<span class="nc" id="L1020">        System.gc();</span>
-<span class="nc" id="L1021">        long free = Runtime.getRuntime().freeMemory()/(1024*1024);</span>
-<span class="nc" id="L1022">        long total = Runtime.getRuntime().totalMemory()/(1024*1024);</span>
-<span class="nc" id="L1023">        long max = Runtime.getRuntime().maxMemory()/(1024*1024);</span>
-<span class="nc" id="L1024">        stats.put(&quot;freeMemory&quot;, Long.toString(free));</span>
-<span class="nc" id="L1025">        stats.put(&quot;totalMemory&quot;, Long.toString(total));</span>
-<span class="nc" id="L1026">        stats.put(&quot;maxMemory&quot;, Long.toString(max));</span>
-
-        // Game objects
-<span class="nc" id="L1029">        java.util.Map&lt;String, Long&gt; objStats = new HashMap&lt;&gt;();</span>
-<span class="nc" id="L1030">        long disposed = 0;</span>
-<span class="nc bnc" id="L1031" title="All 2 branches missed.">        for (FreeColGameObject fcgo : getFreeColGameObjects()) {</span>
-<span class="nc" id="L1032">            String className = fcgo.getClass().getSimpleName();</span>
-<span class="nc bnc" id="L1033" title="All 2 branches missed.">            if (objStats.containsKey(className)) {</span>
-<span class="nc" id="L1034">                Long count = objStats.get(className);</span>
-<span class="nc" id="L1035">                count++;</span>
-<span class="nc" id="L1036">                objStats.put(className, count);</span>
-<span class="nc" id="L1037">            } else {</span>
-<span class="nc" id="L1038">                Long count = (long) 1;</span>
-<span class="nc" id="L1039">                objStats.put(className, count);</span>
-            }
-<span class="nc bnc" id="L1041" title="All 2 branches missed.">            if (fcgo.isDisposed()) disposed++;</span>
-<span class="nc" id="L1042">        }</span>
-<span class="nc" id="L1043">        stats.put(&quot;disposed&quot;, Long.toString(disposed));</span>
-<span class="nc bnc" id="L1044" title="All 2 branches missed.">        for (Entry&lt;String, Long&gt; entry : objStats.entrySet()) {</span>
-<span class="nc" id="L1045">            stats.put(entry.getKey(), Long.toString(entry.getValue()));</span>
-<span class="nc" id="L1046">        }</span>
-
-<span class="nc" id="L1048">        return stats;</span>
-    }
-
-    /**
-     * Get a location class from an identifier.
-     *
-     * @param id The identifier to dissect.
-     */
-    public static Class&lt;? extends FreeColGameObject&gt; getLocationClass(String id) {
-<span class="fc" id="L1057">        String tag = FreeColObject.getIdType(id);</span>
-<span class="fc" id="L1058">        tag = Character.toUpperCase(tag.charAt(0)) + tag.substring(1);</span>
-<span class="fc" id="L1059">        return locationClasses.get(tag);</span>
-    }
-
-    /**
-     * Get the equivalent server class to the given class.
-     *
-     * @param c The class to look up.
-     * @return The corresponding server class, or the original class
-     *     if none found.
-     */
-    private static &lt;T extends FreeColObject&gt; Class&lt;T&gt; serverClass(Class&lt;T&gt; c) {
-        @SuppressWarnings(&quot;unchecked&quot;)
-<span class="fc" id="L1071">        Class&lt;T&gt; rc = (Class&lt;T&gt;)serverClasses.get(c);</span>
-<span class="fc bfc" id="L1072" title="All 2 branches covered.">        return (rc == null) ? c : rc;</span>
-    }
-
-    /**
-     * Instantiate an uninitialized FreeColGameObject class within this game.
-     *
-     * @param returnClass The required FreeColObject class.
-     * @param server Create a server object if possible.
-     * @return The new uninitialized object, or null on error.
-     * @exception IOException on error.
-     */
-    public &lt;T extends FreeColObject&gt; T newInstance(Class&lt;T&gt; returnClass,
-        boolean server) throws IOException {
-<span class="fc bfc" id="L1085" title="All 2 branches covered.">        Class&lt;T&gt; rc = (server) ? serverClass(returnClass) : returnClass;</span>
-        try {
-<span class="fc" id="L1087">            Constructor&lt;T&gt; c = rc.getConstructor(Game.class, String.class);</span>
-<span class="fc" id="L1088">            return c.newInstance(this, (String)null);</span>
-
-<span class="nc" id="L1090">        } catch (NoSuchMethodException nsme) { // Specific to getConstructor</span>
-<span class="nc" id="L1091">            throw new IOException(nsme);</span>
-<span class="nc" id="L1092">        } catch (Exception e) { // Handles multiple fails from newInstance</span>
-<span class="nc" id="L1093">            throw new IOException(e);</span>
-        }
-    }
-
-    /**
-     * Unserialize from XML to a FreeColObject in this game.
-     *
-     * @param xml The xml serialized version of an object.
-     * @param returnClass The required object class.
-     * @return The unserialized object.
-     * @exception XMLStreamException if there are any problems reading from
-     *     the stream.
-     */
-    public &lt;T extends FreeColObject&gt; T unserialize(String xml,
-                                                   Class&lt;T&gt; returnClass) throws XMLStreamException {
-        try {
-<span class="nc" id="L1109">            FreeColXMLReader xr = new FreeColXMLReader(new StringReader(xml));</span>
-<span class="nc" id="L1110">            xr.nextTag();</span>
-<span class="nc" id="L1111">            T ret = newInstance(returnClass, false);</span>
-<span class="nc" id="L1112">            ret.readFromXML(xr);</span>
-<span class="nc" id="L1113">            return ret;</span>
-
-<span class="nc" id="L1115">        } catch (IOException ioe) {</span>
-<span class="nc" id="L1116">            throw new XMLStreamException(ioe);</span>
-        }
-    }
-
-
-    // Override FreeColGameObject
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int checkIntegrity(boolean fix) {
-<span class="fc" id="L1128">        int result = super.checkIntegrity(fix);</span>
-<span class="fc" id="L1129">        LogBuilder lb = new LogBuilder(512);</span>
-<span class="fc" id="L1130">        lb.add(&quot;Uninitialized game ids: &quot;);</span>
-<span class="fc" id="L1131">        lb.mark();</span>
-<span class="fc" id="L1132">        Iterator&lt;FreeColGameObject&gt; iterator = getFreeColGameObjectIterator();</span>
-<span class="fc bfc" id="L1133" title="All 2 branches covered.">        while (iterator.hasNext()) {</span>
-<span class="fc" id="L1134">            FreeColGameObject fcgo = iterator.next();</span>
-<span class="pc bpc" id="L1135" title="1 of 2 branches missed.">            if (fcgo == null) {</span>
-<span class="nc" id="L1136">                lb.add(&quot; null-fcgo&quot;);</span>
-<span class="pc bpc" id="L1137" title="1 of 2 branches missed.">            } else if (fcgo.isUninitialized()) {</span>
-<span class="nc" id="L1138">                lb.add(&quot; &quot;, fcgo.getId(),</span>
-<span class="nc" id="L1139">                    &quot;(&quot;, lastPart(fcgo.getClass().getName(), &quot;.&quot;), &quot;)&quot;);</span>
-            } else {
-                continue;
-            }
-<span class="nc bnc" id="L1143" title="All 2 branches missed.">            if (fix) {</span>
-<span class="nc" id="L1144">                iterator.remove();</span>
-<span class="nc" id="L1145">                result = Math.min(result, 0);</span>
-            } else {
-<span class="nc" id="L1147">                result = -1;</span>
-            }
-<span class="nc" id="L1149">        }</span>
-<span class="pc bpc" id="L1150" title="1 of 2 branches missed.">        if (lb.grew()) {</span>
-<span class="nc bnc" id="L1151" title="All 2 branches missed.">            if (fix) lb.add(&quot; (dropped)&quot;);</span>
-<span class="nc" id="L1152">            lb.log(logger, Level.WARNING);</span>
-        }
-
-<span class="fc" id="L1155">        Map map = getMap();</span>
-<span class="pc bpc" id="L1156" title="1 of 2 branches missed.">        if (map != null) {</span>
-<span class="fc" id="L1157">            result = Math.min(result, getMap().checkIntegrity(fix));</span>
-        }
-<span class="fc bfc" id="L1159" title="All 2 branches covered.">        for (Player player : getPlayers()) {</span>
-<span class="fc" id="L1160">            result = Math.min(result, player.checkIntegrity(fix));</span>
-<span class="fc" id="L1161">        }</span>
-<span class="fc" id="L1162">        return result;</span>
-    }
-
-
-    // Override Object
-    //
-    // Two games are not the same just because they have the same
-    // identifier, but to avoid having to check everything in the Game
-    // just insist on object equality for the equals() test, and
-    // accept the basic id-based hashCode().
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean equals(Object o) {
-<span class="pc bpc" id="L1178" title="1 of 2 branches missed.">        return this == o;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int hashCode() {
-<span class="fc" id="L1186">        return Utils.hashCode(getId());</span>
-    }
-
-
-    // Serialization
-
-    private static final String CIBOLA_TAG = &quot;cibola&quot;;
-    private static final String CURRENT_PLAYER_TAG = &quot;currentPlayer&quot;;
-    private static final String NEXT_ID_TAG = &quot;nextId&quot;;
-    private static final String SPANISH_SUCCESSION_TAG = &quot;spanishSuccession&quot;;
-    private static final String TURN_TAG = &quot;turn&quot;;
-    private static final String UUID_TAG = &quot;UUID&quot;;
-    // @compat 0.10.x
-    private static final String OLD_NEXT_ID_TAG = &quot;nextID&quot;;
-    // end @compat
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="fc" id="L1208">        super.writeAttributes(xw);</span>
-
-<span class="fc bfc" id="L1210" title="All 2 branches covered.">        if (xw.validForSave()) {</span>
-
-<span class="fc" id="L1212">            xw.writeAttribute(NEXT_ID_TAG, nextId);</span>
-        }
-
-<span class="fc" id="L1215">        xw.writeAttribute(UUID_TAG, getUUID());</span>
-
-<span class="fc" id="L1217">        xw.writeAttribute(TURN_TAG, getTurn().getNumber());</span>
-
-<span class="fc" id="L1219">        xw.writeAttribute(SPANISH_SUCCESSION_TAG, spanishSuccession);</span>
-
-<span class="pc bpc" id="L1221" title="1 of 2 branches missed.">        if (currentPlayer != null) {</span>
-<span class="fc" id="L1222">            xw.writeAttribute(CURRENT_PLAYER_TAG, currentPlayer);</span>
-        }
-<span class="fc" id="L1224">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="fc" id="L1231">        super.writeChildren(xw);</span>
-
-<span class="fc" id="L1233">        specification.toXML(xw);</span>
-
-<span class="fc bfc" id="L1235" title="All 2 branches covered.">        for (String cityName : NameCache.getCitiesOfCibola()) {</span>
-            // Preserve existing order
-<span class="fc" id="L1237">            xw.writeStartElement(CIBOLA_TAG);</span>
-
-<span class="fc" id="L1239">            xw.writeAttribute(ID_ATTRIBUTE_TAG, cityName);</span>
-
-<span class="fc" id="L1241">            xw.writeEndElement();</span>
-<span class="fc" id="L1242">        }</span>
-
-<span class="fc" id="L1244">        nationOptions.toXML(xw);</span>
-
-<span class="fc" id="L1246">        List&lt;Player&gt; players = getSortedCopy(getPlayers());</span>
-<span class="fc" id="L1247">        Player unknown = getUnknownEnemy();</span>
-<span class="pc bpc" id="L1248" title="1 of 2 branches missed.">        if (unknown != null) players.add(unknown);</span>
-<span class="fc bfc" id="L1249" title="All 2 branches covered.">        for (Player p : players) p.toXML(xw);</span>
-
-<span class="pc bpc" id="L1251" title="1 of 2 branches missed.">        if (map != null) map.toXML(xw);</span>
-<span class="fc" id="L1252">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-<span class="fc" id="L1259">        super.readAttributes(xr);</span>
-
-<span class="fc" id="L1261">        nextId = xr.getAttribute(NEXT_ID_TAG, -1);</span>
-        // @compat 0.10.x
-<span class="pc bpc" id="L1263" title="1 of 2 branches missed.">        if (nextId &lt; 0) nextId = xr.getAttribute(OLD_NEXT_ID_TAG, 0);</span>
-        // end @compat
-
-<span class="fc" id="L1266">        String str = xr.getAttribute(UUID_TAG, (String)null);</span>
-<span class="fc bfc" id="L1267" title="All 2 branches covered.">        if (str != null) {</span>
-            try {
-<span class="fc" id="L1269">                UUID u = UUID.fromString(str);</span>
-<span class="fc" id="L1270">                this.uuid = u;</span>
-<span class="nc" id="L1271">            } catch (IllegalArgumentException iae) {</span>
-                ;// Preserve existing uuid
-<span class="fc" id="L1273">            }</span>
-        }
-
-<span class="fc" id="L1276">        turn = new Turn(xr.getAttribute(TURN_TAG, 1));</span>
-
-<span class="fc" id="L1278">        spanishSuccession = xr.getAttribute(SPANISH_SUCCESSION_TAG, false);</span>
-<span class="fc" id="L1279">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
-        // Clear containers.
-<span class="fc" id="L1287">        NameCache.clearCitiesOfCibola();</span>
-<span class="fc" id="L1288">        players.clear();</span>
-<span class="fc" id="L1289">        unknownEnemy = null;</span>
-
-        // Special case for the current player.  Defer lookup of the
-        // current player tag until we read the children, because that
-        // is where the players are defined.
-<span class="fc" id="L1294">        String current = xr.getAttribute(CURRENT_PLAYER_TAG, (String)null);</span>
-
-<span class="fc" id="L1296">        super.readChildren(xr);</span>
-
-        // @compat 0.10.7
-<span class="fc bfc" id="L1299" title="All 2 branches covered.">        for (Player player : getLiveEuropeanPlayers(null)) {</span>
-<span class="fc bfc" id="L1300" title="All 2 branches covered.">            for (Unit unit : player.getUnits()) {</span>
-<span class="pc bpc" id="L1301" title="1 of 2 branches missed.">                if (unit.isInColony()) {</span>
-<span class="nc" id="L1302">                    unit.getWorkLocation().updateProductionType();</span>
-                }
-<span class="fc" id="L1304">            }</span>
-<span class="fc" id="L1305">        }</span>
-        // end @compat
-
-<span class="fc bfc" id="L1308" title="All 2 branches covered.">        currentPlayer = (current == null) ? null</span>
-<span class="fc" id="L1309">            : getFreeColGameObject(current, Player.class);</span>
-<span class="fc" id="L1310">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
-<span class="fc" id="L1317">        final Game game = getGame();</span>
-<span class="fc" id="L1318">        final String tag = xr.getLocalName();</span>
-        //logger.finest(&quot;Found game tag &quot; + tag + &quot; id=&quot; + xr.readId());
-
-<span class="fc bfc" id="L1321" title="All 2 branches covered.">        if (CIBOLA_TAG.equals(tag)) {</span>
-<span class="fc" id="L1322">            String cibola = xr.readId();</span>
-            // @compat 0.11.3
-<span class="fc" id="L1324">            final String oldPrefix = &quot;lostCityRumour.cityName&quot;;</span>
-<span class="fc bfc" id="L1325" title="All 2 branches covered.">            if (cibola.startsWith(oldPrefix)) cibola = &quot;nameCache.&quot; + cibola;</span>
-            // end @compat 0.11.3
-<span class="fc" id="L1327">            NameCache.addCityOfCibola(cibola);</span>
-<span class="fc" id="L1328">            xr.closeTag(CIBOLA_TAG);</span>
-
-<span class="fc bfc" id="L1330" title="All 2 branches covered.">        } else if (Map.getXMLElementTagName().equals(tag)) {</span>
-<span class="fc" id="L1331">            map = xr.readFreeColGameObject(game, Map.class);</span>
-
-<span class="fc bfc" id="L1333" title="All 2 branches covered.">        } else if (NationOptions.getXMLElementTagName().equals(tag)) {</span>
-<span class="fc" id="L1334">            nationOptions = new NationOptions(xr, specification);</span>
-
-<span class="fc bfc" id="L1336" title="All 2 branches covered.">        } else if (Player.getXMLElementTagName().equals(tag)) {</span>
-<span class="fc" id="L1337">            Player player = xr.readFreeColGameObject(game, Player.class);</span>
-<span class="fc bfc" id="L1338" title="All 2 branches covered.">            if (player.isUnknownEnemy()) {</span>
-<span class="fc" id="L1339">                setUnknownEnemy(player);</span>
-            } else {
-<span class="fc" id="L1341">                players.add(player);</span>
-            }
-
-<span class="pc bpc" id="L1344" title="1 of 2 branches missed.">        } else if (Specification.getXMLElementTagName().equals(tag)) {</span>
-<span class="fc bfc" id="L1345" title="All 2 branches covered.">            logger.info(((specification == null) ? &quot;Loading&quot; : &quot;Reloading&quot;)</span>
-                + &quot; specification.&quot;);
-<span class="fc" id="L1347">            specification = new Specification(xr);</span>
-
-        } else {
-<span class="nc" id="L1350">            super.readChild(xr);</span>
-        }
-<span class="fc" id="L1352">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-<span class="fc" id="L1358">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return &quot;game&quot;.
-     */
-    public static String getXMLElementTagName() {
-<span class="fc" id="L1366">        return &quot;game&quot;;</span>
-    }
+	/** The Constant logger. */
+<span class="fc" id="L57">	private static final Logger logger = Logger.getLogger(Game.class.getName());</span>
+
+	/** State for the FCGO iterator, out here because it has to be static. */
+<span class="pc" id="L60">	private static enum FcgoState {</span>
+
+		/** The invalid. */
+<span class="fc" id="L63">		INVALID,</span>
+
+		/** The valid. */
+<span class="fc" id="L66">		VALID,</span>
+
+		/** The consumed. */
+<span class="fc" id="L69">		CONSUMED,</span>
+	};
+
+	/** Map of all classes with corresponding server classes. */
+<span class="fc" id="L73">	private static final java.util.Map&lt;Class&lt;? extends FreeColObject&gt;, Class&lt;? extends FreeColObject&gt;&gt; serverClasses = new HashMap&lt;&gt;();</span>
+	static {
+<span class="fc" id="L75">		serverClasses.put(net.sf.freecol.common.model.Building.class, net.sf.freecol.server.model.ServerBuilding.class);</span>
+<span class="fc" id="L76">		serverClasses.put(net.sf.freecol.common.model.Colony.class, net.sf.freecol.server.model.ServerColony.class);</span>
+<span class="fc" id="L77">		serverClasses.put(net.sf.freecol.common.model.ColonyTile.class,</span>
+				net.sf.freecol.server.model.ServerColonyTile.class);
+<span class="fc" id="L79">		serverClasses.put(net.sf.freecol.common.model.Europe.class, net.sf.freecol.server.model.ServerEurope.class);</span>
+<span class="fc" id="L80">		serverClasses.put(net.sf.freecol.common.model.Game.class, net.sf.freecol.server.model.ServerGame.class);</span>
+<span class="fc" id="L81">		serverClasses.put(net.sf.freecol.common.model.IndianSettlement.class,</span>
+				net.sf.freecol.server.model.ServerIndianSettlement.class);
+<span class="fc" id="L83">		serverClasses.put(net.sf.freecol.common.model.Region.class, net.sf.freecol.server.model.ServerRegion.class);</span>
+<span class="fc" id="L84">		serverClasses.put(net.sf.freecol.common.model.Player.class, net.sf.freecol.server.model.ServerPlayer.class);</span>
+<span class="fc" id="L85">		serverClasses.put(net.sf.freecol.common.model.Unit.class, net.sf.freecol.server.model.ServerUnit.class);</span>
+	};
+
+	/**
+	 * Map of class name to class for the location classes, to speed up game
+	 * loading.
+	 */
+<span class="fc" id="L92">	private static final java.util.Map&lt;String, Class&lt;? extends FreeColGameObject&gt;&gt; locationClasses = new HashMap&lt;&gt;();</span>
+	static {
+<span class="fc" id="L94">		locationClasses.put(&quot;Building&quot;, net.sf.freecol.common.model.Building.class);</span>
+<span class="fc" id="L95">		locationClasses.put(&quot;Colony&quot;, net.sf.freecol.common.model.Colony.class);</span>
+<span class="fc" id="L96">		locationClasses.put(&quot;ColonyTile&quot;, net.sf.freecol.common.model.ColonyTile.class);</span>
+<span class="fc" id="L97">		locationClasses.put(&quot;Europe&quot;, net.sf.freecol.common.model.Europe.class);</span>
+<span class="fc" id="L98">		locationClasses.put(&quot;HighSeas&quot;, net.sf.freecol.common.model.HighSeas.class);</span>
+<span class="fc" id="L99">		locationClasses.put(&quot;IndianSettlement&quot;, net.sf.freecol.common.model.IndianSettlement.class);</span>
+<span class="fc" id="L100">		locationClasses.put(&quot;Map&quot;, net.sf.freecol.common.model.Map.class);</span>
+<span class="fc" id="L101">		locationClasses.put(&quot;Tile&quot;, net.sf.freecol.common.model.Tile.class);</span>
+<span class="fc" id="L102">		locationClasses.put(&quot;Unit&quot;, net.sf.freecol.common.model.Unit.class);</span>
+<span class="fc" id="L103">	};</span>
+
+	/**
+	 * The next available identifier that can be given to a new
+	 * &lt;code&gt;FreeColGameObject&lt;/code&gt;.
+	 */
+<span class="pc" id="L109">	protected int nextId = 1;</span>
+
+	/** Game UUID, persistent in savegame files. */
+<span class="pc" id="L112">	private UUID uuid = UUID.randomUUID();</span>
+
+	/** The client player name, null in the server. */
+	private final String clientUserName;
+
+	/** All the players in the game. */
+<span class="pc" id="L118">	protected final List&lt;Player&gt; players = new ArrayList&lt;&gt;();</span>
+
+	/** A virtual player to use for enemy privateers. */
+	private Player unknownEnemy;
+
+	/** The map of the New World. */
+<span class="pc" id="L124">	private Map map = null;</span>
+
+	/**
+	 * The current nation options. Mainly used to see if a player nation is
+	 * available.
+	 */
+<span class="pc" id="L130">	private NationOptions nationOptions = null;</span>
+
+	/** The player whose turn it is. */
+<span class="pc" id="L133">	protected Player currentPlayer = null;</span>
+
+	/** The current turn. */
+<span class="pc" id="L136">	private Turn turn = new Turn(1);</span>
+
+	/** Whether the War of Spanish Succession has already taken place. */
+<span class="pc" id="L139">	private boolean spanishSuccession = false;</span>
+
+	// Serialization not required below.
+
+	/** The Specification this game uses. */
+<span class="pc" id="L144">	private Specification specification = null;</span>
+
+	/**
+	 * References to all objects created in this game. Serialization is not
+	 * needed directly as these must be completely within { players,
+	 * unknownEnemy, map } which are directly serialized.
+	 */
+<span class="pc" id="L151">	protected final HashMap&lt;String, WeakReference&lt;FreeColGameObject&gt;&gt; freeColGameObjects = new HashMap&lt;&gt;(10000);</span>
+
+	/**
+	 * The combat model this game uses. At the moment, the only combat model
+	 * available is the SimpleCombatModel, which strives to implement the combat
+	 * model of the original game. However, it is anticipated that other, more
+	 * complex combat models will be implemented in future. As soon as that
+	 * happens, we will also have to make the combat model selectable.
+	 */
+<span class="pc" id="L160">	protected CombatModel combatModel = null;</span>
+
+	/** The number of removed FCGOs that should trigger a cache clean. */
+	private static final int REMOVE_GC_THRESHOLD = 64;
+
+	/** The number of FCGOs removed since last cache clean. */
+<span class="pc" id="L166">	private int removeCount = 0;</span>
+
+	/**
+	 * A FreeColGameObjectListener to watch the objects in the game. Usually
+	 * this is the AIMain instance. FIXME: is this better done with a property
+	 * change listener?
+	 */
+<span class="pc" id="L173">	protected FreeColGameObjectListener freeColGameObjectListener = null;</span>
+
+	/**
+	 * Constructor used by the ServerGame constructor.
+	 *
+	 * @param specification
+	 *            The &lt;code&gt;Specification&lt;/code&gt; for this game.
+	 */
+	protected Game(Specification specification) {
+<span class="fc" id="L182">		super(null);</span>
+
+<span class="fc" id="L184">		this.specification = specification;</span>
+<span class="fc" id="L185">		this.clientUserName = null;</span>
+<span class="fc" id="L186">	}</span>
+
+	/**
+	 * Creates a new &lt;code&gt;Game&lt;/code&gt; object from a &lt;code&gt;Element&lt;/code&gt; in a
+	 * DOM-parsed XML-tree.
+	 *
+	 * @param element
+	 *            The &lt;code&gt;Element&lt;/code&gt; containing the game.
+	 * @param clientUserName
+	 *            The name of the owner of this view of the game.
+	 */
+	public Game(Element element, String clientUserName) {
+<span class="nc" id="L198">		super(null);</span>
+
+<span class="nc" id="L200">		this.clientUserName = clientUserName;</span>
+<span class="nc" id="L201">		this.combatModel = new SimpleCombatModel();</span>
+<span class="nc" id="L202">		readFromXMLElement(element);</span>
+		// setId() does not add Games to the freeColGameObjects
+<span class="nc" id="L204">		this.setFreeColGameObject(getId(), this);</span>
+<span class="nc" id="L205">	}</span>
+
+	/**
+	 * Get the specification for this game.
+	 *
+	 * @return The &lt;code&gt;Specification&lt;/code&gt; for this game.
+	 */
+	@Override
+	public Specification getSpecification() {
+<span class="fc" id="L214">		return specification;</span>
+	}
+
+	/**
+	 * Get the difficulty level of this game.
+	 *
+	 * @return An &lt;code&gt;OptionGroup&lt;/code&gt; containing the difficulty settings.
+	 */
+	public final OptionGroup getDifficultyOptionGroup() {
+<span class="nc" id="L223">		return specification.getDifficultyOptionGroup();</span>
+	}
+
+	/**
+	 * Gets the game options associated with this game.
+	 *
+	 * @return An &lt;code&gt;OptionGroup&lt;/code&gt; containing the game options.
+	 */
+	public OptionGroup getGameOptions() {
+<span class="nc" id="L232">		return specification.getGameOptions();</span>
+	}
+
+	/**
+	 * Sets the game options associated with this game.
+	 *
+	 * @param go
+	 *            An &lt;code&gt;OptionGroup&lt;/code&gt; containing the game options.
+	 */
+	public void setGameOptions(OptionGroup go) {
+<span class="nc" id="L242">		specification.setGameOptions(go);</span>
+<span class="nc" id="L243">	}</span>
+
+	/**
+	 * Gets the map generator options associated with this game.
+	 *
+	 * @return An &lt;code&gt;OptionGroup&lt;/code&gt; containing the map generator options.
+	 */
+	public OptionGroup getMapGeneratorOptions() {
+<span class="fc" id="L251">		return specification.getMapGeneratorOptions();</span>
+	}
+
+	/**
+	 * Sets the map generator options associated with this game.
+	 *
+	 * @param mgo
+	 *            An &lt;code&gt;OptionGroup&lt;/code&gt; containing the map generator
+	 *            options.
+	 */
+	public void setMapGeneratorOptions(OptionGroup mgo) {
+<span class="nc" id="L262">		specification.setMapGeneratorOptions(mgo);</span>
+<span class="nc" id="L263">	}</span>
+
+	/**
+	 * Stub for routine only meaningful in the server.
+	 *
+	 * @return Nothing.
+	 */
+	public String getNextId() {
+<span class="nc" id="L271">		throw new IllegalStateException(&quot;game.getNextId not implemented&quot;);</span>
+	}
+
+	/**
+	 * Gets the &lt;code&gt;FreeColGameObject&lt;/code&gt; with the given identifier.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @return The game object, or null if not found.
+	 */
+	public FreeColGameObject getFreeColGameObject(String id) {
+<span class="pc bpc" id="L282" title="1 of 4 branches missed.">		if (id == null || id.isEmpty())</span>
+<span class="fc" id="L283">			return null;</span>
+<span class="fc" id="L284">		final WeakReference&lt;FreeColGameObject&gt; ro = freeColGameObjects.get(id);</span>
+<span class="fc bfc" id="L285" title="All 2 branches covered.">		if (ro == null)</span>
+<span class="fc" id="L286">			return null;</span>
+<span class="fc" id="L287">		final FreeColGameObject o = ro.get();</span>
+<span class="pc bpc" id="L288" title="1 of 2 branches missed.">		if (o == null) {</span>
+<span class="nc" id="L289">			removeFreeColGameObject(id, &quot;missed&quot;);</span>
+<span class="nc" id="L290">			return null;</span>
+		}
+<span class="fc" id="L292">		return o;</span>
+	}
+
+	/**
+	 * Gets the &lt;code&gt;FreeColGameObject&lt;/code&gt; with the specified identifier and
+	 * class.
+	 *
+	 * @param &lt;T&gt;
+	 *            the generic type
+	 * @param id
+	 *            The object identifier.
+	 * @param returnClass
+	 *            The expected class of the object.
+	 * @return The game object, or null if not found.
+	 */
+	public &lt;T extends FreeColGameObject&gt; T getFreeColGameObject(String id, Class&lt;T&gt; returnClass) {
+<span class="fc" id="L308">		FreeColGameObject fcgo = getFreeColGameObject(id);</span>
+		try {
+<span class="fc" id="L310">			return returnClass.cast(fcgo);</span>
+<span class="nc" id="L311">		} catch (ClassCastException e) {</span>
+<span class="nc" id="L312">			return null;</span>
+		}
+	}
+
+	/**
+	 * Registers a new &lt;code&gt;FreeColGameObject&lt;/code&gt; with a given identifier.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param fcgo
+	 *            The &lt;code&gt;FreeColGameObject&lt;/code&gt; to add to this
+	 *            &lt;code&gt;Game&lt;/code&gt;.
+	 * @exception IllegalArgumentException
+	 *                If either the identifier or object are null.
+	 */
+	public void setFreeColGameObject(String id, FreeColGameObject fcgo) {
+<span class="pc bpc" id="L328" title="2 of 4 branches missed.">		if (id == null || id.isEmpty()) {</span>
+<span class="nc" id="L329">			throw new IllegalArgumentException(&quot;Null/empty id.&quot;);</span>
+<span class="pc bpc" id="L330" title="1 of 2 branches missed.">		} else if (fcgo == null) {</span>
+<span class="nc" id="L331">			throw new IllegalArgumentException(&quot;Null FreeColGameObject.&quot;);</span>
+		}
+
+<span class="fc" id="L334">		final FreeColGameObject old = getFreeColGameObject(id);</span>
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">		if (old != null) {</span>
+<span class="nc" id="L336">			throw new IllegalArgumentException(&quot;Tried to replace FCGO &quot; + id + &quot; : &quot; + old.getClass() + &quot; with &quot;</span>
+<span class="nc" id="L337">					+ fcgo.getId() + &quot; : &quot; + fcgo.getClass());</span>
+		}
+
+		// logger.finest(&quot;Added FCGO: &quot; + id);
+<span class="fc" id="L341">		final WeakReference&lt;FreeColGameObject&gt; wr = new WeakReference&lt;&gt;(fcgo);</span>
+<span class="fc" id="L342">		freeColGameObjects.put(id, wr);</span>
+<span class="fc" id="L343">		notifySetFreeColGameObject(id, fcgo);</span>
+<span class="fc" id="L344">	}</span>
+
+	/**
+	 * Removes the &lt;code&gt;FreeColGameObject&lt;/code&gt; with the specified identifier.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param reason
+	 *            A reason to remove the object.
+	 * @exception IllegalArgumentException
+	 *                If the identifier is null or empty.
+	 */
+	public void removeFreeColGameObject(String id, String reason) {
+<span class="pc bpc" id="L357" title="1 of 2 branches missed.">		if (id == null)</span>
+<span class="nc" id="L358">			throw new IllegalArgumentException(&quot;Null identifier.&quot;);</span>
+<span class="pc bpc" id="L359" title="1 of 2 branches missed.">		if (id.isEmpty())</span>
+<span class="nc" id="L360">			throw new IllegalArgumentException(&quot;Empty identifier.&quot;);</span>
+
+<span class="fc" id="L362">		logger.finest(&quot;removeFCGO/&quot; + reason + &quot;: &quot; + id);</span>
+<span class="fc" id="L363">		freeColGameObjects.remove(id);</span>
+<span class="fc" id="L364">		notifyRemoveFreeColGameObject(id);</span>
+
+		// Garbage collect the FCGOs if enough have been removed.
+<span class="fc bfc" id="L367" title="All 2 branches covered.">		if (++removeCount &gt; REMOVE_GC_THRESHOLD) {</span>
+<span class="fc bfc" id="L368" title="All 2 branches covered.">			for (FreeColGameObject fcgo : getFreeColGameObjects())</span>
+<span class="fc" id="L369">				;</span>
+<span class="fc" id="L370">			removeCount = 0;</span>
+<span class="fc" id="L371">			System.gc(); // Probably a good opportunity.</span>
+		}
+<span class="fc" id="L373">	}</span>
+
+	/**
+	 * Convenience wrapper to find a location (which is an interface, precluding
+	 * using the typed version of getFreeColGameObject()) by identifier.
+	 *
+	 * Use this routine when the object should already be present in the game.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @return The &lt;code&gt;Location&lt;/code&gt; if any.
+	 */
+	public Location findFreeColLocation(String id) {
+<span class="fc" id="L386">		FreeColGameObject fcgo = getFreeColGameObject(id);</span>
+<span class="pc bpc" id="L387" title="1 of 2 branches missed.">		return (fcgo instanceof Location) ? (Location) fcgo : null;</span>
+	}
+
+	/**
+	 * Gets an &lt;code&gt;Iterator&lt;/code&gt; over every registered
+	 * &lt;code&gt;FreeColGameObject&lt;/code&gt;.
+	 *
+	 * This &lt;code&gt;Iterator&lt;/code&gt; should be iterated once in a while since it
+	 * cleans the &lt;code&gt;FreeColGameObject&lt;/code&gt; cache. Very few routines call
+	 * this any more, so there is a thresholded call in removeFreeColGameObject
+	 * to ensure the cache is still cleaned. Reconsider this if the situation
+	 * changes.
+	 *
+	 * @return An &lt;code&gt;Iterator&lt;/code&gt; containing every registered
+	 *         &lt;code&gt;FreeColGameObject&lt;/code&gt;.
+	 */
+	public Iterator&lt;FreeColGameObject&gt; getFreeColGameObjectIterator() {
+<span class="fc" id="L404">		return new Iterator&lt;FreeColGameObject&gt;() {</span>
+
+			/** An iterator over the freeColGameObjects map. */
+<span class="fc" id="L407">			private final Iterator&lt;Entry&lt;String, WeakReference&lt;FreeColGameObject&gt;&gt;&gt; it = freeColGameObjects.entrySet()</span>
+<span class="fc" id="L408">					.iterator();</span>
+
+			/** Read ahead to this next entry. */
+<span class="fc" id="L411">			private Entry&lt;String, WeakReference&lt;FreeColGameObject&gt;&gt; readAhead = null;</span>
+
+			/** State of the readahead value. */
+<span class="fc" id="L414">			private FcgoState fcgoState = FcgoState.INVALID;</span>
+
+			@Override
+			public boolean hasNext() {
+<span class="fc bfc" id="L418" title="All 2 branches covered.">				if (this.fcgoState == FcgoState.VALID)</span>
+<span class="fc" id="L419">					return true;</span>
+<span class="fc bfc" id="L420" title="All 2 branches covered.">				while (this.it.hasNext()) {</span>
+<span class="fc" id="L421">					this.readAhead = this.it.next();</span>
+<span class="fc bfc" id="L422" title="All 2 branches covered.">					if (this.readAhead.getValue().get() != null) {</span>
+<span class="fc" id="L423">						this.fcgoState = FcgoState.VALID;</span>
+<span class="fc" id="L424">						return true;</span>
+					}
+<span class="fc" id="L426">					this.fcgoState = FcgoState.CONSUMED;</span>
+<span class="fc" id="L427">					remove();</span>
+				}
+<span class="fc" id="L429">				return false;</span>
+			}
+
+			@Override
+			public FreeColGameObject next() {
+<span class="pc bpc" id="L434" title="1 of 2 branches missed.">				if (!hasNext())</span>
+<span class="nc" id="L435">					throw new NoSuchElementException();</span>
+<span class="fc" id="L436">				FreeColGameObject fcgo = this.readAhead.getValue().get();</span>
+<span class="fc" id="L437">				this.fcgoState = FcgoState.CONSUMED;</span>
+<span class="fc" id="L438">				return fcgo;</span>
+			}
+
+			@Override
+			public void remove() {
+<span class="pc bpc" id="L443" title="1 of 2 branches missed.">				if (this.fcgoState == FcgoState.INVALID) {</span>
+<span class="nc" id="L444">					throw new IllegalStateException(&quot;No current entry&quot;);</span>
+				}
+<span class="fc" id="L446">				final String key = this.readAhead.getKey();</span>
+<span class="fc" id="L447">				this.fcgoState = FcgoState.INVALID;</span>
+<span class="fc" id="L448">				this.it.remove();</span>
+<span class="fc" id="L449">				logger.finest(&quot;removeFCGO/expire: &quot; + key);</span>
+<span class="fc" id="L450">				notifyRemoveFreeColGameObject(key);</span>
+<span class="fc" id="L451">			}</span>
+		};
+	}
+
+	/**
+	 * Get an &lt;code&gt;Iterable&lt;/code&gt; over the &lt;code&gt;FreeColGameObjects&lt;/code&gt;.
+	 *
+	 * @return A suitable &lt;code&gt;Iterable&lt;/code&gt;.
+	 */
+	public Iterable&lt;FreeColGameObject&gt; getFreeColGameObjects() {
+<span class="fc" id="L461">		return new Iterable&lt;FreeColGameObject&gt;() {</span>
+			@Override
+			public Iterator&lt;FreeColGameObject&gt; iterator() {
+<span class="fc" id="L464">				return getFreeColGameObjectIterator();</span>
+			}
+		};
+	}
+
+	/**
+	 * Gets the unique identifier for this game. A game UUID persists in save
+	 * game files.
+	 *
+	 * @return The game &lt;code&gt;UUID&lt;/code&gt;.
+	 */
+	public UUID getUUID() {
+<span class="fc" id="L476">		return uuid;</span>
+	}
+
+	/**
+	 * Get all the players in the game.
+	 *
+	 * @return The list of &lt;code&gt;Player&lt;/code&gt;s.
+	 */
+	public List&lt;Player&gt; getPlayers() {
+<span class="fc" id="L485">		return players;</span>
+	}
+
+	/**
+	 * Get a &lt;code&gt;Player&lt;/code&gt; identified by its nation.
+	 *
+	 * @param nation
+	 *            The &lt;code&gt;Nation&lt;/code&gt; to search for.
+	 * @return The &lt;code&gt;Player&lt;/code&gt; of the given nation, or null if not
+	 *         found.
+	 */
+	public Player getPlayerByNation(Nation nation) {
+<span class="fc" id="L497">		return getPlayerByNationId(nation.getId());</span>
+	}
+
+	/**
+	 * Get a &lt;code&gt;Player&lt;/code&gt; identified by its nation identifier.
+	 *
+	 * @param nationId
+	 *            The nation identifier to search for.
+	 * @return The &lt;code&gt;Player&lt;/code&gt; of the given nation, or null if not
+	 *         found.
+	 */
+	public Player getPlayerByNationId(String nationId) {
+<span class="fc" id="L509">		return find(players, p -&gt; p.getNationId().equals(nationId));</span>
+	}
+
+	/**
+	 * Get live players in the game.
+	 *
+	 * @param other
+	 *            An optional &lt;code&gt;Player&lt;/code&gt; to omit.
+	 * @return The list of live &lt;code&gt;Player&lt;/code&gt;s.
+	 */
+	public List&lt;Player&gt; getLivePlayers(Player other) {
+<span class="pc bpc" id="L520" title="2 of 6 branches missed.">		return players.stream().filter(p -&gt; !p.isUnknownEnemy() &amp;&amp; !p.isDead() &amp;&amp; p != other)</span>
+<span class="fc" id="L521">				.collect(Collectors.toList());</span>
+	}
+
+	/**
+	 * Get live players in the game, optionally excluding supplied ones.
+	 *
+	 * @param players
+	 *            The &lt;code&gt;Player&lt;/code&gt;s to exclude.
+	 * @return A list of live &lt;code&gt;Player&lt;/code&gt;s, with exclusions.
+	 */
+	public List&lt;Player&gt; getOtherLivePlayers(Player... players) {
+<span class="nc" id="L532">		List&lt;Player&gt; result = getLivePlayers(null);</span>
+<span class="nc bnc" id="L533" title="All 2 branches missed.">		for (Player other : players)</span>
+<span class="nc" id="L534">			result.remove(other);</span>
+<span class="nc" id="L535">		return result;</span>
+	}
+
+	/**
+	 * Get the live European players in this game.
+	 *
+	 * @param other
+	 *            An optional &lt;code&gt;Player&lt;/code&gt; to omit.
+	 * @return A list of live European &lt;code&gt;Player&lt;/code&gt;s in this game.
+	 */
+	public List&lt;Player&gt; getLiveEuropeanPlayers(Player other) {
+<span class="pc bpc" id="L546" title="2 of 8 branches missed.">		return players.stream().filter(p -&gt; !p.isUnknownEnemy() &amp;&amp; !p.isDead() &amp;&amp; p != other &amp;&amp; p.isEuropean())</span>
+<span class="fc" id="L547">				.collect(Collectors.toList());</span>
+	}
+
+	/**
+	 * Get the live native players in this game.
+	 *
+	 * @param other
+	 *            An optional &lt;code&gt;Player&lt;/code&gt; to omit.
+	 * @return A list of live native &lt;code&gt;Player&lt;/code&gt;s in this game.
+	 */
+	public List&lt;Player&gt; getLiveNativePlayers(Player other) {
+<span class="pc bpc" id="L558" title="2 of 8 branches missed.">		return players.stream().filter(p -&gt; !p.isUnknownEnemy() &amp;&amp; !p.isDead() &amp;&amp; p != other &amp;&amp; p.isIndian())</span>
+<span class="fc" id="L559">				.collect(Collectors.toList());</span>
+	}
+
+	/**
+	 * Gets the next current player.
+	 *
+	 * @return The &lt;code&gt;Player&lt;/code&gt; whose turn follows the current player.
+	 */
+	public Player getNextPlayer() {
+<span class="nc" id="L568">		return getPlayerAfter(currentPlayer);</span>
+	}
+
+	/**
+	 * Gets the live player after the given player.
+	 *
+	 * @param beforePlayer
+	 *            The &lt;code&gt;Player&lt;/code&gt; before the &lt;code&gt;Player&lt;/code&gt; to be
+	 *            returned.
+	 * @return The &lt;code&gt;Player&lt;/code&gt; after the &lt;code&gt;beforePlayer&lt;/code&gt; in
+	 *         the list which determines the order each player becomes the
+	 *         current player.
+	 * @see #getNextPlayer
+	 */
+	public Player getPlayerAfter(Player beforePlayer) {
+<span class="nc bnc" id="L583" title="All 2 branches missed.">		if (players.isEmpty())</span>
+<span class="nc" id="L584">			return null;</span>
+
+<span class="nc" id="L586">		final int start = players.indexOf(beforePlayer);</span>
+<span class="nc" id="L587">		int index = start;</span>
+		do {
+<span class="nc bnc" id="L589" title="All 2 branches missed.">			if (++index &gt;= players.size())</span>
+<span class="nc" id="L590">				index = 0;</span>
+<span class="nc" id="L591">			Player player = players.get(index);</span>
+<span class="nc bnc" id="L592" title="All 4 branches missed.">			if (!player.isUnknownEnemy() &amp;&amp; !player.isDead())</span>
+<span class="nc" id="L593">				return player;</span>
+<span class="nc bnc" id="L594" title="All 2 branches missed.">		} while (index != start);</span>
+<span class="nc" id="L595">		return null;</span>
+	}
+
+	/**
+	 * Get the first player in this game.
+	 *
+	 * @return The first player, or null if none present.
+	 */
+	public Player getFirstPlayer() {
+<span class="nc bnc" id="L604" title="All 2 branches missed.">		return (players.isEmpty()) ? null : players.get(0);</span>
+	}
+
+	/**
+	 * Gets a player specified by a name.
+	 *
+	 * @param name
+	 *            The name identifying the &lt;code&gt;Player&lt;/code&gt;.
+	 * @return The &lt;code&gt;Player&lt;/code&gt; or null if none found.
+	 */
+	public Player getPlayerByName(String name) {
+<span class="nc" id="L615">		return find(players, p -&gt; p.getName().equals(name));</span>
+	}
+
+	/**
+	 * Checks if the specified player name is in use.
+	 *
+	 * @param name
+	 *            The name to check.
+	 * @return True if the name is already in use.
+	 */
+	public boolean playerNameInUse(String name) {
+<span class="nc bnc" id="L626" title="All 2 branches missed.">		return getPlayerByName(name) != null;</span>
+	}
+
+	/**
+	 * Adds the specified player to the game.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to add.
+	 * @return True if the player was added.
+	 */
+	public boolean addPlayer(Player player) {
+<span class="fc bfc" id="L637" title="All 4 branches covered.">		if (player.isAI() || canAddNewPlayer()) {</span>
+<span class="fc" id="L638">			players.add(player);</span>
+<span class="fc" id="L639">			Nation nation = getSpecification().getNation(player.getNationId());</span>
+<span class="fc" id="L640">			nationOptions.getNations().put(nation, NationState.NOT_AVAILABLE);</span>
+<span class="fc bfc" id="L641" title="All 2 branches covered.">			if (currentPlayer == null)</span>
+<span class="fc" id="L642">				currentPlayer = player;</span>
+<span class="fc" id="L643">			return true;</span>
+		}
+<span class="fc" id="L645">		logger.warning(&quot;Game already full, but tried to add: &quot; + player.getName());</span>
+<span class="fc" id="L646">		return false;</span>
+	}
+
+	/**
+	 * Removes the specified player from the game.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to remove.
+	 * @return True if the player was removed.
+	 */
+	public boolean removePlayer(Player player) {
+<span class="nc bnc" id="L657" title="All 2 branches missed.">		Player newCurrent = (currentPlayer != player) ? null : getPlayerAfter(currentPlayer);</span>
+
+<span class="nc bnc" id="L659" title="All 2 branches missed.">		if (!players.remove(player))</span>
+<span class="nc" id="L660">			return false;</span>
+
+<span class="nc" id="L662">		Nation nation = getSpecification().getNation(player.getNationId());</span>
+<span class="nc" id="L663">		nationOptions.getNations().put(nation, NationState.AVAILABLE);</span>
+<span class="nc" id="L664">		player.dispose();</span>
+
+<span class="nc bnc" id="L666" title="All 2 branches missed.">		if (newCurrent != null)</span>
+<span class="nc" id="L667">			currentPlayer = newCurrent;</span>
+<span class="nc" id="L668">		return true;</span>
+	}
+
+	/**
+	 * Gets the unknown enemy player, which is used for privateers.
+	 *
+	 * @return The unknown enemy &lt;code&gt;Player&lt;/code&gt;.
+	 */
+	public Player getUnknownEnemy() {
+<span class="fc" id="L677">		return unknownEnemy;</span>
+	}
+
+	/**
+	 * Sets the unknown enemy player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to serve as the unknown enemy.
+	 */
+	public void setUnknownEnemy(Player player) {
+<span class="fc" id="L687">		this.unknownEnemy = player;</span>
+<span class="fc" id="L688">	}</span>
+
+	/**
+	 * Get the client player this thread is operating for. If in the server
+	 * there will be none.
+	 *
+	 * @return The client &lt;code&gt;Player&lt;/code&gt;.
+	 */
+	public Player getClientPlayer() {
+<span class="nc bnc" id="L697" title="All 2 branches missed.">		return (clientUserName == null) ? null : getPlayerByName(clientUserName);</span>
+	}
+
+	/**
+	 * Are we executing in a client?.
+	 *
+	 * @return True in a client.
+	 */
+	public boolean isInClient() {
+<span class="nc bnc" id="L706" title="All 2 branches missed.">		return clientUserName != null;</span>
+	}
+
+	/**
+	 * Are we executing in the server?.
+	 *
+	 * @return True in the server.
+	 */
+	public boolean isInServer() {
+<span class="pc bpc" id="L715" title="1 of 2 branches missed.">		return clientUserName == null;</span>
+	}
+
+	/**
+	 * Is this game in revenge mode?.
+	 *
+	 * @return True if an undead player is present.
+	 */
+	public boolean isInRevengeMode() {
+<span class="nc" id="L724">		return contains(getPlayers(), Player::isUndead);</span>
+	}
+
+	/**
+	 * Gets the current player.
+	 *
+	 * @return The current player.
+	 */
+	public Player getCurrentPlayer() {
+<span class="fc" id="L733">		return this.currentPlayer;</span>
+	}
+
+	/**
+	 * Sets the current player.
+	 *
+	 * @param newCurrentPlayer
+	 *            The new current &lt;code&gt;Player&lt;/code&gt;.
+	 */
+	public void setCurrentPlayer(Player newCurrentPlayer) {
+<span class="fc" id="L743">		this.currentPlayer = newCurrentPlayer;</span>
+<span class="fc" id="L744">	}</span>
+
+	/**
+	 * Gets the map that is being used in this game.
+	 *
+	 * @return The game &lt;code&gt;Map&lt;/code&gt;.
+	 */
+	public Map getMap() {
+<span class="fc" id="L752">		return map;</span>
+	}
+
+	/**
+	 * Sets the game map.
+	 *
+	 * @param newMap
+	 *            The new &lt;code&gt;Map&lt;/code&gt; to use.
+	 */
+	public void setMap(Map newMap) {
+<span class="fc bfc" id="L762" title="All 2 branches covered.">		if (this.map != newMap) {</span>
+<span class="fc bfc" id="L763" title="All 2 branches covered.">			for (Player player : getLivePlayers(null)) {</span>
+<span class="fc bfc" id="L764" title="All 2 branches covered.">				if (player.getHighSeas() != null) {</span>
+<span class="fc" id="L765">					player.getHighSeas().removeDestination(this.map);</span>
+<span class="fc" id="L766">					player.getHighSeas().addDestination(newMap);</span>
+				}
+<span class="fc" id="L768">			}</span>
+		}
+<span class="fc" id="L770">		this.map = newMap;</span>
+<span class="fc" id="L771">	}</span>
+
+	/**
+	 * Get the current nation options.
+	 *
+	 * @return The current &lt;code&gt;NationOptions&lt;/code&gt;.
+	 */
+	public final NationOptions getNationOptions() {
+<span class="fc" id="L779">		return nationOptions;</span>
+	}
+
+	/**
+	 * Set the current nation options.
+	 *
+	 * @param newNationOptions
+	 *            The new &lt;code&gt;NationOptions&lt;code&gt; value.
+	 */
+	public final void setNationOptions(final NationOptions newNationOptions) {
+<span class="fc" id="L789">		this.nationOptions = newNationOptions;</span>
+<span class="fc" id="L790">	}</span>
+
+	/**
+	 * Find an available (i.e. vacant) nation.
+	 *
+	 * @return A vacant &lt;code&gt;Nation&lt;/code&gt; or null if none found.
+	 */
+	public Nation getVacantNation() {
+<span class="fc" id="L798">		Entry&lt;Nation, NationState&gt; entry = find(nationOptions.getNations().entrySet(),</span>
+<span class="fc bfc" id="L799" title="All 2 branches covered.">				e -&gt; e.getValue() == NationState.AVAILABLE, null);</span>
+<span class="fc bfc" id="L800" title="All 2 branches covered.">		return (entry == null) ? null : entry.getKey();</span>
+	}
+
+	/**
+	 * Get the currently available nations.
+	 *
+	 * @return A list of available &lt;code&gt;Nation&lt;/code&gt;s.
+	 */
+	public final List&lt;Nation&gt; getVacantNations() {
+<span class="nc" id="L809">		List&lt;Nation&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L810" title="All 2 branches missed.">		for (Entry&lt;Nation, NationState&gt; entry : nationOptions.getNations().entrySet()) {</span>
+<span class="nc bnc" id="L811" title="All 2 branches missed.">			if (entry.getValue() == NationState.AVAILABLE) {</span>
+<span class="nc" id="L812">				result.add(entry.getKey());</span>
+			}
+<span class="nc" id="L814">		}</span>
+<span class="nc" id="L815">		return result;</span>
+	}
+
+	/**
+	 * Can a new player be added to this game?.
+	 *
+	 * @return True if a new player can be added.
+	 */
+	public boolean canAddNewPlayer() {
+<span class="fc bfc" id="L824" title="All 2 branches covered.">		return getVacantNation() != null;</span>
+	}
+
+	/**
+	 * Gets the current turn in this game.
+	 *
+	 * @return The current &lt;code&gt;Turn&lt;/code&gt;.
+	 */
+	public Turn getTurn() {
+<span class="fc" id="L833">		return turn;</span>
+	}
+
+	/**
+	 * Sets the current turn in this game.
+	 *
+	 * @param newTurn
+	 *            The new &lt;code&gt;Turn&lt;/code&gt; to set.
+	 */
+	public void setTurn(Turn newTurn) {
+<span class="fc" id="L843">		turn = newTurn;</span>
+<span class="fc" id="L844">	}</span>
+
+	/**
+	 * Get the age for the current turn.
+	 *
+	 * @return The age (0-2).
+	 */
+	public int getAge() {
+<span class="nc" id="L852">		return getSpecification().getAge(turn);</span>
+	}
+
+	/**
+	 * Get the combat model in this game.
+	 *
+	 * @return The &lt;code&gt;CombatModel&lt;/code&gt;.
+	 */
+	public final CombatModel getCombatModel() {
+<span class="fc" id="L861">		return combatModel;</span>
+	}
+
+	/**
+	 * Set the game combat model.
+	 *
+	 * @param newCombatModel
+	 *            The new &lt;code&gt;CombatModel&lt;/code&gt; value.
+	 */
+	public final void setCombatModel(final CombatModel newCombatModel) {
+<span class="nc" id="L871">		this.combatModel = newCombatModel;</span>
+<span class="nc" id="L872">	}</span>
+
+	/**
+	 * Has the Spanish Succession event occured?.
+	 *
+	 * @return True if the Spanish Succession has occurred.
+	 */
+	public final boolean getSpanishSuccession() {
+<span class="fc" id="L880">		return spanishSuccession;</span>
+	}
+
+	/**
+	 * Set the Spanish Succession value.
+	 *
+	 * @param spanishSuccession
+	 *            The new Spanish Succession value.
+	 */
+	public final void setSpanishSuccession(final boolean spanishSuccession) {
+<span class="nc" id="L890">		this.spanishSuccession = spanishSuccession;</span>
+<span class="nc" id="L891">	}</span>
+
+	/**
+	 * Sets the &lt;code&gt;FreeColGameObjectListener&lt;/code&gt; attached to this game.
+	 *
+	 * @param fcgol
+	 *            The new &lt;code&gt;FreeColGameObjectListener&lt;/code&gt;.
+	 */
+	public void setFreeColGameObjectListener(FreeColGameObjectListener fcgol) {
+<span class="fc" id="L900">		freeColGameObjectListener = fcgol;</span>
+<span class="fc" id="L901">	}</span>
+
+	/**
+	 * Notify a listener (if any) of a new game object.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param fcgo
+	 *            The new &lt;code&gt;FreeColGameObject&lt;/code&gt;.
+	 */
+	public void notifySetFreeColGameObject(String id, FreeColGameObject fcgo) {
+<span class="fc bfc" id="L912" title="All 2 branches covered.">		if (freeColGameObjectListener != null) {</span>
+<span class="fc" id="L913">			freeColGameObjectListener.setFreeColGameObject(id, fcgo);</span>
+		}
+<span class="fc" id="L915">	}</span>
+
+	/**
+	 * Notify a listener (if any) of that a game object has gone.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 */
+	public void notifyRemoveFreeColGameObject(String id) {
+<span class="fc bfc" id="L924" title="All 2 branches covered.">		if (freeColGameObjectListener != null) {</span>
+<span class="fc" id="L925">			freeColGameObjectListener.removeFreeColGameObject(id);</span>
+		}
+<span class="fc" id="L927">	}</span>
+
+	/**
+	 * Notify a listener (if any) of that a game object has changed owner.
+	 *
+	 * @param source
+	 *            The &lt;code&gt;FreeColGameObject&lt;/code&gt; that changed owner.
+	 * @param oldOwner
+	 *            The old owning &lt;code&gt;Player&lt;/code&gt;.
+	 * @param newOwner
+	 *            The new owning &lt;code&gt;Player&lt;/code&gt;.
+	 */
+	public void notifyOwnerChanged(FreeColGameObject source, Player oldOwner, Player newOwner) {
+<span class="fc bfc" id="L940" title="All 2 branches covered.">		if (freeColGameObjectListener != null) {</span>
+<span class="fc" id="L941">			freeColGameObjectListener.ownerChanged(source, oldOwner, newOwner);</span>
+		}
+<span class="fc" id="L943">	}</span>
+
+	/**
+	 * Maintain the player containers for certain ownables. Mainly useful in the
+	 * client, informing the player that it has gained or lost an ownable.
+	 *
+	 * @param o
+	 *            The &lt;code&gt;Ownable&lt;/code&gt; that may have changed.
+	 * @param oldOwner
+	 *            The previous (possible unchanged) owning &lt;code&gt;Player&lt;/code&gt;.
+	 */
+	public void checkOwners(Ownable o, Player oldOwner) {
+<span class="fc" id="L955">		Player newOwner = o.getOwner();</span>
+<span class="fc bfc" id="L956" title="All 2 branches covered.">		if (oldOwner == newOwner)</span>
+<span class="fc" id="L957">			return;</span>
+
+<span class="pc bpc" id="L959" title="1 of 4 branches missed.">		if (oldOwner != null &amp;&amp; oldOwner.removeOwnable(o)) {</span>
+<span class="fc" id="L960">			oldOwner.invalidateCanSeeTiles();// +vis</span>
+		}
+<span class="pc bpc" id="L962" title="2 of 4 branches missed.">		if (newOwner != null &amp;&amp; newOwner.addOwnable(o)) {</span>
+<span class="fc" id="L963">			newOwner.invalidateCanSeeTiles();// +vis</span>
+		}
+<span class="fc" id="L965">	}</span>
+
+	// Miscellaneous utilities.
+
+	/**
+	 * Checks if all players are ready to launch.
+	 *
+	 * @return True if all players are ready to launch.
+	 */
+	public boolean allPlayersReadyToLaunch() {
+<span class="nc" id="L975">		return all(getLivePlayers(null), Player::isReady);</span>
+	}
+
+	/**
+	 * Finds a settlement by name.
+	 *
+	 * @param name
+	 *            The name of the &lt;code&gt;Settlement&lt;/code&gt;.
+	 * @return The &lt;code&gt;Settlement&lt;/code&gt; found, or &lt;code&gt;null&lt;/code&gt; if there
+	 *         is no known &lt;code&gt;Settlement&lt;/code&gt; with the specified name (the
+	 *         settlement might not be visible to a client).
+	 */
+	public Settlement getSettlementByName(String name) {
+<span class="fc bfc" id="L988" title="All 2 branches covered.">		for (Player p : getLivePlayers(null)) {</span>
+<span class="fc bfc" id="L989" title="All 2 branches covered.">			for (Settlement s : p.getSettlements()) {</span>
+<span class="pc bpc" id="L990" title="1 of 2 branches missed.">				if (name.equals(s.getName()))</span>
+<span class="nc" id="L991">					return s;</span>
+<span class="fc" id="L992">			}</span>
+<span class="fc" id="L993">		}</span>
+<span class="fc" id="L994">		return null;</span>
+	}
+
+	/**
+	 * Helper function to get the source object of a message in this game.
+	 *
+	 * @param message
+	 *            The &lt;code&gt;ModelMessage&lt;/code&gt; to find the object in.
+	 * @return The source object.
+	 */
+	public FreeColGameObject getMessageSource(ModelMessage message) {
+<span class="nc" id="L1005">		return getFreeColGameObject(message.getSourceId());</span>
+	}
+
+	/**
+	 * Helper function to get the object to display with a message in this game.
+	 *
+	 * @param message
+	 *            The &lt;code&gt;ModelMessage&lt;/code&gt; to find the object in.
+	 * @return An object to display.
+	 */
+	public FreeColObject getMessageDisplay(ModelMessage message) {
+<span class="nc" id="L1016">		String id = message.getDisplayId();</span>
+<span class="nc bnc" id="L1017" title="All 2 branches missed.">		if (id == null)</span>
+<span class="nc" id="L1018">			id = message.getSourceId();</span>
+<span class="nc" id="L1019">		FreeColObject o = getFreeColGameObject(id);</span>
+<span class="nc bnc" id="L1020" title="All 2 branches missed.">		if (o == null) {</span>
+			try {
+<span class="nc" id="L1022">				o = getSpecification().findType(id);</span>
+<span class="nc" id="L1023">			} catch (Exception e) {</span>
+<span class="nc" id="L1024">				o = null; // Ignore</span>
+<span class="nc" id="L1025">			}</span>
+		}
+<span class="nc" id="L1027">		return o;</span>
+	}
+
+	/**
+	 * Gets the statistics of this game.
+	 *
+	 * @return A &lt;code&gt;Map&lt;/code&gt; of the statistics.
+	 */
+	public java.util.Map&lt;String, String&gt; getStatistics() {
+<span class="nc" id="L1036">		java.util.Map&lt;String, String&gt; stats = new HashMap&lt;&gt;();</span>
+
+		// Memory
+<span class="nc" id="L1039">		System.gc();</span>
+<span class="nc" id="L1040">		long free = Runtime.getRuntime().freeMemory() / (1024 * 1024);</span>
+<span class="nc" id="L1041">		long total = Runtime.getRuntime().totalMemory() / (1024 * 1024);</span>
+<span class="nc" id="L1042">		long max = Runtime.getRuntime().maxMemory() / (1024 * 1024);</span>
+<span class="nc" id="L1043">		stats.put(&quot;freeMemory&quot;, Long.toString(free));</span>
+<span class="nc" id="L1044">		stats.put(&quot;totalMemory&quot;, Long.toString(total));</span>
+<span class="nc" id="L1045">		stats.put(&quot;maxMemory&quot;, Long.toString(max));</span>
+
+		// Game objects
+<span class="nc" id="L1048">		java.util.Map&lt;String, Long&gt; objStats = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L1049">		long disposed = 0;</span>
+<span class="nc bnc" id="L1050" title="All 2 branches missed.">		for (FreeColGameObject fcgo : getFreeColGameObjects()) {</span>
+<span class="nc" id="L1051">			String className = fcgo.getClass().getSimpleName();</span>
+<span class="nc bnc" id="L1052" title="All 2 branches missed.">			if (objStats.containsKey(className)) {</span>
+<span class="nc" id="L1053">				Long count = objStats.get(className);</span>
+<span class="nc" id="L1054">				count++;</span>
+<span class="nc" id="L1055">				objStats.put(className, count);</span>
+<span class="nc" id="L1056">			} else {</span>
+<span class="nc" id="L1057">				Long count = (long) 1;</span>
+<span class="nc" id="L1058">				objStats.put(className, count);</span>
+			}
+<span class="nc bnc" id="L1060" title="All 2 branches missed.">			if (fcgo.isDisposed())</span>
+<span class="nc" id="L1061">				disposed++;</span>
+<span class="nc" id="L1062">		}</span>
+<span class="nc" id="L1063">		stats.put(&quot;disposed&quot;, Long.toString(disposed));</span>
+<span class="nc bnc" id="L1064" title="All 2 branches missed.">		for (Entry&lt;String, Long&gt; entry : objStats.entrySet()) {</span>
+<span class="nc" id="L1065">			stats.put(entry.getKey(), Long.toString(entry.getValue()));</span>
+<span class="nc" id="L1066">		}</span>
+
+<span class="nc" id="L1068">		return stats;</span>
+	}
+
+	/**
+	 * Get a location class from an identifier.
+	 *
+	 * @param id
+	 *            The identifier to dissect.
+	 * @return the location class
+	 */
+	public static Class&lt;? extends FreeColGameObject&gt; getLocationClass(String id) {
+<span class="fc" id="L1079">		String tag = FreeColObject.getIdType(id);</span>
+<span class="fc" id="L1080">		tag = Character.toUpperCase(tag.charAt(0)) + tag.substring(1);</span>
+<span class="fc" id="L1081">		return locationClasses.get(tag);</span>
+	}
+
+	/**
+	 * Get the equivalent server class to the given class.
+	 *
+	 * @param &lt;T&gt;
+	 *            the generic type
+	 * @param c
+	 *            The class to look up.
+	 * @return The corresponding server class, or the original class if none
+	 *         found.
+	 */
+	private static &lt;T extends FreeColObject&gt; Class&lt;T&gt; serverClass(Class&lt;T&gt; c) {
+		@SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L1096">		Class&lt;T&gt; rc = (Class&lt;T&gt;) serverClasses.get(c);</span>
+<span class="fc bfc" id="L1097" title="All 2 branches covered.">		return (rc == null) ? c : rc;</span>
+	}
+
+	/**
+	 * Instantiate an uninitialized FreeColGameObject class within this game.
+	 *
+	 * @param &lt;T&gt;
+	 *            the generic type
+	 * @param returnClass
+	 *            The required FreeColObject class.
+	 * @param server
+	 *            Create a server object if possible.
+	 * @return The new uninitialized object, or null on error.
+	 * @exception IOException
+	 *                on error.
+	 */
+	public &lt;T extends FreeColObject&gt; T newInstance(Class&lt;T&gt; returnClass, boolean server) throws IOException {
+<span class="fc bfc" id="L1114" title="All 2 branches covered.">		Class&lt;T&gt; rc = (server) ? serverClass(returnClass) : returnClass;</span>
+		try {
+<span class="fc" id="L1116">			Constructor&lt;T&gt; c = rc.getConstructor(Game.class, String.class);</span>
+<span class="fc" id="L1117">			return c.newInstance(this, (String) null);</span>
+
+<span class="nc" id="L1119">		} catch (NoSuchMethodException nsme) { // Specific to getConstructor</span>
+<span class="nc" id="L1120">			throw new IOException(nsme);</span>
+<span class="nc" id="L1121">		} catch (Exception e) { // Handles multiple fails from newInstance</span>
+<span class="nc" id="L1122">			throw new IOException(e);</span>
+		}
+	}
+
+	/**
+	 * Unserialize from XML to a FreeColObject in this game.
+	 *
+	 * @param &lt;T&gt;
+	 *            the generic type
+	 * @param xml
+	 *            The xml serialized version of an object.
+	 * @param returnClass
+	 *            The required object class.
+	 * @return The unserialized object.
+	 * @exception XMLStreamException
+	 *                if there are any problems reading from the stream.
+	 */
+	public &lt;T extends FreeColObject&gt; T unserialize(String xml, Class&lt;T&gt; returnClass) throws XMLStreamException {
+		try {
+<span class="nc" id="L1141">			FreeColXMLReader xr = new FreeColXMLReader(new StringReader(xml));</span>
+<span class="nc" id="L1142">			xr.nextTag();</span>
+<span class="nc" id="L1143">			T ret = newInstance(returnClass, false);</span>
+<span class="nc" id="L1144">			ret.readFromXML(xr);</span>
+<span class="nc" id="L1145">			return ret;</span>
+
+<span class="nc" id="L1147">		} catch (IOException ioe) {</span>
+<span class="nc" id="L1148">			throw new XMLStreamException(ioe);</span>
+		}
+	}
+
+	// Override FreeColGameObject
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int checkIntegrity(boolean fix) {
+<span class="fc" id="L1159">		int result = super.checkIntegrity(fix);</span>
+<span class="fc" id="L1160">		LogBuilder lb = new LogBuilder(512);</span>
+<span class="fc" id="L1161">		lb.add(&quot;Uninitialized game ids: &quot;);</span>
+<span class="fc" id="L1162">		lb.mark();</span>
+<span class="fc" id="L1163">		Iterator&lt;FreeColGameObject&gt; iterator = getFreeColGameObjectIterator();</span>
+<span class="fc bfc" id="L1164" title="All 2 branches covered.">		while (iterator.hasNext()) {</span>
+<span class="fc" id="L1165">			FreeColGameObject fcgo = iterator.next();</span>
+<span class="pc bpc" id="L1166" title="1 of 2 branches missed.">			if (fcgo == null) {</span>
+<span class="nc" id="L1167">				lb.add(&quot; null-fcgo&quot;);</span>
+<span class="pc bpc" id="L1168" title="1 of 2 branches missed.">			} else if (fcgo.isUninitialized()) {</span>
+<span class="nc" id="L1169">				lb.add(&quot; &quot;, fcgo.getId(), &quot;(&quot;, lastPart(fcgo.getClass().getName(), &quot;.&quot;), &quot;)&quot;);</span>
+			} else {
+				continue;
+			}
+<span class="nc bnc" id="L1173" title="All 2 branches missed.">			if (fix) {</span>
+<span class="nc" id="L1174">				iterator.remove();</span>
+<span class="nc" id="L1175">				result = Math.min(result, 0);</span>
+			} else {
+<span class="nc" id="L1177">				result = -1;</span>
+			}
+<span class="nc" id="L1179">		}</span>
+<span class="pc bpc" id="L1180" title="1 of 2 branches missed.">		if (lb.grew()) {</span>
+<span class="nc bnc" id="L1181" title="All 2 branches missed.">			if (fix)</span>
+<span class="nc" id="L1182">				lb.add(&quot; (dropped)&quot;);</span>
+<span class="nc" id="L1183">			lb.log(logger, Level.WARNING);</span>
+		}
+
+<span class="fc" id="L1186">		Map map = getMap();</span>
+<span class="pc bpc" id="L1187" title="1 of 2 branches missed.">		if (map != null) {</span>
+<span class="fc" id="L1188">			result = Math.min(result, getMap().checkIntegrity(fix));</span>
+		}
+<span class="fc bfc" id="L1190" title="All 2 branches covered.">		for (Player player : getPlayers()) {</span>
+<span class="fc" id="L1191">			result = Math.min(result, player.checkIntegrity(fix));</span>
+<span class="fc" id="L1192">		}</span>
+<span class="fc" id="L1193">		return result;</span>
+	}
+
+	// Override Object
+	//
+	// Two games are not the same just because they have the same
+	// identifier, but to avoid having to check everything in the Game
+	// just insist on object equality for the equals() test, and
+	// accept the basic id-based hashCode().
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean equals(Object o) {
+<span class="pc bpc" id="L1208" title="1 of 2 branches missed.">		return this == o;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int hashCode() {
+<span class="fc" id="L1216">		return Utils.hashCode(getId());</span>
+	}
+
+	// Serialization
+
+	/** The Constant CIBOLA_TAG. */
+	private static final String CIBOLA_TAG = &quot;cibola&quot;;
+
+	/** The Constant CURRENT_PLAYER_TAG. */
+	private static final String CURRENT_PLAYER_TAG = &quot;currentPlayer&quot;;
+
+	/** The Constant NEXT_ID_TAG. */
+	private static final String NEXT_ID_TAG = &quot;nextId&quot;;
+
+	/** The Constant SPANISH_SUCCESSION_TAG. */
+	private static final String SPANISH_SUCCESSION_TAG = &quot;spanishSuccession&quot;;
+
+	/** The Constant TURN_TAG. */
+	private static final String TURN_TAG = &quot;turn&quot;;
+
+	/** The Constant UUID_TAG. */
+	private static final String UUID_TAG = &quot;UUID&quot;;
+
+	/** The Constant OLD_NEXT_ID_TAG. */
+	// @compat 0.10.x
+	private static final String OLD_NEXT_ID_TAG = &quot;nextID&quot;;
+	// end @compat
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L1249">		super.writeAttributes(xw);</span>
+
+<span class="fc bfc" id="L1251" title="All 2 branches covered.">		if (xw.validForSave()) {</span>
+
+<span class="fc" id="L1253">			xw.writeAttribute(NEXT_ID_TAG, nextId);</span>
+		}
+
+<span class="fc" id="L1256">		xw.writeAttribute(UUID_TAG, getUUID());</span>
+
+<span class="fc" id="L1258">		xw.writeAttribute(TURN_TAG, getTurn().getNumber());</span>
+
+<span class="fc" id="L1260">		xw.writeAttribute(SPANISH_SUCCESSION_TAG, spanishSuccession);</span>
+
+<span class="pc bpc" id="L1262" title="1 of 2 branches missed.">		if (currentPlayer != null) {</span>
+<span class="fc" id="L1263">			xw.writeAttribute(CURRENT_PLAYER_TAG, currentPlayer);</span>
+		}
+<span class="fc" id="L1265">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L1272">		super.writeChildren(xw);</span>
+
+<span class="fc" id="L1274">		specification.toXML(xw);</span>
+
+<span class="fc bfc" id="L1276" title="All 2 branches covered.">		for (String cityName : NameCache.getCitiesOfCibola()) {</span>
+			// Preserve existing order
+<span class="fc" id="L1278">			xw.writeStartElement(CIBOLA_TAG);</span>
+
+<span class="fc" id="L1280">			xw.writeAttribute(ID_ATTRIBUTE_TAG, cityName);</span>
+
+<span class="fc" id="L1282">			xw.writeEndElement();</span>
+<span class="fc" id="L1283">		}</span>
+
+<span class="fc" id="L1285">		nationOptions.toXML(xw);</span>
+
+<span class="fc" id="L1287">		List&lt;Player&gt; players = getSortedCopy(getPlayers());</span>
+<span class="fc" id="L1288">		Player unknown = getUnknownEnemy();</span>
+<span class="pc bpc" id="L1289" title="1 of 2 branches missed.">		if (unknown != null)</span>
+<span class="fc" id="L1290">			players.add(unknown);</span>
+<span class="fc bfc" id="L1291" title="All 2 branches covered.">		for (Player p : players)</span>
+<span class="fc" id="L1292">			p.toXML(xw);</span>
+
+<span class="pc bpc" id="L1294" title="1 of 2 branches missed.">		if (map != null)</span>
+<span class="fc" id="L1295">			map.toXML(xw);</span>
+<span class="fc" id="L1296">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L1303">		super.readAttributes(xr);</span>
+
+<span class="fc" id="L1305">		nextId = xr.getAttribute(NEXT_ID_TAG, -1);</span>
+		// @compat 0.10.x
+<span class="pc bpc" id="L1307" title="1 of 2 branches missed.">		if (nextId &lt; 0)</span>
+<span class="nc" id="L1308">			nextId = xr.getAttribute(OLD_NEXT_ID_TAG, 0);</span>
+		// end @compat
+
+<span class="fc" id="L1311">		String str = xr.getAttribute(UUID_TAG, (String) null);</span>
+<span class="fc bfc" id="L1312" title="All 2 branches covered.">		if (str != null) {</span>
+			try {
+<span class="fc" id="L1314">				UUID u = UUID.fromString(str);</span>
+<span class="fc" id="L1315">				this.uuid = u;</span>
+<span class="nc" id="L1316">			} catch (IllegalArgumentException iae) {</span>
+				;// Preserve existing uuid
+<span class="fc" id="L1318">			}</span>
+		}
+
+<span class="fc" id="L1321">		turn = new Turn(xr.getAttribute(TURN_TAG, 1));</span>
+
+<span class="fc" id="L1323">		spanishSuccession = xr.getAttribute(SPANISH_SUCCESSION_TAG, false);</span>
+<span class="fc" id="L1324">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+		// Clear containers.
+<span class="fc" id="L1332">		NameCache.clearCitiesOfCibola();</span>
+<span class="fc" id="L1333">		players.clear();</span>
+<span class="fc" id="L1334">		unknownEnemy = null;</span>
+
+		// Special case for the current player. Defer lookup of the
+		// current player tag until we read the children, because that
+		// is where the players are defined.
+<span class="fc" id="L1339">		String current = xr.getAttribute(CURRENT_PLAYER_TAG, (String) null);</span>
+
+<span class="fc" id="L1341">		super.readChildren(xr);</span>
+
+		// @compat 0.10.7
+<span class="fc bfc" id="L1344" title="All 2 branches covered.">		for (Player player : getLiveEuropeanPlayers(null)) {</span>
+<span class="fc bfc" id="L1345" title="All 2 branches covered.">			for (Unit unit : player.getUnits()) {</span>
+<span class="pc bpc" id="L1346" title="1 of 2 branches missed.">				if (unit.isInColony()) {</span>
+<span class="nc" id="L1347">					unit.getWorkLocation().updateProductionType();</span>
+				}
+<span class="fc" id="L1349">			}</span>
+<span class="fc" id="L1350">		}</span>
+		// end @compat
+
+<span class="fc bfc" id="L1353" title="All 2 branches covered.">		currentPlayer = (current == null) ? null : getFreeColGameObject(current, Player.class);</span>
+<span class="fc" id="L1354">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L1361">		final Game game = getGame();</span>
+<span class="fc" id="L1362">		final String tag = xr.getLocalName();</span>
+		// logger.finest(&quot;Found game tag &quot; + tag + &quot; id=&quot; + xr.readId());
+
+<span class="fc bfc" id="L1365" title="All 2 branches covered.">		if (CIBOLA_TAG.equals(tag)) {</span>
+<span class="fc" id="L1366">			String cibola = xr.readId();</span>
+			// @compat 0.11.3
+<span class="fc" id="L1368">			final String oldPrefix = &quot;lostCityRumour.cityName&quot;;</span>
+<span class="fc bfc" id="L1369" title="All 2 branches covered.">			if (cibola.startsWith(oldPrefix))</span>
+<span class="fc" id="L1370">				cibola = &quot;nameCache.&quot; + cibola;</span>
+			// end @compat 0.11.3
+<span class="fc" id="L1372">			NameCache.addCityOfCibola(cibola);</span>
+<span class="fc" id="L1373">			xr.closeTag(CIBOLA_TAG);</span>
+
+<span class="fc bfc" id="L1375" title="All 2 branches covered.">		} else if (Map.getXMLElementTagName().equals(tag)) {</span>
+<span class="fc" id="L1376">			map = xr.readFreeColGameObject(game, Map.class);</span>
+
+<span class="fc bfc" id="L1378" title="All 2 branches covered.">		} else if (NationOptions.getXMLElementTagName().equals(tag)) {</span>
+<span class="fc" id="L1379">			nationOptions = new NationOptions(xr, specification);</span>
+
+<span class="fc bfc" id="L1381" title="All 2 branches covered.">		} else if (Player.getXMLElementTagName().equals(tag)) {</span>
+<span class="fc" id="L1382">			Player player = xr.readFreeColGameObject(game, Player.class);</span>
+<span class="fc bfc" id="L1383" title="All 2 branches covered.">			if (player.isUnknownEnemy()) {</span>
+<span class="fc" id="L1384">				setUnknownEnemy(player);</span>
+			} else {
+<span class="fc" id="L1386">				players.add(player);</span>
+			}
+
+<span class="pc bpc" id="L1389" title="1 of 2 branches missed.">		} else if (Specification.getXMLElementTagName().equals(tag)) {</span>
+<span class="fc bfc" id="L1390" title="All 2 branches covered.">			logger.info(((specification == null) ? &quot;Loading&quot; : &quot;Reloading&quot;) + &quot; specification.&quot;);</span>
+<span class="fc" id="L1391">			specification = new Specification(xr);</span>
+
+		} else {
+<span class="nc" id="L1394">			super.readChild(xr);</span>
+		}
+<span class="fc" id="L1396">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+<span class="fc" id="L1403">		return getXMLElementTagName();</span>
+	}
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return &quot;game&quot;.
+	 */
+	public static String getXMLElementTagName() {
+<span class="fc" id="L1412">		return &quot;game&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

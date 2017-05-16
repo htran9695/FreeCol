@@ -29,63 +29,61 @@ import javax.swing.JSlider;
 import net.sf.freecol.client.gui.panel.Utility;
 import net.sf.freecol.common.option.RangeOption;
 
-
 /**
  * This class provides visualization for a
- * {@link net.sf.freecol.common.option.RangeOption} in order to enable
- * values to be both seen and changed.
+ * {@link net.sf.freecol.common.option.RangeOption} in order to enable values to
+ * be both seen and changed.
  */
-public final class RangeOptionUI extends SliderOptionUI<RangeOption>  {
+public final class RangeOptionUI extends SliderOptionUI<RangeOption> {
 
-    /**
-     * Creates a new <code>RangeOptionUI</code> for the given
-     * <code>RangeOption</code>.
-     *
-     * @param option The <code>RangeOption</code> to make a user interface for
-     * @param editable boolean whether user can modify the setting
-     */
-    public RangeOptionUI(final RangeOption option, boolean editable) {
-        super(option, editable);
+	/**
+	 * Creates a new <code>RangeOptionUI</code> for the given
+	 * <code>RangeOption</code>.
+	 *
+	 * @param option
+	 *            The <code>RangeOption</code> to make a user interface for
+	 * @param editable
+	 *            boolean whether user can modify the setting
+	 */
+	public RangeOptionUI(final RangeOption option, boolean editable) {
+		super(option, editable);
 
-        JSlider slider = getComponent();
+		JSlider slider = getComponent();
 
-        slider.setModel(new DefaultBoundedRangeModel(option.getValueRank(), 0,
-                0, option.getItemValues().size()-1));
+		slider.setModel(new DefaultBoundedRangeModel(option.getValueRank(), 0, 0, option.getItemValues().size() - 1));
 
-        Hashtable<Integer, JComponent> labels
-            = new Hashtable<>();
-        int index = 0;
-        for (String string : option.getItemValues().values()) {
-            if (option.localizeLabels()) {
-                labels.put(index, Utility.localizedLabel(string));
-            } else {
-                labels.put(index, new JLabel(string));
-            }
-            index++;
-        }
+		Hashtable<Integer, JComponent> labels = new Hashtable<>();
+		int index = 0;
+		for (String string : option.getItemValues().values()) {
+			if (option.localizeLabels()) {
+				labels.put(index, Utility.localizedLabel(string));
+			} else {
+				labels.put(index, new JLabel(string));
+			}
+			index++;
+		}
 
-        slider.setLabelTable(labels);
-        slider.setValue(option.getValueRank());
-        slider.setMajorTickSpacing(1);
-        slider.setSnapToTicks(true);
-    }
+		slider.setLabelTable(labels);
+		slider.setValue(option.getValueRank());
+		slider.setMajorTickSpacing(1);
+		slider.setSnapToTicks(true);
+	}
 
+	// Implement OptionUpdater
 
-    // Implement OptionUpdater
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void updateOption() {
+		getOption().setValueRank(getComponent().getValue());
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateOption() {
-        getOption().setValueRank(getComponent().getValue());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void reset() {
-        getComponent().setValue(getOption().getValueRank());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void reset() {
+		getComponent().setValue(getOption().getValueRank());
+	}
 }

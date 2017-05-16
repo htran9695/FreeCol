@@ -45,115 +45,120 @@ import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.model.WorkLocation;
 
-
 /**
  * Display the production of a unit.
  */
 public class WorkProductionPanel extends FreeColPanel {
 
-    private final Turn turn = getGame().getTurn();
+	/** The turn. */
+	private final Turn turn = getGame().getTurn();
 
+	/**
+	 * Create a new production display.
+	 *
+	 * FIXME: expand display to handle several outputs
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param unit
+	 *            The <code>Unit</code> that is producing.
+	 */
+	public WorkProductionPanel(FreeColClient freeColClient, Unit unit) {
+		super(freeColClient, new MigLayout("wrap 3, insets 10 10 10 10", "[]30:push[right][]", ""));
 
-    /**
-     * Create a new production display.
-     *
-     * FIXME: expand display to handle several outputs
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param unit The <code>Unit</code> that is producing.
-     */
-    public WorkProductionPanel(FreeColClient freeColClient, Unit unit) {
-        super(freeColClient, new MigLayout("wrap 3, insets 10 10 10 10",
-                                           "[]30:push[right][]", ""));
+		final ImageLibrary lib = getGUI().getImageLibrary();
+		final Colony colony = unit.getColony();
+		final UnitType unitType = unit.getType();
+		final WorkLocation wl = (WorkLocation) unit.getLocation();
+		final GoodsType workType = unit.getWorkType();
 
-        final ImageLibrary lib = getGUI().getImageLibrary();
-        final Colony colony = unit.getColony();
-        final UnitType unitType = unit.getType();
-        final WorkLocation wl = (WorkLocation)unit.getLocation();
-        final GoodsType workType = unit.getWorkType();
+		List<Modifier> attendedModifiers = wl.getProductionModifiers(workType, unitType);
+		List<Modifier> unattendedModifiers = wl.getProductionModifiers(workType, null);
+		String shortName = "";
+		String longName = "";
+		Image image = null;
+		float result = wl.getBaseProduction(wl.getProductionType(), workType, unitType);
 
-        List<Modifier> attendedModifiers
-            = wl.getProductionModifiers(workType, unitType);
-        List<Modifier> unattendedModifiers
-            = wl.getProductionModifiers(workType, null);
-        String shortName = "";
-        String longName = "";
-        Image image = null;
-        float result = wl.getBaseProduction(wl.getProductionType(), 
-                                            workType, unitType);
+		// FIXME: Fix OO.
+		if (wl instanceof ColonyTile) {
+			final ColonyTile colonyTile = (ColonyTile) wl;
+			final Tile tile = colonyTile.getWorkTile();
+			final TileType tileType = tile.getType();
+			shortName = Messages.getName(tileType);
+			longName = Messages.message(colonyTile.getLabel());
+			image = getGUI().createColonyTileImage(tile, colony);
 
-        // FIXME: Fix OO.
-        if (wl instanceof ColonyTile) {
-            final ColonyTile colonyTile = (ColonyTile)wl;
-            final Tile tile = colonyTile.getWorkTile();
-            final TileType tileType = tile.getType();
-            shortName = Messages.getName(tileType);
-            longName = Messages.message(colonyTile.getLabel());
-            image = getGUI().createColonyTileImage(tile, colony);
+		} else if (wl instanceof Building) {
+			final Building building = (Building) wl;
+			shortName = Messages.getName(building.getType());
+			longName = shortName;
+			image = lib.getBuildingImage(building);
 
-        } else if (wl instanceof Building) {
-            final Building building = (Building)wl;
-            shortName = Messages.getName(building.getType());
-            longName = shortName;
-            image = lib.getBuildingImage(building);
+		} else {
+			throw new IllegalStateException("WorkLocation OO fail.");
+		}
 
-        } else {
-            throw new IllegalStateException("WorkLocation OO fail.");
-        }
+		add(new JLabel(longName), "span, align center, wrap 30");
+		add(new JLabel(new ImageIcon(image)));
+		add(new UnitLabel(getFreeColClient(), unit, false, false), "wrap");
+		add(new JLabel(shortName));
+		add(new JLabel(ModifierFormat.format(result)));
 
-        add(new JLabel(longName), "span, align center, wrap 30");
-        add(new JLabel(new ImageIcon(image)));
-        add(new UnitLabel(getFreeColClient(), unit, false, false), "wrap");
-        add(new JLabel(shortName));
-        add(new JLabel(ModifierFormat.format(result)));
+		Collections.sort(attendedModifiers);
+		output(attendedModifiers, unitType);
 
-        Collections.sort(attendedModifiers);
-        output(attendedModifiers, unitType);
+		result = wl.getPotentialProduction(workType, unitType);
+		if (result < 0.0f) {
+			add(Utility.localizedLabel("workProductionPanel.zeroThreshold"), "newline");
+			add(new JLabel(ModifierFormat.format(-result)), "wrap 30");
+			result = 0.0f;
+		}
 
-        result = wl.getPotentialProduction(workType, unitType);
-        if (result < 0.0f) {
-            add(Utility.localizedLabel("workProductionPanel.zeroThreshold"), "newline");
-            add(new JLabel(ModifierFormat.format(-result)), "wrap 30");
-            result = 0.0f;
-        }
+		Font bigFont = FontLibrary.createFont(FontLibrary.FontType.NORMAL, FontLibrary.FontSize.SMALLER, Font.BOLD,
+				lib.getScaleFactor());
+		JLabel finalLabel = Utility.localizedLabel("finalResult");
+		finalLabel.setFont(bigFont);
+		add(finalLabel, "newline");
 
-        Font bigFont = FontLibrary.createFont(FontLibrary.FontType.NORMAL,
-            FontLibrary.FontSize.SMALLER, Font.BOLD, lib.getScaleFactor());
-        JLabel finalLabel = Utility.localizedLabel("finalResult");
-        finalLabel.setFont(bigFont);
-        add(finalLabel, "newline");
+		JLabel finalResult = new JLabel(ModifierFormat.format(result));
+		finalResult.setFont(bigFont);
+		finalResult.setBorder(Utility.PRODUCTION_BORDER);
+		add(finalResult, "wrap 30");
 
-        JLabel finalResult = new JLabel(ModifierFormat.format(result));
-        finalResult.setFont(bigFont);
-        finalResult.setBorder(Utility.PRODUCTION_BORDER);
-        add(finalResult, "wrap 30");
+		if (wl instanceof Building) { // Unattended production also applies.
+			result = wl.getBaseProduction(null, workType, null);
+			if (result > 0) {
+				add(Utility.localizedLabel(wl.getLabel()));
+				add(new JLabel(ModifierFormat.format(result)), "wrap 30");
+				Collections.sort(unattendedModifiers);
+				output(unattendedModifiers, unitType);
+			}
+		}
 
-        if (wl instanceof Building) { // Unattended production also applies.
-            result = wl.getBaseProduction(null, workType, null);
-            if (result > 0) {
-                add(Utility.localizedLabel(wl.getLabel()));
-                add(new JLabel(ModifierFormat.format(result)), "wrap 30");
-                Collections.sort(unattendedModifiers);
-                output(unattendedModifiers, unitType);
-            }
-        }
+		add(okButton, "newline, span, tag ok");
+		setSize(getPreferredSize());
+	}
 
-        add(okButton, "newline, span, tag ok");
-        setSize(getPreferredSize());
-    }
-
-    private void output(List<Modifier> modifiers, UnitType unitType) {
-        for (Modifier m : modifiers) {
-            JLabel[] mLabels
-                = ModifierFormat.getModifierLabels(m, unitType, turn);
-            for (int i = 0; i < mLabels.length; i++) {
-                if (mLabels[i] == null) continue;
-                if (i == 0) {
-                    add(mLabels[i], "newline");
-                } else {
-                    add(mLabels[i]);
-                }
-            }
-        }
-    }
+	/**
+	 * Output.
+	 *
+	 * @param modifiers
+	 *            the modifiers
+	 * @param unitType
+	 *            the unit type
+	 */
+	private void output(List<Modifier> modifiers, UnitType unitType) {
+		for (Modifier m : modifiers) {
+			JLabel[] mLabels = ModifierFormat.getModifierLabels(m, unitType, turn);
+			for (int i = 0; i < mLabels.length; i++) {
+				if (mLabels[i] == null)
+					continue;
+				if (i == 0) {
+					add(mLabels[i], "newline");
+				} else {
+					add(mLabels[i]);
+				}
+			}
+		}
+	}
 }

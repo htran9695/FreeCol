@@ -21,41 +21,41 @@ package net.sf.freecol.common.resources;
 
 import java.net.URI;
 
-
 /**
  * A <code>Resource</code> wrapping an <code>String</code>.
+ * 
  * @see Resource
  */
 public class StringResource extends Resource {
 
-    private String data;
+	/** The data. */
+	private String data;
 
-    /**
-     * Do not use directly.
-     *
-     * @param resourceLocator The <code>URI</code> used when loading this
-     *      resource.
-     */
-    public StringResource(URI resourceLocator) {
-        super(resourceLocator);
+	/**
+	 * Do not use directly.
+	 *
+	 * @param resourceLocator
+	 *            The <code>URI</code> used when loading this resource.
+	 */
+	public StringResource(URI resourceLocator) {
+		super(resourceLocator);
 
-        this.data = resourceLocator.getPath();
-        if (this.data.endsWith("\"")) { // Should always be true
-            this.data = this.data.substring(0, this.data.length()-1);
-        }
-        int idx = this.data.lastIndexOf('"');
-        if (idx > 0) {
-            this.data = this.data.substring(idx+1);
-        }
-    }
+		this.data = resourceLocator.getPath();
+		if (this.data.endsWith("\"")) { // Should always be true
+			this.data = this.data.substring(0, this.data.length() - 1);
+		}
+		int idx = this.data.lastIndexOf('"');
+		if (idx > 0) {
+			this.data = this.data.substring(idx + 1);
+		}
+	}
 
-
-    /**
-     * Gets the <code>String</code> represented by this resource.
-     *
-     * @return The string resource.
-     */
-    public String getString() {
-        return this.data;
-    }
+	/**
+	 * Gets the <code>String</code> represented by this resource.
+	 *
+	 * @return The string resource.
+	 */
+	public String getString() {
+		return this.data;
+	}
 }

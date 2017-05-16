@@ -25,27 +25,39 @@ import javax.swing.plaf.basic.BasicPopupMenuUI;
 
 import net.sf.freecol.client.gui.ImageLibrary;
 
-
 /**
- * Draw the "image.background.FreeColPopupMenu" resource as a tiled
- * background image on popup menus, such as the drop down from the
- * menu bar at the top of the main window or the tile popup.
- * Obviously these contain text so a light colour is recommended.
+ * Draw the "image.background.FreeColPopupMenu" resource as a tiled background
+ * image on popup menus, such as the drop down from the menu bar at the top of
+ * the main window or the tile popup. Obviously these contain text so a light
+ * colour is recommended.
  */
 public class FreeColPopupMenuUI extends BasicPopupMenuUI {
 
-    private static final FreeColPopupMenuUI sharedInstance = new FreeColPopupMenuUI();
+	/** The Constant sharedInstance. */
+	private static final FreeColPopupMenuUI sharedInstance = new FreeColPopupMenuUI();
 
+	/**
+	 * Creates the UI.
+	 *
+	 * @param c
+	 *            the c
+	 * @return the component UI
+	 */
+	public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
+		return sharedInstance;
+	}
 
-    public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
-        return sharedInstance;
-    }
-
-    @Override
-    public void paint(java.awt.Graphics g, javax.swing.JComponent c) {
-        if (c.isOpaque()) {
-            ImageLibrary.drawTiledImage("image.background.FreeColPopupMenu", g, c, null);
-        }
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.plaf.ComponentUI#paint(java.awt.Graphics,
+	 * javax.swing.JComponent)
+	 */
+	@Override
+	public void paint(java.awt.Graphics g, javax.swing.JComponent c) {
+		if (c.isOpaque()) {
+			ImageLibrary.drawTiledImage("image.background.FreeColPopupMenu", g, c, null);
+		}
+	}
 
 }

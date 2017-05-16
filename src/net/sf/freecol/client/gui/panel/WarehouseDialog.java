@@ -41,172 +41,172 @@ import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
 
-
 /**
  * A dialog to display a colony warehouse.
  */
 public final class WarehouseDialog extends FreeColConfirmDialog {
 
-    private static final Logger logger = Logger.getLogger(WarehouseDialog.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(WarehouseDialog.class.getName());
 
-    private JPanel warehousePanel;
+	/** The warehouse panel. */
+	private JPanel warehousePanel;
 
+	/**
+	 * Creates a dialog to display the warehouse.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param frame
+	 *            The owner frame.
+	 * @param colony
+	 *            The <code>Colony</code> containing the warehouse.
+	 */
+	public WarehouseDialog(FreeColClient freeColClient, JFrame frame, Colony colony) {
+		super(freeColClient, frame);
 
-    /**
-     * Creates a dialog to display the warehouse.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param frame The owner frame.
-     * @param colony The <code>Colony</code> containing the warehouse.
-     */
-    public WarehouseDialog(FreeColClient freeColClient, JFrame frame,
-            Colony colony) {
-        super(freeColClient, frame);
+		warehousePanel = new MigPanel(new MigLayout("wrap 4"));
+		warehousePanel.setOpaque(false);
+		for (GoodsType type : freeColClient.getGame().getSpecification().getStorableGoodsTypeList()) {
+			warehousePanel.add(new WarehouseGoodsPanel(freeColClient, colony, type));
+		}
 
-        warehousePanel = new MigPanel(new MigLayout("wrap 4"));
-        warehousePanel.setOpaque(false);
-        for (GoodsType type : freeColClient.getGame().getSpecification()
-                 .getStorableGoodsTypeList()) {
-            warehousePanel.add(new WarehouseGoodsPanel(freeColClient,
-                                                       colony, type));
-        }
+		JScrollPane scrollPane = new JScrollPane(warehousePanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+				JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+		scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+		scrollPane.getViewport().setOpaque(false);
+		scrollPane.setBorder(null);
 
-        JScrollPane scrollPane = new JScrollPane(warehousePanel,
-            JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-            JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        scrollPane.getViewport().setOpaque(false);
-        scrollPane.setBorder(null);
+		MigPanel panel = new MigPanel(new MigLayout("fill, wrap 1", "", ""));
+		panel.add(Utility.localizedHeader(Messages.nameKey("warehouseDialog"), false), "align center");
+		panel.add(scrollPane, "grow");
+		panel.setSize(panel.getPreferredSize());
 
-        MigPanel panel = new MigPanel(new MigLayout("fill, wrap 1", "", ""));
-        panel.add(Utility.localizedHeader(Messages.nameKey("warehouseDialog"), false),
-                  "align center");
-        panel.add(scrollPane, "grow");
-        panel.setSize(panel.getPreferredSize());
+		ImageIcon icon = new ImageIcon(getImageLibrary().getSmallSettlementImage(colony));
+		initializeConfirmDialog(frame, true, panel, icon, "ok", "cancel");
+	}
 
-        ImageIcon icon = new ImageIcon(
-            getImageLibrary().getSmallSettlementImage(colony));
-        initializeConfirmDialog(frame, true, panel, icon, "ok", "cancel");
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Boolean getResponse() {
+		Boolean result = super.getResponse();
+		if (result) {
+			for (Component c : warehousePanel.getComponents()) {
+				if (c instanceof WarehouseGoodsPanel) {
+					((WarehouseGoodsPanel) c).saveSettings();
+				}
+			}
+		}
+		warehousePanel = null;
+		return result;
+	}
 
+	/**
+	 * The Class WarehouseGoodsPanel.
+	 */
+	private class WarehouseGoodsPanel extends MigPanel {
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Boolean getResponse() {
-        Boolean result = super.getResponse();
-        if (result) {
-            for (Component c : warehousePanel.getComponents()) {
-                if (c instanceof WarehouseGoodsPanel) {
-                    ((WarehouseGoodsPanel)c).saveSettings();
-                }
-            }
-        }
-        warehousePanel = null;
-        return result;
-    }
+		/** The colony. */
+		private final Colony colony;
 
+		/** The goods type. */
+		private final GoodsType goodsType;
 
-    private class WarehouseGoodsPanel extends MigPanel {
+		/** The export. */
+		private final JCheckBox export;
 
-        private final Colony colony;
+		/** The low level. */
+		private final JSpinner lowLevel;
 
-        private final GoodsType goodsType;
+		/** The high level. */
+		private final JSpinner highLevel;
 
-        private final JCheckBox export;
+		/** The export level. */
+		private final JSpinner exportLevel;
 
-        private final JSpinner lowLevel;
+		/**
+		 * Instantiates a new warehouse goods panel.
+		 *
+		 * @param freeColClient
+		 *            the free col client
+		 * @param colony
+		 *            the colony
+		 * @param goodsType
+		 *            the goods type
+		 */
+		public WarehouseGoodsPanel(FreeColClient freeColClient, Colony colony, GoodsType goodsType) {
+			super("WarehouseGoodsPanelUI");
 
-        private final JSpinner highLevel;
+			this.colony = colony;
+			this.goodsType = goodsType;
+			final int capacity = colony.getWarehouseCapacity();
+			final int maxCapacity = 300; // TODO: magic number
 
-        private final JSpinner exportLevel;
+			setLayout(new MigLayout("wrap 2", "", ""));
+			setOpaque(false);
+			setBorder(Utility.localizedBorder(goodsType));
+			Utility.padBorder(this, 6, 6, 6, 6);
 
+			ExportData exportData = colony.getExportData(goodsType);
 
-        public WarehouseGoodsPanel(FreeColClient freeColClient, Colony colony,
-                                   GoodsType goodsType) {
-            super("WarehouseGoodsPanelUI");
+			// goods label
+			Goods goods = new Goods(colony.getGame(), colony, goodsType, colony.getGoodsCount(goodsType));
+			GoodsLabel goodsLabel = new GoodsLabel(freeColClient.getGUI(), goods);
+			goodsLabel.setHorizontalAlignment(JLabel.LEADING);
+			add(goodsLabel, "span 1 2");
 
-            this.colony = colony;
-            this.goodsType = goodsType;
-            final int capacity = colony.getWarehouseCapacity();
-            final int maxCapacity = 300; // TODO: magic number
-            
-            setLayout(new MigLayout("wrap 2", "", ""));
-            setOpaque(false);
-            setBorder(Utility.localizedBorder(goodsType));
-            Utility.padBorder(this, 6,6,6,6);
+			// low level settings
+			String str;
+			SpinnerNumberModel lowLevelModel = new SpinnerNumberModel(exportData.getLowLevel(), 0, 100, 1);
+			lowLevel = new JSpinner(lowLevelModel);
+			Utility.localizeToolTip(lowLevel, "warehouseDialog.lowLevel.shortDescription");
+			add(lowLevel);
 
-            ExportData exportData = colony.getExportData(goodsType);
+			// high level settings
+			SpinnerNumberModel highLevelModel = new SpinnerNumberModel(exportData.getHighLevel(), 0, 100, 1);
+			highLevel = new JSpinner(highLevelModel);
+			Utility.localizeToolTip(highLevel, "warehouseDialog.highLevel.shortDescription");
+			add(highLevel);
 
-            // goods label
-            Goods goods = new Goods(colony.getGame(), colony, goodsType,
-                                    colony.getGoodsCount(goodsType));
-            GoodsLabel goodsLabel = new GoodsLabel(
-                freeColClient.getGUI(), goods);
-            goodsLabel.setHorizontalAlignment(JLabel.LEADING);
-            add(goodsLabel, "span 1 2");
+			// export checkbox
+			export = new JCheckBox(Messages.message("warehouseDialog.export"), exportData.getExported());
+			Utility.localizeToolTip(export, "warehouseDialog.export.shortDescription");
+			if (!colony.hasAbility(Ability.EXPORT)) {
+				export.setEnabled(false);
+			}
+			add(export);
 
-            // low level settings
-            String str;
-            SpinnerNumberModel lowLevelModel
-                = new SpinnerNumberModel(exportData.getLowLevel(), 0, 100, 1);
-            lowLevel = new JSpinner(lowLevelModel);
-            Utility.localizeToolTip(lowLevel,
-                "warehouseDialog.lowLevel.shortDescription");
-            add(lowLevel);
+			// export level settings
+			SpinnerNumberModel exportLevelModel = new SpinnerNumberModel(exportData.getExportLevel(), 0,
+					(goodsType.limitIgnored()) ? maxCapacity : capacity, 1);
+			exportLevel = new JSpinner(exportLevelModel);
+			Utility.localizeToolTip(exportLevel, "warehouseDialog.exportLevel.shortDescription");
+			add(exportLevel);
 
-            // high level settings
-            SpinnerNumberModel highLevelModel
-                = new SpinnerNumberModel(exportData.getHighLevel(), 0, 100, 1);
-            highLevel = new JSpinner(highLevelModel);
-            Utility.localizeToolTip(highLevel,
-                "warehouseDialog.highLevel.shortDescription");
-            add(highLevel);
+			setSize(getPreferredSize());
+		}
 
-            // export checkbox
-            export = new JCheckBox(Messages.message("warehouseDialog.export"),
-                                   exportData.getExported());
-            Utility.localizeToolTip(export,
-                "warehouseDialog.export.shortDescription");
-            if (!colony.hasAbility(Ability.EXPORT)) {
-                export.setEnabled(false);
-            }
-            add(export);
+		/**
+		 * Save settings.
+		 */
+		public void saveSettings() {
+			int lowLevelValue = ((SpinnerNumberModel) lowLevel.getModel()).getNumber().intValue();
+			int highLevelValue = ((SpinnerNumberModel) highLevel.getModel()).getNumber().intValue();
+			int exportLevelValue = ((SpinnerNumberModel) exportLevel.getModel()).getNumber().intValue();
+			ExportData exportData = colony.getExportData(goodsType);
+			boolean changed = (export.isSelected() != exportData.getExported())
+					|| (lowLevelValue != exportData.getLowLevel()) || (highLevelValue != exportData.getHighLevel())
+					|| (exportLevelValue != exportData.getExportLevel());
 
-            // export level settings
-            SpinnerNumberModel exportLevelModel
-                = new SpinnerNumberModel(exportData.getExportLevel(), 0,
-                    (goodsType.limitIgnored()) ? maxCapacity : capacity, 1);
-            exportLevel = new JSpinner(exportLevelModel);
-            Utility.localizeToolTip(exportLevel,
-                "warehouseDialog.exportLevel.shortDescription");
-            add(exportLevel);
-
-            setSize(getPreferredSize());
-        }
-
-        public void saveSettings() {
-            int lowLevelValue = ((SpinnerNumberModel)lowLevel.getModel())
-                .getNumber().intValue();
-            int highLevelValue = ((SpinnerNumberModel)highLevel.getModel())
-                .getNumber().intValue();
-            int exportLevelValue = ((SpinnerNumberModel)exportLevel.getModel())
-                .getNumber().intValue();
-            ExportData exportData = colony.getExportData(goodsType);
-            boolean changed = (export.isSelected() != exportData.getExported())
-                || (lowLevelValue != exportData.getLowLevel())
-                || (highLevelValue != exportData.getHighLevel())
-                || (exportLevelValue != exportData.getExportLevel());
-
-            exportData.setExported(export.isSelected());
-            exportData.setLowLevel(lowLevelValue);
-            exportData.setHighLevel(highLevelValue);
-            exportData.setExportLevel(exportLevelValue);
-            if (changed) {
-                freeColClient.getInGameController()
-                    .setGoodsLevels(colony, goodsType);
-            }
-        }
-    }
+			exportData.setExported(export.isSelected());
+			exportData.setLowLevel(lowLevelValue);
+			exportData.setHighLevel(highLevelValue);
+			exportData.setExportLevel(exportLevelValue);
+			if (changed) {
+				freeColClient.getInGameController().setGoodsLevels(colony, goodsType);
+			}
+		}
+	}
 }

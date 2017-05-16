@@ -43,209 +43,224 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.FreeColObject;
 
-
 /**
  * This panel displays the Colopedia.
  */
-public final class ColopediaPanel extends FreeColPanel
-    implements HyperlinkListener, TreeSelectionListener {
+public final class ColopediaPanel extends FreeColPanel implements HyperlinkListener, TreeSelectionListener {
 
-    private static final Logger logger = Logger.getLogger(ColopediaPanel.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(ColopediaPanel.class.getName());
 
-    private JPanel listPanel;
+	/** The list panel. */
+	private JPanel listPanel;
 
-    private JPanel detailPanel;
+	/** The detail panel. */
+	private JPanel detailPanel;
 
-    private JTree tree;
+	/** The tree. */
+	private JTree tree;
 
-    private Map<String, DefaultMutableTreeNode> nodeMap = new HashMap<>();
+	/** The node map. */
+	private Map<String, DefaultMutableTreeNode> nodeMap = new HashMap<>();
 
+	/**
+	 * The constructor that will add the items to this panel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param id
+	 *            The object identifier of the item to select.
+	 */
+	public ColopediaPanel(FreeColClient freeColClient, String id) {
+		super(freeColClient, new MigLayout("fill", "[200:]unrelated[550:, grow, fill]", "[][grow, fill][]"));
 
-    /**
-     * The constructor that will add the items to this panel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param id The object identifier of the item to select.
-     */
-    public ColopediaPanel(FreeColClient freeColClient, String id) {
-        super(freeColClient, new MigLayout("fill", 
-                "[200:]unrelated[550:, grow, fill]", "[][grow, fill][]"));
+		add(Utility.localizedHeader("colopedia", false), "span, align center");
 
-        add(Utility.localizedHeader("colopedia", false),
-            "span, align center");
+		listPanel = new MigPanel("ColopediaPanelUI");
+		listPanel.setOpaque(true);
+		JScrollPane sl = new JScrollPane(listPanel, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+				JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+		sl.getVerticalScrollBar().setUnitIncrement(16);
+		sl.getViewport().setOpaque(false);
+		add(sl);
 
-        listPanel = new MigPanel("ColopediaPanelUI");
-        listPanel.setOpaque(true);
-        JScrollPane sl = new JScrollPane(listPanel,
-                                         JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
-                                         JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        sl.getVerticalScrollBar().setUnitIncrement(16);
-        sl.getViewport().setOpaque(false);
-        add(sl);
+		detailPanel = new MigPanel("ColopediaPanelUI");
+		detailPanel.setOpaque(true);
+		JScrollPane detail = new JScrollPane(detailPanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+				JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+		detail.getVerticalScrollBar().setUnitIncrement(16);
+		detail.getViewport().setOpaque(false);
+		add(detail, "grow");
 
-        detailPanel = new MigPanel("ColopediaPanelUI");
-        detailPanel.setOpaque(true);
-        JScrollPane detail = new JScrollPane(detailPanel,
-                                             JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-                                             JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        detail.getVerticalScrollBar().setUnitIncrement(16);
-        detail.getViewport().setOpaque(false);
-        add(detail, "grow");
+		add(okButton, "newline 20, span, tag ok");
 
-        add(okButton, "newline 20, span, tag ok");
+		float scale = getImageLibrary().getScaleFactor();
+		getGUI().restoreSavedSize(this, 200 + (int) (scale * 850), 200 + (int) (scale * 525));
+		tree = buildTree();
 
-        float scale = getImageLibrary().getScaleFactor();
-        getGUI().restoreSavedSize(this, 200 + (int)(scale*850), 200 + (int)(scale*525));
-        tree = buildTree();
+		select(id);
+	}
 
-        select(id);
-    }
+	/**
+	 * Creates a new <code>ColopediaPanel</code> instance suitable only for the
+	 * construction of ColopediaDetailPanels.
+	 *
+	 * FIXME: find a more elegant solution.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ColopediaPanel(FreeColClient freeColClient) {
+		super(freeColClient);
+	}
 
-    /**
-     * Creates a new <code>ColopediaPanel</code> instance suitable
-     * only for the construction of ColopediaDetailPanels.
-     *
-     * FIXME: find a more elegant solution.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ColopediaPanel(FreeColClient freeColClient) {
-        super(freeColClient);
-    }
+	/**
+	 * Builds the JTree which represents the navigation menu and then returns
+	 * it.
+	 *
+	 * @return The navigation tree.
+	 */
+	private JTree buildTree() {
+		String name = Messages.message("colopedia");
+		DefaultMutableTreeNode root = new DefaultMutableTreeNode(new ColopediaTreeItem(null, null, name, null));
 
+		FreeColClient fcc = getFreeColClient();
+		new TerrainDetailPanel(fcc, this).addSubTrees(root);
+		new ResourcesDetailPanel(fcc, this).addSubTrees(root);
+		new GoodsDetailPanel(fcc, this).addSubTrees(root);
+		new UnitDetailPanel(fcc, this).addSubTrees(root);
+		new BuildingDetailPanel(fcc, this).addSubTrees(root);
+		new FatherDetailPanel(fcc, this).addSubTrees(root);
+		new NationDetailPanel(fcc, this).addSubTrees(root);
+		new NationTypeDetailPanel(fcc, this).addSubTrees(root);
+		new ConceptDetailPanel(fcc, this).addSubTrees(root);
 
-    /**
-     * Builds the JTree which represents the navigation menu and then returns it
-     *
-     * @return The navigation tree.
-     */
-    private JTree buildTree() {
-        String name = Messages.message("colopedia");
-        DefaultMutableTreeNode root
-            = new DefaultMutableTreeNode(new ColopediaTreeItem(null, null, name, null));
+		DefaultTreeModel treeModel = new DefaultTreeModel(root);
+		tree = new JTree(treeModel) {
+			@Override
+			public Dimension getPreferredSize() {
+				return new Dimension((int) (200 * getImageLibrary().getScaleFactor()), super.getPreferredSize().height);
+			}
+		};
+		tree.setRootVisible(false);
+		tree.setCellRenderer(new ColopediaTreeCellRenderer());
+		tree.setOpaque(false);
+		tree.addTreeSelectionListener(this);
 
-        FreeColClient fcc = getFreeColClient();
-        new TerrainDetailPanel(fcc, this).addSubTrees(root);
-        new ResourcesDetailPanel(fcc, this).addSubTrees(root);
-        new GoodsDetailPanel(fcc, this).addSubTrees(root);
-        new UnitDetailPanel(fcc, this).addSubTrees(root);
-        new BuildingDetailPanel(fcc, this).addSubTrees(root);
-        new FatherDetailPanel(fcc, this).addSubTrees(root);
-        new NationDetailPanel(fcc, this).addSubTrees(root);
-        new NationTypeDetailPanel(fcc, this).addSubTrees(root);
-        new ConceptDetailPanel(fcc, this).addSubTrees(root);
+		listPanel.add(tree);
+		Enumeration allNodes = root.depthFirstEnumeration();
+		while (allNodes.hasMoreElements()) {
+			DefaultMutableTreeNode node = (DefaultMutableTreeNode) allNodes.nextElement();
+			ColopediaTreeItem item = (ColopediaTreeItem) node.getUserObject();
+			nodeMap.put(item.getId(), node);
+		}
+		return tree;
+	}
 
-        DefaultTreeModel treeModel = new DefaultTreeModel(root);
-        tree = new JTree(treeModel) {
-                @Override
-                public Dimension getPreferredSize() {
-                    return new Dimension(
-                        (int)(200 * getImageLibrary().getScaleFactor()),
-                        super.getPreferredSize().height);
-                }
-            };
-        tree.setRootVisible(false);
-        tree.setCellRenderer(new ColopediaTreeCellRenderer());
-        tree.setOpaque(false);
-        tree.addTreeSelectionListener(this);
+	/**
+	 * This function analyzes a tree selection event and calls the right methods
+	 * to take care of building the requested unit's details.
+	 *
+	 * @param event
+	 *            The incoming <code>TreeSelectionEvent</code>.
+	 */
+	@Override
+	public void valueChanged(TreeSelectionEvent event) {
+		DefaultMutableTreeNode node = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
+		if (node != null) {
+			showDetails((ColopediaTreeItem) node.getUserObject());
+		}
+	}
 
-        listPanel.add(tree);
-        Enumeration allNodes = root.depthFirstEnumeration();
-        while (allNodes.hasMoreElements()) {
-            DefaultMutableTreeNode node = (DefaultMutableTreeNode) allNodes.nextElement();
-            ColopediaTreeItem item = (ColopediaTreeItem) node.getUserObject();
-            nodeMap.put(item.getId(), node);
-        }
-        return tree;
-    }
+	/**
+	 * Show details.
+	 *
+	 * @param nodeItem
+	 *            the node item
+	 */
+	private void showDetails(ColopediaTreeItem nodeItem) {
+		detailPanel.removeAll();
+		if (nodeItem.getPanelType() != null && nodeItem.getId() != null) {
+			nodeItem.getPanelType().buildDetail(nodeItem.getId(), detailPanel);
+		}
+		detailPanel.revalidate();
+		detailPanel.repaint();
+	}
 
-    /**
-     * This function analyzes a tree selection event and calls the
-     * right methods to take care of building the requested unit's
-     * details.
-     *
-     * @param event The incoming <code>TreeSelectionEvent</code>.
-     */
-    @Override
-    public void valueChanged(TreeSelectionEvent event) {
-        DefaultMutableTreeNode node
-            = (DefaultMutableTreeNode)tree.getLastSelectedPathComponent();
-        if (node != null) {
-            showDetails((ColopediaTreeItem)node.getUserObject());
-        }
-    }
+	/**
+	 * Select.
+	 *
+	 * @param id
+	 *            the id
+	 */
+	private void select(String id) {
+		DefaultMutableTreeNode node = nodeMap.get(id);
+		if (node == null) {
+			logger.warning("Unable to find node with id '" + id + "'.");
+		} else {
+			TreePath oldPath = tree.getSelectionPath();
+			if (oldPath != null && oldPath.getParentPath() != null) {
+				tree.collapsePath(oldPath.getParentPath());
+			}
+			TreePath newPath = new TreePath(node.getPath());
+			tree.scrollPathToVisible(newPath);
+			tree.expandPath(newPath);
+			showDetails((ColopediaTreeItem) node.getUserObject());
+		}
+	}
 
-    private void showDetails(ColopediaTreeItem nodeItem) {
-        detailPanel.removeAll();
-        if (nodeItem.getPanelType() != null && nodeItem.getId() != null) {
-            nodeItem.getPanelType().buildDetail(nodeItem.getId(), detailPanel);
-        }
-        detailPanel.revalidate();
-        detailPanel.repaint();
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * javax.swing.event.HyperlinkListener#hyperlinkUpdate(javax.swing.event.
+	 * HyperlinkEvent)
+	 */
+	@Override
+	public void hyperlinkUpdate(HyperlinkEvent e) {
+		HyperlinkEvent.EventType type = e.getEventType();
+		if (type == HyperlinkEvent.EventType.ACTIVATED) {
+			String[] path = e.getURL().getPath().split("/");
+			if (null != path[1])
+				switch (path[1]) {
+				case FreeColObject.ID_ATTRIBUTE_TAG:
+					select(path[2]);
+					break;
+				case "action":
+					getFreeColClient().getActionManager().getFreeColAction(path[2]).actionPerformed(null);
+					break;
+				}
+		}
+	}
 
-    private void select(String id) {
-        DefaultMutableTreeNode node = nodeMap.get(id);
-        if (node == null) {
-            logger.warning("Unable to find node with id '" + id + "'.");
-        } else {
-            TreePath oldPath = tree.getSelectionPath();
-            if (oldPath != null && oldPath.getParentPath() != null) {
-                tree.collapsePath(oldPath.getParentPath());
-            }
-            TreePath newPath = new TreePath(node.getPath());
-            tree.scrollPathToVisible(newPath);
-            tree.expandPath(newPath);
-            showDetails((ColopediaTreeItem) node.getUserObject());
-        }
-    }
+	// Interface ActionListener
 
-    @Override
-    public void hyperlinkUpdate(HyperlinkEvent e) {
-        HyperlinkEvent.EventType type = e.getEventType();
-        if (type == HyperlinkEvent.EventType.ACTIVATED) {
-            String[] path = e.getURL().getPath().split("/");
-            if (null != path[1]) switch (path[1]) {
-                case FreeColObject.ID_ATTRIBUTE_TAG:
-                    select(path[2]);
-                    break;
-                case "action":
-                    getFreeColClient().getActionManager().getFreeColAction(path[2])
-                            .actionPerformed(null);
-                    break;
-            }
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		final String command = ae.getActionCommand();
+		if (OK.equals(command)) {
+			getGUI().removeFromCanvas(this);
+		} else {
+			select(command);
+		}
+	}
 
-    // Interface ActionListener
+	// Override Component
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        final String command = ae.getActionCommand();
-        if (OK.equals(command)) {
-            getGUI().removeFromCanvas(this);
-        } else {
-            select(command);
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void removeNotify() {
+		super.removeNotify();
 
-
-    // Override Component
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void removeNotify() {
-        super.removeNotify();
-
-        removeAll();
-        detailPanel = null;
-        listPanel = null;
-        tree = null;
-        nodeMap = null;
-    }
+		removeAll();
+		detailPanel = null;
+		listPanel = null;
+		tree = null;
+		nodeMap = null;
+	}
 }

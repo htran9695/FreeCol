@@ -27,44 +27,46 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.option.OptionUI;
 import net.sf.freecol.common.option.Option;
 
-
 /**
  * Dialog to edit options with.
  */
 public class EditOptionDialog extends FreeColConfirmDialog {
 
-    private final OptionUI ui;
+	/** The ui. */
+	private final OptionUI ui;
 
+	/**
+	 * Create an EditOptionDialog.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param frame
+	 *            The owner frame.
+	 * @param option
+	 *            The <code>Option</code> to operate on.
+	 */
+	public EditOptionDialog(FreeColClient freeColClient, JFrame frame, Option option) {
+		super(freeColClient, frame);
 
-    /**
-     * Create an EditOptionDialog.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param frame The owner frame.
-     * @param option The <code>Option</code> to operate on.
-     */
-    public EditOptionDialog(FreeColClient freeColClient, JFrame frame, Option option) {
-        super(freeColClient, frame);
+		ui = OptionUI.getOptionUI(getGUI(), option, true);
 
-        ui = OptionUI.getOptionUI(getGUI(), option, true);
+		MigPanel panel = new MigPanel(new MigLayout());
+		if (ui.getJLabel() == null)
+			panel.add(ui.getJLabel(), "split 2");
+		panel.add(ui.getComponent());
 
-        MigPanel panel = new MigPanel(new MigLayout());
-        if (ui.getJLabel() == null) panel.add(ui.getJLabel(), "split 2");
-        panel.add(ui.getComponent());
+		initializeConfirmDialog(frame, true, panel, null, "ok", "cancel");
+	}
 
-        initializeConfirmDialog(frame, true, panel, null, "ok", "cancel");
-    }
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Boolean getResponse() {
-        Boolean result = super.getResponse();
-        if (result && ui != null) {
-            ui.updateOption();
-        }
-        return result;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Boolean getResponse() {
+		Boolean result = super.getResponse();
+		if (result && ui != null) {
+			ui.updateOption();
+		}
+		return result;
+	}
 }

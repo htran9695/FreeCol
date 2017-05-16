@@ -37,243 +37,230 @@ import net.sf.freecol.server.networking.Server;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-
 /**
- * Handles a new client connection.  {@link PreGameInputHandler} is
- * set as the message handler when the client has successfully logged
- * on.
+ * Handles a new client connection. {@link PreGameInputHandler} is set as the
+ * message handler when the client has successfully logged on.
  */
-public final class UserConnectionHandler extends FreeColServerHolder
-    implements MessageHandler {
+public final class UserConnectionHandler extends FreeColServerHolder implements MessageHandler {
 
-<span class="fc" id="L49">    private static final Logger logger = Logger.getLogger(UserConnectionHandler.class.getName());</span>
+	/** The Constant logger. */
+<span class="fc" id="L47">	private static final Logger logger = Logger.getLogger(UserConnectionHandler.class.getName());</span>
 
+	/**
+	 * The constructor to use.
+	 *
+	 * @param freeColServer
+	 *            The main control object.
+	 */
+	public UserConnectionHandler(FreeColServer freeColServer) {
+<span class="fc" id="L56">		super(freeColServer);</span>
+<span class="fc" id="L57">	}</span>
 
-    /**
-     * The constructor to use.
-     *
-     * @param freeColServer The main control object.
-     */
-    public UserConnectionHandler(FreeColServer freeColServer) {
-<span class="fc" id="L58">        super(freeColServer);</span>
-<span class="fc" id="L59">    }</span>
+	// Implement MessageHandler
 
+	/**
+	 * Handles a network message.
+	 *
+	 * @param conn
+	 *            The &lt;code&gt;Connection&lt;/code&gt; the message came from.
+	 * @param element
+	 *            The message to be processed.
+	 * @return The reply.
+	 */
+	@Override
+	public synchronized Element handle(Connection conn, Element element) {
+<span class="nc" id="L72">		final String tag = element.getTagName();</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">		return (&quot;disconnect&quot;.equals(tag)) ? disconnect(conn, element)</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">				: (&quot;gameState&quot;.equals(tag)) ? gameState(conn, element)</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">						: (&quot;getVacantPlayers&quot;.equals(tag)) ? getVacantPlayers(conn, element)</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">								: (&quot;login&quot;.equals(tag)) ? login(conn, element) : unknown(tag);</span>
+	}
 
-    // Implement MessageHandler
+	// Individual message handlers
 
-    /**
-     * Handles a network message.
-     *
-     * @param conn The &lt;code&gt;Connection&lt;/code&gt; the message came from.
-     * @param element The message to be processed.
-     * @return The reply.
-     */
-    @Override
-    public synchronized Element handle(Connection conn, Element element) {
-<span class="nc" id="L73">        final String tag = element.getTagName();</span>
-<span class="nc bnc" id="L74" title="All 2 branches missed.">        return (&quot;disconnect&quot;.equals(tag)) </span>
-<span class="nc" id="L75">            ? disconnect(conn, element)</span>
-<span class="nc bnc" id="L76" title="All 2 branches missed.">            : (&quot;gameState&quot;.equals(tag))</span>
-<span class="nc" id="L77">            ? gameState(conn, element)</span>
-<span class="nc bnc" id="L78" title="All 2 branches missed.">            : (&quot;getVacantPlayers&quot;.equals(tag))</span>
-<span class="nc" id="L79">            ? getVacantPlayers(conn, element)</span>
-<span class="nc bnc" id="L80" title="All 2 branches missed.">            : (&quot;login&quot;.equals(tag))</span>
-<span class="nc" id="L81">            ? login(conn, element)</span>
-<span class="nc" id="L82">            : unknown(tag);</span>
-    }
+	/**
+	 * Handles a &quot;disconnect&quot;-message.
+	 *
+	 * @param connection
+	 *            The &lt;code&gt;Connection&lt;/code&gt; the message was received on.
+	 * @param element
+	 *            The &lt;code&gt;Element&lt;/code&gt; (root element in a DOM-parsed XML
+	 *            tree) that holds all the information.
+	 * @return The reply.
+	 */
+	private Element disconnect(Connection connection, @SuppressWarnings(&quot;unused&quot;) Element element) {
+<span class="nc" id="L92">		connection.reallyClose();</span>
+<span class="nc" id="L93">		return null;</span>
+	}
 
-    // Individual message handlers
+	/**
+	 * Handles a &quot;gameState&quot;-request.
+	 *
+	 * @param connection
+	 *            The connection the message came from.
+	 * @param element
+	 *            The element containing the request.
+	 * @return An element with a &quot;gameState&quot; attribute set.
+	 */
+	private Element gameState(@SuppressWarnings(&quot;unused&quot;) Connection connection,
+			@SuppressWarnings(&quot;unused&quot;) Element element) {
+<span class="nc" id="L107">		final FreeColServer freeColServer = getFreeColServer();</span>
 
-    /**
-     * Handles a &quot;disconnect&quot;-message.
-     *
-     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the message was
-     *     received on.
-     * @param element The &lt;code&gt;Element&lt;/code&gt; (root element in a
-     *     DOM-parsed XML tree) that holds all the information.
-     * @return The reply.
-     */
-    private Element disconnect(Connection connection,
-        @SuppressWarnings(&quot;unused&quot;) Element element) {
-<span class="nc" id="L98">        connection.reallyClose();</span>
-<span class="nc" id="L99">        return null;</span>
-    }
+<span class="nc" id="L109">		Element reply = DOMMessage.createMessage(&quot;gameState&quot;);</span>
+<span class="nc" id="L110">		reply.setAttribute(&quot;state&quot;, freeColServer.getGameState().toString());</span>
+<span class="nc" id="L111">		return reply;</span>
+	}
 
-    /**
-     * Handles a &quot;gameState&quot;-request.
-     *
-     * @param connection The connection the message came from.
-     * @param element The element containing the request.
-     * @return An element with a &quot;gameState&quot; attribute set.
-     */
-    private Element gameState(
-        @SuppressWarnings(&quot;unused&quot;) Connection connection,
-        @SuppressWarnings(&quot;unused&quot;) Element element) {
-<span class="nc" id="L112">        final FreeColServer freeColServer = getFreeColServer();</span>
+	/**
+	 * Handles a &quot;getVacantPlayers&quot;-request.
+	 *
+	 * @param connection
+	 *            The connection the message came from.
+	 * @param element
+	 *            The element containing the request.
+	 * @return Null on error (such as requesting during end game), an empty list
+	 *         if the game is starting, or a list of all the inactive European
+	 *         players.
+	 */
+	private Element getVacantPlayers(@SuppressWarnings(&quot;unused&quot;) Connection connection,
+			@SuppressWarnings(&quot;unused&quot;) Element element) {
+<span class="nc" id="L127">		final FreeColServer freeColServer = getFreeColServer();</span>
+<span class="nc" id="L128">		final Game game = getGame();</span>
 
-<span class="nc" id="L114">        Element reply = DOMMessage.createMessage(&quot;gameState&quot;);</span>
-<span class="nc" id="L115">        reply.setAttribute(&quot;state&quot;,</span>
-<span class="nc" id="L116">                           freeColServer.getGameState().toString());</span>
-<span class="nc" id="L117">        return reply;</span>
-    }
+<span class="nc" id="L130">		Element reply = DOMMessage.createMessage(&quot;vacantPlayers&quot;);</span>
+<span class="nc" id="L131">		Document doc = reply.getOwnerDocument();</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">		for (Player p : game.getLiveEuropeanPlayers(null)) {</span>
+<span class="nc bnc" id="L133" title="All 6 branches missed.">			if (!p.isREF() &amp;&amp; (p.isAI() || !((ServerPlayer) p).isConnected())) {</span>
+<span class="nc" id="L134">				Element playerElement = doc.createElement(&quot;player&quot;);</span>
+<span class="nc" id="L135">				playerElement.setAttribute(&quot;username&quot;, p.getNationId());</span>
+<span class="nc" id="L136">				reply.appendChild(playerElement);</span>
+			}
+<span class="nc" id="L138">		}</span>
+<span class="nc" id="L139">		return reply;</span>
+	}
 
-    /**
-     * Handles a &quot;getVacantPlayers&quot;-request.
-     *
-     * @param connection The connection the message came from.
-     * @param element The element containing the request.
-     * @return Null on error (such as requesting during end game), an empty
-     *     list if the game is starting, or a list of all the inactive
-     *     European players.
-     */
-    private Element getVacantPlayers(
-        @SuppressWarnings(&quot;unused&quot;) Connection connection,
-        @SuppressWarnings(&quot;unused&quot;) Element element) {
-<span class="nc" id="L132">        final FreeColServer freeColServer = getFreeColServer();</span>
-<span class="nc" id="L133">        final Game game = getGame();</span>
+	/**
+	 * Handles a &quot;login&quot;-request.
+	 *
+	 * FIXME: Do not allow more than one (human) player to connect to a single
+	 * player game. This would be easy if we used a dummy connection for single
+	 * player games.
+	 *
+	 * @param connection
+	 *            The &lt;code&gt;Connection&lt;/code&gt; the message was received on.
+	 * @param element
+	 *            The &lt;code&gt;Element&lt;/code&gt; (root element in a DOM-parsed XML
+	 *            tree) that holds all the information.
+	 * @return The reply.
+	 */
+	private Element login(Connection connection, Element element) {
+<span class="nc" id="L157">		final String userName = element.getAttribute(&quot;userName&quot;);</span>
+<span class="nc" id="L158">		final String version = element.getAttribute(&quot;version&quot;);</span>
 
-<span class="nc" id="L135">        Element reply = DOMMessage.createMessage(&quot;vacantPlayers&quot;);</span>
-<span class="nc" id="L136">        Document doc = reply.getOwnerDocument();</span>
-<span class="nc bnc" id="L137" title="All 2 branches missed.">        for (Player p : game.getLiveEuropeanPlayers(null)) {</span>
-<span class="nc bnc" id="L138" title="All 2 branches missed.">            if (!p.isREF()</span>
-<span class="nc bnc" id="L139" title="All 4 branches missed.">                &amp;&amp; (p.isAI() || !((ServerPlayer)p).isConnected())) {</span>
-<span class="nc" id="L140">                Element playerElement = doc.createElement(&quot;player&quot;);</span>
-<span class="nc" id="L141">                playerElement.setAttribute(&quot;username&quot;, p.getNationId());</span>
-<span class="nc" id="L142">                reply.appendChild(playerElement);</span>
-            }
-<span class="nc" id="L144">        }</span>
-<span class="nc" id="L145">        return reply;</span>
-    }
+<span class="nc bnc" id="L160" title="All 4 branches missed.">		if (userName == null || userName.isEmpty()) {</span>
+<span class="nc" id="L161">			return DOMMessage.createError(&quot;server.missingUserName&quot;, null);</span>
+<span class="nc bnc" id="L162" title="All 4 branches missed.">		} else if (version == null || version.isEmpty()) {</span>
+<span class="nc" id="L163">			return DOMMessage.createError(&quot;server.missingVersion&quot;, null);</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">		} else if (!version.equals(FreeCol.getVersion())) {</span>
+<span class="nc" id="L165">			return DOMMessage.createError(&quot;server.wrongFreeColVersion&quot;, version + &quot; != &quot; + FreeCol.getVersion());</span>
+		}
 
-    /**
-     * Handles a &quot;login&quot;-request.
-     *
-     * FIXME: Do not allow more than one (human) player to connect
-     * to a single player game. This would be easy if we used a
-     * dummy connection for single player games.
-     *
-     * @param connection The &lt;code&gt;Connection&lt;/code&gt; the message was
-     *     received on.
-     * @param element The &lt;code&gt;Element&lt;/code&gt; (root element in a
-     *     DOM-parsed XML tree) that holds all the information.
-     * @return The reply.
-     */
-    private Element login(Connection connection, Element element) {
-<span class="nc" id="L162">        final String userName = element.getAttribute(&quot;userName&quot;);</span>
-<span class="nc" id="L163">        final String version = element.getAttribute(&quot;version&quot;);</span>
+<span class="nc" id="L168">		final FreeColServer freeColServer = getFreeColServer();</span>
+<span class="nc" id="L169">		final Server server = freeColServer.getServer();</span>
+		Game game;
+		ServerPlayer player;
+<span class="nc" id="L172">		Unit active = null;</span>
+<span class="nc" id="L173">		boolean isCurrentPlayer = false;</span>
+		MessageHandler mh;
+<span class="nc bnc" id="L175" title="All 2 branches missed.">		boolean starting = freeColServer.getGameState() == FreeColServer.GameState.STARTING_GAME;</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">		if (starting) {</span>
+			// Wait until the game has been created.
+			// FIXME: is this still needed?
+<span class="nc" id="L179">			int timeOut = 20000;</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">			while (freeColServer.getGame() == null) {</span>
+				try {
+<span class="nc" id="L182">					Thread.sleep(1000);</span>
+<span class="nc" id="L183">				} catch (InterruptedException e) {</span>
+<span class="nc" id="L184">				}</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">				if ((timeOut -= 1000) &lt;= 0) {</span>
+<span class="nc" id="L186">					return DOMMessage.createError(&quot;server.timeOut&quot;, null);</span>
+				}
+			}
 
-<span class="nc bnc" id="L165" title="All 4 branches missed.">        if (userName == null || userName.isEmpty()) {</span>
-<span class="nc" id="L166">            return DOMMessage.createError(&quot;server.missingUserName&quot;, null);</span>
-<span class="nc bnc" id="L167" title="All 4 branches missed.">        } else if (version == null || version.isEmpty()) {</span>
-<span class="nc" id="L168">            return DOMMessage.createError(&quot;server.missingVersion&quot;, null);</span>
-<span class="nc bnc" id="L169" title="All 2 branches missed.">        } else if (!version.equals(FreeCol.getVersion())) {</span>
-<span class="nc" id="L170">            return DOMMessage.createError(&quot;server.wrongFreeColVersion&quot;,</span>
-<span class="nc" id="L171">                version + &quot; != &quot; + FreeCol.getVersion());</span>
-        }
+<span class="nc" id="L190">			game = freeColServer.getGame();</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">			if (!game.canAddNewPlayer()) {</span>
+<span class="nc" id="L192">				return DOMMessage.createError(&quot;server.maximumPlayers&quot;, null);</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">			} else if (game.playerNameInUse(userName)) {</span>
+<span class="nc" id="L194">				return DOMMessage.createError(&quot;server.userNameInUse&quot;, userName + &quot; is already in use.&quot;);</span>
+			}
 
-<span class="nc" id="L174">        final FreeColServer freeColServer = getFreeColServer();</span>
-<span class="nc" id="L175">        final Server server = freeColServer.getServer();</span>
-        Game game;
-        ServerPlayer player;
-<span class="nc" id="L178">        Unit active = null;</span>
-<span class="nc" id="L179">        boolean isCurrentPlayer = false;</span>
-        MessageHandler mh;
-<span class="nc bnc" id="L181" title="All 2 branches missed.">        boolean starting = freeColServer.getGameState()</span>
-            == FreeColServer.GameState.STARTING_GAME;
-<span class="nc bnc" id="L183" title="All 2 branches missed.">        if (starting) {</span>
-            // Wait until the game has been created.
-            // FIXME: is this still needed?
-<span class="nc" id="L186">            int timeOut = 20000;</span>
-<span class="nc bnc" id="L187" title="All 2 branches missed.">            while (freeColServer.getGame() == null) {</span>
-                try {
-<span class="nc" id="L189">                    Thread.sleep(1000);</span>
-<span class="nc" id="L190">                } catch (InterruptedException e) {}</span>
-<span class="nc bnc" id="L191" title="All 2 branches missed.">                if ((timeOut -= 1000) &lt;= 0) {</span>
-<span class="nc" id="L192">                    return DOMMessage.createError(&quot;server.timeOut&quot;, null);</span>
-                }
-            }
+			// Create and add the new player:
+<span class="nc" id="L198">			boolean admin = game.getLivePlayers(null).isEmpty();</span>
+<span class="nc" id="L199">			player = new ServerPlayer(game, admin, game.getVacantNation(), connection.getSocket(), connection);</span>
+<span class="nc" id="L200">			player.setName(userName);</span>
+<span class="nc" id="L201">			game.addPlayer(player);</span>
 
-<span class="nc" id="L196">            game = freeColServer.getGame();</span>
-<span class="nc bnc" id="L197" title="All 2 branches missed.">            if (!game.canAddNewPlayer()) {</span>
-<span class="nc" id="L198">                return DOMMessage.createError(&quot;server.maximumPlayers&quot;, null);</span>
-<span class="nc bnc" id="L199" title="All 2 branches missed.">            } else if (game.playerNameInUse(userName)) {</span>
-<span class="nc" id="L200">                return DOMMessage.createError(&quot;server.userNameInUse&quot;,</span>
-                    userName + &quot; is already in use.&quot;);
-            }
+			// Send message to all players except to the new player.
+			// FIXME: check visibility.
+<span class="nc" id="L205">			Element add = DOMMessage.createMessage(&quot;addPlayer&quot;);</span>
+<span class="nc" id="L206">			add.appendChild(player.toXMLElement(add.getOwnerDocument()));</span>
+<span class="nc" id="L207">			server.sendToAll(add, connection);</span>
 
-            // Create and add the new player:
-<span class="nc" id="L205">            boolean admin = game.getLivePlayers(null).isEmpty();</span>
-<span class="nc" id="L206">            player = new ServerPlayer(game, admin, game.getVacantNation(),</span>
-<span class="nc" id="L207">                                      connection.getSocket(), connection);</span>
-<span class="nc" id="L208">            player.setName(userName);</span>
-<span class="nc" id="L209">            game.addPlayer(player);</span>
+			// Ready now to handle pre-game messages.
+<span class="nc" id="L210">			mh = freeColServer.getPreGameInputHandler();</span>
 
-            // Send message to all players except to the new player.
-            // FIXME: check visibility.
-<span class="nc" id="L213">            Element add = DOMMessage.createMessage(&quot;addPlayer&quot;);</span>
-<span class="nc" id="L214">            add.appendChild(player.toXMLElement(add.getOwnerDocument()));</span>
-<span class="nc" id="L215">            server.sendToAll(add, connection);</span>
+<span class="nc" id="L212">		} else { // Restoring from existing game.</span>
+<span class="nc" id="L213">			game = freeColServer.getGame();</span>
+<span class="nc" id="L214">			player = (ServerPlayer) game.getPlayerByName(userName);</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">			if (player == null) {</span>
+<span class="nc" id="L216">				StringBuilder sb = new StringBuilder(&quot;Player \&quot;&quot;);</span>
+<span class="nc" id="L217">				sb.append(userName).append(&quot;\&quot; is not present in the game.&quot;).append(&quot;\n  Known players = ( &quot;);</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">				for (Player p : game.getLiveEuropeanPlayers(null)) {</span>
+<span class="nc" id="L219">					sb.append(p.getName()).append(&quot; &quot;);</span>
+<span class="nc" id="L220">				}</span>
+<span class="nc" id="L221">				sb.append(&quot;)&quot;);</span>
+<span class="nc" id="L222">				return DOMMessage.createError(&quot;server.userNameNotPresent&quot;, sb.toString());</span>
+<span class="nc bnc" id="L223" title="All 4 branches missed.">			} else if (player.isConnected() &amp;&amp; !player.isAI()) {</span>
+<span class="nc" id="L224">				return DOMMessage.createError(&quot;server.userNameInUse&quot;, userName + &quot; is already in use.&quot;);</span>
+			}
+<span class="nc" id="L226">			player.setConnection(connection);</span>
+<span class="nc" id="L227">			player.setConnected(true);</span>
 
-            // Ready now to handle pre-game messages.
-<span class="nc" id="L218">            mh = freeColServer.getPreGameInputHandler();</span>
+<span class="nc bnc" id="L229" title="All 2 branches missed.">			if (player.isAI()) {</span>
+<span class="nc" id="L230">				player.setAI(false);</span>
+<span class="nc" id="L231">				server.sendToAll(</span>
+<span class="nc" id="L232">						DOMMessage.createMessage(&quot;setAI&quot;, &quot;player&quot;, player.getId(), &quot;ai&quot;, Boolean.toString(false)));</span>
+			}
 
-<span class="nc" id="L220">        } else { // Restoring from existing game.</span>
-<span class="nc" id="L221">            game = freeColServer.getGame();</span>
-<span class="nc" id="L222">            player = (ServerPlayer)game.getPlayerByName(userName);</span>
-<span class="nc bnc" id="L223" title="All 2 branches missed.">            if (player == null) {</span>
-<span class="nc" id="L224">                StringBuilder sb = new StringBuilder(&quot;Player \&quot;&quot;);</span>
-<span class="nc" id="L225">                sb.append(userName).append(&quot;\&quot; is not present in the game.&quot;)</span>
-<span class="nc" id="L226">                    .append(&quot;\n  Known players = ( &quot;);</span>
-<span class="nc bnc" id="L227" title="All 2 branches missed.">                for (Player p : game.getLiveEuropeanPlayers(null)) {</span>
-<span class="nc" id="L228">                    sb.append(p.getName()).append(&quot; &quot;);</span>
-<span class="nc" id="L229">                }</span>
-<span class="nc" id="L230">                sb.append(&quot;)&quot;);</span>
-<span class="nc" id="L231">                return DOMMessage.createError(&quot;server.userNameNotPresent&quot;,</span>
-<span class="nc" id="L232">                                              sb.toString());</span>
-<span class="nc bnc" id="L233" title="All 4 branches missed.">            } else if (player.isConnected() &amp;&amp; !player.isAI()) {</span>
-<span class="nc" id="L234">                return DOMMessage.createError(&quot;server.userNameInUse&quot;,</span>
-                    userName + &quot; is already in use.&quot;);
-            }
-<span class="nc" id="L237">            player.setConnection(connection);</span>
-<span class="nc" id="L238">            player.setConnected(true);</span>
+			// If this player is the first to reconnect, it is the
+			// current player.
+<span class="nc bnc" id="L237" title="All 2 branches missed.">			isCurrentPlayer = game.getCurrentPlayer() == null;</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">			if (isCurrentPlayer) {</span>
+<span class="nc" id="L239">				game.setCurrentPlayer(player);</span>
+<span class="nc" id="L240">				active = freeColServer.getActiveUnit();</span>
+			}
 
-<span class="nc bnc" id="L240" title="All 2 branches missed.">            if (player.isAI()) {</span>
-<span class="nc" id="L241">                player.setAI(false);</span>
-<span class="nc" id="L242">                server.sendToAll(DOMMessage.createMessage(&quot;setAI&quot;,</span>
-<span class="nc" id="L243">                        &quot;player&quot;, player.getId(),</span>
-<span class="nc" id="L244">                        &quot;ai&quot;, Boolean.toString(false)));</span>
-            }
+			// Go straight into the game.
+<span class="nc" id="L244">			mh = freeColServer.getInGameInputHandler();</span>
+		}
 
-            // If this player is the first to reconnect, it is the
-            // current player.
-<span class="nc bnc" id="L249" title="All 2 branches missed.">            isCurrentPlayer = game.getCurrentPlayer() == null;</span>
-<span class="nc bnc" id="L250" title="All 2 branches missed.">            if (isCurrentPlayer) {</span>
-<span class="nc" id="L251">                game.setCurrentPlayer(player);</span>
-<span class="nc" id="L252">                active = freeColServer.getActiveUnit();</span>
-            }
+<span class="nc" id="L247">		connection.setMessageHandler(mh);</span>
+<span class="nc" id="L248">		server.addConnection(connection);</span>
+<span class="nc" id="L249">		freeColServer.updateMetaServer();</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">		return new LoginMessage(player, userName, version, !starting, freeColServer.getSinglePlayer(), isCurrentPlayer,</span>
+<span class="nc" id="L251">				active, game).toXMLElement();</span>
+	}
 
-            // Go straight into the game.
-<span class="nc" id="L256">            mh = freeColServer.getInGameInputHandler();</span>
-        }
-
-<span class="nc" id="L259">        connection.setMessageHandler(mh);</span>
-<span class="nc" id="L260">        server.addConnection(connection);</span>
-<span class="nc" id="L261">        freeColServer.updateMetaServer();</span>
-<span class="nc bnc" id="L262" title="All 2 branches missed.">        return new LoginMessage(player, userName, version, !starting,</span>
-<span class="nc" id="L263">                                freeColServer.getSinglePlayer(),</span>
-                                isCurrentPlayer, active,
-<span class="nc" id="L265">                                game).toXMLElement();</span>
-    }
-
-    /**
-     * Gripe about an unknown tag.
-     *
-     * @param tag The unknown tag.
-     * @return Null.
-     */
-    private Element unknown(String tag) {
-<span class="nc" id="L275">        logger.warning(&quot;Unknown user connection request: &quot; + tag);</span>
-<span class="nc" id="L276">        return null;</span>
-    }
+	/**
+	 * Gripe about an unknown tag.
+	 *
+	 * @param tag
+	 *            The unknown tag.
+	 * @return Null.
+	 */
+	private Element unknown(String tag) {
+<span class="nc" id="L262">		logger.warning(&quot;Unknown user connection request: &quot; + tag);</span>
+<span class="nc" id="L263">		return null;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

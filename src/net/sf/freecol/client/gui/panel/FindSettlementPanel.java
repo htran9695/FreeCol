@@ -52,207 +52,218 @@ import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Settlement;
 import net.sf.freecol.common.model.StringTemplate;
 
-
 /**
- * Centers the map on a known settlement or colony.  Pressing ENTER
- * opens a panel if appropriate.
+ * Centers the map on a known settlement or colony. Pressing ENTER opens a panel
+ * if appropriate.
  */
-public final class FindSettlementPanel extends FreeColPanel
-    implements ListSelectionListener, ItemListener {
+public final class FindSettlementPanel extends FreeColPanel implements ListSelectionListener, ItemListener {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(FindSettlementPanel.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(FindSettlementPanel.class.getName());
 
-    private class SettlementRenderer
-        extends FreeColComboBoxRenderer<Settlement> {
+	/**
+	 * The Class SettlementRenderer.
+	 */
+	private class SettlementRenderer extends FreeColComboBoxRenderer<Settlement> {
 
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void setLabelValues(JLabel label, Settlement value) {
-            StringTemplate template = StringTemplate
-                .template("findSettlementPanel.settlement")
-                .addName("%name%", value.getName())
-                .addName("%capital%", ((value.isCapital()) ? "*" : ""))
-                .addStringTemplate("%nation%",
-                    value.getOwner().getNationLabel());
-            label.setText(Messages.message(template));
-            label.setIcon(new ImageIcon(ImageLibrary.getSettlementImage(value,
-                    new Dimension(64, -1))));
-        }
-    }
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void setLabelValues(JLabel label, Settlement value) {
+			StringTemplate template = StringTemplate.template("findSettlementPanel.settlement")
+					.addName("%name%", value.getName()).addName("%capital%", ((value.isCapital()) ? "*" : ""))
+					.addStringTemplate("%nation%", value.getOwner().getNationLabel());
+			label.setText(Messages.message(template));
+			label.setIcon(new ImageIcon(ImageLibrary.getSettlementImage(value, new Dimension(64, -1))));
+		}
+	}
 
-    private static enum DisplayListOption {
-        ALL,
-        ONLY_NATIVES,
-        ONLY_EUROPEAN
-    }
+	/**
+	 * The Enum DisplayListOption.
+	 */
+	private static enum DisplayListOption {
 
-    /** Box to choose the type of settlements to list. */
-    private JComboBox<String> displayOptionBox;
+		/** The all. */
+		ALL,
 
-    /** The list of settlements to display. */
-    private final JList<Settlement> settlementList;
+		/** The only natives. */
+		ONLY_NATIVES,
 
+		/** The only european. */
+		ONLY_EUROPEAN
+	}
 
-    /**
-     * Create a new panel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public FindSettlementPanel(FreeColClient freeColClient) {
-        super(freeColClient, new MigLayout("wrap 1", "[align center]",
-                                           "[]30[]30[]"));
-        this.settlementList = new JList<>();
-        this.settlementList.setCellRenderer(new SettlementRenderer());
-        this.settlementList.setFixedCellHeight(48);
-        this.settlementList.addListSelectionListener(this);
-        this.settlementList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        Action selectAction = new AbstractAction() {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    selectSettlement();
-                }
-            };
-        this.settlementList.getInputMap().put(KeyStroke.getKeyStroke("ENTER"),
-                                              "select");
-        this.settlementList.getActionMap().put("select", selectAction);
-        Action quitAction = new AbstractAction() {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    getGUI().removeFromCanvas(FindSettlementPanel.this);
-                }
-            };
-        this.settlementList.getInputMap().put(KeyStroke.getKeyStroke("ESCAPE"),
-                                             "quit");
-        this.settlementList.getActionMap().put("quit", quitAction);
-        this.settlementList.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    if (e.getClickCount() == 2) {
-                        selectSettlement();
-                    }
-                }
-            });
-        JScrollPane listScroller = new JScrollPane(this.settlementList);
-        listScroller.setPreferredSize(new Dimension(250, 250));
+	/** Box to choose the type of settlements to list. */
+	private JComboBox<String> displayOptionBox;
 
-        this.displayOptionBox = new JComboBox<>(new String[] {
-                Messages.message("findSettlementPanel.displayAll"),
-                Messages.message("findSettlementPanel.displayOnlyNatives"),
-                Messages.message("findSettlementPanel.displayOnlyEuropean"),
-            });
-        this.displayOptionBox.addItemListener(this);
+	/** The list of settlements to display. */
+	private final JList<Settlement> settlementList;
 
-        add(Utility.localizedHeader(Messages.nameKey("findSettlementPanel"), true));
-        add(listScroller, "width max(300, 100%), height max(300, 100%)");
-        add(this.displayOptionBox);
-        add(okButton, "tag ok");
+	/**
+	 * Create a new panel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public FindSettlementPanel(FreeColClient freeColClient) {
+		super(freeColClient, new MigLayout("wrap 1", "[align center]", "[]30[]30[]"));
+		this.settlementList = new JList<>();
+		this.settlementList.setCellRenderer(new SettlementRenderer());
+		this.settlementList.setFixedCellHeight(48);
+		this.settlementList.addListSelectionListener(this);
+		this.settlementList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		Action selectAction = new AbstractAction() {
+			@Override
+			public void actionPerformed(ActionEvent ae) {
+				selectSettlement();
+			}
+		};
+		this.settlementList.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "select");
+		this.settlementList.getActionMap().put("select", selectAction);
+		Action quitAction = new AbstractAction() {
+			@Override
+			public void actionPerformed(ActionEvent ae) {
+				getGUI().removeFromCanvas(FindSettlementPanel.this);
+			}
+		};
+		this.settlementList.getInputMap().put(KeyStroke.getKeyStroke("ESCAPE"), "quit");
+		this.settlementList.getActionMap().put("quit", quitAction);
+		this.settlementList.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				if (e.getClickCount() == 2) {
+					selectSettlement();
+				}
+			}
+		});
+		JScrollPane listScroller = new JScrollPane(this.settlementList);
+		listScroller.setPreferredSize(new Dimension(250, 250));
 
-        getGUI().restoreSavedSize(this, getPreferredSize());
+		this.displayOptionBox = new JComboBox<>(new String[] { Messages.message("findSettlementPanel.displayAll"),
+				Messages.message("findSettlementPanel.displayOnlyNatives"),
+				Messages.message("findSettlementPanel.displayOnlyEuropean"), });
+		this.displayOptionBox.addItemListener(this);
 
-        updateSearch(DisplayListOption.valueOf("ALL"));
-    }
+		add(Utility.localizedHeader(Messages.nameKey("findSettlementPanel"), true));
+		add(listScroller, "width max(300, 100%), height max(300, 100%)");
+		add(this.displayOptionBox);
+		add(okButton, "tag ok");
 
-    private void updateSearch(DisplayListOption displayListOption) {
-        DefaultListModel<Settlement> model
-            = new DefaultListModel<>();
-        Object selected = this.settlementList.getSelectedValue();
+		getGUI().restoreSavedSize(this, getPreferredSize());
 
-        for (Player player : getGame().getLivePlayers(null)) {
-            boolean ok;
-            switch (displayListOption) {
-            case ONLY_NATIVES:
-                ok = player.isIndian();
-                break;
-            case ONLY_EUROPEAN:
-                ok = player.isEuropean();
-                break;
-            case ALL:
-                ok = true;
-                break;
-            default:
-                ok = false;
-                break;
-            }
-            if (ok) {
-                for (Settlement s : player.getSettlements()) {
-                    model.addElement(s);
-                }
-            }
-        }
+		updateSearch(DisplayListOption.valueOf("ALL"));
+	}
 
-        this.settlementList.setModel(model);
-        this.settlementList.setSelectedValue(selected, true);
-        if (this.settlementList.getSelectedIndex() < 0) {
-            this.settlementList.setSelectedIndex(0);
-        }
-    }
+	/**
+	 * Update search.
+	 *
+	 * @param displayListOption
+	 *            the display list option
+	 */
+	private void updateSearch(DisplayListOption displayListOption) {
+		DefaultListModel<Settlement> model = new DefaultListModel<>();
+		Object selected = this.settlementList.getSelectedValue();
 
-    private void selectSettlement() {
-        Settlement settlement = this.settlementList.getSelectedValue();
-        if (settlement instanceof Colony
-            && settlement.getOwner() == getMyPlayer()) {
-            getGUI().removeFromCanvas(FindSettlementPanel.this);
-            getGUI().showColonyPanel((Colony)settlement, null);
-        } else if (settlement instanceof IndianSettlement) {
-            getGUI().removeFromCanvas(FindSettlementPanel.this);
-            getGUI().showIndianSettlementPanel((IndianSettlement)settlement);
-        }
-    }
+		for (Player player : getGame().getLivePlayers(null)) {
+			boolean ok;
+			switch (displayListOption) {
+			case ONLY_NATIVES:
+				ok = player.isIndian();
+				break;
+			case ONLY_EUROPEAN:
+				ok = player.isEuropean();
+				break;
+			case ALL:
+				ok = true;
+				break;
+			default:
+				ok = false;
+				break;
+			}
+			if (ok) {
+				for (Settlement s : player.getSettlements()) {
+					model.addElement(s);
+				}
+			}
+		}
 
+		this.settlementList.setModel(model);
+		this.settlementList.setSelectedValue(selected, true);
+		if (this.settlementList.getSelectedIndex() < 0) {
+			this.settlementList.setSelectedIndex(0);
+		}
+	}
 
-    // Interface ItemListener
+	/**
+	 * Select settlement.
+	 */
+	private void selectSettlement() {
+		Settlement settlement = this.settlementList.getSelectedValue();
+		if (settlement instanceof Colony && settlement.getOwner() == getMyPlayer()) {
+			getGUI().removeFromCanvas(FindSettlementPanel.this);
+			getGUI().showColonyPanel((Colony) settlement, null);
+		} else if (settlement instanceof IndianSettlement) {
+			getGUI().removeFromCanvas(FindSettlementPanel.this);
+			getGUI().showIndianSettlementPanel((IndianSettlement) settlement);
+		}
+	}
 
-    @Override
-    public void itemStateChanged(ItemEvent event) {
-        switch (this.displayOptionBox.getSelectedIndex()) {
-        case 0:
-        default:
-            updateSearch(DisplayListOption.valueOf("ALL"));
-            break;
-        case 1:
-            updateSearch(DisplayListOption.valueOf("ONLY_NATIVES"));
-            break;
-        case 2:
-            updateSearch(DisplayListOption.valueOf("ONLY_EUROPEAN"));
-        }
-    }
+	// Interface ItemListener
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * java.awt.event.ItemListener#itemStateChanged(java.awt.event.ItemEvent)
+	 */
+	@Override
+	public void itemStateChanged(ItemEvent event) {
+		switch (this.displayOptionBox.getSelectedIndex()) {
+		case 0:
+		default:
+			updateSearch(DisplayListOption.valueOf("ALL"));
+			break;
+		case 1:
+			updateSearch(DisplayListOption.valueOf("ONLY_NATIVES"));
+			break;
+		case 2:
+			updateSearch(DisplayListOption.valueOf("ONLY_EUROPEAN"));
+		}
+	}
 
-    // Interface ListSelectionListener
+	// Interface ListSelectionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void valueChanged(ListSelectionEvent e) {
-        Settlement settlement = this.settlementList.getSelectedValue();
-        if (settlement != null) {
-            getGUI().setFocus(settlement.getTile());
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void valueChanged(ListSelectionEvent e) {
+		Settlement settlement = this.settlementList.getSelectedValue();
+		if (settlement != null) {
+			getGUI().setFocus(settlement.getTile());
+		}
+	}
 
+	// Override Component
 
-    // Override Component
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void requestFocus() {
+		this.settlementList.requestFocus();
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void requestFocus() {
-        this.settlementList.requestFocus();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void removeNotify() {
+		super.removeNotify();
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void removeNotify() {
-        super.removeNotify();
-
-        removeAll();
-        this.displayOptionBox = null;
-    }
+		removeAll();
+		this.displayOptionBox = null;
+	}
 }

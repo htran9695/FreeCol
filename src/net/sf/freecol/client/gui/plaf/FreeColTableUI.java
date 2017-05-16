@@ -25,27 +25,44 @@ import javax.swing.JComponent;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.basic.BasicTableUI;
 
-
 /**
  * UI-class for tables.
  */
 public class FreeColTableUI extends BasicTableUI {
 
-    public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
-        return new FreeColTableUI();
-    }
+	/**
+	 * Creates the UI.
+	 *
+	 * @param c
+	 *            the c
+	 * @return the component UI
+	 */
+	public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
+		return new FreeColTableUI();
+	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * javax.swing.plaf.basic.BasicTableUI#installUI(javax.swing.JComponent)
+	 */
+	@Override
+	public void installUI(JComponent c) {
+		super.installUI(c);
 
-    @Override
-    public void installUI(JComponent c) {
-        super.installUI(c);
+		c.setOpaque(false);
+	}
 
-        c.setOpaque(false);
-    }
-
-    @Override
-    public void paint(Graphics g, JComponent c) {
-        LAFUtilities.setProperties(g, c);
-        super.paint(g, c);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.plaf.basic.BasicTableUI#paint(java.awt.Graphics,
+	 * javax.swing.JComponent)
+	 */
+	@Override
+	public void paint(Graphics g, JComponent c) {
+		LAFUtilities.setProperties(g, c);
+		super.paint(g, c);
+	}
 }

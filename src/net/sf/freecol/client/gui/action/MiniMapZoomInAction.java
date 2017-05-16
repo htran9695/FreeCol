@@ -23,60 +23,60 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for zooming in on the minimap.
  */
 public class MiniMapZoomInAction extends MapboardAction {
 
-    public static final String id = "miniMapZoomInAction";
+	/** The Constant id. */
+	public static final String id = "miniMapZoomInAction";
 
+	/**
+	 * Creates a new <code>MiniMapZoomInAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public MiniMapZoomInAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
 
-    /**
-     * Creates a new <code>MiniMapZoomInAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public MiniMapZoomInAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
+		addImageIcons("zoom_in");
+	}
 
-        addImageIcons("zoom_in");
-    }
+	/**
+	 * Creates a new <code>MiniMapZoomInAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param b
+	 *            a <code>boolean</code> value
+	 */
+	public MiniMapZoomInAction(FreeColClient freeColClient, boolean b) {
+		super(freeColClient, id + ".secondary");
 
-    /**
-     * Creates a new <code>MiniMapZoomInAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param b a <code>boolean</code> value
-     */
-    public MiniMapZoomInAction(FreeColClient freeColClient, boolean b) {
-        super(freeColClient, id + ".secondary");
- 
-        addImageIcons("zoom_in");
-    }
+		addImageIcons("zoom_in");
+	}
 
+	// Override FreeColAction
 
-    // Override FreeColAction
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		return super.shouldBeEnabled() && getGUI().canZoomInMapControls();
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        return super.shouldBeEnabled() && getGUI().canZoomInMapControls();
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        getGUI().zoomInMapControls();
-        update();
-        getActionManager().getFreeColAction(MiniMapZoomOutAction.id).update();
-        getActionManager().getFreeColAction(MiniMapZoomOutAction.id + ".secondary").update();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		getGUI().zoomInMapControls();
+		update();
+		getActionManager().getFreeColAction(MiniMapZoomOutAction.id).update();
+		getActionManager().getFreeColAction(MiniMapZoomOutAction.id + ".secondary").update();
+	}
 }

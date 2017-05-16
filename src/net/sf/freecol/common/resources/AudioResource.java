@@ -24,7 +24,6 @@ import java.net.URI;
 
 import net.sf.freecol.common.sound.SoundPlayer;
 
-
 /**
  * A <code>Resource</code> wrapping a <code>File</code> containing sounds.
  *
@@ -32,32 +31,40 @@ import net.sf.freecol.common.sound.SoundPlayer;
  */
 public class AudioResource extends Resource {
 
-    private File file;
+	/** The file. */
+	private File file;
 
+	/**
+	 * Instantiates a new audio resource.
+	 *
+	 * @param file
+	 *            the file
+	 */
+	public AudioResource(File file) {
+		this.file = file;
+	}
 
-    public AudioResource(File file) {
-        this.file = file;
-    }
+	/**
+	 * Do not use directly.
+	 * 
+	 * @param resourceLocator
+	 *            The <code>URI</code> used when loading this resource.
+	 * @throws Exception
+	 *             of assorted types from the underlying audio components
+	 */
+	public AudioResource(URI resourceLocator) throws Exception {
+		super(resourceLocator);
+		File f = new File(resourceLocator);
+		if (SoundPlayer.getAudioInputStream(f) != null)
+			this.file = f;
+	}
 
-    /**
-     * Do not use directly.
-     * @param resourceLocator The <code>URI</code> used when loading this
-     *      resource.
-     * @throws Exception of assorted types from the underlying audio components
-     */
-    public AudioResource(URI resourceLocator) throws Exception {
-        super(resourceLocator);
-        File f = new File(resourceLocator);
-        if (SoundPlayer.getAudioInputStream(f) != null) this.file = f;
-    }
-
-
-    /**
-     * Gets the file represented by this resource.
-     *
-     * @return The <code>File</code> for this resource.
-     */
-    public File getAudio() {
-        return file;
-    }
+	/**
+	 * Gets the file represented by this resource.
+	 *
+	 * @return The <code>File</code> for this resource.
+	 */
+	public File getAudio() {
+		return file;
+	}
 }

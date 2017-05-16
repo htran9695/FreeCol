@@ -27,7 +27,6 @@ import java.util.logging.Logger;
 
 import net.sf.freecol.common.io.sza.SimpleZippedAnimation;
 
-
 /**
  * A <code>Resource</code> wrapping a <code>SimpleZippedAnimation</code>.
  * 
@@ -35,80 +34,78 @@ import net.sf.freecol.common.io.sza.SimpleZippedAnimation;
  * @see SimpleZippedAnimation
  */
 public class SZAResource extends Resource implements Resource.Preloadable {
-    private static final Logger logger = Logger.getLogger(SZAResource.class.getName());
 
-    private final HashMap<Float, SimpleZippedAnimation> scaledSzAnimations
-        = new HashMap<>();
-    private volatile SimpleZippedAnimation szAnimation = null;
-    private final Object loadingLock = new Object();
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(SZAResource.class.getName());
 
+	/** The scaled sz animations. */
+	private final HashMap<Float, SimpleZippedAnimation> scaledSzAnimations = new HashMap<>();
 
-    /**
-     * Do not use directly.
-     *
-     * @param resourceLocator The <code>URI</code> used when loading this
-     *     resource.
-     */
-    public SZAResource(URI resourceLocator) {
-        super(resourceLocator);
-    }
+	/** The sz animation. */
+	private volatile SimpleZippedAnimation szAnimation = null;
 
+	/** The loading lock. */
+	private final Object loadingLock = new Object();
 
-    /**
-     * Preloading the animation.
-     */
-    @Override
-    public void preload() {
-        synchronized (loadingLock) {
-            if (szAnimation == null) {
-                try {
-                    szAnimation = new SimpleZippedAnimation(
-                        getResourceLocator().toURL());
-                } catch (IOException e) {
-                    logger.log(Level.WARNING,
-                        "Could not load SimpleZippedAnimation: "
-                        + getResourceLocator(), e);
-                }
-            }
-        }
-    }
+	/**
+	 * Do not use directly.
+	 *
+	 * @param resourceLocator
+	 *            The <code>URI</code> used when loading this resource.
+	 */
+	public SZAResource(URI resourceLocator) {
+		super(resourceLocator);
+	}
 
-    /**
-     * Gets the <code>SimpleZippedAnimation</code> represented by this
-     * resource.
-     *
-     * @return The <code>SimpleZippedAnimation</code> in it's original size.
-     */
-    public SimpleZippedAnimation getSimpleZippedAnimation() {
-        if (szAnimation == null) {
-            logger.finest("Preload not ready for " + getResourceLocator());
-            preload();
-        }
-        return szAnimation;
-    }
+	/**
+	 * Preloading the animation.
+	 */
+	@Override
+	public void preload() {
+		synchronized (loadingLock) {
+			if (szAnimation == null) {
+				try {
+					szAnimation = new SimpleZippedAnimation(getResourceLocator().toURL());
+				} catch (IOException e) {
+					logger.log(Level.WARNING, "Could not load SimpleZippedAnimation: " + getResourceLocator(), e);
+				}
+			}
+		}
+	}
 
-    /**
-     * Get the <code>SimpleZippedAnimation</code> using the specified
-     * scale.
-     * 
-     * @param scale The size of the requested animation (with 1 being normal
-     *      size, 2 twice the size, 0.5 half the size etc). Rescaling
-     *      will be performed unless using 1.
-     * @return The <code>SimpleZippedAnimation</code>.
-     */
-    public SimpleZippedAnimation getSimpleZippedAnimation(float scale) {
-        final SimpleZippedAnimation sza = getSimpleZippedAnimation();
-        if (scale == 1.0f) {
-            return sza;
-        }
-        final SimpleZippedAnimation cachedScaledVersion
-            = scaledSzAnimations.get(scale);
-        if (cachedScaledVersion != null) {
-            return cachedScaledVersion;
-        }
-        final SimpleZippedAnimation scaledVersion
-            = sza.createScaledVersion(scale);
-        scaledSzAnimations.put(scale, scaledVersion);
-        return scaledVersion;
-    }
+	/**
+	 * Gets the <code>SimpleZippedAnimation</code> represented by this resource.
+	 *
+	 * @return The <code>SimpleZippedAnimation</code> in it's original size.
+	 */
+	public SimpleZippedAnimation getSimpleZippedAnimation() {
+		if (szAnimation == null) {
+			logger.finest("Preload not ready for " + getResourceLocator());
+			preload();
+		}
+		return szAnimation;
+	}
+
+	/**
+	 * Get the <code>SimpleZippedAnimation</code> using the specified scale.
+	 * 
+	 * @param scale
+	 *            The size of the requested animation (with 1 being normal size,
+	 *            2 twice the size, 0.5 half the size etc). Rescaling will be
+	 *            performed unless using 1.
+	 * @return The <code>SimpleZippedAnimation</code>.
+	 */
+	public SimpleZippedAnimation getSimpleZippedAnimation(float scale) {
+		final SimpleZippedAnimation sza = getSimpleZippedAnimation();
+		if (scale == 1.0f) {
+			return sza;
+		}
+		final SimpleZippedAnimation cachedScaledVersion = scaledSzAnimations.get(scale);
+		if (cachedScaledVersion != null) {
+			return cachedScaledVersion;
+		}
+		final SimpleZippedAnimation scaledVersion = sza.createScaledVersion(scale);
+		scaledSzAnimations.put(scale, scaledVersion);
+		return scaledVersion;
+	}
 }

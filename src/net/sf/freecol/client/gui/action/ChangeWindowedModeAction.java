@@ -24,60 +24,56 @@ import java.awt.event.ActionEvent;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.GUI;
 
-
 /**
  * An action for toggling between full-screen and windowed mode.
  */
 public class ChangeWindowedModeAction extends SelectableAction {
 
-    public static final String id = "changeWindowedModeAction";
+	/** The Constant id. */
+	public static final String id = "changeWindowedModeAction";
 
+	/**
+	 * Creates a new <code>ChangeWindowedModeAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ChangeWindowedModeAction(FreeColClient freeColClient) {
+		super(freeColClient, id, null);
+	}
 
-    /**
-     * Creates a new <code>ChangeWindowedModeAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ChangeWindowedModeAction(FreeColClient freeColClient) {
-        super(freeColClient, id, null);
-    }
+	// Override SelectableAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean shouldBeSelected() {
+		final GUI gui = getGUI();
+		return super.shouldBeSelected() && !(gui == null || gui.isWindowed());
+	}
 
-    // Override SelectableAction
+	// Override FreeColAction
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean shouldBeSelected() {
-        final GUI gui = getGUI();
-        return super.shouldBeSelected()
-            && !(gui == null || gui.isWindowed());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean shouldBeEnabled() {
+		final GUI gui = getGUI();
+		return super.shouldBeEnabled() && !(gui == null || gui.isShowingSubPanel());
+	}
 
+	// Interface ActionListener
 
-    // Override FreeColAction
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean shouldBeEnabled() {
-        final GUI gui = getGUI();
-        return super.shouldBeEnabled()
-            && !(gui == null || gui.isShowingSubPanel());
-    }
-    
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        GUI gui = getGUI();
-        if (gui == null) return;
-        gui.changeWindowedMode();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		GUI gui = getGUI();
+		if (gui == null)
+			return;
+		gui.changeWindowedMode();
+	}
 }

@@ -43,217 +43,220 @@ import net.sf.freecol.client.gui.ChoiceItem;
 import net.sf.freecol.client.gui.panel.MigPanel;
 import net.sf.freecol.common.i18n.Messages;
 
-
 /**
- * Draw the "image.background.FreeColOptionPane" resource as a tiled
- * background image.
+ * Draw the "image.background.FreeColOptionPane" resource as a tiled background
+ * image.
  */
 public class FreeColOptionPaneUI extends BasicOptionPaneUI {
 
-    /** The initial focus component. */
-    private Component initialFocusComponent = null;
+	/** The initial focus component. */
+	private Component initialFocusComponent = null;
 
-    /** The cancel index. */
-    private int okIndex = -1, cancelIndex = -1;
+	/** The cancel index. */
+	private int okIndex = -1, cancelIndex = -1;
 
-    /** The new buttons. */
-    private JButton[] newButtons = null;
+	/** The new buttons. */
+	private JButton[] newButtons = null;
 
+	/**
+	 * Instantiates a new free col option pane UI.
+	 */
+	private FreeColOptionPaneUI() {
+	}
 
-    /**
-     * Instantiates a new free col option pane UI.
-     */
-    private FreeColOptionPaneUI() {}
+	/**
+	 * Creates the UI.
+	 *
+	 * @param c
+	 *            the c
+	 * @return the component UI
+	 */
+	public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
+		return new FreeColOptionPaneUI();
+	}
 
-    /**
-     * Creates the UI.
-     *
-     * @param c the c
-     * @return the component UI
-     */
-    public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
-        return new FreeColOptionPaneUI();
-    }
+	/**
+	 * Gets the initial focus component.
+	 *
+	 * @return the initial focus component
+	 */
+	public Component getInitialFocusComponent() {
+		return initialFocusComponent;
+	}
 
-    /**
-     * Gets the initial focus component.
-     *
-     * @return the initial focus component
-     */
-    public Component getInitialFocusComponent() {
-        return initialFocusComponent;
-    }
+	/**
+	 * Choose the number of columns for the OptionPane buttons.
+	 *
+	 * @param nButtons
+	 *            The number of buttons.
+	 * @return A suitable number of columns.
+	 */
+	private int getColumns(int nButtons) {
+		return (nButtons > 21) ? 4
+				: ((nButtons % 4) == 0 && nButtons > 12) ? 4
+						: ((nButtons % 3) == 0 && nButtons > 6) ? 3
+								: ((nButtons % 2) == 0 && nButtons > 4) ? 2 : (nButtons > 5) ? 2 : 1;
+	}
 
-    /**
-     * Choose the number of columns for the OptionPane buttons.
-     *
-     * @param nButtons The number of buttons.
-     * @return A suitable number of columns.
-     */
-    private int getColumns(int nButtons) {
-        return (nButtons > 21) ? 4
-            :  ((nButtons % 4) == 0 && nButtons > 12) ? 4
-            :  ((nButtons % 3) == 0 && nButtons > 6)  ? 3
-            :  ((nButtons % 2) == 0 && nButtons > 4)  ? 2
-            :  (nButtons > 5)  ? 2
-            :  1;
-    }
+	/**
+	 * Prepare the new buttons for this component.
+	 *
+	 * @param buttons
+	 *            An array of objects provided to define the buttons.
+	 */
+	private void prepareButtons(Object[] buttons) {
+		if (this.newButtons != null)
+			return;
 
-    /**
-     * Prepare the new buttons for this component.
-     *
-     * @param buttons An array of objects provided to define the buttons.
-     */
-    private void prepareButtons(Object[] buttons) {
-        if (this.newButtons != null) return;
+		final String okLabel = Messages.message("ok");
+		final String cancelLabel = Messages.message("cancel");
+		this.newButtons = new JButton[buttons.length];
 
-        final String okLabel = Messages.message("ok");
-        final String cancelLabel = Messages.message("cancel");
-        this.newButtons = new JButton[buttons.length];
+		int maxWidth = 0, maxHeight = 0;
+		for (int i = 0; i < buttons.length; i++) {
+			JButton b;
+			if (buttons[i] instanceof ChoiceItem) {
+				ChoiceItem ci = (ChoiceItem) buttons[i];
+				String label = ci.toString();
+				Icon icon = ci.getIcon();
+				b = (icon == null) ? new JButton(label)
+						: (label == null || label.isEmpty()) ? new JButton(icon) : new JButton(label, icon);
+				b.setName("OptionPane.button." + label);
+				if (ci.isOK())
+					this.okIndex = i;
+				else if (ci.isCancel())
+					this.cancelIndex = i;
+			} else if (buttons[i] instanceof Icon) {
+				b = new JButton((Icon) buttons[i]);
+				b.setName("OptionPane.button.withIcon");
+			} else {
+				String label = buttons[i].toString();
+				b = new JButton(label);
+				b.setName("OptionPane.button." + label);
+				if (okLabel.equals(label))
+					this.okIndex = i;
+				else if (cancelLabel.equals(label))
+					this.cancelIndex = i;
+			}
+			maxWidth = Math.max(maxWidth, b.getMinimumSize().width);
+			maxHeight = Math.max(maxHeight, b.getMinimumSize().height);
+			ActionListener buttonListener = createButtonActionListener(i);
+			if (buttonListener != null)
+				b.addActionListener(buttonListener);
+			this.newButtons[i] = b;
+		}
+		if (maxWidth > 0) {
+			Dimension dimension = new Dimension(maxWidth, maxHeight);
+			for (int i = 0; i < buttons.length; i++) {
+				if (buttons[i] instanceof Icon)
+					continue;
+				newButtons[i].setPreferredSize(dimension);
+				newButtons[i].setMinimumSize(dimension);
+			}
+		}
+	}
 
-        int maxWidth = 0, maxHeight = 0;
-        for (int i = 0; i < buttons.length; i++) {
-            JButton b;
-            if (buttons[i] instanceof ChoiceItem) {
-                ChoiceItem ci = (ChoiceItem)buttons[i];
-                String label = ci.toString();
-                Icon icon = ci.getIcon();
-                b = (icon == null) ? new JButton(label)
-                    : (label == null || label.isEmpty()) ? new JButton(icon)
-                    : new JButton(label, icon);
-                b.setName("OptionPane.button." + label);
-                if (ci.isOK()) this.okIndex = i;
-                else if (ci.isCancel()) this.cancelIndex = i;
-            } else if (buttons[i] instanceof Icon) {
-                b = new JButton((Icon)buttons[i]);
-                b.setName("OptionPane.button.withIcon");
-            } else {
-                String label = buttons[i].toString();
-                b = new JButton(label);
-                b.setName("OptionPane.button." + label);
-                if (okLabel.equals(label)) this.okIndex = i;
-                else if (cancelLabel.equals(label)) this.cancelIndex = i;
-            }
-            maxWidth = Math.max(maxWidth, b.getMinimumSize().width);
-            maxHeight = Math.max(maxHeight, b.getMinimumSize().height);
-            ActionListener buttonListener = createButtonActionListener(i);
-            if (buttonListener != null) b.addActionListener(buttonListener);
-            this.newButtons[i] = b;
-        }
-        if (maxWidth > 0) {
-            Dimension dimension = new Dimension(maxWidth, maxHeight);
-            for (int i = 0; i < buttons.length; i++) {
-                if (buttons[i] instanceof Icon) continue;
-                newButtons[i].setPreferredSize(dimension);
-                newButtons[i].setMinimumSize(dimension);
-            }
-        }
-    }
+	// Override BasicOptionPaneUI
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected Container createButtonArea() {
+		Object[] buttons = getButtons();
+		prepareButtons(buttons);
 
-    // Override BasicOptionPaneUI
+		JPanel bottom;
+		if (this.okIndex >= 0) { // Confirm dialog
+			bottom = new MigPanel(new MigLayout("insets dialog"));
+		} else { // Multi-line choice dialog
+			bottom = new MigPanel(new MigLayout("wrap " + getColumns(buttons.length)));
+		}
+		bottom.setOpaque(false);
+		bottom.setName("OptionPane.buttonArea");
+		addButtonComponents(bottom, buttons, getInitialValueIndex());
+		bottom.setSize(bottom.getPreferredSize());
+		return bottom;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected Container createButtonArea() {
-        Object[] buttons = getButtons();
-        prepareButtons(buttons);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void addButtonComponents(Container container, Object[] buttons, int initialIndex) {
+		if (buttons == null)
+			return;
 
-        JPanel bottom;
-        if (this.okIndex >= 0) { // Confirm dialog
-            bottom = new MigPanel(new MigLayout("insets dialog"));
-        } else { // Multi-line choice dialog
-            bottom = new MigPanel(new MigLayout("wrap "
-                    + getColumns(buttons.length)));
-        }
-        bottom.setOpaque(false);
-        bottom.setName("OptionPane.buttonArea");
-        addButtonComponents(bottom, buttons, getInitialValueIndex());
-        bottom.setSize(bottom.getPreferredSize());
-        return bottom;
-    }
+		if (0 <= initialIndex && initialIndex < buttons.length) {
+			JButton b = newButtons[initialIndex];
+			this.initialFocusComponent = b;
+			b.addHierarchyListener((HierarchyEvent e) -> {
+				if ((e.getChangeFlags() & HierarchyEvent.PARENT_CHANGED) != 0) {
+					JButton button = (JButton) e.getComponent();
+					JRootPane root = SwingUtilities.getRootPane(button);
+					if (root != null)
+						root.setDefaultButton(button);
+				}
+			});
+		}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void addButtonComponents(Container container, Object[] buttons,
-                                       int initialIndex) {
-        if (buttons == null) return;
+		if (okIndex >= 0) {
+			// If OK is present this is a confirm-dialog. Put everything
+			// in the same span especially the Cancel.
+			if (cancelIndex >= 0) {
+				container.add(newButtons[cancelIndex], "tag cancel");
+			}
+			container.add(newButtons[okIndex], "tag ok");
+			for (int i = 0; i < buttons.length; i++) {
+				if (i == okIndex || i == cancelIndex)
+					continue;
+				container.add(newButtons[i]);
+			}
+		} else {
+			// This must be a choice dialog. The wrap argument to the
+			// MigLayout constructor will do the work for us.
+			for (int i = 0; i < buttons.length; i++) {
+				if (i == cancelIndex)
+					continue;
+				container.add(newButtons[i]);
+			}
+			if (cancelIndex >= 0) {
+				container.add(newButtons[cancelIndex], "newline 20, tag cancel");
+			}
+		}
+		// The righthand button gets truncated, so add some extra space.
+		Dimension prefer = container.getPreferredSize();
+		prefer = new Dimension((int) (prefer.getWidth() + 100), (int) prefer.getHeight());
+		container.setMinimumSize(prefer);
+		container.setPreferredSize(prefer);
+	}
 
-        if (0 <= initialIndex && initialIndex < buttons.length) {
-            JButton b = newButtons[initialIndex];
-            this.initialFocusComponent = b;
-            b.addHierarchyListener((HierarchyEvent e) -> {
-                    if ((e.getChangeFlags() & HierarchyEvent.PARENT_CHANGED) != 0) {
-                        JButton button = (JButton)e.getComponent();
-                        JRootPane root = SwingUtilities.getRootPane(button);
-                        if (root != null) root.setDefaultButton(button);
-                    }
-                });
-        }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void selectInitialValue(JOptionPane op) {
+		if (initialFocusComponent != null) {
+			initialFocusComponent.requestFocus();
 
-        if (okIndex >= 0) {
-            // If OK is present this is a confirm-dialog.  Put everything
-            // in the same span especially the Cancel.
-            if (cancelIndex >= 0) {
-                container.add(newButtons[cancelIndex], "tag cancel");
-            }
-            container.add(newButtons[okIndex], "tag ok");
-            for (int i = 0; i < buttons.length; i++) {
-                if (i == okIndex || i == cancelIndex) continue;
-                container.add(newButtons[i]);
-            }
-        } else {
-            // This must be a choice dialog.  The wrap argument to the
-            // MigLayout constructor will do the work for us.
-            for (int i = 0; i < buttons.length; i++) {
-                if (i == cancelIndex) continue;
-                container.add(newButtons[i]);
-            }
-            if (cancelIndex >= 0) {
-                container.add(newButtons[cancelIndex],
-                              "newline 20, tag cancel");
-            }
-        }
-        // The righthand button gets truncated, so add some extra space.
-        Dimension prefer = container.getPreferredSize();
-        prefer = new Dimension((int)(prefer.getWidth() + 100),
-                               (int)prefer.getHeight());
-        container.setMinimumSize(prefer);
-        container.setPreferredSize(prefer);
-    }
+			if (initialFocusComponent instanceof JButton) {
+				JRootPane root = SwingUtilities.getRootPane(initialFocusComponent);
+				if (root != null) {
+					root.setDefaultButton((JButton) initialFocusComponent);
+				}
+			}
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void selectInitialValue(JOptionPane op) {
-        if (initialFocusComponent != null) {
-            initialFocusComponent.requestFocus();
- 
-            if (initialFocusComponent instanceof JButton) {
-                JRootPane root = SwingUtilities.getRootPane(initialFocusComponent);
-                if (root != null) {
-                    root.setDefaultButton((JButton)initialFocusComponent);
-                }
-            }
-        }
-    }
+	// Override ComponentUI
 
-
-    // Override ComponentUI
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void paint(Graphics g, JComponent c) {
-        if (c.isOpaque()) {
-            ImageLibrary.drawTiledImage("image.background.FreeColOptionPane",
-                                        g, c, null);
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void paint(Graphics g, JComponent c) {
+		if (c.isOpaque()) {
+			ImageLibrary.drawTiledImage("image.background.FreeColOptionPane", g, c, null);
+		}
+	}
 }

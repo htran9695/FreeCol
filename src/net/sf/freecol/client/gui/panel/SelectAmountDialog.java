@@ -33,98 +33,105 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Player;
 
-
 /**
  * The panel that allows a choice of goods amount.
  */
 public final class SelectAmountDialog extends FreeColInputDialog<Integer> {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(SelectAmountDialog.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(SelectAmountDialog.class.getName());
 
-    private static final int SELECT_CANCEL = -1;
+	/** The Constant SELECT_CANCEL. */
+	private static final int SELECT_CANCEL = -1;
 
-    /** The default amounts to try. */
-    private static final int[] amounts = { 20, 40, 50, 60, 80, 100 };
+	/** The default amounts to try. */
+	private static final int[] amounts = { 20, 40, 50, 60, 80, 100 };
 
-    /** The combo box to input the amount through. */
-    private final JComboBox<Integer> comboBox;
+	/** The combo box to input the amount through. */
+	private final JComboBox<Integer> comboBox;
 
+	/**
+	 * The constructor to use.
+	 *
+	 * @param freeColClient
+	 *            The enclosing <code>FreeColClient</code>.
+	 * @param frame
+	 *            The owner frame.
+	 * @param goodsType
+	 *            The <code>GoodsType</code> to select an amount of.
+	 * @param available
+	 *            The amount of goods available.
+	 * @param defaultAmount
+	 *            The amount to select to start with.
+	 * @param pay
+	 *            If true, check the player has sufficient funds.
+	 */
+	public SelectAmountDialog(FreeColClient freeColClient, JFrame frame, GoodsType goodsType, int available,
+			int defaultAmount, boolean pay) {
+		super(freeColClient, frame);
 
-    /**
-     * The constructor to use.
-     *
-     * @param freeColClient The enclosing <code>FreeColClient</code>.
-     * @param frame The owner frame.
-     * @param goodsType The <code>GoodsType</code> to select an amount of.
-     * @param available The amount of goods available.
-     * @param defaultAmount The amount to select to start with.
-     * @param pay If true, check the player has sufficient funds.
-     */
-    public SelectAmountDialog(FreeColClient freeColClient, JFrame frame,
-            GoodsType goodsType, int available, int defaultAmount, boolean pay) {
-        super(freeColClient, frame);
+		if (pay) {
+			final Player player = getMyPlayer();
+			final int gold = player.getGold();
+			int price = player.getMarket().getCostToBuy(goodsType);
+			available = Math.min(available, gold / price);
+		}
 
-        if (pay) {
-            final Player player = getMyPlayer();
-            final int gold = player.getGold();
-            int price = player.getMarket().getCostToBuy(goodsType);
-            available = Math.min(available, gold/price);
-        }
+		JTextArea question = Utility.localizedTextArea("selectAmountDialog.text");
 
-        JTextArea question
-            = Utility.localizedTextArea("selectAmountDialog.text");
+		int defaultIndex = -1;
+		List<Integer> values = new ArrayList<>();
+		for (int index = 0; index < amounts.length; index++) {
+			if (amounts[index] < available) {
+				if (amounts[index] == defaultAmount)
+					defaultIndex = index;
+				values.add(amounts[index]);
+			} else {
+				if (available == defaultAmount)
+					defaultIndex = index;
+				values.add(available);
+				break;
+			}
+		}
+		if (defaultAmount > 0 && defaultIndex < 0) {
+			for (int index = 0; index < values.size(); index++) {
+				if (defaultAmount < values.get(index)) {
+					values.add(index, defaultAmount);
+					defaultIndex = index;
+					break;
+				}
+			}
+		}
+		this.comboBox = new JComboBox<>(values.toArray(new Integer[0]));
+		this.comboBox.setEditable(true);
+		if (defaultIndex >= 0)
+			this.comboBox.setSelectedIndex(defaultIndex);
 
-        int defaultIndex = -1;
-        List<Integer> values = new ArrayList<>();
-        for (int index = 0; index < amounts.length; index++) {
-            if (amounts[index] < available) {
-                if (amounts[index] == defaultAmount) defaultIndex = index;
-                values.add(amounts[index]);
-            } else {
-                if (available == defaultAmount) defaultIndex = index;
-                values.add(available);
-                break;
-            }
-        }
-        if (defaultAmount > 0 && defaultIndex < 0) {
-            for (int index = 0; index < values.size(); index++) {
-                if (defaultAmount < values.get(index)) {
-                    values.add(index, defaultAmount);
-                    defaultIndex = index;
-                    break;
-                }
-            }
-        }
-        this.comboBox = new JComboBox<>(values.toArray(new Integer[0]));
-        this.comboBox.setEditable(true);
-        if (defaultIndex >= 0) this.comboBox.setSelectedIndex(defaultIndex);
+		MigPanel panel = new MigPanel(new MigLayout("wrap 1", "", ""));
+		panel.add(question);
+		panel.add(this.comboBox, "wrap 20, growx");
+		panel.setSize(panel.getPreferredSize());
 
-        MigPanel panel = new MigPanel(new MigLayout("wrap 1", "", ""));
-        panel.add(question);
-        panel.add(this.comboBox, "wrap 20, growx");
-        panel.setSize(panel.getPreferredSize());
+		initializeInputDialog(frame, true, panel, null, "ok", "cancel");
+	}
 
-        initializeInputDialog(frame, true, panel, null, "ok", "cancel");
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected Integer getInputValue() {
+		Object value = this.comboBox.getSelectedItem();
+		return (value instanceof Integer) ? (Integer) value : -1;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected Integer getInputValue() {
-        Object value = this.comboBox.getSelectedItem();
-        return (value instanceof Integer) ? (Integer)value : -1;
-    }
+	// Override Component
 
-
-    // Override Component
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void requestFocus() {
-        this.comboBox.requestFocus();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void requestFocus() {
+		this.comboBox.requestFocus();
+	}
 }

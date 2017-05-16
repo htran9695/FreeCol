@@ -23,32 +23,31 @@ import java.awt.event.ActionEvent;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
  * An action for executing goto orders immediately.
  */
 public class ExecuteGotoOrdersAction extends MapboardAction {
 
-    public static final String id = "executeGotoOrdersAction";
+	/** The Constant id. */
+	public static final String id = "executeGotoOrdersAction";
 
+	/**
+	 * Creates a new <code>ExecuteGotoOrdersAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ExecuteGotoOrdersAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>ExecuteGotoOrdersAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ExecuteGotoOrdersAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        igc().executeGotoOrders();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		igc().executeGotoOrders();
+	}
 }

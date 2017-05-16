@@ -35,278 +35,285 @@ import net.sf.freecol.common.model.Unit;
 
 import net.miginfocom.swing.MigLayout;
 
-
 /**
- * A panel that holds units and goods that represent Units and cargo
- * that are on board the currently selected ship.
+ * A panel that holds units and goods that represent Units and cargo that are on
+ * board the currently selected ship.
  */
-public class CargoPanel extends FreeColPanel
-    implements DropTarget, PropertyChangeListener {
+public class CargoPanel extends FreeColPanel implements DropTarget, PropertyChangeListener {
 
-    private static final Logger logger = Logger.getLogger(CargoPanel.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(CargoPanel.class.getName());
 
-    /** The carrier that contains cargo. */
-    private Unit carrier;
+	/** The carrier that contains cargo. */
+	private Unit carrier;
 
-    private DefaultTransferHandler defaultTransferHandler = null;
+	/** The default transfer handler. */
+	private DefaultTransferHandler defaultTransferHandler = null;
 
+	/**
+	 * Creates this CargoPanel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param withTitle
+	 *            Should the panel have a title?
+	 */
+	public CargoPanel(FreeColClient freeColClient, boolean withTitle) {
+		super(freeColClient, new MigLayout("wrap 6, fill, insets 0"));
 
-    /**
-     * Creates this CargoPanel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param withTitle Should the panel have a title?
-     */
-    public CargoPanel(FreeColClient freeColClient, boolean withTitle) {
-        super(freeColClient, new MigLayout("wrap 6, fill, insets 0"));
+		this.carrier = null;
+		this.defaultTransferHandler = new DefaultTransferHandler(getFreeColClient(), this);
 
-        this.carrier = null;
-        this.defaultTransferHandler
-            = new DefaultTransferHandler(getFreeColClient(), this);
+		if (withTitle)
+			setBorder(Utility.localizedBorder("cargoOnCarrier"));
+	}
 
-        if (withTitle) setBorder(Utility.localizedBorder("cargoOnCarrier"));
-    }
+	/**
+	 * Initialize this CargoPanel.
+	 */
+	public void initialize() {
+		addPropertyChangeListeners();
+		update();
+	}
 
+	/**
+	 * Clean up this CargoPanel.
+	 */
+	public void cleanup() {
+		removePropertyChangeListeners();
+	}
 
-    /**
-     * Initialize this CargoPanel.
-     */
-    public void initialize() {
-        addPropertyChangeListeners();
-        update();
-    }
+	/**
+	 * Adds the property change listeners.
+	 */
+	protected void addPropertyChangeListeners() {
+		if (carrier != null) {
+			carrier.addPropertyChangeListener(Unit.CARGO_CHANGE, this);
+			carrier.getGoodsContainer().addPropertyChangeListener(this);
+		}
+	}
 
-    /**
-     * Clean up this CargoPanel.
-     */
-    public void cleanup() {
-        removePropertyChangeListeners();
-    }
+	/**
+	 * Removes the property change listeners.
+	 */
+	protected void removePropertyChangeListeners() {
+		if (carrier != null) {
+			carrier.removePropertyChangeListener(Unit.CARGO_CHANGE, this);
+			carrier.getGoodsContainer().removePropertyChangeListener(this);
+		}
+	}
 
-    protected void addPropertyChangeListeners() {
-        if (carrier != null) {
-            carrier.addPropertyChangeListener(Unit.CARGO_CHANGE, this);
-            carrier.getGoodsContainer().addPropertyChangeListener(this);
-        }
-    }
+	/**
+	 * Update this CargoPanel.
+	 */
+	public void update() {
+		removeAll();
 
-    protected void removePropertyChangeListeners() {
-        if (carrier != null) {
-            carrier.removePropertyChangeListener(Unit.CARGO_CHANGE, this);
-            carrier.getGoodsContainer().removePropertyChangeListener(this);
-        }
-    }
+		if (carrier != null) {
+			DragListener dl = new DragListener(getFreeColClient(), this);
+			Iterator<Unit> unitIterator = carrier.getUnitIterator();
+			while (unitIterator.hasNext()) {
+				Unit unit = unitIterator.next();
 
-    /**
-     * Update this CargoPanel.
-     */
-    public void update() {
-        removeAll();
+				UnitLabel label = new UnitLabel(getFreeColClient(), unit);
+				if (isEditable()) {
+					label.setTransferHandler(defaultTransferHandler);
+					label.addMouseListener(dl);
+				}
+				add(label);
+			}
 
-        if (carrier != null) {
-            DragListener dl = new DragListener(getFreeColClient(), this);
-            Iterator<Unit> unitIterator = carrier.getUnitIterator();
-            while (unitIterator.hasNext()) {
-                Unit unit = unitIterator.next();
+			Iterator<Goods> goodsIterator = carrier.getGoodsIterator();
+			while (goodsIterator.hasNext()) {
+				Goods g = goodsIterator.next();
 
-                UnitLabel label = new UnitLabel(getFreeColClient(), unit);
-                if (isEditable()) {
-                    label.setTransferHandler(defaultTransferHandler);
-                    label.addMouseListener(dl);
-                }
-                add(label);
-            }
+				GoodsLabel label = new GoodsLabel(getGUI(), g);
+				if (isEditable()) {
+					label.setTransferHandler(defaultTransferHandler);
+					label.addMouseListener(dl);
+				}
+				add(label);
+			}
+		}
+		updateTitle();
+		revalidate();
+		repaint();
+	}
 
-            Iterator<Goods> goodsIterator = carrier.getGoodsIterator();
-            while (goodsIterator.hasNext()) {
-                Goods g = goodsIterator.next();
+	/**
+	 * Whether this panel is active.
+	 *
+	 * @return boolean <b>true</b> == active
+	 */
+	public boolean isActive() {
+		return carrier != null;
+	}
 
-                GoodsLabel label = new GoodsLabel(getGUI(), g);
-                if (isEditable()) {
-                    label.setTransferHandler(defaultTransferHandler);
-                    label.addMouseListener(dl);
-                }
-                add(label);
-            }
-        }
-        updateTitle();
-        revalidate();
-        repaint();
-    }
+	/**
+	 * Get the carrier unit.
+	 *
+	 * @return The carrier <code>Unit</code>.
+	 */
+	public Unit getCarrier() {
+		return carrier;
+	}
 
+	/**
+	 * Set the carrier unit.
+	 *
+	 * @param newCarrier
+	 *            The new carrier <code>Unit</code>.
+	 */
+	public void setCarrier(final Unit newCarrier) {
+		if (newCarrier != carrier) {
+			cleanup();
+			this.carrier = newCarrier;
+			initialize();
+		}
+	}
 
-    /**
-     * Whether this panel is active.
-     *
-     * @return boolean <b>true</b> == active
-     */
-    public boolean isActive() {
-        return carrier != null;
-    }
+	/**
+	 * Update the title of this CargoPanel.
+	 */
+	private void updateTitle() {
+		Utility.localizeBorder(this,
+				(carrier == null) ? StringTemplate.key("cargoOnCarrier")
+						: StringTemplate.template("cargoPanel.cargoAndSpace")
+								.addStringTemplate("%name%", carrier.getLabel(Unit.UnitLabelType.NATIONAL))
+								.addAmount("%space%", carrier.getSpaceLeft()));
+	}
 
-    /**
-     * Get the carrier unit.
-     *
-     * @return The carrier <code>Unit</code>.
-     */
-    public Unit getCarrier() {
-        return carrier;
-    }
+	// Interface DropTarget
 
-    /**
-     * Set the carrier unit.
-     *
-     * @param newCarrier The new carrier <code>Unit</code>.
-     */
-    public void setCarrier(final Unit newCarrier) {
-        if (newCarrier != carrier) {
-            cleanup();
-            this.carrier = newCarrier;
-            initialize();
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	public boolean accepts(Unit unit) {
+		return true;
+	}
 
-    /**
-     * Update the title of this CargoPanel.
-     */
-    private void updateTitle() {
-        Utility.localizeBorder(this, (carrier == null)
-            ? StringTemplate.key("cargoOnCarrier")
-            : StringTemplate.template("cargoPanel.cargoAndSpace")
-                .addStringTemplate("%name%",
-                    carrier.getLabel(Unit.UnitLabelType.NATIONAL))
-                .addAmount("%space%", carrier.getSpaceLeft()));
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	public boolean accepts(Goods goods) {
+		return true;
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	public Component add(Component comp, boolean editState) {
+		if (carrier == null)
+			return null;
 
-    // Interface DropTarget
+		if (editState) {
+			if (comp instanceof GoodsLabel) {
+				Goods goods = ((GoodsLabel) comp).getGoods();
+				int loadableAmount = carrier.getLoadableAmount(goods.getType());
+				if (loadableAmount == 0)
+					return null;
+				if (loadableAmount > goods.getAmount()) {
+					loadableAmount = goods.getAmount();
+				}
+				Goods toAdd = new Goods(goods.getGame(), goods.getLocation(), goods.getType(), loadableAmount);
+				goods.setAmount(goods.getAmount() - loadableAmount);
+				igc().loadCargo(toAdd, carrier);
+				update();
+				return comp;
 
-    /**
-     * {@inheritDoc}
-     */
-    public boolean accepts(Unit unit) {
-        return true;
-    }
+			} else if (comp instanceof MarketLabel) {
+				MarketLabel label = (MarketLabel) comp;
+				Player player = carrier.getOwner();
+				if (!player.canTrade(label.getType())) {
+					igc().payArrears(label.getType());
+					return null;
+				}
+				igc().buyGoods(label.getType(), label.getAmount(), carrier);
+				igc().nextModelMessage();
+				update();
+				return comp;
 
-    /**
-     * {@inheritDoc}
-     */
-    public boolean accepts(Goods goods) {
-        return true;
-    }
+			} else if (comp instanceof UnitLabel) {
+				Unit unit = ((UnitLabel) comp).getUnit();
+				if (carrier.canAdd(unit)) {
+					Container oldParent = comp.getParent();
+					if (igc().boardShip(unit, carrier)) {
+						((UnitLabel) comp).setSmall(false);
+						if (oldParent != null)
+							oldParent.remove(comp);
+						update();
+						return comp;
+					}
+				}
+			}
+		} else {
+			super.add(comp);
+		}
+		return null;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    public Component add(Component comp, boolean editState) {
-        if (carrier == null) return null;
+	/**
+	 * {@inheritDoc}
+	 */
+	public int suggested(GoodsType type) {
+		return carrier.getLoadableAmount(type);
+	}
 
-        if (editState) {
-            if (comp instanceof GoodsLabel) {
-                Goods goods = ((GoodsLabel)comp).getGoods();
-                int loadableAmount = carrier.getLoadableAmount(goods.getType());
-                if (loadableAmount == 0) return null;
-                if (loadableAmount > goods.getAmount()) {
-                    loadableAmount = goods.getAmount();
-                }
-                Goods toAdd = new Goods(goods.getGame(), goods.getLocation(),
-                                        goods.getType(), loadableAmount);
-                goods.setAmount(goods.getAmount() - loadableAmount);
-                igc().loadCargo(toAdd, carrier);
-                update();
-                return comp;
+	// Interface PropertyChangeListener
 
-            } else if (comp instanceof MarketLabel) {
-                MarketLabel label = (MarketLabel)comp;
-                Player player = carrier.getOwner();
-                if (!player.canTrade(label.getType())) {
-                    igc().payArrears(label.getType());
-                    return null;
-                }
-                igc().buyGoods(label.getType(), label.getAmount(), carrier);
-                igc().nextModelMessage();
-                update();
-                return comp;
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.beans.PropertyChangeListener#propertyChange(java.beans.
+	 * PropertyChangeEvent)
+	 */
+	@Override
+	public void propertyChange(PropertyChangeEvent event) {
+		logger.finest("CargoPanel change " + event.getPropertyName() + ": " + event.getOldValue() + " -> "
+				+ event.getNewValue());
+		update();
+	}
 
-            } else if (comp instanceof UnitLabel) {
-                Unit unit = ((UnitLabel)comp).getUnit();
-                if (carrier.canAdd(unit)) {
-                    Container oldParent = comp.getParent();
-                    if (igc().boardShip(unit, carrier)) {
-                        ((UnitLabel) comp).setSmall(false);
-                        if (oldParent != null) oldParent.remove(comp);
-                        update();
-                        return comp;
-                    }
-                }
-            }
-        } else {
-            super.add(comp);
-        }
-        return null;
-    }
+	// Override JLabel
 
-    /**
-     * {@inheritDoc}
-     */
-    public int suggested(GoodsType type) {
-        return carrier.getLoadableAmount(type);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getUIClassID() {
+		return "CargoPanelUI";
+	}
 
+	// Override Container
 
-    // Interface PropertyChangeListener
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void remove(Component comp) {
+		if (comp instanceof UnitLabel) {
+			Unit unit = ((UnitLabel) comp).getUnit();
+			igc().leaveShip(unit);
+			update();
+		} else if (comp instanceof GoodsLabel) {
+			Goods g = ((GoodsLabel) comp).getGoods();
+			igc().unloadCargo(g, false);
+			update();
+		}
+	}
 
-    @Override
-    public void propertyChange(PropertyChangeEvent event) {
-        logger.finest("CargoPanel change " + event.getPropertyName()
-                      + ": " + event.getOldValue()
-                      + " -> " + event.getNewValue());
-        update();
-    }
+	// Override Component
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void removeNotify() {
+		super.removeNotify();
 
-    // Override JLabel
+		removeAll();
+		removePropertyChangeListeners();
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getUIClassID() {
-        return "CargoPanelUI";
-    }
-
-
-    // Override Container
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void remove(Component comp) {
-        if (comp instanceof UnitLabel) {
-            Unit unit = ((UnitLabel)comp).getUnit();
-            igc().leaveShip(unit);
-            update();
-        } else if (comp instanceof GoodsLabel) {
-            Goods g = ((GoodsLabel)comp).getGoods();
-            igc().unloadCargo(g, false);
-            update();
-        }
-    }
-
-
-    // Override Component
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void removeNotify() {
-        super.removeNotify();
-
-        removeAll();
-        removePropertyChangeListeners();
-
-        defaultTransferHandler = null;
-    }
+		defaultTransferHandler = null;
+	}
 }

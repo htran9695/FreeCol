@@ -27,62 +27,59 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
- * A network request handler for the current player will automatically
- * return an error (&quot;not your turn&quot;) if called by a
- * connection other than that of the currently active player. If no
- * game is active or if the player is unknown the same error is
- * returned.
+ * A network request handler for the current player will automatically return an
+ * error (&quot;not your turn&quot;) if called by a connection other than that
+ * of the currently active player. If no game is active or if the player is
+ * unknown the same error is returned.
  */
-public abstract class CurrentPlayerNetworkRequestHandler
-    extends FreeColServerHolder implements NetworkRequestHandler {
+public abstract class CurrentPlayerNetworkRequestHandler extends FreeColServerHolder implements NetworkRequestHandler {
 
+	/**
+	 * Create a new current player request handler.
+	 *
+	 * @param freeColServer
+	 *            The enclosing <code>FreeColServer</code>.
+	 */
+	public CurrentPlayerNetworkRequestHandler(FreeColServer freeColServer) {
+		super(freeColServer);
+	}
 
-    /**
-     * Create a new current player request handler.
-     *
-     * @param freeColServer The enclosing <code>FreeColServer</code>.
-     */
-    public CurrentPlayerNetworkRequestHandler(FreeColServer freeColServer) {
-        super(freeColServer);
-    }
+	/**
+	 * Check if a player is the current player.
+	 * 
+	 * @param player
+	 *            The <code>Player</code> to check.
+	 * @return true if a game is active and the player is the current one.
+	 */
+	private boolean isCurrentPlayer(Player player) {
+		Game game = getGame();
+		return (player == null || game == null) ? false : player.equals(game.getCurrentPlayer());
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public final Element handle(Connection conn, Element element) {
+		ServerPlayer player = getFreeColServer().getPlayer(conn);
+		if (!isCurrentPlayer(player)) {
+			return DOMMessage.clientError(
+					"Received message: " + element.getTagName() + " out of turn from player: " + player.getNation());
+		}
+		return handle(player, conn, element);
+	}
 
-    /**
-     * Check if a player is the current player.
-     * 
-     * @param player The <code>Player</code> to check.
-     * @return true if a game is active and the player is the current one.
-     */
-    private boolean isCurrentPlayer(Player player) {
-        Game game = getGame();
-        return (player == null || game == null) ? false
-            : player.equals(game.getCurrentPlayer());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final Element handle(Connection conn, Element element) {
-        ServerPlayer player = getFreeColServer().getPlayer(conn);
-        if (!isCurrentPlayer(player)) {
-            return DOMMessage.clientError("Received message: "
-                + element.getTagName()
-                + " out of turn from player: " + player.getNation());
-        }
-        return handle(player, conn, element);
-    }
-
-    /**
-     * Handle a request for the current player.
-     * 
-     * @param player The requesting <code>Player</code>.
-     * @param conn The <code>Connection</code> the request originates from.
-     * @param element The <code>Element</code> with the request.
-     * @return An answerering <code>Element</code>, which may be null.
-     */
-    protected abstract Element handle(Player player, Connection conn,
-                                      Element element);
+	/**
+	 * Handle a request for the current player.
+	 * 
+	 * @param player
+	 *            The requesting <code>Player</code>.
+	 * @param conn
+	 *            The <code>Connection</code> the request originates from.
+	 * @param element
+	 *            The <code>Element</code> with the request.
+	 * @return An answerering <code>Element</code>, which may be null.
+	 */
+	protected abstract Element handle(Player player, Connection conn, Element element);
 }

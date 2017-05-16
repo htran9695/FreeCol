@@ -28,67 +28,68 @@ import javax.swing.SwingUtilities;
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.common.model.Direction;
 
-
 /**
  * Scrolls the view of the Map by moving its focus.
  */
 public class ScrollThread extends Thread {
 
-    private static final Logger logger = Logger.getLogger(ScrollThread.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(ScrollThread.class.getName());
 
-    /** Delay between scroll steps. */
-    private static final int SCROLL_DELAY = 100; // ms
+	/** Delay between scroll steps. */
+	private static final int SCROLL_DELAY = 100; // ms
 
-    /** The Canvas containing the map to scroll. */
-    private final Canvas canvas;
+	/** The Canvas containing the map to scroll. */
+	private final Canvas canvas;
 
-    /** The direction to scroll in. */
-    private Direction direction = null;
+	/** The direction to scroll in. */
+	private Direction direction = null;
 
+	/**
+	 * The constructor to use.
+	 * 
+	 * @param canvas
+	 *            The Canvas containing the map to scroll.
+	 */
+	public ScrollThread(Canvas canvas) {
+		super(FreeCol.CLIENT_THREAD + "Mouse scroller");
+		this.canvas = canvas;
+	}
 
-    /**
-     * The constructor to use.
-     * 
-     * @param canvas The Canvas containing the map to scroll.
-     */
-    public ScrollThread(Canvas canvas) {
-        super(FreeCol.CLIENT_THREAD + "Mouse scroller");
-        this.canvas = canvas;
-    }
+	/**
+	 * Sets the direction in which this ScrollThread will scroll.
+	 * 
+	 * @param d
+	 *            The <code>Direction</code> in which this ScrollThread will
+	 *            scroll.
+	 */
+	public void setDirection(Direction d) {
+		direction = d;
+	}
 
-    /**
-     * Sets the direction in which this ScrollThread will scroll.
-     * 
-     * @param d The <code>Direction</code> in which this ScrollThread
-     *     will scroll.
-     */
-    public void setDirection(Direction d) {
-        direction = d;
-    }
+	/**
+	 * Performs the actual scrolling. Run until interrupted or scrolling fails.
+	 */
+	@Override
+	public void run() {
+		while (direction != null) {
+			try {
+				SwingUtilities.invokeAndWait(() -> {
+					if (!canvas.scrollMap(direction))
+						direction = null;
+				});
+			} catch (InvocationTargetException e) {
+				logger.log(Level.WARNING, "Scroll thread caught error", e);
+				break;
+			} catch (InterruptedException e) {
+				break; // It is normal for AbstractCanvasListener to interrupt.
+			}
 
-    /**
-     * Performs the actual scrolling.
-     * Run until interrupted or scrolling fails.
-     */
-    @Override
-    public void run() {
-        while (direction != null) {
-            try {
-                SwingUtilities.invokeAndWait(() -> {
-                        if (!canvas.scrollMap(direction)) direction = null;
-                    });
-            } catch (InvocationTargetException e) {
-                logger.log(Level.WARNING, "Scroll thread caught error", e);
-                break;
-            } catch (InterruptedException e) {
-                break; // It is normal for AbstractCanvasListener to interrupt.
-            }
-
-            try {
-                sleep(SCROLL_DELAY);
-            } catch (InterruptedException e) {
-                break;
-            }
-        }
-    }
+			try {
+				sleep(SCROLL_DELAY);
+			} catch (InterruptedException e) {
+				break;
+			}
+		}
+	}
 }

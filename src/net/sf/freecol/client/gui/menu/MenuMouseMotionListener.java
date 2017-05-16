@@ -26,45 +26,45 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.AbstractCanvasListener;
 import net.sf.freecol.client.gui.Canvas;
 
-
 /**
- * This class is meant to make the autoscrolling work better, so that
- * you don't have to hover the mouse exactly one pixel below the menu
- * bar to make it scroll up.  This is the MouseMotionListener added to
- * the menu bar, allowing you to scroll by just moving the mouse all
- * the way to the top of the screen.
+ * This class is meant to make the autoscrolling work better, so that you don't
+ * have to hover the mouse exactly one pixel below the menu bar to make it
+ * scroll up. This is the MouseMotionListener added to the menu bar, allowing
+ * you to scroll by just moving the mouse all the way to the top of the screen.
  * 
- * Note: This doesn't cause it to scroll down when you reach the
- * bottom of the menu bar, because the performAutoScrollIfActive will
- * compare the Y coordinate to the size of the entire canvas (which
- * should always be bigger).
+ * Note: This doesn't cause it to scroll down when you reach the bottom of the
+ * menu bar, because the performAutoScrollIfActive will compare the Y coordinate
+ * to the size of the entire canvas (which should always be bigger).
+ *
+ * @see MenuMouseMotionEvent
  */
-public class MenuMouseMotionListener extends AbstractCanvasListener
-    implements MouseMotionListener {
+public class MenuMouseMotionListener extends AbstractCanvasListener implements MouseMotionListener {
 
-    /**
-     * Trivial constructor.
-     *
-     * @param freeColClient The enclosing <code>FreeColClient</code>.
-     */
-    public MenuMouseMotionListener(FreeColClient freeColClient, Canvas canvas) {
-        super(freeColClient, canvas);
-    }
+	/**
+	 * Trivial constructor.
+	 *
+	 * @param freeColClient
+	 *            The enclosing <code>FreeColClient</code>.
+	 * @param canvas
+	 *            the canvas
+	 */
+	public MenuMouseMotionListener(FreeColClient freeColClient, Canvas canvas) {
+		super(freeColClient, canvas);
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void mouseDragged(MouseEvent e) {
+		// Do nothing
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void mouseDragged(MouseEvent e) {
-        //Do nothing
-    }
-    
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void mouseMoved(MouseEvent e) {
-        performAutoScrollIfActive(e);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void mouseMoved(MouseEvent e) {
+		performAutoScrollIfActive(e);
+	}
 }

@@ -25,31 +25,51 @@ import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.networking.ServerAPI;
 
-
 /**
  * Implementation of the ServerAPI.
  */
 public class UserServerAPI extends ServerAPI {
 
-    private final GUI gui;
+	/** The gui. */
+	private final GUI gui;
 
-    public UserServerAPI(GUI gui) {
-        super();
-        this.gui = gui;
-    }
+	/**
+	 * Instantiates a new user server API.
+	 *
+	 * @param gui
+	 *            the gui
+	 */
+	public UserServerAPI(GUI gui) {
+		super();
+		this.gui = gui;
+	}
 
-    @Override
-    protected void doRaiseErrorMessage(String complaint) {
-        if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.COMMS)) {
-            gui.showErrorMessage(null, complaint);
-        }
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * net.sf.freecol.common.networking.ServerAPI#doRaiseErrorMessage(java.lang.
+	 * String)
+	 */
+	@Override
+	protected void doRaiseErrorMessage(String complaint) {
+		if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.COMMS)) {
+			gui.showErrorMessage(null, complaint);
+		}
+	}
 
-    @Override
-    protected void doClientProcessingFor(Element reply) {
-        String sound = reply.getAttribute("sound");
-        if (sound != null && !sound.isEmpty()) {
-            gui.playSound(sound);
-        }
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * net.sf.freecol.common.networking.ServerAPI#doClientProcessingFor(org.w3c.
+	 * dom.Element)
+	 */
+	@Override
+	protected void doClientProcessingFor(Element reply) {
+		String sound = reply.getAttribute("sound");
+		if (sound != null && !sound.isEmpty()) {
+			gui.playSound(sound);
+		}
+	}
 }

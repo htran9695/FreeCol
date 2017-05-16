@@ -17,7 +17,6 @@
  *  along with FreeCol.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 package net.sf.freecol.client.gui.panel;
 
 import java.awt.Color;
@@ -34,89 +33,96 @@ import javax.swing.table.TableCellEditor;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.SwingGUI;
 
-
 /**
  * A table cell editor that can be used to edit colors.
  */
-public final class ColorCellEditor extends AbstractCellEditor
-    implements TableCellEditor, ActionListener {
+public final class ColorCellEditor extends AbstractCellEditor implements TableCellEditor, ActionListener {
 
-    private static final Logger logger = Logger.getLogger(ColorCellEditor.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(ColorCellEditor.class.getName());
 
-    private static final String EDIT = "EDIT";
+	/** The Constant EDIT. */
+	private static final String EDIT = "EDIT";
 
-    private final FreeColClient        freeColClient;
-    private final JButton              colorEditButton;
-    private ColorChooserPanel          colorChooserPanel = null;
-    private Color                      currentColor;
+	/** The free col client. */
+	private final FreeColClient freeColClient;
 
+	/** The color edit button. */
+	private final JButton colorEditButton;
 
-    /**
-     * The constructor to use.
-     *
-     * @param freeColClient The top level component that holds all
-     *     other components.
-     */
-    public ColorCellEditor(FreeColClient freeColClient) {
-        this.freeColClient = freeColClient;
+	/** The color chooser panel. */
+	private ColorChooserPanel colorChooserPanel = null;
 
-        this.colorEditButton = new JButton();
-        this.colorEditButton.setActionCommand(EDIT);
-        this.colorEditButton.addActionListener(this);
-        this.colorEditButton.setBorderPainted(false);
-    }
+	/** The current color. */
+	private Color currentColor;
 
+	/**
+	 * The constructor to use.
+	 *
+	 * @param freeColClient
+	 *            The top level component that holds all other components.
+	 */
+	public ColorCellEditor(FreeColClient freeColClient) {
+		this.freeColClient = freeColClient;
 
-    // Implement TableCellEditor
+		this.colorEditButton = new JButton();
+		this.colorEditButton.setActionCommand(EDIT);
+		this.colorEditButton.addActionListener(this);
+		this.colorEditButton.setBorderPainted(false);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Component getTableCellEditorComponent(JTable table, Object value,
-        boolean hasFocus, int row, int column) {
+	// Implement TableCellEditor
 
-        this.currentColor = (Color)value;
-        return this.colorEditButton;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Component getTableCellEditorComponent(JTable table, Object value, boolean hasFocus, int row, int column) {
 
-    // Override CellEditor
+		this.currentColor = (Color) value;
+		return this.colorEditButton;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Object getCellEditorValue() {
-        return this.currentColor;
-    }
+	// Override CellEditor
 
-    // Interface ActionListener
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Object getCellEditorValue() {
+		return this.currentColor;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        final String command = ae.getActionCommand();
-        SwingGUI gui = (SwingGUI)freeColClient.getGUI();
-        if (null != command) switch (command) {
-            case EDIT:
-                this.colorChooserPanel = gui.showColorChooserPanel(this);
-                break;
-            case FreeColPanel.OK:
-                if (this.colorChooserPanel != null) {
-                    this.currentColor = this.colorChooserPanel.getColor();
-                    gui.removeFromCanvas(this.colorChooserPanel);
-                }   fireEditingStopped();
-                break;
-            case FreeColPanel.CANCEL:
-                if (this.colorChooserPanel != null) {
-                    gui.removeFromCanvas(this.colorChooserPanel);
-                }   fireEditingCanceled();
-                break;
-            default:
-                logger.warning("Bad event: " + command);
-                break;
-        }
-    }
+	// Interface ActionListener
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		final String command = ae.getActionCommand();
+		SwingGUI gui = (SwingGUI) freeColClient.getGUI();
+		if (null != command)
+			switch (command) {
+			case EDIT:
+				this.colorChooserPanel = gui.showColorChooserPanel(this);
+				break;
+			case FreeColPanel.OK:
+				if (this.colorChooserPanel != null) {
+					this.currentColor = this.colorChooserPanel.getColor();
+					gui.removeFromCanvas(this.colorChooserPanel);
+				}
+				fireEditingStopped();
+				break;
+			case FreeColPanel.CANCEL:
+				if (this.colorChooserPanel != null) {
+					gui.removeFromCanvas(this.colorChooserPanel);
+				}
+				fireEditingCanceled();
+				break;
+			default:
+				logger.warning("Bad event: " + command);
+				break;
+			}
+	}
 }

@@ -24,34 +24,33 @@ import java.awt.event.ActionEvent;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
  * An action for skipping the active unit.
  */
 public class SkipUnitAction extends UnitAction {
 
-    public static final String id = "skipUnitAction";
+	/** The Constant id. */
+	public static final String id = "skipUnitAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public SkipUnitAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public SkipUnitAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
+		addImageIcons("done");
+	}
 
-        addImageIcons("done");
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        igc().changeState(getGUI().getActiveUnit(), Unit.UnitState.SKIPPED);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		igc().changeState(getGUI().getActiveUnit(), Unit.UnitState.SKIPPED);
+	}
 }

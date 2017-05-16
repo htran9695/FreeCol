@@ -36,249 +36,359 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent when the client requests rearrangeing of a colony.
  */
 public class RearrangeColonyMessage extends DOMMessage {
 
-    /** Container for the unit change information. */
-    public static class UnitChange {
+	/** Container for the unit change information. */
+	public static class UnitChange {
 
-        public Unit unit;
-        public Location loc;
-        public GoodsType work;
-        public Role role;
-        public int roleCount;
+		/** The unit. */
+		public Unit unit;
 
-        public UnitChange() {} // deliberately empty
+		/** The loc. */
+		public Location loc;
 
-        public UnitChange(Unit unit, Location loc, GoodsType work,
-                          Role role, int roleCount) {
-            this.unit = unit;
-            this.loc = loc;
-            this.work = work;
-            this.role = role;
-            this.roleCount = roleCount;
-        }
+		/** The work. */
+		public GoodsType work;
 
-        public UnitChange(Game game, String unitId,
-                          String locId, String workId,
-                          String roleId, String roleCount) {
-            init(game, unitId, locId, workId, roleId, roleCount);
-        }
+		/** The role. */
+		public Role role;
 
-        public final void init(Game game, String unitId, 
-                               String locId, String workId, 
-                               String roleId, String roleCount) {
-            this.unit = game.getFreeColGameObject(unitId, Unit.class);
-            this.loc = game.findFreeColLocation(locId);
-            this.work = (workId == null || workId.isEmpty()) ? null
-                : game.getSpecification().getGoodsType(workId);
-            this.role = game.getSpecification().getRole(roleId);
-            try {
-                this.roleCount = Integer.parseInt(roleCount);
-            } catch (NumberFormatException nfe) {
-                this.roleCount = 0;
-            }
-        }
+		/** The role count. */
+		public int roleCount;
 
-        public void writeToElement(Element e, int i) {
-            e.setAttribute(unitKey(i), this.unit.getId());
-            e.setAttribute(locKey(i), this.loc.getId());
-            if (this.work != null) {
-                e.setAttribute(workKey(i), this.work.getId());
-            }
-            e.setAttribute(roleKey(i), this.role.toString());
-            e.setAttribute(roleCountKey(i), String.valueOf(this.roleCount));
-        }
+		/**
+		 * Instantiates a new unit change.
+		 */
+		public UnitChange() {
+		} // deliberately empty
 
-        public UnitChange readFromElement(Game game, Element e, int i) {
-            init(game,
-                e.getAttribute(unitKey(i)),
-                e.getAttribute(locKey(i)),
-                e.getAttribute(workKey(i)),
-                e.getAttribute(roleKey(i)),
-                e.getAttribute(roleCountKey(i)));
-            return this;
-        }
+		/**
+		 * Instantiates a new unit change.
+		 *
+		 * @param unit
+		 *            the unit
+		 * @param loc
+		 *            the loc
+		 * @param work
+		 *            the work
+		 * @param role
+		 *            the role
+		 * @param roleCount
+		 *            the role count
+		 */
+		public UnitChange(Unit unit, Location loc, GoodsType work, Role role, int roleCount) {
+			this.unit = unit;
+			this.loc = loc;
+			this.work = work;
+			this.role = role;
+			this.roleCount = roleCount;
+		}
 
-        public String unitKey(int i) {
-            return "x" + i + "unit";
-        }
+		/**
+		 * Instantiates a new unit change.
+		 *
+		 * @param game
+		 *            the game
+		 * @param unitId
+		 *            the unit id
+		 * @param locId
+		 *            the loc id
+		 * @param workId
+		 *            the work id
+		 * @param roleId
+		 *            the role id
+		 * @param roleCount
+		 *            the role count
+		 */
+		public UnitChange(Game game, String unitId, String locId, String workId, String roleId, String roleCount) {
+			init(game, unitId, locId, workId, roleId, roleCount);
+		}
 
-        public String locKey(int i) {
-            return "x" + i + "loc";
-        }
+		/**
+		 * Inits the.
+		 *
+		 * @param game
+		 *            the game
+		 * @param unitId
+		 *            the unit id
+		 * @param locId
+		 *            the loc id
+		 * @param workId
+		 *            the work id
+		 * @param roleId
+		 *            the role id
+		 * @param roleCount
+		 *            the role count
+		 */
+		public final void init(Game game, String unitId, String locId, String workId, String roleId, String roleCount) {
+			this.unit = game.getFreeColGameObject(unitId, Unit.class);
+			this.loc = game.findFreeColLocation(locId);
+			this.work = (workId == null || workId.isEmpty()) ? null : game.getSpecification().getGoodsType(workId);
+			this.role = game.getSpecification().getRole(roleId);
+			try {
+				this.roleCount = Integer.parseInt(roleCount);
+			} catch (NumberFormatException nfe) {
+				this.roleCount = 0;
+			}
+		}
 
-        public String workKey(int i) {
-            return "x" + i + "work";
-        }
+		/**
+		 * Write to element.
+		 *
+		 * @param e
+		 *            the e
+		 * @param i
+		 *            the i
+		 */
+		public void writeToElement(Element e, int i) {
+			e.setAttribute(unitKey(i), this.unit.getId());
+			e.setAttribute(locKey(i), this.loc.getId());
+			if (this.work != null) {
+				e.setAttribute(workKey(i), this.work.getId());
+			}
+			e.setAttribute(roleKey(i), this.role.toString());
+			e.setAttribute(roleCountKey(i), String.valueOf(this.roleCount));
+		}
 
-        public String roleKey(int i) {
-            return "x" + i + "role";
-        }
+		/**
+		 * Read from element.
+		 *
+		 * @param game
+		 *            the game
+		 * @param e
+		 *            the e
+		 * @param i
+		 *            the i
+		 * @return the unit change
+		 */
+		public UnitChange readFromElement(Game game, Element e, int i) {
+			init(game, e.getAttribute(unitKey(i)), e.getAttribute(locKey(i)), e.getAttribute(workKey(i)),
+					e.getAttribute(roleKey(i)), e.getAttribute(roleCountKey(i)));
+			return this;
+		}
 
-        public String roleCountKey(int i) {
-            return "x" + i + "count";
-        }
+		/**
+		 * Unit key.
+		 *
+		 * @param i
+		 *            the i
+		 * @return the string
+		 */
+		public String unitKey(int i) {
+			return "x" + i + "unit";
+		}
 
-        @Override
-        public String toString() {
-            return "[UnitChange " + unit.getId() + " at " + loc.getId()
-                + " " + role.getRoleSuffix() + "." + roleCount
-                + ((work == null) ? "" : " work " + work.getId()) + "]";
-        }
-    }
+		/**
+		 * Loc key.
+		 *
+		 * @param i
+		 *            the i
+		 * @return the string
+		 */
+		public String locKey(int i) {
+			return "x" + i + "loc";
+		}
 
-    /** A comparator for UnitChanges, favouring simplest roles first. */
-    public static final Comparator<UnitChange> roleComparator
-        = new Comparator<UnitChange>() {
-            @Override
-            public int compare(UnitChange uc1, UnitChange uc2) {
-                int cmp = uc1.role.compareTo(uc2.role);
-                if (cmp == 0) cmp = uc1.roleCount - uc2.roleCount;
-                return cmp;
-            }
-        };
+		/**
+		 * Work key.
+		 *
+		 * @param i
+		 *            the i
+		 * @return the string
+		 */
+		public String workKey(int i) {
+			return "x" + i + "work";
+		}
 
-    /** The id of the colony requesting the rearrangement. */
-    private final String colonyId;
+		/**
+		 * Role key.
+		 *
+		 * @param i
+		 *            the i
+		 * @return the string
+		 */
+		public String roleKey(int i) {
+			return "x" + i + "role";
+		}
 
-    /** A list of unitChanges to make. */
-    private List<UnitChange> unitChanges = null;
+		/**
+		 * Role count key.
+		 *
+		 * @param i
+		 *            the i
+		 * @return the string
+		 */
+		public String roleCountKey(int i) {
+			return "x" + i + "count";
+		}
 
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.lang.Object#toString()
+		 */
+		@Override
+		public String toString() {
+			return "[UnitChange " + unit.getId() + " at " + loc.getId() + " " + role.getRoleSuffix() + "." + roleCount
+					+ ((work == null) ? "" : " work " + work.getId()) + "]";
+		}
+	}
 
-    /**
-     * Create a new <code>RearrangeColonyMessage</code> with the
-     * supplied colony.  Add changes with addChange().
-     *
-     * @param colony The <code>Colony</code> that is rearranging.
-     */
-    public RearrangeColonyMessage(Colony colony) {
-        super(getXMLElementTagName());
+	/** A comparator for UnitChanges, favouring simplest roles first. */
+	public static final Comparator<UnitChange> roleComparator = new Comparator<UnitChange>() {
+		@Override
+		public int compare(UnitChange uc1, UnitChange uc2) {
+			int cmp = uc1.role.compareTo(uc2.role);
+			if (cmp == 0)
+				cmp = uc1.roleCount - uc2.roleCount;
+			return cmp;
+		}
+	};
 
-        this.colonyId = colony.getId();
-        this.unitChanges = new ArrayList<>();
-    }
+	/** The id of the colony requesting the rearrangement. */
+	private final String colonyId;
 
-    /**
-     * Create a new <code>RearrangeColonyMessage</code> from a
-     * supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public RearrangeColonyMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+	/** A list of unitChanges to make. */
+	private List<UnitChange> unitChanges = null;
 
-        this.colonyId = element.getAttribute("colony");
-        int n;
-        try {
-            n = Integer.parseInt(element.getAttribute(FreeColObject.ARRAY_SIZE_TAG));
-        } catch (NumberFormatException nfe) {
-            n = 0;
-        }
-        this.unitChanges = new ArrayList<>();
-        for (int i = 0; i < n; i++) {
-            unitChanges.add(new UnitChange().readFromElement(game, element, i));
-        }
-    }
+	/**
+	 * Create a new <code>RearrangeColonyMessage</code> with the supplied
+	 * colony. Add changes with addChange().
+	 *
+	 * @param colony
+	 *            The <code>Colony</code> that is rearranging.
+	 */
+	public RearrangeColonyMessage(Colony colony) {
+		super(getXMLElementTagName());
 
+		this.colonyId = colony.getId();
+		this.unitChanges = new ArrayList<>();
+	}
 
-    // Public interface
+	/**
+	 * Create a new <code>RearrangeColonyMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public RearrangeColonyMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Are there no changes present?
-     *
-     * @return True if no changes have been added.
-     */
-    public boolean isEmpty() {
-        return unitChanges == null || unitChanges.isEmpty();
-    }
+		this.colonyId = element.getAttribute("colony");
+		int n;
+		try {
+			n = Integer.parseInt(element.getAttribute(FreeColObject.ARRAY_SIZE_TAG));
+		} catch (NumberFormatException nfe) {
+			n = 0;
+		}
+		this.unitChanges = new ArrayList<>();
+		for (int i = 0; i < n; i++) {
+			unitChanges.add(new UnitChange().readFromElement(game, element, i));
+		}
+	}
 
-    /**
-     * Add a change to this message.
-     *
-     * @param unit The <code>Unit</code> that is to change.
-     * @param loc The destination <code>Location</code> for the unit.
-     * @param work The <code>GoodsType</code> to produce (may be null).
-     * @param role The unit <code>Role</code>.
-     * @param roleCount The role count.
-     */
-    public void addChange(Unit unit, Location loc, GoodsType work,
-                          Role role, int roleCount) {
-        unitChanges.add(new UnitChange(unit, loc, work, role, roleCount));
-    }
+	// Public interface
 
-    /**
-     * Handle a "rearrangeColony"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the request.
-     * @param player The <code>Player</code> rearrangeing the colony.
-     * @param connection The <code>Connection</code> the message is from.
-     * @return An update <code>Element</code> with the rearranged colony,
-     *     or an error <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
+	/**
+	 * Are there no changes present?.
+	 *
+	 * @return True if no changes have been added.
+	 */
+	public boolean isEmpty() {
+		return unitChanges == null || unitChanges.isEmpty();
+	}
 
-        Colony colony;
-        try {
-            colony = player.getOurFreeColGameObject(colonyId, Colony.class);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
+	/**
+	 * Add a change to this message.
+	 *
+	 * @param unit
+	 *            The <code>Unit</code> that is to change.
+	 * @param loc
+	 *            The destination <code>Location</code> for the unit.
+	 * @param work
+	 *            The <code>GoodsType</code> to produce (may be null).
+	 * @param role
+	 *            The unit <code>Role</code>.
+	 * @param roleCount
+	 *            The role count.
+	 */
+	public void addChange(Unit unit, Location loc, GoodsType work, Role role, int roleCount) {
+		unitChanges.add(new UnitChange(unit, loc, work, role, roleCount));
+	}
 
-        if (unitChanges.isEmpty()) {
-            return DOMMessage.clientError("Empty rearrangement list.");
-        }
-        int i = 0;
-        for (UnitChange uc : unitChanges) {
-            if (uc.unit == null) {
-                return DOMMessage.clientError("Invalid unit " + i);
-            }
-            if (uc.loc == null) {
-                return DOMMessage.clientError("Invalid location " + i);
-            }
-            if (uc.role == null) {
-                return DOMMessage.clientError("Invalid role " + i);
-            }
-            if (uc.roleCount < 0) {
-                return DOMMessage.clientError("Invalid role count " + i);
-            }
-        }
+	/**
+	 * Handle a "rearrangeColony"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the request.
+	 * @param player
+	 *            The <code>Player</code> rearrangeing the colony.
+	 * @param connection
+	 *            The <code>Connection</code> the message is from.
+	 * @return An update <code>Element</code> with the rearranged colony, or an
+	 *         error <code>Element</code> on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
 
-        // Rearrange can proceed.
-        return server.getInGameController()
-            .rearrangeColony(serverPlayer, colony, unitChanges);
-    }
+		Colony colony;
+		try {
+			colony = player.getOurFreeColGameObject(colonyId, Colony.class);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
 
-    /**
-     * Convert this RearrangeColonyMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        Element result = createMessage(getXMLElementTagName(),
-            "colony", colonyId,
-            FreeColObject.ARRAY_SIZE_TAG, Integer.toString(unitChanges.size()));
-        int i = 0;
-        for (UnitChange uc : unitChanges) {
-            uc.writeToElement(result, i);
-            i++;
-        }
-        return result;
-    }
+		if (unitChanges.isEmpty()) {
+			return DOMMessage.clientError("Empty rearrangement list.");
+		}
+		int i = 0;
+		for (UnitChange uc : unitChanges) {
+			if (uc.unit == null) {
+				return DOMMessage.clientError("Invalid unit " + i);
+			}
+			if (uc.loc == null) {
+				return DOMMessage.clientError("Invalid location " + i);
+			}
+			if (uc.role == null) {
+				return DOMMessage.clientError("Invalid role " + i);
+			}
+			if (uc.roleCount < 0) {
+				return DOMMessage.clientError("Invalid role count " + i);
+			}
+		}
 
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "rearrangeColony".
-     */
-    public static String getXMLElementTagName() {
-        return "rearrangeColony";
-    }
+		// Rearrange can proceed.
+		return server.getInGameController().rearrangeColony(serverPlayer, colony, unitChanges);
+	}
+
+	/**
+	 * Convert this RearrangeColonyMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		Element result = createMessage(getXMLElementTagName(), "colony", colonyId, FreeColObject.ARRAY_SIZE_TAG,
+				Integer.toString(unitChanges.size()));
+		int i = 0;
+		for (UnitChange uc : unitChanges) {
+			uc.writeToElement(result, i);
+			i++;
+		}
+		return result;
+	}
+
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "rearrangeColony".
+	 */
+	public static String getXMLElementTagName() {
+		return "rearrangeColony";
+	}
 }

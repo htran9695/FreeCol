@@ -30,42 +30,43 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.FontLibrary;
 import net.sf.freecol.common.resources.ResourceManager;
 
-
 /**
  * This panel is displayed when an imporantant event in the game has happened.
  */
 public final class EventPanel extends FreeColPanel {
 
-    /** The Constant logger. */
-    private static final Logger logger = Logger.getLogger(EventPanel.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(EventPanel.class.getName());
 
+	/**
+	 * The constructor that will add the items to this panel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param header
+	 *            The title.
+	 * @param key
+	 *            A resource key for the image to display.
+	 * @param footer
+	 *            Optional footer text.
+	 */
+	public EventPanel(FreeColClient freeColClient, String header, String key, String footer) {
+		super(freeColClient, new MigLayout("wrap 1", "[center]", "[]20"));
 
-    /**
-     * The constructor that will add the items to this panel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param header The title.
-     * @param key A resource key for the image to display.
-     * @param footer Optional footer text.
-     */
-    public EventPanel(FreeColClient freeColClient, String header, String key,
-                      String footer) {
-        super(freeColClient, new MigLayout("wrap 1", "[center]", "[]20"));
+		JLabel headerLabel = new JLabel(header);
+		headerLabel.setFont(
+				FontLibrary.createCompatibleFont(header, FontLibrary.FontType.HEADER, FontLibrary.FontSize.MEDIUM));
 
-        JLabel headerLabel = new JLabel(header);
-        headerLabel.setFont(FontLibrary.createCompatibleFont(header,
-            FontLibrary.FontType.HEADER, FontLibrary.FontSize.MEDIUM));
+		JLabel imageLabel = new JLabel(new ImageIcon(ResourceManager.getImage(key)));
 
-        JLabel imageLabel
-            = new JLabel(new ImageIcon(ResourceManager.getImage(key)));
+		JLabel footerLabel = (footer == null) ? null : new JLabel(footer);
 
-        JLabel footerLabel = (footer == null) ? null : new JLabel(footer);
+		add(headerLabel);
+		add(imageLabel);
+		if (footerLabel != null)
+			add(footerLabel);
+		add(okButton, "tag ok");
 
-        add(headerLabel);
-        add(imageLabel);
-        if (footerLabel != null) add(footerLabel);
-        add(okButton, "tag ok");
-
-        setSize(getPreferredSize());
-    }
+		setSize(getPreferredSize());
+	}
 }

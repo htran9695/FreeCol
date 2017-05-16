@@ -89,1020 +89,1026 @@ import net.sf.freecol.common.model.UnitType;
 import static net.sf.freecol.common.util.CollectionUtils.*;
 import static net.sf.freecol.common.util.StringUtils.*;
 
-
 /**
  * The panel used to display a colony build queue.
  */
 public class BuildQueuePanel extends FreeColPanel implements ItemListener {
 
-<span class="nc" id="L98">    private static final Logger logger = Logger.getLogger(BuildQueuePanel</span>
-<span class="nc" id="L99">            .class.getName());</span>
-
-<span class="nc" id="L101">    private static final DataFlavor BUILD_LIST_FLAVOR</span>
-        = new DataFlavor(List.class, &quot;BuildListFlavor&quot;);
-
-    /**
-     * This class implements a transfer handler able to transfer
-     * &lt;code&gt;BuildQueueItem&lt;/code&gt;s between the build queue list, the
-     * unit list and the building list.
-     */
-<span class="nc" id="L109">    private class BuildQueueTransferHandler extends TransferHandler {</span>
-
-        /**
-         * This class implements the &lt;code&gt;Transferable&lt;/code&gt; interface.
-         */
-        public class BuildablesTransferable implements Transferable {
-
-            private final List&lt;? extends BuildableType&gt; buildables;
-
-<span class="nc" id="L118">            private final DataFlavor[] supportedFlavors = {</span>
-<span class="nc" id="L119">                BUILD_LIST_FLAVOR</span>
-            };
-
-
-            /**
-             * Default constructor.
-             *
-             * @param buildables The build queue to transfer.
-             */
-<span class="nc" id="L128">            public BuildablesTransferable(List&lt;? extends BuildableType&gt; buildables) {</span>
-<span class="nc" id="L129">                this.buildables = buildables;</span>
-<span class="nc" id="L130">            }</span>
-
-
-            /**
-             * Get the build queue from the &lt;code&gt;Transferable&lt;/code&gt;.
-             *
-             * @return The build queue.
-             */
-            public List&lt;? extends BuildableType&gt; getBuildables() {
-<span class="nc" id="L139">                return this.buildables;</span>
-            }
-
-
-            // Interface Transferable
-
-            /**
-             * {@inheritDoc}
-             */
-            @Override
-            public Object getTransferData(DataFlavor flavor)
-                throws UnsupportedFlavorException {
-<span class="nc bnc" id="L151" title="All 2 branches missed.">                if (isDataFlavorSupported(flavor)) return this.buildables;</span>
-<span class="nc" id="L152">                throw new UnsupportedFlavorException(flavor);</span>
-            }
-
-            /**
-             * {@inheritDoc}
-             */
-            @Override
-            public DataFlavor[] getTransferDataFlavors() {
-<span class="nc" id="L160">                return supportedFlavors;</span>
-            }
-
-            /**
-             * {@inheritDoc}
-             */
-            @Override
-            public boolean isDataFlavorSupported(DataFlavor flavor) {
-<span class="nc" id="L168">                return any(supportedFlavors, f -&gt; f.equals(flavor));</span>
-            }
-        }
-
-<span class="nc" id="L172">        private JList&lt;? extends BuildableType&gt; source = null;</span>
-        //private int[] indices = null;
-<span class="nc" id="L174">        private int numberOfItems = 0; // number of items to be added</span>
-
-        
-        // Override TransferHandler
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public boolean importData(JComponent comp, Transferable data) {
-<span class="nc bnc" id="L184" title="All 2 branches missed.">            if (!canImport(comp, data.getTransferDataFlavors())) return false;</span>
-
-            // What actual panel component was chosen?
-<span class="nc" id="L187">            JList&lt;? extends BuildableType&gt; target = BuildQueuePanel.this.convertJComp(comp);</span>
-<span class="nc bnc" id="L188" title="All 2 branches missed.">            if (target == null) {</span>
-<span class="nc" id="L189">                logger.warning(&quot;Build queue import failed to: &quot; + comp);</span>
-<span class="nc" id="L190">                return false;</span>
-            }
-
-            // Grab the transfer object and insist it is a list of something.
-            Object transferData;
-            try {
-<span class="nc" id="L196">                transferData = data.getTransferData(BUILD_LIST_FLAVOR);</span>
-<span class="nc" id="L197">            } catch (UnsupportedFlavorException | IOException e) {</span>
-<span class="nc" id="L198">                logger.log(Level.WARNING, &quot;BuildQueue import&quot;, e);</span>
-<span class="nc" id="L199">                return false;</span>
-<span class="nc" id="L200">            }</span>
-<span class="nc bnc" id="L201" title="All 2 branches missed.">            if (!(transferData instanceof List&lt;?&gt;)) return false;</span>
-
-            // Collect the transferred buildables.
-<span class="nc" id="L204">            final JList&lt;BuildableType&gt; bql</span>
-<span class="nc" id="L205">                = BuildQueuePanel.this.buildQueueList;</span>
-<span class="nc" id="L206">            List&lt;BuildableType&gt; queue = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L207" title="All 2 branches missed.">            for (Object object : (List&lt;?&gt;)transferData) {</span>
-                // Fail if:
-                // - dropping a non-Buildable
-                // - dropping a unit in the Building list
-                // - dropping a building in the Unit list
-                // - no minimum index for the buildable is found
-<span class="nc bnc" id="L213" title="All 4 branches missed.">                if (!(object instanceof BuildableType)</span>
-                    || (object instanceof UnitType
-<span class="nc bnc" id="L215" title="All 4 branches missed.">                        &amp;&amp; target == BuildQueuePanel.this.buildingList)</span>
-                    || (object instanceof BuildingType
-<span class="nc bnc" id="L217" title="All 2 branches missed.">                        &amp;&amp; target == BuildQueuePanel.this.unitList)</span>
-<span class="nc bnc" id="L218" title="All 2 branches missed.">                    || getMinimumIndex((BuildableType)object) &lt; 0)</span>
-<span class="nc" id="L219">                    return false;</span>
-<span class="nc" id="L220">                queue.add((BuildableType)object);</span>
-<span class="nc" id="L221">            }</span>
-
-            // Handle the cases where the BQL is not the target.
-<span class="nc" id="L224">            boolean isOrderingQueue = false;</span>
-<span class="nc bnc" id="L225" title="All 2 branches missed.">            if (this.source == bql) {</span>
-<span class="nc bnc" id="L226" title="All 2 branches missed.">                if (target != bql) {</span>
-                    // Dragging out of build queue =&gt; just remove the element.
-                    // updateAllLists takes care of the rest.
-<span class="nc" id="L229">                    DefaultListModel sourceModel</span>
-<span class="nc" id="L230">                        = (DefaultListModel)source.getModel();</span>
-<span class="nc bnc" id="L231" title="All 2 branches missed.">                    for (Object obj : queue) {</span>
-<span class="nc" id="L232">                        sourceModel.removeElement(obj);</span>
-<span class="nc" id="L233">                    }</span>
-<span class="nc" id="L234">                    return true;</span>
-                }
-                // OK, we are reordering the build queue.
-<span class="nc" id="L237">                isOrderingQueue = true;</span>
-            } else {
-                // Can only drag from the Building and Unit lists to
-                // the build queue, so require that to be the target.
-<span class="nc bnc" id="L241" title="All 4 branches missed.">                if (target != bql &amp;&amp; target.getParent() != bql) return false;</span>
-            }
-
-            // Now that the BQL is the target, grab its model (fully
-            // type qualified now).
-<span class="nc" id="L246">            DefaultListModel&lt;BuildableType&gt; targetModel</span>
-<span class="nc" id="L247">                = (DefaultListModel&lt;BuildableType&gt;)bql.getModel();</span>
-
-            // This is where the dragged target was dropped.
-<span class="nc" id="L250">            int preferredIndex = target.getSelectedIndex();</span>
-<span class="nc" id="L251">            int maxIndex = targetModel.size();</span>
-<span class="nc" id="L252">            int prevPos = -1;</span>
-<span class="nc bnc" id="L253" title="All 2 branches missed.">            if (isOrderingQueue) {</span>
-                // Find previous position
-<span class="nc bnc" id="L255" title="All 2 branches missed.">                for (int i = 0; i &lt; targetModel.getSize(); i++) {</span>
-<span class="nc bnc" id="L256" title="All 2 branches missed.">                    if (targetModel.getElementAt(i) == queue.get(0)) {</span>
-<span class="nc" id="L257">                        prevPos = i;</span>
-<span class="nc" id="L258">                        break;</span>
-                    }
-                }
-
-                // Suppress dropping the selection onto itself.
-<span class="nc bnc" id="L263" title="All 4 branches missed.">                if (preferredIndex != -1 &amp;&amp; prevPos == preferredIndex) {</span>
-                    //indices = null;
-<span class="nc" id="L265">                    return false;</span>
-                }
-
-                // Insist drop is within bounds.
-<span class="nc" id="L269">                int maximumIndex = getMaximumIndex(queue.get(0));</span>
-<span class="nc bnc" id="L270" title="All 2 branches missed.">                if (preferredIndex &gt; maximumIndex) {</span>
-                    //indices = null;
-<span class="nc" id="L272">                    return false;</span>
-                }
-
-<span class="nc" id="L275">                this.numberOfItems = queue.size();</span>
-
-                // Remove all transferring elements from the build queue.
-<span class="nc bnc" id="L278" title="All 2 branches missed.">                for (BuildableType bt : queue) {</span>
-<span class="nc" id="L279">                    targetModel.removeElement(bt);</span>
-<span class="nc" id="L280">                }</span>
-            }
-
-            // Set index to add to the last position, if not set or
-            // out-of-bounds
-<span class="nc bnc" id="L285" title="All 4 branches missed.">            if (preferredIndex &lt; 0 || preferredIndex &gt; maxIndex) {</span>
-<span class="nc" id="L286">                preferredIndex = maxIndex;</span>
-            }
-
-<span class="nc bnc" id="L289" title="All 2 branches missed.">            for (int index = 0; index &lt; queue.size(); index++) {</span>
-<span class="nc" id="L290">                BuildableType toBuild = queue.get(index);</span>
-<span class="nc" id="L291">                int minimumIndex = getMinimumIndex(toBuild);</span>
-
-                // minimumIndex == targetModel.size() means it has to
-                // go at the end.
-<span class="nc bnc" id="L295" title="All 2 branches missed.">                if (minimumIndex &lt; targetModel.size()) {</span>
-<span class="nc" id="L296">                    int maximumIndex = getMaximumIndex(toBuild);</span>
-
-                    // minimumIndex == maximumIndex means there is
-                    // only one place it can go.
-<span class="nc bnc" id="L300" title="All 2 branches missed.">                    if (minimumIndex != maximumIndex) {</span>
-<span class="nc bnc" id="L301" title="All 2 branches missed.">                        if (minimumIndex &lt; preferredIndex + index) {</span>
-<span class="nc" id="L302">                            minimumIndex = preferredIndex + index;</span>
-                        }
-<span class="nc bnc" id="L304" title="All 2 branches missed.">                        if (minimumIndex &gt; targetModel.size()) {</span>
-<span class="nc" id="L305">                            minimumIndex = targetModel.size();</span>
-                        }
-<span class="nc bnc" id="L307" title="All 2 branches missed.">                        if (minimumIndex &gt; maximumIndex) {</span>
-<span class="nc" id="L308">                            minimumIndex = maximumIndex;</span>
-                        }
-                    }
-                }
-<span class="nc" id="L312">                targetModel.add(minimumIndex, toBuild);</span>
-            }
-
-            // update selected index to new position
-<span class="nc bnc" id="L316" title="All 2 branches missed.">            if (isOrderingQueue) {</span>
-<span class="nc" id="L317">                BuildQueuePanel.this.buildQueueList</span>
-<span class="nc" id="L318">                    .setSelectedIndex(preferredIndex);</span>
-            }
-<span class="nc" id="L320">            return true;</span>
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        protected void exportDone(JComponent source, Transferable data, 
-                                  int action) {
-            //this.indices = null;
-<span class="nc" id="L330">            this.numberOfItems = 0;</span>
-<span class="nc" id="L331">            updateAllLists();</span>
-<span class="nc" id="L332">        }</span>
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public boolean canImport(JComponent comp, DataFlavor[] flavors) {
-<span class="nc bnc" id="L339" title="All 2 branches missed.">            return flavors != null</span>
-<span class="nc bnc" id="L340" title="All 2 branches missed.">                &amp;&amp; any(flavors, f -&gt; f.equals(BUILD_LIST_FLAVOR));</span>
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        protected Transferable createTransferable(JComponent comp) {
-            
-<span class="nc" id="L349">            this.source = BuildQueuePanel.this.convertJComp(comp);</span>
-<span class="nc bnc" id="L350" title="All 2 branches missed.">            if (this.source == null) return null;</span>
-            //this.indices = this.source.getSelectedIndices();
-<span class="nc" id="L352">            return new BuildablesTransferable(this.source.getSelectedValuesList());</span>
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public int getSourceActions(JComponent comp) {
-<span class="nc bnc" id="L360" title="All 2 branches missed.">            return (comp == BuildQueuePanel.this.unitList) ? COPY : MOVE;</span>
-        }
-    }
-
-    private class BuildQueueMouseAdapter extends MouseAdapter {
-
-<span class="nc" id="L366">        private boolean add = true;</span>
-        
-<span class="nc" id="L368">        private boolean enabled = false;</span>
-
-
-<span class="nc" id="L371">        public BuildQueueMouseAdapter(boolean add) {</span>
-<span class="nc" id="L372">            this.add = add;</span>
-<span class="nc" id="L373">        }</span>
-
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void mousePressed(MouseEvent e) {
-<span class="nc bnc" id="L381" title="All 6 branches missed.">            if (!this.enabled &amp;&amp; e.getClickCount() == 1 &amp;&amp; !e.isConsumed()) {</span>
-<span class="nc" id="L382">                this.enabled = true;</span>
-            }
-<span class="nc bnc" id="L384" title="All 2 branches missed.">            if (!this.enabled) return;</span>
-
-<span class="nc" id="L386">            Object source = e.getSource();</span>
-<span class="nc bnc" id="L387" title="All 2 branches missed.">            JList&lt;? extends BuildableType&gt; jlist</span>
-                = (source instanceof JComponent)
-<span class="nc" id="L389">                ? BuildQueuePanel.this.convertJComp((JComponent)source)</span>
-                : null;
-<span class="nc bnc" id="L391" title="All 2 branches missed.">            if (jlist == null) return;</span>
-
-<span class="nc bnc" id="L393" title="All 4 branches missed.">            if (e.getButton() == MouseEvent.BUTTON3 || e.isPopupTrigger()) {</span>
-<span class="nc" id="L394">                int index = jlist.locationToIndex(e.getPoint());</span>
-<span class="nc" id="L395">                BuildableType bt = jlist.getModel().getElementAt(index);</span>
-<span class="nc" id="L396">                getGUI().showColopediaPanel(bt.getId());</span>
-<span class="nc bnc" id="L397" title="All 4 branches missed.">            } else if (e.getClickCount() &gt; 1 &amp;&amp; !e.isConsumed()) {</span>
-<span class="nc" id="L398">                JList&lt;BuildableType&gt; bql = BuildQueuePanel.this.buildQueueList;</span>
-<span class="nc" id="L399">                DefaultListModel&lt;BuildableType&gt; model</span>
-<span class="nc" id="L400">                    = (DefaultListModel&lt;BuildableType&gt;)bql.getModel();</span>
-<span class="nc bnc" id="L401" title="All 2 branches missed.">                if (jlist.getSelectedIndex() &lt; 0) {</span>
-<span class="nc" id="L402">                    jlist.setSelectedIndex(jlist.locationToIndex(e.getPoint()));</span>
-                }
-<span class="nc bnc" id="L404" title="All 2 branches missed.">                for (BuildableType bt : jlist.getSelectedValuesList()) {</span>
-<span class="nc bnc" id="L405" title="All 2 branches missed.">                    if (this.add) {</span>
-<span class="nc" id="L406">                        model.addElement(bt);</span>
-                    } else {
-<span class="nc" id="L408">                        model.removeElement(bt);</span>
-                    }
-<span class="nc" id="L410">                }</span>
-<span class="nc" id="L411">                updateAllLists();</span>
-            }
-<span class="nc" id="L413">        }</span>
-    }
-
-    /** The cell renderer to use for the build queue. */
-    private class DefaultBuildQueueCellRenderer
-        implements ListCellRenderer&lt;BuildableType&gt; {
-
-<span class="nc" id="L420">        private final JPanel itemPanel = new JPanel();</span>
-<span class="nc" id="L421">        private final JPanel selectedPanel = new JPanel();</span>
-<span class="nc" id="L422">        private final JLabel imageLabel = new JLabel(new ImageIcon());</span>
-<span class="nc" id="L423">        private final JLabel nameLabel = new JLabel();</span>
-
-<span class="nc" id="L425">        private final JLabel lockLabel = new JLabel(new ImageIcon(</span>
-<span class="nc" id="L426">            ImageLibrary.getMiscImage(ImageLibrary.ICON_LOCK, 0.5f)));</span>
-
-<span class="nc" id="L428">        private final Dimension buildingDimension = new Dimension(-1, 48);</span>
-
-
-<span class="nc" id="L431">        public DefaultBuildQueueCellRenderer() {</span>
-<span class="nc" id="L432">            itemPanel.setOpaque(false);</span>
-<span class="nc" id="L433">            itemPanel.setLayout(new MigLayout());</span>
-<span class="nc" id="L434">            selectedPanel.setOpaque(false);</span>
-<span class="nc" id="L435">            selectedPanel.setLayout(new MigLayout());</span>
-<span class="nc" id="L436">            selectedPanel.setUI((PanelUI)FreeColSelectedPanelUI.createUI(selectedPanel));</span>
-<span class="nc" id="L437">        }</span>
-
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Component getListCellRendererComponent(JList&lt;? extends BuildableType&gt; list,
-                        BuildableType value,
-                        int index,
-                        boolean isSelected,
-                        boolean cellHasFocus) {
-<span class="nc bnc" id="L449" title="All 2 branches missed.">            JPanel panel = (isSelected) ? selectedPanel : itemPanel;</span>
-<span class="nc" id="L450">            panel.removeAll();</span>
-
-<span class="nc" id="L452">            ((ImageIcon)imageLabel.getIcon()).setImage(ImageLibrary.getBuildableImage(value, buildingDimension));</span>
-
-<span class="nc" id="L454">            nameLabel.setText(Messages.getName(value));</span>
-<span class="nc" id="L455">            panel.setToolTipText(lockReasons.get(value));</span>
-<span class="nc" id="L456">            panel.add(imageLabel, &quot;span 1 2&quot;);</span>
-<span class="nc bnc" id="L457" title="All 2 branches missed.">            if (lockReasons.get(value) == null) {</span>
-<span class="nc" id="L458">                panel.add(nameLabel, &quot;wrap&quot;);</span>
-            } else {
-<span class="nc" id="L460">                panel.add(nameLabel, &quot;split 2&quot;);</span>
-<span class="nc" id="L461">                panel.add(lockLabel, &quot;wrap&quot;);</span>
-            }
-
-<span class="nc" id="L464">            ImageLibrary lib = getImageLibrary();</span>
-<span class="nc" id="L465">            List&lt;AbstractGoods&gt; required = value.getRequiredGoods();</span>
-<span class="nc" id="L466">            int size = required.size();</span>
-<span class="nc bnc" id="L467" title="All 2 branches missed.">            for (int i = 0; i &lt; size; i++) {</span>
-<span class="nc" id="L468">                AbstractGoods goods = required.get(i);</span>
-<span class="nc" id="L469">                ImageIcon icon = new ImageIcon(lib.getSmallIconImage(goods.getType()));</span>
-<span class="nc" id="L470">                JLabel goodsLabel = new JLabel(Integer.toString(goods.getAmount()), icon, SwingConstants.CENTER);</span>
-<span class="nc bnc" id="L471" title="All 4 branches missed.">                if (i == 0 &amp;&amp; size &gt; 1) {</span>
-<span class="nc" id="L472">                    panel.add(goodsLabel, &quot;split &quot; + size);</span>
-                } else {
-<span class="nc" id="L474">                    panel.add(goodsLabel);</span>
-                }
-            }
-<span class="nc" id="L477">            return panel;</span>
-        }
-    }
-
-
-    private static final String BUY = &quot;buy&quot;;
-    private static final int UNABLE_TO_BUILD = -1;
-
-    /** Default setting for the compact box. */
-<span class="nc" id="L486">    private static boolean defaultCompact = false;</span>
-
-    /** Default setting for the showAll box. */
-<span class="nc" id="L489">    private static boolean defaultShowAll = false;</span>
-
-    /** The enclosing colony. */
-    private final Colony colony;
-
-    /** A feature container for potential features from queued buildables. */
-    private final FeatureContainer featureContainer;
-
-    /** A transfer handler for the build queue lists. */
-<span class="nc" id="L498">    private final BuildQueueTransferHandler buildQueueHandler</span>
-        = new BuildQueueTransferHandler();
-
-    /** The list of buildable unit types. */
-    private final JList&lt;UnitType&gt; unitList;
-
-    /** The panel showing the current buildable. */
-    private final ConstructionPanel constructionPanel;
-
-    /** The build queue. */
-    private final JList&lt;BuildableType&gt; buildQueueList;
-
-    /** The list of buildable building types. */
-    private final JList&lt;BuildingType&gt; buildingList;
-
-    /** A button to buy the current buildable. */
-    private final JButton buyBuildable;
-
-    /** The check box to enable compact mode. */
-    private final JCheckBox compactBox;
-
-    /** The check box to enable showing all buildables. */
-    private final JCheckBox showAllBox;
-
-<span class="nc" id="L522">    private final Map&lt;BuildableType, String&gt; lockReasons = new HashMap&lt;&gt;();</span>
-<span class="nc" id="L523">    private final Set&lt;BuildableType&gt; unbuildableTypes</span>
-        = new HashSet&lt;&gt;();
-
-
-    /**
-     * Create a new build queue panel.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param colony The enclosing &lt;code&gt;Colony&lt;/code&gt;.
-     */
-    public BuildQueuePanel(FreeColClient freeColClient, Colony colony) {
-<span class="nc" id="L534">        super(freeColClient, new MigLayout(&quot;wrap 3&quot;, </span>
-                &quot;[260:][390:, fill][260:]&quot;, &quot;[][][300:400:][]&quot;));
-
-<span class="nc" id="L537">        this.colony = colony;</span>
-<span class="nc" id="L538">        this.featureContainer = new FeatureContainer();</span>
-
-<span class="nc" id="L540">        DefaultListModel&lt;BuildableType&gt; current</span>
-            = new DefaultListModel&lt;&gt;();
-<span class="nc bnc" id="L542" title="All 2 branches missed.">        for (BuildableType type : this.colony.getBuildQueue()) {</span>
-<span class="nc" id="L543">            current.addElement(type);</span>
-<span class="nc" id="L544">            this.featureContainer.addFeatures(type);</span>
-<span class="nc" id="L545">        }</span>
-
-<span class="nc" id="L547">        BuildQueueMouseAdapter adapter = new BuildQueueMouseAdapter(true);</span>
-<span class="nc" id="L548">        Action addAction = new AbstractAction() {</span>
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-<span class="nc" id="L551">                    JList&lt;BuildableType&gt; bql</span>
-<span class="nc" id="L552">                        = BuildQueuePanel.this.buildQueueList;</span>
-<span class="nc" id="L553">                    DefaultListModel&lt;BuildableType&gt; model</span>
-<span class="nc" id="L554">                        = (DefaultListModel&lt;BuildableType&gt;)bql.getModel();</span>
-<span class="nc" id="L555">                    JList&lt;? extends BuildableType&gt; btl</span>
-<span class="nc bnc" id="L556" title="All 2 branches missed.">                        = (ae.getSource() == BuildQueuePanel.this.unitList)</span>
-<span class="nc" id="L557">                        ? BuildQueuePanel.this.unitList</span>
-<span class="nc bnc" id="L558" title="All 2 branches missed.">                        : (ae.getSource() == BuildQueuePanel.this.buildingList)</span>
-<span class="nc" id="L559">                        ? BuildQueuePanel.this.buildingList</span>
-                        : null;
-<span class="nc bnc" id="L561" title="All 2 branches missed.">                    if (btl != null) {</span>
-<span class="nc bnc" id="L562" title="All 2 branches missed.">                        for (BuildableType bt : btl.getSelectedValuesList()) {</span>
-<span class="nc" id="L563">                            model.addElement(bt);</span>
-<span class="nc" id="L564">                        }</span>
-                    }
-<span class="nc" id="L566">                    updateAllLists();</span>
-<span class="nc" id="L567">                }</span>
-            };
-
-        // Create Font choice
-<span class="nc" id="L571">        Font fontSubHead = FontLibrary.createFont(FontLibrary.FontType.NORMAL,</span>
-                FontLibrary.FontSize.SMALLER, Font.BOLD,
-<span class="nc" id="L573">                getImageLibrary().getScaleFactor());</span>
-        
-        // Create the components
-<span class="nc" id="L576">        JLabel header = Utility.localizedHeaderLabel(</span>
-            &quot;buildQueuePanel.buildQueue&quot;,
-            SwingConstants.LEADING, FontLibrary.FontSize.BIG);
-        
-        // JLabel SubHeads
-<span class="nc" id="L581">        JLabel bqpUnits = Utility.localizedLabel(&quot;buildQueuePanel.units&quot;);</span>
-<span class="nc" id="L582">        bqpUnits.setFont(fontSubHead);</span>
-<span class="nc" id="L583">        JLabel bpqBuildQueue = Utility.localizedLabel(&quot;buildQueuePanel.buildQueue&quot;);</span>
-<span class="nc" id="L584">        bpqBuildQueue.setFont(fontSubHead);</span>
-<span class="nc" id="L585">        bpqBuildQueue.setHorizontalAlignment(SwingConstants.CENTER);</span>
-<span class="nc" id="L586">        JLabel bqpBuildings = Utility.localizedLabel(&quot;buildQueuePanel.buildings&quot;);</span>
-<span class="nc" id="L587">        bqpBuildings.setFont(fontSubHead);</span>
-
-<span class="nc" id="L589">        DefaultListModel&lt;UnitType&gt; units = new DefaultListModel&lt;&gt;();</span>
-<span class="nc" id="L590">        this.unitList = new JList&lt;&gt;(units);</span>
-<span class="nc" id="L591">        this.unitList.setTransferHandler(buildQueueHandler);</span>
-<span class="nc" id="L592">        this.unitList.setSelectionMode(ListSelectionModel</span>
-                .MULTIPLE_INTERVAL_SELECTION);
-<span class="nc" id="L594">        this.unitList.setDragEnabled(true);</span>
-<span class="nc" id="L595">        this.unitList.addMouseListener(adapter);</span>
-<span class="nc" id="L596">        this.unitList.getInputMap().put(KeyStroke.getKeyStroke(&quot;ENTER&quot;), </span>
-                &quot;add&quot;);
-<span class="nc" id="L598">        this.unitList.getActionMap().put(&quot;add&quot;, addAction);</span>
-
-<span class="nc" id="L600">        this.constructionPanel</span>
-            = new ConstructionPanel(freeColClient, this.colony, false);
-<span class="nc" id="L602">        this.constructionPanel.setDefaultLabel(StringTemplate</span>
-<span class="nc" id="L603">            .template(&quot;buildQueuePanel.currentlyBuilding&quot;)</span>
-<span class="nc" id="L604">            .add(&quot;%buildable%&quot;, &quot;nothing&quot;));</span>
-
-<span class="nc" id="L606">        this.buildQueueList = new JList&lt;&gt;(current);</span>
-<span class="nc" id="L607">        this.buildQueueList.setTransferHandler(buildQueueHandler);</span>
-<span class="nc" id="L608">        this.buildQueueList.setSelectionMode(ListSelectionModel</span>
-                .SINGLE_SELECTION);
-<span class="nc" id="L610">        this.buildQueueList.setDragEnabled(true);</span>
-<span class="nc" id="L611">        this.buildQueueList.addMouseListener(new BuildQueueMouseAdapter(false));</span>
-<span class="nc" id="L612">        this.buildQueueList.getInputMap()</span>
-<span class="nc" id="L613">            .put(KeyStroke.getKeyStroke(&quot;DELETE&quot;), &quot;delete&quot;);</span>
-<span class="nc" id="L614">        this.buildQueueList.getActionMap().put(&quot;delete&quot;,</span>
-<span class="nc" id="L615">            new AbstractAction() {</span>
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-<span class="nc" id="L618">                    JList&lt;BuildableType&gt; bql = BuildQueuePanel.</span>
-<span class="nc" id="L619">                            this.buildQueueList;</span>
-<span class="nc bnc" id="L620" title="All 2 branches missed.">                    for (BuildableType bt : bql.getSelectedValuesList()) {</span>
-<span class="nc" id="L621">                        removeBuildable(bt);</span>
-<span class="nc" id="L622">                    }</span>
-<span class="nc" id="L623">                    updateAllLists();</span>
-<span class="nc" id="L624">                }</span>
-            });
-
-<span class="nc" id="L627">        DefaultListModel&lt;BuildingType&gt; buildings</span>
-            = new DefaultListModel&lt;&gt;();
-<span class="nc" id="L629">        this.buildingList = new JList&lt;&gt;(buildings);</span>
-<span class="nc" id="L630">        this.buildingList.setTransferHandler(buildQueueHandler);</span>
-<span class="nc" id="L631">        this.buildingList.setSelectionMode(ListSelectionModel.</span>
-                MULTIPLE_INTERVAL_SELECTION);
-<span class="nc" id="L633">        this.buildingList.setDragEnabled(true);</span>
-<span class="nc" id="L634">        this.buildingList.addMouseListener(adapter);</span>
-<span class="nc" id="L635">        this.buildingList.getInputMap()</span>
-<span class="nc" id="L636">            .put(KeyStroke.getKeyStroke(&quot;ENTER&quot;), &quot;add&quot;);</span>
-<span class="nc" id="L637">        this.buildingList.getActionMap().put(&quot;add&quot;, addAction);</span>
-
-<span class="nc" id="L639">        this.buyBuildable = Utility.localizedButton(&quot;none&quot;); // placeholder</span>
-<span class="nc" id="L640">        setBuyLabel(null);</span>
-<span class="nc" id="L641">        this.buyBuildable.setActionCommand(BUY);</span>
-<span class="nc" id="L642">        this.buyBuildable.addActionListener(this);</span>
-
-<span class="nc" id="L644">        this.compactBox</span>
-<span class="nc" id="L645">            = new JCheckBox(Messages.message(&quot;buildQueuePanel.compactView&quot;));</span>
-<span class="nc" id="L646">        this.compactBox.addItemListener(this);</span>
-<span class="nc" id="L647">        this.compactBox.setSelected(defaultCompact);</span>
-
-<span class="nc" id="L649">        this.showAllBox</span>
-<span class="nc" id="L650">            = new JCheckBox(Messages.message(&quot;buildQueuePanel.showAll&quot;));</span>
-<span class="nc" id="L651">        this.showAllBox.addItemListener(this);</span>
-<span class="nc" id="L652">        this.showAllBox.setSelected(defaultShowAll);</span>
-
-<span class="nc" id="L654">        updateDetailView(); // sets cell renderer</span>
-<span class="nc" id="L655">        updateAllLists();</span>
-
-        // Add all the components
-<span class="nc" id="L658">        add(header, &quot;span 3, align center, wrap 40&quot;);</span>
-<span class="nc" id="L659">        add(bqpUnits, &quot;align center&quot;);</span>
-<span class="nc" id="L660">        add(bpqBuildQueue, &quot;align center&quot;);</span>
-<span class="nc" id="L661">        add(bqpBuildings, &quot;align center&quot;);</span>
-<span class="nc" id="L662">        add(new JScrollPane(this.unitList), &quot;grow&quot;);</span>
-<span class="nc" id="L663">        add(this.constructionPanel, &quot;split 2, flowy&quot;);</span>
-<span class="nc" id="L664">        add(new JScrollPane(this.buildQueueList), &quot;grow&quot;);</span>
-<span class="nc" id="L665">        add(new JScrollPane(this.buildingList), &quot;grow, wrap 20&quot;);</span>
-<span class="nc" id="L666">        add(this.buyBuildable, &quot;span, split 4&quot;);</span>
-<span class="nc" id="L667">        add(this.compactBox);</span>
-<span class="nc" id="L668">        add(this.showAllBox);</span>
-<span class="nc" id="L669">        add(okButton, &quot;tag ok&quot;);</span>
-
-<span class="nc" id="L671">        setSize(getPreferredSize());</span>
-<span class="nc" id="L672">    }</span>
-
-
-    /**
-     * Get the colony for this build queue.
-     *
-     * @return The &lt;code&gt;Colony&lt;/code&gt;.
-     */
-    public Colony getColony() {
-<span class="nc" id="L681">        return this.colony;</span>
-    }
-
-    /**
-     * Convert a component to an actual part of this panel,
-     * recovering its list type.
-     *
-     * @param comp The &lt;code&gt;JComponent&lt;/code&gt; to convert.
-     * @return The actual panel component &lt;code&gt;JList&lt;/code&gt;, or
-     *     null on error.
-     */
-    private JList&lt;? extends BuildableType&gt; convertJComp(JComponent comp) {
-<span class="nc bnc" id="L693" title="All 6 branches missed.">        return (comp == this.unitList) ? this.unitList</span>
-            : (comp == this.buildQueueList) ? this.buildQueueList
-            : (comp == this.buildingList) ? this.buildingList
-            : null;
-    }
-
-    private void removeBuildable(Object type) {
-<span class="nc" id="L700">        DefaultListModel&lt;BuildableType&gt; model</span>
-<span class="nc" id="L701">            = (DefaultListModel&lt;BuildableType&gt;)this.buildQueueList.getModel();</span>
-<span class="nc" id="L702">        model.removeElement(type);</span>
-<span class="nc" id="L703">    }</span>
-
-    private void updateUnitList() {
-<span class="nc" id="L706">        final Specification spec = getSpecification();</span>
-<span class="nc" id="L707">        final Turn turn = getGame().getTurn();</span>
-        StringTemplate tmpl;
-<span class="nc" id="L709">        DefaultListModel&lt;UnitType&gt; units</span>
-<span class="nc" id="L710">            = (DefaultListModel&lt;UnitType&gt;)this.unitList.getModel();</span>
-<span class="nc" id="L711">        units.clear();</span>
-<span class="nc bnc" id="L712" title="All 2 branches missed.">        loop: for (UnitType unitType : spec.getBuildableUnitTypes()) {</span>
-            // compare colony.getNoBuildReason()
-<span class="nc" id="L714">            List&lt;String&gt; lockReason = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L715" title="All 2 branches missed.">            if (unbuildableTypes.contains(unitType)) {</span>
-<span class="nc" id="L716">                continue;</span>
-            }
-
-<span class="nc bnc" id="L719" title="All 2 branches missed.">            if (unitType.getRequiredPopulation() &gt; this.colony.getUnitCount()) {</span>
-<span class="nc" id="L720">                tmpl = StringTemplate.template(&quot;buildQueuePanel.populationTooSmall&quot;)</span>
-<span class="nc" id="L721">                    .addAmount(&quot;%number%&quot;, unitType.getRequiredPopulation());</span>
-<span class="nc" id="L722">                lockReason.add(Messages.message(tmpl));</span>
-            }
-
-<span class="nc bnc" id="L725" title="All 2 branches missed.">            if (unitType.getLimits() != null) {</span>
-<span class="nc bnc" id="L726" title="All 2 branches missed.">                for (Limit limit : unitType.getLimits()) {</span>
-<span class="nc bnc" id="L727" title="All 2 branches missed.">                    if (!limit.evaluate(this.colony)) {</span>
-<span class="nc" id="L728">                        lockReason.add(Messages.getDescription(limit));</span>
-                    }
-<span class="nc" id="L730">                }</span>
-            }
-
-<span class="nc bnc" id="L733" title="All 2 branches missed.">            if (!(this.colony.hasAbility(Ability.BUILD, unitType, turn)</span>
-<span class="nc bnc" id="L734" title="All 2 branches missed.">                    || this.featureContainer.hasAbility(Ability.BUILD,</span>
-                        unitType, null))) {
-<span class="nc" id="L736">                boolean builderFound = false;</span>
-<span class="nc bnc" id="L737" title="All 2 branches missed.">                for (Ability ability : spec.getAbilities(Ability.BUILD)) {</span>
-<span class="nc" id="L738">                    FreeColObject source = ability.getSource();</span>
-<span class="nc bnc" id="L739" title="All 2 branches missed.">                    if (ability.appliesTo(unitType)</span>
-<span class="nc bnc" id="L740" title="All 4 branches missed.">                        &amp;&amp; ability.getValue()</span>
-                        &amp;&amp; source != null
-<span class="nc bnc" id="L742" title="All 2 branches missed.">                        &amp;&amp; !unbuildableTypes.contains(source)) {</span>
-<span class="nc" id="L743">                        builderFound = true;</span>
-<span class="nc bnc" id="L744" title="All 2 branches missed.">                        if (source instanceof Named) {</span>
-<span class="nc" id="L745">                            lockReason.add(Messages.getName((Named)source));</span>
-                        }
-                        break;
-                    }
-<span class="nc" id="L749">                }</span>
-<span class="nc bnc" id="L750" title="All 2 branches missed.">                if (!builderFound) {</span>
-<span class="nc" id="L751">                    unbuildableTypes.add(unitType);</span>
-<span class="nc" id="L752">                    continue;</span>
-                }
-            }
-
-            for (Entry&lt;String, Boolean&gt; entry
-<span class="nc bnc" id="L757" title="All 2 branches missed.">                     : unitType.getRequiredAbilities().entrySet()) {</span>
-<span class="nc bnc" id="L758" title="All 2 branches missed.">                if (this.colony.hasAbility(entry.getKey()) != entry.getValue()</span>
-<span class="nc" id="L759">                    &amp;&amp; this.featureContainer.hasAbility(entry.getKey(),</span>
-                            null, null)
-<span class="nc bnc" id="L761" title="All 2 branches missed.">                    != entry.getValue()) {</span>
-<span class="nc" id="L762">                    List&lt;FreeColGameObjectType&gt; sources</span>
-<span class="nc" id="L763">                        = spec.getTypesProviding(entry.getKey(),</span>
-<span class="nc" id="L764">                                                 entry.getValue());</span>
-<span class="nc bnc" id="L765" title="All 2 branches missed.">                    if (sources.isEmpty()) {</span>
-                        // no type provides the required ability
-<span class="nc" id="L767">                        unbuildableTypes.add(unitType);</span>
-<span class="nc" id="L768">                        continue loop;</span>
-                    } else {
-<span class="nc" id="L770">                        lockReason.add(Messages.getName(sources.get(0)));</span>
-                    }
-                }
-<span class="nc" id="L773">            }</span>
-<span class="nc bnc" id="L774" title="All 2 branches missed.">            if (lockReason.isEmpty()) {</span>
-<span class="nc" id="L775">                lockReasons.put(unitType, null);</span>
-            } else {
-<span class="nc" id="L777">                tmpl = StringTemplate.template(&quot;buildQueuePanel.requires&quot;)</span>
-<span class="nc" id="L778">                    .addName(&quot;%string%&quot;, join(&quot;/&quot;, lockReason));</span>
-<span class="nc" id="L779">                lockReasons.put(unitType, Messages.message(tmpl));</span>
-            }
-<span class="nc bnc" id="L781" title="All 4 branches missed.">            if (lockReason.isEmpty() || showAllBox.isSelected()) {</span>
-<span class="nc" id="L782">                units.addElement(unitType);</span>
-            }
-<span class="nc" id="L784">        }</span>
-<span class="nc" id="L785">    }</span>
-
-    private void updateBuildingList() {
-<span class="nc" id="L788">        final Specification spec = getSpecification();</span>
-<span class="nc" id="L789">        final DefaultListModel&lt;BuildingType&gt; buildings</span>
-<span class="nc" id="L790">            = (DefaultListModel&lt;BuildingType&gt;)this.buildingList.getModel();</span>
-<span class="nc" id="L791">        final DefaultListModel&lt;BuildableType&gt; current</span>
-<span class="nc" id="L792">            = (DefaultListModel&lt;BuildableType&gt;)this.buildQueueList.getModel();</span>
-        StringTemplate tmpl;
-
-<span class="nc" id="L795">        buildings.clear();</span>
-<span class="nc bnc" id="L796" title="All 2 branches missed.">        loop: for (BuildingType buildingType : spec.getBuildingTypeList()) {</span>
-            // compare colony.getNoBuildReason()
-<span class="nc" id="L798">            List&lt;String&gt; lockReason = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L799">            Building colonyBuilding = this.colony.getBuilding(buildingType);</span>
-<span class="nc bnc" id="L800" title="All 2 branches missed.">            if (current.contains(buildingType)</span>
-<span class="nc bnc" id="L801" title="All 2 branches missed.">                || hasBuildingType(buildingType)) {</span>
-                // only one building of any kind
-<span class="nc" id="L803">                continue;</span>
-<span class="nc bnc" id="L804" title="All 2 branches missed.">            } else if (unbuildableTypes.contains(buildingType)) {</span>
-<span class="nc" id="L805">                continue;</span>
-<span class="nc bnc" id="L806" title="All 2 branches missed.">            } else if (!buildingType.needsGoodsToBuild()) {</span>
-                // pre-built
-<span class="nc" id="L808">                continue;</span>
-<span class="nc bnc" id="L809" title="All 2 branches missed.">            } else if (unbuildableTypes.contains(buildingType</span>
-<span class="nc" id="L810">                    .getUpgradesFrom())) {</span>
-<span class="nc" id="L811">                unbuildableTypes.add(buildingType); // impossible upgrade path</span>
-<span class="nc" id="L812">                continue;</span>
-            }
-
-<span class="nc bnc" id="L815" title="All 2 branches missed.">            if (buildingType.hasAbility(Ability.COASTAL_ONLY)</span>
-<span class="nc bnc" id="L816" title="All 2 branches missed.">                &amp;&amp; !this.colony.getTile().isCoastland()) {</span>
-<span class="nc" id="L817">                tmpl = StringTemplate.template(&quot;buildQueuePanel.coastalOnly&quot;);</span>
-<span class="nc" id="L818">                lockReason.add(Messages.message(tmpl));</span>
-            }
-                                                
-<span class="nc" id="L821">            if (buildingType.getRequiredPopulation() &gt; this.colony</span>
-<span class="nc bnc" id="L822" title="All 2 branches missed.">                    .getUnitCount()) {</span>
-<span class="nc" id="L823">                tmpl = StringTemplate.template(&quot;buildQueuePanel.populationTooSmall&quot;)</span>
-<span class="nc" id="L824">                    .addAmount(&quot;%number%&quot;, buildingType.getRequiredPopulation());</span>
-<span class="nc" id="L825">                lockReason.add(Messages.message(tmpl));</span>
-            }
-
-            for (Entry&lt;String, Boolean&gt; entry
-<span class="nc bnc" id="L829" title="All 2 branches missed.">                     : buildingType.getRequiredAbilities().entrySet()) {</span>
-<span class="nc bnc" id="L830" title="All 2 branches missed.">                if (this.colony.hasAbility(entry.getKey()) != entry.getValue()</span>
-<span class="nc" id="L831">                    &amp;&amp; this.featureContainer.hasAbility(entry.getKey(),</span>
-                            null, null)
-<span class="nc bnc" id="L833" title="All 2 branches missed.">                    != entry.getValue()) {</span>
-<span class="nc" id="L834">                    List&lt;FreeColGameObjectType&gt; sources = getSpecification()</span>
-<span class="nc" id="L835">                        .getTypesProviding(entry.getKey(), entry.getValue());</span>
-<span class="nc bnc" id="L836" title="All 2 branches missed.">                    if (sources.isEmpty()) {</span>
-                        // no type provides the required ability
-<span class="nc" id="L838">                        unbuildableTypes.add(buildingType);</span>
-<span class="nc" id="L839">                        continue loop;</span>
-                    } else {
-<span class="nc" id="L841">                        lockReason.add(Messages.getName(sources.get(0)));</span>
-                    }
-                }
-<span class="nc" id="L844">            }</span>
-
-<span class="nc bnc" id="L846" title="All 2 branches missed.">            if (buildingType.getLimits() != null) {</span>
-<span class="nc bnc" id="L847" title="All 2 branches missed.">                for (Limit limit : buildingType.getLimits()) {</span>
-<span class="nc bnc" id="L848" title="All 2 branches missed.">                    if (!limit.evaluate(this.colony)) {</span>
-<span class="nc" id="L849">                        lockReason.add(Messages.getDescription(limit));</span>
-                    }
-<span class="nc" id="L851">                }</span>
-            }
-
-<span class="nc bnc" id="L854" title="All 2 branches missed.">            if (buildingType.getUpgradesFrom() != null</span>
-<span class="nc bnc" id="L855" title="All 2 branches missed.">                &amp;&amp; !current.contains(buildingType.getUpgradesFrom())) {</span>
-<span class="nc bnc" id="L856" title="All 2 branches missed.">                if (colonyBuilding == null</span>
-<span class="nc" id="L857">                    || colonyBuilding.getType() != buildingType</span>
-<span class="nc bnc" id="L858" title="All 2 branches missed.">                            .getUpgradesFrom()) {</span>
-<span class="nc" id="L859">                    lockReason.add(Messages.getName(buildingType</span>
-<span class="nc" id="L860">                            .getUpgradesFrom()));</span>
-                }
-            }
-<span class="nc bnc" id="L863" title="All 2 branches missed.">            if (lockReason.isEmpty()) {</span>
-<span class="nc" id="L864">                lockReasons.put(buildingType, null);</span>
-            } else {
-<span class="nc" id="L866">                tmpl = StringTemplate.template(&quot;buildQueuePanel.requires&quot;)</span>
-<span class="nc" id="L867">                    .addName(&quot;%string%&quot;, join(&quot;/&quot;, lockReason));</span>
-<span class="nc" id="L868">                lockReasons.put(buildingType, Messages.message(tmpl));</span>
-            }
-<span class="nc bnc" id="L870" title="All 4 branches missed.">            if (lockReason.isEmpty() || showAllBox.isSelected()) {</span>
-<span class="nc" id="L871">                buildings.addElement(buildingType);</span>
-            }
-<span class="nc" id="L873">        }</span>
-<span class="nc" id="L874">    }</span>
-
-    private void updateAllLists() {
-<span class="nc" id="L877">        final DefaultListModel&lt;BuildableType&gt; current</span>
-<span class="nc" id="L878">            = (DefaultListModel&lt;BuildableType&gt;)this.buildQueueList.getModel();</span>
-
-<span class="nc" id="L880">        this.featureContainer.clear();</span>
-<span class="nc" id="L881">        for (Enumeration&lt;BuildableType&gt; e = current.elements();</span>
-<span class="nc bnc" id="L882" title="All 2 branches missed.">             e.hasMoreElements();) {</span>
-<span class="nc" id="L883">            BuildableType type = e.nextElement();</span>
-<span class="nc bnc" id="L884" title="All 2 branches missed.">            if (getMinimumIndex(type) &gt;= 0) {</span>
-<span class="nc" id="L885">                featureContainer.addFeatures(type);</span>
-            } else {
-<span class="nc" id="L887">                current.removeElement(type);</span>
-            }
-<span class="nc" id="L889">        }</span>
-        // ATTENTION: buildings must be updated first, since units
-        // might depend on the build ability of an unbuildable
-        // building
-<span class="nc" id="L893">        updateBuildingList();</span>
-<span class="nc" id="L894">        updateUnitList();</span>
-
-        // Update the buy button
-<span class="nc" id="L897">        final boolean pay = getSpecification()</span>
-<span class="nc" id="L898">            .getBoolean(GameOptions.PAY_FOR_BUILDING);</span>
-<span class="nc bnc" id="L899" title="All 2 branches missed.">        BuildableType bt = (current.getSize() &lt;= 0) ? null</span>
-<span class="nc" id="L900">            : current.getElementAt(0);</span>
-<span class="nc bnc" id="L901" title="All 4 branches missed.">        this.buyBuildable.setEnabled(bt != null &amp;&amp; pay</span>
-<span class="nc bnc" id="L902" title="All 2 branches missed.">            &amp;&amp; this.colony.canPayToFinishBuilding(bt));</span>
-<span class="nc" id="L903">        this.setBuyLabel(bt);</span>
-
-        // Update the construction panel
-<span class="nc bnc" id="L906" title="All 2 branches missed.">        if (current.getSize() &gt; 0) {</span>
-<span class="nc" id="L907">            this.constructionPanel.update(current.getElementAt(0));</span>
-<span class="nc bnc" id="L908" title="All 2 branches missed.">        } else if (current.getSize() == 0) {</span>
-<span class="nc" id="L909">            this.constructionPanel.update(); // generates Building: Nothing</span>
-        }
-<span class="nc" id="L911">    }</span>
-
-    private void setBuyLabel(BuildableType buildable) {
-<span class="nc bnc" id="L914" title="All 2 branches missed.">        this.buyBuildable.setText(Messages.message((buildable == null)</span>
-<span class="nc" id="L915">                ? StringTemplate.template(&quot;buildQueuePanel.buyBuilding&quot;)</span>
-<span class="nc" id="L916">                    .addStringTemplate(&quot;%buildable%&quot;,</span>
-<span class="nc" id="L917">                        StringTemplate.key(&quot;nothing&quot;))</span>
-<span class="nc" id="L918">                : StringTemplate.template(&quot;buildQueuePanel.buyBuilding&quot;)</span>
-<span class="nc" id="L919">                    .addNamed(&quot;%buildable%&quot;, buildable)));</span>
-<span class="nc" id="L920">    }</span>
-
-    private boolean hasBuildingType(BuildingType buildingType) {
-<span class="nc bnc" id="L923" title="All 2 branches missed.">        if (this.colony.getBuilding(buildingType) == null) {</span>
-<span class="nc" id="L924">            return false;</span>
-<span class="nc bnc" id="L925" title="All 2 branches missed.">        } else if (colony.getBuilding(buildingType).getType() == buildingType) {</span>
-<span class="nc" id="L926">            return true;</span>
-<span class="nc bnc" id="L927" title="All 2 branches missed.">        } else if (buildingType.getUpgradesTo() != null) {</span>
-<span class="nc" id="L928">            return hasBuildingType(buildingType.getUpgradesTo());</span>
-        } else {
-<span class="nc" id="L930">            return false;</span>
-        }
-    }
-
-    private List&lt;BuildableType&gt; getBuildableTypes(JList&lt;? extends BuildableType&gt; list) {
-<span class="nc" id="L935">        List&lt;BuildableType&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L936" title="All 2 branches missed.">        if (list == null) return result;</span>
-<span class="nc" id="L937">        ListModel&lt;? extends BuildableType&gt; model = list.getModel();</span>
-<span class="nc bnc" id="L938" title="All 2 branches missed.">        for (int index = 0; index &lt; model.getSize(); index++) {</span>
-<span class="nc" id="L939">            result.add(model.getElementAt(index));</span>
-        }
-<span class="nc" id="L941">        return result;</span>
-    }
-
-    private int getMinimumIndex(BuildableType buildableType) {
-<span class="nc" id="L945">        ListModel&lt;BuildableType&gt; buildQueue = this.buildQueueList.getModel();</span>
-<span class="nc bnc" id="L946" title="All 2 branches missed.">        if (buildableType instanceof UnitType) {</span>
-<span class="nc bnc" id="L947" title="All 2 branches missed.">            if (this.colony.canBuild(buildableType)) return 0;</span>
-<span class="nc bnc" id="L948" title="All 2 branches missed.">            for (int index = 0; index &lt; buildQueue.getSize(); index++) {</span>
-<span class="nc bnc" id="L949" title="All 2 branches missed.">                if (buildQueue.getElementAt(index).hasAbility(Ability.BUILD,</span>
-<span class="nc" id="L950">                        buildableType)) return index + 1;</span>
-            }
-<span class="nc bnc" id="L952" title="All 2 branches missed.">        } else if (buildableType instanceof BuildingType) {</span>
-<span class="nc" id="L953">            BuildingType upgradesFrom = ((BuildingType)buildableType)</span>
-<span class="nc" id="L954">                    .getUpgradesFrom();</span>
-<span class="nc bnc" id="L955" title="All 2 branches missed.">            if (upgradesFrom == null) return 0;</span>
-<span class="nc" id="L956">            Building building = this.colony</span>
-<span class="nc" id="L957">                    .getBuilding((BuildingType)buildableType);</span>
-<span class="nc bnc" id="L958" title="All 2 branches missed.">            BuildingType buildingType = (building == null) ? null</span>
-<span class="nc" id="L959">                : building.getType();</span>
-<span class="nc bnc" id="L960" title="All 2 branches missed.">            if (buildingType == upgradesFrom) return 0;</span>
-<span class="nc bnc" id="L961" title="All 2 branches missed.">            for (int index = 0; index &lt; buildQueue.getSize(); index++) {</span>
-<span class="nc bnc" id="L962" title="All 2 branches missed.">                if (upgradesFrom.equals(buildQueue.getElementAt(index))) {</span>
-<span class="nc" id="L963">                    return index + 1;</span>
-                }
-            }
-        }
-<span class="nc" id="L967">        return UNABLE_TO_BUILD;</span>
-    }
-
-    private int getMaximumIndex(BuildableType buildableType) {
-<span class="nc" id="L971">        ListModel&lt;BuildableType&gt; buildQueue = this.buildQueueList.getModel();</span>
-<span class="nc" id="L972">        final int buildQueueLastPos = buildQueue.getSize();</span>
-
-<span class="nc" id="L974">        boolean canBuild = false;</span>
-<span class="nc bnc" id="L975" title="All 2 branches missed.">        if (this.colony.canBuild(buildableType)) {</span>
-<span class="nc" id="L976">            canBuild = true;</span>
-        }
-
-<span class="nc bnc" id="L979" title="All 2 branches missed.">        if (buildableType instanceof UnitType) {</span>
-            // does not depend on anything, nothing depends on it
-            // can be built at any time
-<span class="nc bnc" id="L982" title="All 2 branches missed.">            if (canBuild) return buildQueueLastPos;</span>
-            // check for building in queue that allows builting this unit
-<span class="nc bnc" id="L984" title="All 2 branches missed.">            for (int index = 0; index &lt; buildQueue.getSize(); index++) {</span>
-<span class="nc" id="L985">                BuildableType toBuild = buildQueue.getElementAt(index);</span>
-<span class="nc bnc" id="L986" title="All 2 branches missed.">                if (toBuild == buildableType) continue;</span>
-<span class="nc bnc" id="L987" title="All 2 branches missed.">                if (toBuild.hasAbility(Ability.BUILD, buildableType)) {</span>
-<span class="nc" id="L988">                    return buildQueueLastPos;</span>
-                }
-            }
-<span class="nc" id="L991">            return UNABLE_TO_BUILD;</span>
-        }
-
-<span class="nc bnc" id="L994" title="All 2 branches missed.">        if (buildableType instanceof BuildingType) {</span>
-<span class="nc" id="L995">            BuildingType upgradesFrom = ((BuildingType)buildableType</span>
-<span class="nc" id="L996">                    ).getUpgradesFrom();</span>
-<span class="nc" id="L997">            BuildingType upgradesTo = ((BuildingType)buildableType)</span>
-<span class="nc" id="L998">                    .getUpgradesTo();</span>
-            // does not depend on nothing, but still cannot be built
-<span class="nc bnc" id="L1000" title="All 4 branches missed.">            if (!canBuild &amp;&amp; upgradesFrom == null) {</span>
-<span class="nc" id="L1001">                return UNABLE_TO_BUILD;</span>
-            }
-
-            // if can be built and does not have any upgrade,
-            // then it can be built at any time
-<span class="nc bnc" id="L1006" title="All 4 branches missed.">            if (canBuild &amp;&amp; upgradesTo == null) {</span>
-<span class="nc" id="L1007">                return buildQueueLastPos;</span>
-            }
-
-            // if can be built, does not depend on anything, mark
-            // upgrades from as found
-<span class="nc" id="L1012">            boolean foundUpgradesFrom = canBuild;</span>
-<span class="nc bnc" id="L1013" title="All 2 branches missed.">            for (int index = 0; index &lt; buildQueue.getSize(); index++) {</span>
-<span class="nc" id="L1014">                BuildableType toBuild = buildQueue.getElementAt(index);</span>
-                
-<span class="nc bnc" id="L1016" title="All 2 branches missed.">                if (toBuild == buildableType) continue;</span>
-
-<span class="nc bnc" id="L1018" title="All 4 branches missed.">                if (!canBuild &amp;&amp; !foundUpgradesFrom</span>
-<span class="nc bnc" id="L1019" title="All 2 branches missed.">                    &amp;&amp; upgradesFrom.equals(toBuild)) {</span>
-<span class="nc" id="L1020">                    foundUpgradesFrom = true;</span>
-                    // nothing else to upgrade this building to
-<span class="nc bnc" id="L1022" title="All 2 branches missed.">                    if (upgradesTo == null) return buildQueueLastPos;</span>
-                }
-                // found a building it upgrades to, cannot go to or
-                // beyond this position
-<span class="nc bnc" id="L1026" title="All 4 branches missed.">                if (foundUpgradesFrom &amp;&amp; upgradesTo != null</span>
-<span class="nc bnc" id="L1027" title="All 2 branches missed.">                    &amp;&amp; upgradesTo.equals(toBuild)) return index;</span>
-
-                // Don't go past a unit this building can build.
-<span class="nc bnc" id="L1030" title="All 2 branches missed.">                if (buildableType.hasAbility(Ability.BUILD, toBuild)) {</span>
-<span class="nc" id="L1031">                    return index;</span>
-                }
-            }
-<span class="nc" id="L1034">            return buildQueueLastPos;</span>
-        }
-<span class="nc" id="L1036">        return UNABLE_TO_BUILD;</span>
-    }
-
-    /**
-     * Set the correct cell renderer in the buildables lists.
-     */
-    private void updateDetailView() {
-<span class="nc" id="L1043">        ListCellRenderer&lt;BuildableType&gt; cellRenderer</span>
-<span class="nc bnc" id="L1044" title="All 2 branches missed.">            = (this.compactBox.isSelected())</span>
-            ? new FreeColComboBoxRenderer&lt;BuildableType&gt;()
-            : new DefaultBuildQueueCellRenderer();
-<span class="nc" id="L1047">        this.buildQueueList.setCellRenderer(cellRenderer);</span>
-<span class="nc" id="L1048">        this.buildingList.setCellRenderer(cellRenderer);</span>
-<span class="nc" id="L1049">        this.unitList.setCellRenderer(cellRenderer);</span>
-<span class="nc" id="L1050">    }</span>
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-<span class="nc" id="L1060">        final String FAIL = &quot;FAIL&quot;;</span>
-<span class="nc bnc" id="L1061" title="All 2 branches missed.">        if (this.colony.getOwner() == getMyPlayer()) {</span>
-<span class="nc" id="L1062">            String command = ae.getActionCommand();</span>
-<span class="nc" id="L1063">            List&lt;BuildableType&gt; buildables = getBuildableTypes(this</span>
-                    .buildQueueList);
-<span class="nc bnc" id="L1065" title="All 2 branches missed.">            while (!buildables.isEmpty()</span>
-<span class="nc bnc" id="L1066" title="All 2 branches missed.">                &amp;&amp; lockReasons.get(buildables.get(0)) != null) {</span>
-<span class="nc" id="L1067">                getGUI().showInformationMessage(buildables.get(0),</span>
-<span class="nc" id="L1068">                    this.colony.getUnbuildableMessage(buildables.get(0)));</span>
-<span class="nc" id="L1069">                command = FAIL;</span>
-<span class="nc" id="L1070">                removeBuildable(buildables.remove(0));</span>
-            }
-<span class="nc" id="L1072">            igc().setBuildQueue(this.colony, buildables);</span>
-<span class="nc bnc" id="L1073" title="All 16 branches missed.">            if (null != command) switch (command) {</span>
-                case FAIL:
-                    // Let the user reconsider.
-<span class="nc" id="L1076">                    updateAllLists();</span>
-<span class="nc" id="L1077">                    return;</span>
-                case OK:
-<span class="nc" id="L1079">                    break;</span>
-                case BUY:
-<span class="nc" id="L1081">                    igc().payForBuilding(this.colony);</span>
-<span class="nc" id="L1082">                    break;</span>
-                default:
-<span class="nc" id="L1084">                    super.actionPerformed(ae);</span>
-                    break;
-            }
-        }
-<span class="nc" id="L1088">        getGUI().removeFromCanvas(this);</span>
-<span class="nc" id="L1089">    }</span>
-
-
-    // Interface ItemListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void itemStateChanged(ItemEvent event) {
-<span class="nc bnc" id="L1099" title="All 2 branches missed.">        if (event.getSource() == this.compactBox) {</span>
-<span class="nc" id="L1100">            updateDetailView();</span>
-<span class="nc" id="L1101">            defaultCompact = this.compactBox.isSelected();</span>
-<span class="nc bnc" id="L1102" title="All 2 branches missed.">        } else if (event.getSource() == this.showAllBox) {</span>
-<span class="nc" id="L1103">            updateAllLists();</span>
-<span class="nc" id="L1104">            defaultShowAll = this.showAllBox.isSelected();</span>
-        }
-<span class="nc" id="L1106">    }</span>
+	/** The Constant logger. */
+<span class="nc" id="L98">	private static final Logger logger = Logger.getLogger(BuildQueuePanel.class.getName());</span>
+
+	/** The Constant BUILD_LIST_FLAVOR. */
+<span class="nc" id="L101">	private static final DataFlavor BUILD_LIST_FLAVOR = new DataFlavor(List.class, &quot;BuildListFlavor&quot;);</span>
+
+	/**
+	 * This class implements a transfer handler able to transfer
+	 * &lt;code&gt;BuildQueueItem&lt;/code&gt;s between the build queue list, the unit list
+	 * and the building list.
+	 */
+<span class="nc" id="L108">	private class BuildQueueTransferHandler extends TransferHandler {</span>
+
+		/**
+		 * This class implements the &lt;code&gt;Transferable&lt;/code&gt; interface.
+		 */
+		public class BuildablesTransferable implements Transferable {
+
+			/** The buildables. */
+			private final List&lt;? extends BuildableType&gt; buildables;
+
+			/** The supported flavors. */
+<span class="nc" id="L119">			private final DataFlavor[] supportedFlavors = { BUILD_LIST_FLAVOR };</span>
+
+			/**
+			 * Default constructor.
+			 *
+			 * @param buildables
+			 *            The build queue to transfer.
+			 */
+<span class="nc" id="L127">			public BuildablesTransferable(List&lt;? extends BuildableType&gt; buildables) {</span>
+<span class="nc" id="L128">				this.buildables = buildables;</span>
+<span class="nc" id="L129">			}</span>
+
+			/**
+			 * Get the build queue from the &lt;code&gt;Transferable&lt;/code&gt;.
+			 *
+			 * @return The build queue.
+			 */
+			public List&lt;? extends BuildableType&gt; getBuildables() {
+<span class="nc" id="L137">				return this.buildables;</span>
+			}
+
+			// Interface Transferable
+
+			/**
+			 * {@inheritDoc}
+			 */
+			@Override
+			public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
+<span class="nc bnc" id="L147" title="All 2 branches missed.">				if (isDataFlavorSupported(flavor))</span>
+<span class="nc" id="L148">					return this.buildables;</span>
+<span class="nc" id="L149">				throw new UnsupportedFlavorException(flavor);</span>
+			}
+
+			/**
+			 * {@inheritDoc}
+			 */
+			@Override
+			public DataFlavor[] getTransferDataFlavors() {
+<span class="nc" id="L157">				return supportedFlavors;</span>
+			}
+
+			/**
+			 * {@inheritDoc}
+			 */
+			@Override
+			public boolean isDataFlavorSupported(DataFlavor flavor) {
+<span class="nc" id="L165">				return any(supportedFlavors, f -&gt; f.equals(flavor));</span>
+			}
+		}
+
+		/** The source. */
+<span class="nc" id="L170">		private JList&lt;? extends BuildableType&gt; source = null;</span>
+
+		/** The number of items. */
+		// private int[] indices = null;
+<span class="nc" id="L174">		private int numberOfItems = 0; // number of items to be added</span>
+
+		// Override TransferHandler
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public boolean importData(JComponent comp, Transferable data) {
+<span class="nc bnc" id="L183" title="All 2 branches missed.">			if (!canImport(comp, data.getTransferDataFlavors()))</span>
+<span class="nc" id="L184">				return false;</span>
+
+			// What actual panel component was chosen?
+<span class="nc" id="L187">			JList&lt;? extends BuildableType&gt; target = BuildQueuePanel.this.convertJComp(comp);</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">			if (target == null) {</span>
+<span class="nc" id="L189">				logger.warning(&quot;Build queue import failed to: &quot; + comp);</span>
+<span class="nc" id="L190">				return false;</span>
+			}
+
+			// Grab the transfer object and insist it is a list of something.
+			Object transferData;
+			try {
+<span class="nc" id="L196">				transferData = data.getTransferData(BUILD_LIST_FLAVOR);</span>
+<span class="nc" id="L197">			} catch (UnsupportedFlavorException | IOException e) {</span>
+<span class="nc" id="L198">				logger.log(Level.WARNING, &quot;BuildQueue import&quot;, e);</span>
+<span class="nc" id="L199">				return false;</span>
+<span class="nc" id="L200">			}</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">			if (!(transferData instanceof List&lt;?&gt;))</span>
+<span class="nc" id="L202">				return false;</span>
+
+			// Collect the transferred buildables.
+<span class="nc" id="L205">			final JList&lt;BuildableType&gt; bql = BuildQueuePanel.this.buildQueueList;</span>
+<span class="nc" id="L206">			List&lt;BuildableType&gt; queue = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">			for (Object object : (List&lt;?&gt;) transferData) {</span>
+				// Fail if:
+				// - dropping a non-Buildable
+				// - dropping a unit in the Building list
+				// - dropping a building in the Unit list
+				// - no minimum index for the buildable is found
+<span class="nc bnc" id="L213" title="All 4 branches missed.">				if (!(object instanceof BuildableType)</span>
+<span class="nc bnc" id="L214" title="All 4 branches missed.">						|| (object instanceof UnitType &amp;&amp; target == BuildQueuePanel.this.buildingList)</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">						|| (object instanceof BuildingType &amp;&amp; target == BuildQueuePanel.this.unitList)</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">						|| getMinimumIndex((BuildableType) object) &lt; 0)</span>
+<span class="nc" id="L217">					return false;</span>
+<span class="nc" id="L218">				queue.add((BuildableType) object);</span>
+<span class="nc" id="L219">			}</span>
+
+			// Handle the cases where the BQL is not the target.
+<span class="nc" id="L222">			boolean isOrderingQueue = false;</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">			if (this.source == bql) {</span>
+<span class="nc bnc" id="L224" title="All 2 branches missed.">				if (target != bql) {</span>
+					// Dragging out of build queue =&gt; just remove the element.
+					// updateAllLists takes care of the rest.
+<span class="nc" id="L227">					DefaultListModel sourceModel = (DefaultListModel) source.getModel();</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">					for (Object obj : queue) {</span>
+<span class="nc" id="L229">						sourceModel.removeElement(obj);</span>
+<span class="nc" id="L230">					}</span>
+<span class="nc" id="L231">					return true;</span>
+				}
+				// OK, we are reordering the build queue.
+<span class="nc" id="L234">				isOrderingQueue = true;</span>
+			} else {
+				// Can only drag from the Building and Unit lists to
+				// the build queue, so require that to be the target.
+<span class="nc bnc" id="L238" title="All 4 branches missed.">				if (target != bql &amp;&amp; target.getParent() != bql)</span>
+<span class="nc" id="L239">					return false;</span>
+			}
+
+			// Now that the BQL is the target, grab its model (fully
+			// type qualified now).
+<span class="nc" id="L244">			DefaultListModel&lt;BuildableType&gt; targetModel = (DefaultListModel&lt;BuildableType&gt;) bql.getModel();</span>
+
+			// This is where the dragged target was dropped.
+<span class="nc" id="L247">			int preferredIndex = target.getSelectedIndex();</span>
+<span class="nc" id="L248">			int maxIndex = targetModel.size();</span>
+<span class="nc" id="L249">			int prevPos = -1;</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">			if (isOrderingQueue) {</span>
+				// Find previous position
+<span class="nc bnc" id="L252" title="All 2 branches missed.">				for (int i = 0; i &lt; targetModel.getSize(); i++) {</span>
+<span class="nc bnc" id="L253" title="All 2 branches missed.">					if (targetModel.getElementAt(i) == queue.get(0)) {</span>
+<span class="nc" id="L254">						prevPos = i;</span>
+<span class="nc" id="L255">						break;</span>
+					}
+				}
+
+				// Suppress dropping the selection onto itself.
+<span class="nc bnc" id="L260" title="All 4 branches missed.">				if (preferredIndex != -1 &amp;&amp; prevPos == preferredIndex) {</span>
+					// indices = null;
+<span class="nc" id="L262">					return false;</span>
+				}
+
+				// Insist drop is within bounds.
+<span class="nc" id="L266">				int maximumIndex = getMaximumIndex(queue.get(0));</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">				if (preferredIndex &gt; maximumIndex) {</span>
+					// indices = null;
+<span class="nc" id="L269">					return false;</span>
+				}
+
+<span class="nc" id="L272">				this.numberOfItems = queue.size();</span>
+
+				// Remove all transferring elements from the build queue.
+<span class="nc bnc" id="L275" title="All 2 branches missed.">				for (BuildableType bt : queue) {</span>
+<span class="nc" id="L276">					targetModel.removeElement(bt);</span>
+<span class="nc" id="L277">				}</span>
+			}
+
+			// Set index to add to the last position, if not set or
+			// out-of-bounds
+<span class="nc bnc" id="L282" title="All 4 branches missed.">			if (preferredIndex &lt; 0 || preferredIndex &gt; maxIndex) {</span>
+<span class="nc" id="L283">				preferredIndex = maxIndex;</span>
+			}
+
+<span class="nc bnc" id="L286" title="All 2 branches missed.">			for (int index = 0; index &lt; queue.size(); index++) {</span>
+<span class="nc" id="L287">				BuildableType toBuild = queue.get(index);</span>
+<span class="nc" id="L288">				int minimumIndex = getMinimumIndex(toBuild);</span>
+
+				// minimumIndex == targetModel.size() means it has to
+				// go at the end.
+<span class="nc bnc" id="L292" title="All 2 branches missed.">				if (minimumIndex &lt; targetModel.size()) {</span>
+<span class="nc" id="L293">					int maximumIndex = getMaximumIndex(toBuild);</span>
+
+					// minimumIndex == maximumIndex means there is
+					// only one place it can go.
+<span class="nc bnc" id="L297" title="All 2 branches missed.">					if (minimumIndex != maximumIndex) {</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">						if (minimumIndex &lt; preferredIndex + index) {</span>
+<span class="nc" id="L299">							minimumIndex = preferredIndex + index;</span>
+						}
+<span class="nc bnc" id="L301" title="All 2 branches missed.">						if (minimumIndex &gt; targetModel.size()) {</span>
+<span class="nc" id="L302">							minimumIndex = targetModel.size();</span>
+						}
+<span class="nc bnc" id="L304" title="All 2 branches missed.">						if (minimumIndex &gt; maximumIndex) {</span>
+<span class="nc" id="L305">							minimumIndex = maximumIndex;</span>
+						}
+					}
+				}
+<span class="nc" id="L309">				targetModel.add(minimumIndex, toBuild);</span>
+			}
+
+			// update selected index to new position
+<span class="nc bnc" id="L313" title="All 2 branches missed.">			if (isOrderingQueue) {</span>
+<span class="nc" id="L314">				BuildQueuePanel.this.buildQueueList.setSelectedIndex(preferredIndex);</span>
+			}
+<span class="nc" id="L316">			return true;</span>
+		}
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		protected void exportDone(JComponent source, Transferable data, int action) {
+			// this.indices = null;
+<span class="nc" id="L325">			this.numberOfItems = 0;</span>
+<span class="nc" id="L326">			updateAllLists();</span>
+<span class="nc" id="L327">		}</span>
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public boolean canImport(JComponent comp, DataFlavor[] flavors) {
+<span class="nc bnc" id="L334" title="All 4 branches missed.">			return flavors != null &amp;&amp; any(flavors, f -&gt; f.equals(BUILD_LIST_FLAVOR));</span>
+		}
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		protected Transferable createTransferable(JComponent comp) {
+
+<span class="nc" id="L343">			this.source = BuildQueuePanel.this.convertJComp(comp);</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">			if (this.source == null)</span>
+<span class="nc" id="L345">				return null;</span>
+			// this.indices = this.source.getSelectedIndices();
+<span class="nc" id="L347">			return new BuildablesTransferable(this.source.getSelectedValuesList());</span>
+		}
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public int getSourceActions(JComponent comp) {
+<span class="nc bnc" id="L355" title="All 2 branches missed.">			return (comp == BuildQueuePanel.this.unitList) ? COPY : MOVE;</span>
+		}
+	}
+
+	/**
+	 * The Class BuildQueueMouseAdapter.
+	 */
+	private class BuildQueueMouseAdapter extends MouseAdapter {
+
+		/** The add. */
+<span class="nc" id="L365">		private boolean add = true;</span>
+
+		/** The enabled. */
+<span class="nc" id="L368">		private boolean enabled = false;</span>
+
+		/**
+		 * Instantiates a new builds the queue mouse adapter.
+		 *
+		 * @param add
+		 *            the add
+		 */
+<span class="nc" id="L376">		public BuildQueueMouseAdapter(boolean add) {</span>
+<span class="nc" id="L377">			this.add = add;</span>
+<span class="nc" id="L378">		}</span>
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void mousePressed(MouseEvent e) {
+<span class="nc bnc" id="L385" title="All 6 branches missed.">			if (!this.enabled &amp;&amp; e.getClickCount() == 1 &amp;&amp; !e.isConsumed()) {</span>
+<span class="nc" id="L386">				this.enabled = true;</span>
+			}
+<span class="nc bnc" id="L388" title="All 2 branches missed.">			if (!this.enabled)</span>
+<span class="nc" id="L389">				return;</span>
+
+<span class="nc" id="L391">			Object source = e.getSource();</span>
+<span class="nc bnc" id="L392" title="All 2 branches missed.">			JList&lt;? extends BuildableType&gt; jlist = (source instanceof JComponent)</span>
+<span class="nc" id="L393">					? BuildQueuePanel.this.convertJComp((JComponent) source) : null;</span>
+<span class="nc bnc" id="L394" title="All 2 branches missed.">			if (jlist == null)</span>
+<span class="nc" id="L395">				return;</span>
+
+<span class="nc bnc" id="L397" title="All 4 branches missed.">			if (e.getButton() == MouseEvent.BUTTON3 || e.isPopupTrigger()) {</span>
+<span class="nc" id="L398">				int index = jlist.locationToIndex(e.getPoint());</span>
+<span class="nc" id="L399">				BuildableType bt = jlist.getModel().getElementAt(index);</span>
+<span class="nc" id="L400">				getGUI().showColopediaPanel(bt.getId());</span>
+<span class="nc bnc" id="L401" title="All 4 branches missed.">			} else if (e.getClickCount() &gt; 1 &amp;&amp; !e.isConsumed()) {</span>
+<span class="nc" id="L402">				JList&lt;BuildableType&gt; bql = BuildQueuePanel.this.buildQueueList;</span>
+<span class="nc" id="L403">				DefaultListModel&lt;BuildableType&gt; model = (DefaultListModel&lt;BuildableType&gt;) bql.getModel();</span>
+<span class="nc bnc" id="L404" title="All 2 branches missed.">				if (jlist.getSelectedIndex() &lt; 0) {</span>
+<span class="nc" id="L405">					jlist.setSelectedIndex(jlist.locationToIndex(e.getPoint()));</span>
+				}
+<span class="nc bnc" id="L407" title="All 2 branches missed.">				for (BuildableType bt : jlist.getSelectedValuesList()) {</span>
+<span class="nc bnc" id="L408" title="All 2 branches missed.">					if (this.add) {</span>
+<span class="nc" id="L409">						model.addElement(bt);</span>
+					} else {
+<span class="nc" id="L411">						model.removeElement(bt);</span>
+					}
+<span class="nc" id="L413">				}</span>
+<span class="nc" id="L414">				updateAllLists();</span>
+			}
+<span class="nc" id="L416">		}</span>
+	}
+
+	/** The cell renderer to use for the build queue. */
+	private class DefaultBuildQueueCellRenderer implements ListCellRenderer&lt;BuildableType&gt; {
+
+		/** The item panel. */
+<span class="nc" id="L423">		private final JPanel itemPanel = new JPanel();</span>
+
+		/** The selected panel. */
+<span class="nc" id="L426">		private final JPanel selectedPanel = new JPanel();</span>
+
+		/** The image label. */
+<span class="nc" id="L429">		private final JLabel imageLabel = new JLabel(new ImageIcon());</span>
+
+		/** The name label. */
+<span class="nc" id="L432">		private final JLabel nameLabel = new JLabel();</span>
+
+		/** The lock label. */
+<span class="nc" id="L435">		private final JLabel lockLabel = new JLabel(</span>
+<span class="nc" id="L436">				new ImageIcon(ImageLibrary.getMiscImage(ImageLibrary.ICON_LOCK, 0.5f)));</span>
+
+		/** The building dimension. */
+<span class="nc" id="L439">		private final Dimension buildingDimension = new Dimension(-1, 48);</span>
+
+		/**
+		 * Instantiates a new default build queue cell renderer.
+		 */
+<span class="nc" id="L444">		public DefaultBuildQueueCellRenderer() {</span>
+<span class="nc" id="L445">			itemPanel.setOpaque(false);</span>
+<span class="nc" id="L446">			itemPanel.setLayout(new MigLayout());</span>
+<span class="nc" id="L447">			selectedPanel.setOpaque(false);</span>
+<span class="nc" id="L448">			selectedPanel.setLayout(new MigLayout());</span>
+<span class="nc" id="L449">			selectedPanel.setUI((PanelUI) FreeColSelectedPanelUI.createUI(selectedPanel));</span>
+<span class="nc" id="L450">		}</span>
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public Component getListCellRendererComponent(JList&lt;? extends BuildableType&gt; list, BuildableType value,
+				int index, boolean isSelected, boolean cellHasFocus) {
+<span class="nc bnc" id="L458" title="All 2 branches missed.">			JPanel panel = (isSelected) ? selectedPanel : itemPanel;</span>
+<span class="nc" id="L459">			panel.removeAll();</span>
+
+<span class="nc" id="L461">			((ImageIcon) imageLabel.getIcon()).setImage(ImageLibrary.getBuildableImage(value, buildingDimension));</span>
+
+<span class="nc" id="L463">			nameLabel.setText(Messages.getName(value));</span>
+<span class="nc" id="L464">			panel.setToolTipText(lockReasons.get(value));</span>
+<span class="nc" id="L465">			panel.add(imageLabel, &quot;span 1 2&quot;);</span>
+<span class="nc bnc" id="L466" title="All 2 branches missed.">			if (lockReasons.get(value) == null) {</span>
+<span class="nc" id="L467">				panel.add(nameLabel, &quot;wrap&quot;);</span>
+			} else {
+<span class="nc" id="L469">				panel.add(nameLabel, &quot;split 2&quot;);</span>
+<span class="nc" id="L470">				panel.add(lockLabel, &quot;wrap&quot;);</span>
+			}
+
+<span class="nc" id="L473">			ImageLibrary lib = getImageLibrary();</span>
+<span class="nc" id="L474">			List&lt;AbstractGoods&gt; required = value.getRequiredGoods();</span>
+<span class="nc" id="L475">			int size = required.size();</span>
+<span class="nc bnc" id="L476" title="All 2 branches missed.">			for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L477">				AbstractGoods goods = required.get(i);</span>
+<span class="nc" id="L478">				ImageIcon icon = new ImageIcon(lib.getSmallIconImage(goods.getType()));</span>
+<span class="nc" id="L479">				JLabel goodsLabel = new JLabel(Integer.toString(goods.getAmount()), icon, SwingConstants.CENTER);</span>
+<span class="nc bnc" id="L480" title="All 4 branches missed.">				if (i == 0 &amp;&amp; size &gt; 1) {</span>
+<span class="nc" id="L481">					panel.add(goodsLabel, &quot;split &quot; + size);</span>
+				} else {
+<span class="nc" id="L483">					panel.add(goodsLabel);</span>
+				}
+			}
+<span class="nc" id="L486">			return panel;</span>
+		}
+	}
+
+	/** The Constant BUY. */
+	private static final String BUY = &quot;buy&quot;;
+
+	/** The Constant UNABLE_TO_BUILD. */
+	private static final int UNABLE_TO_BUILD = -1;
+
+	/** Default setting for the compact box. */
+<span class="nc" id="L497">	private static boolean defaultCompact = false;</span>
+
+	/** Default setting for the showAll box. */
+<span class="nc" id="L500">	private static boolean defaultShowAll = false;</span>
+
+	/** The enclosing colony. */
+	private final Colony colony;
+
+	/** A feature container for potential features from queued buildables. */
+	private final FeatureContainer featureContainer;
+
+	/** A transfer handler for the build queue lists. */
+<span class="nc" id="L509">	private final BuildQueueTransferHandler buildQueueHandler = new BuildQueueTransferHandler();</span>
+
+	/** The list of buildable unit types. */
+	private final JList&lt;UnitType&gt; unitList;
+
+	/** The panel showing the current buildable. */
+	private final ConstructionPanel constructionPanel;
+
+	/** The build queue. */
+	private final JList&lt;BuildableType&gt; buildQueueList;
+
+	/** The list of buildable building types. */
+	private final JList&lt;BuildingType&gt; buildingList;
+
+	/** A button to buy the current buildable. */
+	private final JButton buyBuildable;
+
+	/** The check box to enable compact mode. */
+	private final JCheckBox compactBox;
+
+	/** The check box to enable showing all buildables. */
+	private final JCheckBox showAllBox;
+
+	/** The lock reasons. */
+<span class="nc" id="L533">	private final Map&lt;BuildableType, String&gt; lockReasons = new HashMap&lt;&gt;();</span>
+
+	/** The unbuildable types. */
+<span class="nc" id="L536">	private final Set&lt;BuildableType&gt; unbuildableTypes = new HashSet&lt;&gt;();</span>
+
+	/**
+	 * Create a new build queue panel.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param colony
+	 *            The enclosing &lt;code&gt;Colony&lt;/code&gt;.
+	 */
+	public BuildQueuePanel(FreeColClient freeColClient, Colony colony) {
+<span class="nc" id="L547">		super(freeColClient, new MigLayout(&quot;wrap 3&quot;, &quot;[260:][390:, fill][260:]&quot;, &quot;[][][300:400:][]&quot;));</span>
+
+<span class="nc" id="L549">		this.colony = colony;</span>
+<span class="nc" id="L550">		this.featureContainer = new FeatureContainer();</span>
+
+<span class="nc" id="L552">		DefaultListModel&lt;BuildableType&gt; current = new DefaultListModel&lt;&gt;();</span>
+<span class="nc bnc" id="L553" title="All 2 branches missed.">		for (BuildableType type : this.colony.getBuildQueue()) {</span>
+<span class="nc" id="L554">			current.addElement(type);</span>
+<span class="nc" id="L555">			this.featureContainer.addFeatures(type);</span>
+<span class="nc" id="L556">		}</span>
+
+<span class="nc" id="L558">		BuildQueueMouseAdapter adapter = new BuildQueueMouseAdapter(true);</span>
+<span class="nc" id="L559">		Action addAction = new AbstractAction() {</span>
+			@Override
+			public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L562">				JList&lt;BuildableType&gt; bql = BuildQueuePanel.this.buildQueueList;</span>
+<span class="nc" id="L563">				DefaultListModel&lt;BuildableType&gt; model = (DefaultListModel&lt;BuildableType&gt;) bql.getModel();</span>
+<span class="nc bnc" id="L564" title="All 2 branches missed.">				JList&lt;? extends BuildableType&gt; btl = (ae.getSource() == BuildQueuePanel.this.unitList)</span>
+<span class="nc" id="L565">						? BuildQueuePanel.this.unitList</span>
+<span class="nc bnc" id="L566" title="All 2 branches missed.">						: (ae.getSource() == BuildQueuePanel.this.buildingList) ? BuildQueuePanel.this.buildingList</span>
+								: null;
+<span class="nc bnc" id="L568" title="All 2 branches missed.">				if (btl != null) {</span>
+<span class="nc bnc" id="L569" title="All 2 branches missed.">					for (BuildableType bt : btl.getSelectedValuesList()) {</span>
+<span class="nc" id="L570">						model.addElement(bt);</span>
+<span class="nc" id="L571">					}</span>
+				}
+<span class="nc" id="L573">				updateAllLists();</span>
+<span class="nc" id="L574">			}</span>
+		};
+
+		// Create Font choice
+<span class="nc" id="L578">		Font fontSubHead = FontLibrary.createFont(FontLibrary.FontType.NORMAL, FontLibrary.FontSize.SMALLER, Font.BOLD,</span>
+<span class="nc" id="L579">				getImageLibrary().getScaleFactor());</span>
+
+		// Create the components
+<span class="nc" id="L582">		JLabel header = Utility.localizedHeaderLabel(&quot;buildQueuePanel.buildQueue&quot;, SwingConstants.LEADING,</span>
+				FontLibrary.FontSize.BIG);
+
+		// JLabel SubHeads
+<span class="nc" id="L586">		JLabel bqpUnits = Utility.localizedLabel(&quot;buildQueuePanel.units&quot;);</span>
+<span class="nc" id="L587">		bqpUnits.setFont(fontSubHead);</span>
+<span class="nc" id="L588">		JLabel bpqBuildQueue = Utility.localizedLabel(&quot;buildQueuePanel.buildQueue&quot;);</span>
+<span class="nc" id="L589">		bpqBuildQueue.setFont(fontSubHead);</span>
+<span class="nc" id="L590">		bpqBuildQueue.setHorizontalAlignment(SwingConstants.CENTER);</span>
+<span class="nc" id="L591">		JLabel bqpBuildings = Utility.localizedLabel(&quot;buildQueuePanel.buildings&quot;);</span>
+<span class="nc" id="L592">		bqpBuildings.setFont(fontSubHead);</span>
+
+<span class="nc" id="L594">		DefaultListModel&lt;UnitType&gt; units = new DefaultListModel&lt;&gt;();</span>
+<span class="nc" id="L595">		this.unitList = new JList&lt;&gt;(units);</span>
+<span class="nc" id="L596">		this.unitList.setTransferHandler(buildQueueHandler);</span>
+<span class="nc" id="L597">		this.unitList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);</span>
+<span class="nc" id="L598">		this.unitList.setDragEnabled(true);</span>
+<span class="nc" id="L599">		this.unitList.addMouseListener(adapter);</span>
+<span class="nc" id="L600">		this.unitList.getInputMap().put(KeyStroke.getKeyStroke(&quot;ENTER&quot;), &quot;add&quot;);</span>
+<span class="nc" id="L601">		this.unitList.getActionMap().put(&quot;add&quot;, addAction);</span>
+
+<span class="nc" id="L603">		this.constructionPanel = new ConstructionPanel(freeColClient, this.colony, false);</span>
+<span class="nc" id="L604">		this.constructionPanel.setDefaultLabel(</span>
+<span class="nc" id="L605">				StringTemplate.template(&quot;buildQueuePanel.currentlyBuilding&quot;).add(&quot;%buildable%&quot;, &quot;nothing&quot;));</span>
+
+<span class="nc" id="L607">		this.buildQueueList = new JList&lt;&gt;(current);</span>
+<span class="nc" id="L608">		this.buildQueueList.setTransferHandler(buildQueueHandler);</span>
+<span class="nc" id="L609">		this.buildQueueList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);</span>
+<span class="nc" id="L610">		this.buildQueueList.setDragEnabled(true);</span>
+<span class="nc" id="L611">		this.buildQueueList.addMouseListener(new BuildQueueMouseAdapter(false));</span>
+<span class="nc" id="L612">		this.buildQueueList.getInputMap().put(KeyStroke.getKeyStroke(&quot;DELETE&quot;), &quot;delete&quot;);</span>
+<span class="nc" id="L613">		this.buildQueueList.getActionMap().put(&quot;delete&quot;, new AbstractAction() {</span>
+			@Override
+			public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L616">				JList&lt;BuildableType&gt; bql = BuildQueuePanel.this.buildQueueList;</span>
+<span class="nc bnc" id="L617" title="All 2 branches missed.">				for (BuildableType bt : bql.getSelectedValuesList()) {</span>
+<span class="nc" id="L618">					removeBuildable(bt);</span>
+<span class="nc" id="L619">				}</span>
+<span class="nc" id="L620">				updateAllLists();</span>
+<span class="nc" id="L621">			}</span>
+		});
+
+<span class="nc" id="L624">		DefaultListModel&lt;BuildingType&gt; buildings = new DefaultListModel&lt;&gt;();</span>
+<span class="nc" id="L625">		this.buildingList = new JList&lt;&gt;(buildings);</span>
+<span class="nc" id="L626">		this.buildingList.setTransferHandler(buildQueueHandler);</span>
+<span class="nc" id="L627">		this.buildingList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);</span>
+<span class="nc" id="L628">		this.buildingList.setDragEnabled(true);</span>
+<span class="nc" id="L629">		this.buildingList.addMouseListener(adapter);</span>
+<span class="nc" id="L630">		this.buildingList.getInputMap().put(KeyStroke.getKeyStroke(&quot;ENTER&quot;), &quot;add&quot;);</span>
+<span class="nc" id="L631">		this.buildingList.getActionMap().put(&quot;add&quot;, addAction);</span>
+
+<span class="nc" id="L633">		this.buyBuildable = Utility.localizedButton(&quot;none&quot;); // placeholder</span>
+<span class="nc" id="L634">		setBuyLabel(null);</span>
+<span class="nc" id="L635">		this.buyBuildable.setActionCommand(BUY);</span>
+<span class="nc" id="L636">		this.buyBuildable.addActionListener(this);</span>
+
+<span class="nc" id="L638">		this.compactBox = new JCheckBox(Messages.message(&quot;buildQueuePanel.compactView&quot;));</span>
+<span class="nc" id="L639">		this.compactBox.addItemListener(this);</span>
+<span class="nc" id="L640">		this.compactBox.setSelected(defaultCompact);</span>
+
+<span class="nc" id="L642">		this.showAllBox = new JCheckBox(Messages.message(&quot;buildQueuePanel.showAll&quot;));</span>
+<span class="nc" id="L643">		this.showAllBox.addItemListener(this);</span>
+<span class="nc" id="L644">		this.showAllBox.setSelected(defaultShowAll);</span>
+
+<span class="nc" id="L646">		updateDetailView(); // sets cell renderer</span>
+<span class="nc" id="L647">		updateAllLists();</span>
+
+		// Add all the components
+<span class="nc" id="L650">		add(header, &quot;span 3, align center, wrap 40&quot;);</span>
+<span class="nc" id="L651">		add(bqpUnits, &quot;align center&quot;);</span>
+<span class="nc" id="L652">		add(bpqBuildQueue, &quot;align center&quot;);</span>
+<span class="nc" id="L653">		add(bqpBuildings, &quot;align center&quot;);</span>
+<span class="nc" id="L654">		add(new JScrollPane(this.unitList), &quot;grow&quot;);</span>
+<span class="nc" id="L655">		add(this.constructionPanel, &quot;split 2, flowy&quot;);</span>
+<span class="nc" id="L656">		add(new JScrollPane(this.buildQueueList), &quot;grow&quot;);</span>
+<span class="nc" id="L657">		add(new JScrollPane(this.buildingList), &quot;grow, wrap 20&quot;);</span>
+<span class="nc" id="L658">		add(this.buyBuildable, &quot;span, split 4&quot;);</span>
+<span class="nc" id="L659">		add(this.compactBox);</span>
+<span class="nc" id="L660">		add(this.showAllBox);</span>
+<span class="nc" id="L661">		add(okButton, &quot;tag ok&quot;);</span>
+
+<span class="nc" id="L663">		setSize(getPreferredSize());</span>
+<span class="nc" id="L664">	}</span>
+
+	/**
+	 * Get the colony for this build queue.
+	 *
+	 * @return The &lt;code&gt;Colony&lt;/code&gt;.
+	 */
+	public Colony getColony() {
+<span class="nc" id="L672">		return this.colony;</span>
+	}
+
+	/**
+	 * Convert a component to an actual part of this panel, recovering its list
+	 * type.
+	 *
+	 * @param comp
+	 *            The &lt;code&gt;JComponent&lt;/code&gt; to convert.
+	 * @return The actual panel component &lt;code&gt;JList&lt;/code&gt;, or null on error.
+	 */
+	private JList&lt;? extends BuildableType&gt; convertJComp(JComponent comp) {
+<span class="nc bnc" id="L684" title="All 6 branches missed.">		return (comp == this.unitList) ? this.unitList</span>
+				: (comp == this.buildQueueList) ? this.buildQueueList
+						: (comp == this.buildingList) ? this.buildingList : null;
+	}
+
+	/**
+	 * Removes the buildable.
+	 *
+	 * @param type
+	 *            the type
+	 */
+	private void removeBuildable(Object type) {
+<span class="nc" id="L696">		DefaultListModel&lt;BuildableType&gt; model = (DefaultListModel&lt;BuildableType&gt;) this.buildQueueList.getModel();</span>
+<span class="nc" id="L697">		model.removeElement(type);</span>
+<span class="nc" id="L698">	}</span>
+
+	/**
+	 * Update unit list.
+	 */
+	private void updateUnitList() {
+<span class="nc" id="L704">		final Specification spec = getSpecification();</span>
+<span class="nc" id="L705">		final Turn turn = getGame().getTurn();</span>
+		StringTemplate tmpl;
+<span class="nc" id="L707">		DefaultListModel&lt;UnitType&gt; units = (DefaultListModel&lt;UnitType&gt;) this.unitList.getModel();</span>
+<span class="nc" id="L708">		units.clear();</span>
+<span class="nc bnc" id="L709" title="All 2 branches missed.">		loop: for (UnitType unitType : spec.getBuildableUnitTypes()) {</span>
+			// compare colony.getNoBuildReason()
+<span class="nc" id="L711">			List&lt;String&gt; lockReason = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L712" title="All 2 branches missed.">			if (unbuildableTypes.contains(unitType)) {</span>
+<span class="nc" id="L713">				continue;</span>
+			}
+
+<span class="nc bnc" id="L716" title="All 2 branches missed.">			if (unitType.getRequiredPopulation() &gt; this.colony.getUnitCount()) {</span>
+<span class="nc" id="L717">				tmpl = StringTemplate.template(&quot;buildQueuePanel.populationTooSmall&quot;).addAmount(&quot;%number%&quot;,</span>
+<span class="nc" id="L718">						unitType.getRequiredPopulation());</span>
+<span class="nc" id="L719">				lockReason.add(Messages.message(tmpl));</span>
+			}
+
+<span class="nc bnc" id="L722" title="All 2 branches missed.">			if (unitType.getLimits() != null) {</span>
+<span class="nc bnc" id="L723" title="All 2 branches missed.">				for (Limit limit : unitType.getLimits()) {</span>
+<span class="nc bnc" id="L724" title="All 2 branches missed.">					if (!limit.evaluate(this.colony)) {</span>
+<span class="nc" id="L725">						lockReason.add(Messages.getDescription(limit));</span>
+					}
+<span class="nc" id="L727">				}</span>
+			}
+
+<span class="nc bnc" id="L730" title="All 2 branches missed.">			if (!(this.colony.hasAbility(Ability.BUILD, unitType, turn)</span>
+<span class="nc bnc" id="L731" title="All 2 branches missed.">					|| this.featureContainer.hasAbility(Ability.BUILD, unitType, null))) {</span>
+<span class="nc" id="L732">				boolean builderFound = false;</span>
+<span class="nc bnc" id="L733" title="All 2 branches missed.">				for (Ability ability : spec.getAbilities(Ability.BUILD)) {</span>
+<span class="nc" id="L734">					FreeColObject source = ability.getSource();</span>
+<span class="nc bnc" id="L735" title="All 6 branches missed.">					if (ability.appliesTo(unitType) &amp;&amp; ability.getValue() &amp;&amp; source != null</span>
+<span class="nc bnc" id="L736" title="All 2 branches missed.">							&amp;&amp; !unbuildableTypes.contains(source)) {</span>
+<span class="nc" id="L737">						builderFound = true;</span>
+<span class="nc bnc" id="L738" title="All 2 branches missed.">						if (source instanceof Named) {</span>
+<span class="nc" id="L739">							lockReason.add(Messages.getName((Named) source));</span>
+						}
+						break;
+					}
+<span class="nc" id="L743">				}</span>
+<span class="nc bnc" id="L744" title="All 2 branches missed.">				if (!builderFound) {</span>
+<span class="nc" id="L745">					unbuildableTypes.add(unitType);</span>
+<span class="nc" id="L746">					continue;</span>
+				}
+			}
+
+<span class="nc bnc" id="L750" title="All 2 branches missed.">			for (Entry&lt;String, Boolean&gt; entry : unitType.getRequiredAbilities().entrySet()) {</span>
+<span class="nc bnc" id="L751" title="All 2 branches missed.">				if (this.colony.hasAbility(entry.getKey()) != entry.getValue()</span>
+<span class="nc bnc" id="L752" title="All 2 branches missed.">						&amp;&amp; this.featureContainer.hasAbility(entry.getKey(), null, null) != entry.getValue()) {</span>
+<span class="nc" id="L753">					List&lt;FreeColGameObjectType&gt; sources = spec.getTypesProviding(entry.getKey(), entry.getValue());</span>
+<span class="nc bnc" id="L754" title="All 2 branches missed.">					if (sources.isEmpty()) {</span>
+						// no type provides the required ability
+<span class="nc" id="L756">						unbuildableTypes.add(unitType);</span>
+<span class="nc" id="L757">						continue loop;</span>
+					} else {
+<span class="nc" id="L759">						lockReason.add(Messages.getName(sources.get(0)));</span>
+					}
+				}
+<span class="nc" id="L762">			}</span>
+<span class="nc bnc" id="L763" title="All 2 branches missed.">			if (lockReason.isEmpty()) {</span>
+<span class="nc" id="L764">				lockReasons.put(unitType, null);</span>
+			} else {
+<span class="nc" id="L766">				tmpl = StringTemplate.template(&quot;buildQueuePanel.requires&quot;).addName(&quot;%string%&quot;, join(&quot;/&quot;, lockReason));</span>
+<span class="nc" id="L767">				lockReasons.put(unitType, Messages.message(tmpl));</span>
+			}
+<span class="nc bnc" id="L769" title="All 4 branches missed.">			if (lockReason.isEmpty() || showAllBox.isSelected()) {</span>
+<span class="nc" id="L770">				units.addElement(unitType);</span>
+			}
+<span class="nc" id="L772">		}</span>
+<span class="nc" id="L773">	}</span>
+
+	/**
+	 * Update building list.
+	 */
+	private void updateBuildingList() {
+<span class="nc" id="L779">		final Specification spec = getSpecification();</span>
+<span class="nc" id="L780">		final DefaultListModel&lt;BuildingType&gt; buildings = (DefaultListModel&lt;BuildingType&gt;) this.buildingList.getModel();</span>
+<span class="nc" id="L781">		final DefaultListModel&lt;BuildableType&gt; current = (DefaultListModel&lt;BuildableType&gt;) this.buildQueueList</span>
+<span class="nc" id="L782">				.getModel();</span>
+		StringTemplate tmpl;
+
+<span class="nc" id="L785">		buildings.clear();</span>
+<span class="nc bnc" id="L786" title="All 2 branches missed.">		loop: for (BuildingType buildingType : spec.getBuildingTypeList()) {</span>
+			// compare colony.getNoBuildReason()
+<span class="nc" id="L788">			List&lt;String&gt; lockReason = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L789">			Building colonyBuilding = this.colony.getBuilding(buildingType);</span>
+<span class="nc bnc" id="L790" title="All 4 branches missed.">			if (current.contains(buildingType) || hasBuildingType(buildingType)) {</span>
+				// only one building of any kind
+<span class="nc" id="L792">				continue;</span>
+<span class="nc bnc" id="L793" title="All 2 branches missed.">			} else if (unbuildableTypes.contains(buildingType)) {</span>
+<span class="nc" id="L794">				continue;</span>
+<span class="nc bnc" id="L795" title="All 2 branches missed.">			} else if (!buildingType.needsGoodsToBuild()) {</span>
+				// pre-built
+<span class="nc" id="L797">				continue;</span>
+<span class="nc bnc" id="L798" title="All 2 branches missed.">			} else if (unbuildableTypes.contains(buildingType.getUpgradesFrom())) {</span>
+<span class="nc" id="L799">				unbuildableTypes.add(buildingType); // impossible upgrade path</span>
+<span class="nc" id="L800">				continue;</span>
+			}
+
+<span class="nc bnc" id="L803" title="All 4 branches missed.">			if (buildingType.hasAbility(Ability.COASTAL_ONLY) &amp;&amp; !this.colony.getTile().isCoastland()) {</span>
+<span class="nc" id="L804">				tmpl = StringTemplate.template(&quot;buildQueuePanel.coastalOnly&quot;);</span>
+<span class="nc" id="L805">				lockReason.add(Messages.message(tmpl));</span>
+			}
+
+<span class="nc bnc" id="L808" title="All 2 branches missed.">			if (buildingType.getRequiredPopulation() &gt; this.colony.getUnitCount()) {</span>
+<span class="nc" id="L809">				tmpl = StringTemplate.template(&quot;buildQueuePanel.populationTooSmall&quot;).addAmount(&quot;%number%&quot;,</span>
+<span class="nc" id="L810">						buildingType.getRequiredPopulation());</span>
+<span class="nc" id="L811">				lockReason.add(Messages.message(tmpl));</span>
+			}
+
+<span class="nc bnc" id="L814" title="All 2 branches missed.">			for (Entry&lt;String, Boolean&gt; entry : buildingType.getRequiredAbilities().entrySet()) {</span>
+<span class="nc bnc" id="L815" title="All 2 branches missed.">				if (this.colony.hasAbility(entry.getKey()) != entry.getValue()</span>
+<span class="nc bnc" id="L816" title="All 2 branches missed.">						&amp;&amp; this.featureContainer.hasAbility(entry.getKey(), null, null) != entry.getValue()) {</span>
+<span class="nc" id="L817">					List&lt;FreeColGameObjectType&gt; sources = getSpecification().getTypesProviding(entry.getKey(),</span>
+<span class="nc" id="L818">							entry.getValue());</span>
+<span class="nc bnc" id="L819" title="All 2 branches missed.">					if (sources.isEmpty()) {</span>
+						// no type provides the required ability
+<span class="nc" id="L821">						unbuildableTypes.add(buildingType);</span>
+<span class="nc" id="L822">						continue loop;</span>
+					} else {
+<span class="nc" id="L824">						lockReason.add(Messages.getName(sources.get(0)));</span>
+					}
+				}
+<span class="nc" id="L827">			}</span>
+
+<span class="nc bnc" id="L829" title="All 2 branches missed.">			if (buildingType.getLimits() != null) {</span>
+<span class="nc bnc" id="L830" title="All 2 branches missed.">				for (Limit limit : buildingType.getLimits()) {</span>
+<span class="nc bnc" id="L831" title="All 2 branches missed.">					if (!limit.evaluate(this.colony)) {</span>
+<span class="nc" id="L832">						lockReason.add(Messages.getDescription(limit));</span>
+					}
+<span class="nc" id="L834">				}</span>
+			}
+
+<span class="nc bnc" id="L837" title="All 4 branches missed.">			if (buildingType.getUpgradesFrom() != null &amp;&amp; !current.contains(buildingType.getUpgradesFrom())) {</span>
+<span class="nc bnc" id="L838" title="All 4 branches missed.">				if (colonyBuilding == null || colonyBuilding.getType() != buildingType.getUpgradesFrom()) {</span>
+<span class="nc" id="L839">					lockReason.add(Messages.getName(buildingType.getUpgradesFrom()));</span>
+				}
+			}
+<span class="nc bnc" id="L842" title="All 2 branches missed.">			if (lockReason.isEmpty()) {</span>
+<span class="nc" id="L843">				lockReasons.put(buildingType, null);</span>
+			} else {
+<span class="nc" id="L845">				tmpl = StringTemplate.template(&quot;buildQueuePanel.requires&quot;).addName(&quot;%string%&quot;, join(&quot;/&quot;, lockReason));</span>
+<span class="nc" id="L846">				lockReasons.put(buildingType, Messages.message(tmpl));</span>
+			}
+<span class="nc bnc" id="L848" title="All 4 branches missed.">			if (lockReason.isEmpty() || showAllBox.isSelected()) {</span>
+<span class="nc" id="L849">				buildings.addElement(buildingType);</span>
+			}
+<span class="nc" id="L851">		}</span>
+<span class="nc" id="L852">	}</span>
+
+	/**
+	 * Update all lists.
+	 */
+	private void updateAllLists() {
+<span class="nc" id="L858">		final DefaultListModel&lt;BuildableType&gt; current = (DefaultListModel&lt;BuildableType&gt;) this.buildQueueList</span>
+<span class="nc" id="L859">				.getModel();</span>
+
+<span class="nc" id="L861">		this.featureContainer.clear();</span>
+<span class="nc bnc" id="L862" title="All 2 branches missed.">		for (Enumeration&lt;BuildableType&gt; e = current.elements(); e.hasMoreElements();) {</span>
+<span class="nc" id="L863">			BuildableType type = e.nextElement();</span>
+<span class="nc bnc" id="L864" title="All 2 branches missed.">			if (getMinimumIndex(type) &gt;= 0) {</span>
+<span class="nc" id="L865">				featureContainer.addFeatures(type);</span>
+			} else {
+<span class="nc" id="L867">				current.removeElement(type);</span>
+			}
+<span class="nc" id="L869">		}</span>
+		// ATTENTION: buildings must be updated first, since units
+		// might depend on the build ability of an unbuildable
+		// building
+<span class="nc" id="L873">		updateBuildingList();</span>
+<span class="nc" id="L874">		updateUnitList();</span>
+
+		// Update the buy button
+<span class="nc" id="L877">		final boolean pay = getSpecification().getBoolean(GameOptions.PAY_FOR_BUILDING);</span>
+<span class="nc bnc" id="L878" title="All 2 branches missed.">		BuildableType bt = (current.getSize() &lt;= 0) ? null : current.getElementAt(0);</span>
+<span class="nc bnc" id="L879" title="All 6 branches missed.">		this.buyBuildable.setEnabled(bt != null &amp;&amp; pay &amp;&amp; this.colony.canPayToFinishBuilding(bt));</span>
+<span class="nc" id="L880">		this.setBuyLabel(bt);</span>
+
+		// Update the construction panel
+<span class="nc bnc" id="L883" title="All 2 branches missed.">		if (current.getSize() &gt; 0) {</span>
+<span class="nc" id="L884">			this.constructionPanel.update(current.getElementAt(0));</span>
+<span class="nc bnc" id="L885" title="All 2 branches missed.">		} else if (current.getSize() == 0) {</span>
+<span class="nc" id="L886">			this.constructionPanel.update(); // generates Building: Nothing</span>
+		}
+<span class="nc" id="L888">	}</span>
+
+	/**
+	 * Sets the buy label.
+	 *
+	 * @param buildable
+	 *            the new buy label
+	 */
+	private void setBuyLabel(BuildableType buildable) {
+<span class="nc bnc" id="L897" title="All 2 branches missed.">		this.buyBuildable.setText(Messages.message((buildable == null)</span>
+<span class="nc" id="L898">				? StringTemplate.template(&quot;buildQueuePanel.buyBuilding&quot;).addStringTemplate(&quot;%buildable%&quot;,</span>
+<span class="nc" id="L899">						StringTemplate.key(&quot;nothing&quot;))</span>
+<span class="nc" id="L900">				: StringTemplate.template(&quot;buildQueuePanel.buyBuilding&quot;).addNamed(&quot;%buildable%&quot;, buildable)));</span>
+<span class="nc" id="L901">	}</span>
+
+	/**
+	 * Checks for building type.
+	 *
+	 * @param buildingType
+	 *            the building type
+	 * @return true, if successful
+	 */
+	private boolean hasBuildingType(BuildingType buildingType) {
+<span class="nc bnc" id="L911" title="All 2 branches missed.">		if (this.colony.getBuilding(buildingType) == null) {</span>
+<span class="nc" id="L912">			return false;</span>
+<span class="nc bnc" id="L913" title="All 2 branches missed.">		} else if (colony.getBuilding(buildingType).getType() == buildingType) {</span>
+<span class="nc" id="L914">			return true;</span>
+<span class="nc bnc" id="L915" title="All 2 branches missed.">		} else if (buildingType.getUpgradesTo() != null) {</span>
+<span class="nc" id="L916">			return hasBuildingType(buildingType.getUpgradesTo());</span>
+		} else {
+<span class="nc" id="L918">			return false;</span>
+		}
+	}
+
+	/**
+	 * Gets the buildable types.
+	 *
+	 * @param list
+	 *            the list
+	 * @return the buildable types
+	 */
+	private List&lt;BuildableType&gt; getBuildableTypes(JList&lt;? extends BuildableType&gt; list) {
+<span class="nc" id="L930">		List&lt;BuildableType&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L931" title="All 2 branches missed.">		if (list == null)</span>
+<span class="nc" id="L932">			return result;</span>
+<span class="nc" id="L933">		ListModel&lt;? extends BuildableType&gt; model = list.getModel();</span>
+<span class="nc bnc" id="L934" title="All 2 branches missed.">		for (int index = 0; index &lt; model.getSize(); index++) {</span>
+<span class="nc" id="L935">			result.add(model.getElementAt(index));</span>
+		}
+<span class="nc" id="L937">		return result;</span>
+	}
+
+	/**
+	 * Gets the minimum index.
+	 *
+	 * @param buildableType
+	 *            the buildable type
+	 * @return the minimum index
+	 */
+	private int getMinimumIndex(BuildableType buildableType) {
+<span class="nc" id="L948">		ListModel&lt;BuildableType&gt; buildQueue = this.buildQueueList.getModel();</span>
+<span class="nc bnc" id="L949" title="All 2 branches missed.">		if (buildableType instanceof UnitType) {</span>
+<span class="nc bnc" id="L950" title="All 2 branches missed.">			if (this.colony.canBuild(buildableType))</span>
+<span class="nc" id="L951">				return 0;</span>
+<span class="nc bnc" id="L952" title="All 2 branches missed.">			for (int index = 0; index &lt; buildQueue.getSize(); index++) {</span>
+<span class="nc bnc" id="L953" title="All 2 branches missed.">				if (buildQueue.getElementAt(index).hasAbility(Ability.BUILD, buildableType))</span>
+<span class="nc" id="L954">					return index + 1;</span>
+			}
+<span class="nc bnc" id="L956" title="All 2 branches missed.">		} else if (buildableType instanceof BuildingType) {</span>
+<span class="nc" id="L957">			BuildingType upgradesFrom = ((BuildingType) buildableType).getUpgradesFrom();</span>
+<span class="nc bnc" id="L958" title="All 2 branches missed.">			if (upgradesFrom == null)</span>
+<span class="nc" id="L959">				return 0;</span>
+<span class="nc" id="L960">			Building building = this.colony.getBuilding((BuildingType) buildableType);</span>
+<span class="nc bnc" id="L961" title="All 2 branches missed.">			BuildingType buildingType = (building == null) ? null : building.getType();</span>
+<span class="nc bnc" id="L962" title="All 2 branches missed.">			if (buildingType == upgradesFrom)</span>
+<span class="nc" id="L963">				return 0;</span>
+<span class="nc bnc" id="L964" title="All 2 branches missed.">			for (int index = 0; index &lt; buildQueue.getSize(); index++) {</span>
+<span class="nc bnc" id="L965" title="All 2 branches missed.">				if (upgradesFrom.equals(buildQueue.getElementAt(index))) {</span>
+<span class="nc" id="L966">					return index + 1;</span>
+				}
+			}
+		}
+<span class="nc" id="L970">		return UNABLE_TO_BUILD;</span>
+	}
+
+	/**
+	 * Gets the maximum index.
+	 *
+	 * @param buildableType
+	 *            the buildable type
+	 * @return the maximum index
+	 */
+	private int getMaximumIndex(BuildableType buildableType) {
+<span class="nc" id="L981">		ListModel&lt;BuildableType&gt; buildQueue = this.buildQueueList.getModel();</span>
+<span class="nc" id="L982">		final int buildQueueLastPos = buildQueue.getSize();</span>
+
+<span class="nc" id="L984">		boolean canBuild = false;</span>
+<span class="nc bnc" id="L985" title="All 2 branches missed.">		if (this.colony.canBuild(buildableType)) {</span>
+<span class="nc" id="L986">			canBuild = true;</span>
+		}
+
+<span class="nc bnc" id="L989" title="All 2 branches missed.">		if (buildableType instanceof UnitType) {</span>
+			// does not depend on anything, nothing depends on it
+			// can be built at any time
+<span class="nc bnc" id="L992" title="All 2 branches missed.">			if (canBuild)</span>
+<span class="nc" id="L993">				return buildQueueLastPos;</span>
+			// check for building in queue that allows builting this unit
+<span class="nc bnc" id="L995" title="All 2 branches missed.">			for (int index = 0; index &lt; buildQueue.getSize(); index++) {</span>
+<span class="nc" id="L996">				BuildableType toBuild = buildQueue.getElementAt(index);</span>
+<span class="nc bnc" id="L997" title="All 2 branches missed.">				if (toBuild == buildableType)</span>
+<span class="nc" id="L998">					continue;</span>
+<span class="nc bnc" id="L999" title="All 2 branches missed.">				if (toBuild.hasAbility(Ability.BUILD, buildableType)) {</span>
+<span class="nc" id="L1000">					return buildQueueLastPos;</span>
+				}
+			}
+<span class="nc" id="L1003">			return UNABLE_TO_BUILD;</span>
+		}
+
+<span class="nc bnc" id="L1006" title="All 2 branches missed.">		if (buildableType instanceof BuildingType) {</span>
+<span class="nc" id="L1007">			BuildingType upgradesFrom = ((BuildingType) buildableType).getUpgradesFrom();</span>
+<span class="nc" id="L1008">			BuildingType upgradesTo = ((BuildingType) buildableType).getUpgradesTo();</span>
+			// does not depend on nothing, but still cannot be built
+<span class="nc bnc" id="L1010" title="All 4 branches missed.">			if (!canBuild &amp;&amp; upgradesFrom == null) {</span>
+<span class="nc" id="L1011">				return UNABLE_TO_BUILD;</span>
+			}
+
+			// if can be built and does not have any upgrade,
+			// then it can be built at any time
+<span class="nc bnc" id="L1016" title="All 4 branches missed.">			if (canBuild &amp;&amp; upgradesTo == null) {</span>
+<span class="nc" id="L1017">				return buildQueueLastPos;</span>
+			}
+
+			// if can be built, does not depend on anything, mark
+			// upgrades from as found
+<span class="nc" id="L1022">			boolean foundUpgradesFrom = canBuild;</span>
+<span class="nc bnc" id="L1023" title="All 2 branches missed.">			for (int index = 0; index &lt; buildQueue.getSize(); index++) {</span>
+<span class="nc" id="L1024">				BuildableType toBuild = buildQueue.getElementAt(index);</span>
+
+<span class="nc bnc" id="L1026" title="All 2 branches missed.">				if (toBuild == buildableType)</span>
+<span class="nc" id="L1027">					continue;</span>
+
+<span class="nc bnc" id="L1029" title="All 6 branches missed.">				if (!canBuild &amp;&amp; !foundUpgradesFrom &amp;&amp; upgradesFrom.equals(toBuild)) {</span>
+<span class="nc" id="L1030">					foundUpgradesFrom = true;</span>
+					// nothing else to upgrade this building to
+<span class="nc bnc" id="L1032" title="All 2 branches missed.">					if (upgradesTo == null)</span>
+<span class="nc" id="L1033">						return buildQueueLastPos;</span>
+				}
+				// found a building it upgrades to, cannot go to or
+				// beyond this position
+<span class="nc bnc" id="L1037" title="All 6 branches missed.">				if (foundUpgradesFrom &amp;&amp; upgradesTo != null &amp;&amp; upgradesTo.equals(toBuild))</span>
+<span class="nc" id="L1038">					return index;</span>
+
+				// Don't go past a unit this building can build.
+<span class="nc bnc" id="L1041" title="All 2 branches missed.">				if (buildableType.hasAbility(Ability.BUILD, toBuild)) {</span>
+<span class="nc" id="L1042">					return index;</span>
+				}
+			}
+<span class="nc" id="L1045">			return buildQueueLastPos;</span>
+		}
+<span class="nc" id="L1047">		return UNABLE_TO_BUILD;</span>
+	}
+
+	/**
+	 * Set the correct cell renderer in the buildables lists.
+	 */
+	private void updateDetailView() {
+<span class="nc bnc" id="L1054" title="All 2 branches missed.">		ListCellRenderer&lt;BuildableType&gt; cellRenderer = (this.compactBox.isSelected())</span>
+				? new FreeColComboBoxRenderer&lt;BuildableType&gt;() : new DefaultBuildQueueCellRenderer();
+<span class="nc" id="L1056">		this.buildQueueList.setCellRenderer(cellRenderer);</span>
+<span class="nc" id="L1057">		this.buildingList.setCellRenderer(cellRenderer);</span>
+<span class="nc" id="L1058">		this.unitList.setCellRenderer(cellRenderer);</span>
+<span class="nc" id="L1059">	}</span>
+
+	// Interface ActionListener
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L1068">		final String FAIL = &quot;FAIL&quot;;</span>
+<span class="nc bnc" id="L1069" title="All 2 branches missed.">		if (this.colony.getOwner() == getMyPlayer()) {</span>
+<span class="nc" id="L1070">			String command = ae.getActionCommand();</span>
+<span class="nc" id="L1071">			List&lt;BuildableType&gt; buildables = getBuildableTypes(this.buildQueueList);</span>
+<span class="nc bnc" id="L1072" title="All 4 branches missed.">			while (!buildables.isEmpty() &amp;&amp; lockReasons.get(buildables.get(0)) != null) {</span>
+<span class="nc" id="L1073">				getGUI().showInformationMessage(buildables.get(0),</span>
+<span class="nc" id="L1074">						this.colony.getUnbuildableMessage(buildables.get(0)));</span>
+<span class="nc" id="L1075">				command = FAIL;</span>
+<span class="nc" id="L1076">				removeBuildable(buildables.remove(0));</span>
+			}
+<span class="nc" id="L1078">			igc().setBuildQueue(this.colony, buildables);</span>
+<span class="nc bnc" id="L1079" title="All 2 branches missed.">			if (null != command)</span>
+<span class="nc bnc" id="L1080" title="All 14 branches missed.">				switch (command) {</span>
+				case FAIL:
+					// Let the user reconsider.
+<span class="nc" id="L1083">					updateAllLists();</span>
+<span class="nc" id="L1084">					return;</span>
+				case OK:
+<span class="nc" id="L1086">					break;</span>
+				case BUY:
+<span class="nc" id="L1088">					igc().payForBuilding(this.colony);</span>
+<span class="nc" id="L1089">					break;</span>
+				default:
+<span class="nc" id="L1091">					super.actionPerformed(ae);</span>
+					break;
+				}
+		}
+<span class="nc" id="L1095">		getGUI().removeFromCanvas(this);</span>
+<span class="nc" id="L1096">	}</span>
+
+	// Interface ItemListener
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void itemStateChanged(ItemEvent event) {
+<span class="nc bnc" id="L1105" title="All 2 branches missed.">		if (event.getSource() == this.compactBox) {</span>
+<span class="nc" id="L1106">			updateDetailView();</span>
+<span class="nc" id="L1107">			defaultCompact = this.compactBox.isSelected();</span>
+<span class="nc bnc" id="L1108" title="All 2 branches missed.">		} else if (event.getSource() == this.showAllBox) {</span>
+<span class="nc" id="L1109">			updateAllLists();</span>
+<span class="nc" id="L1110">			defaultShowAll = this.showAllBox.isSelected();</span>
+		}
+<span class="nc" id="L1112">	}</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

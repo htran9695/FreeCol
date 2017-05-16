@@ -28,222 +28,221 @@ import javax.xml.stream.XMLStreamException;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 
-
 /**
  * An object representing the high seas between continents.
  */
 public class HighSeas extends UnitLocation {
 
-    private static final Logger logger =  Logger.getLogger(HighSeas.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(HighSeas.class.getName());
 
-    /** The destinations this HighSeas object connects. */
-    private final List<Location> destinations = new ArrayList<>();
+	/** The destinations this HighSeas object connects. */
+	private final List<Location> destinations = new ArrayList<>();
 
+	/**
+	 * Simple constructor.
+	 *
+	 * @param game
+	 *            The enclosing <code>Game</code>.
+	 */
+	public HighSeas(Game game) {
+		super(game);
+	}
 
-    /**
-     * Simple constructor.
-     *
-     * @param game The enclosing <code>Game</code>.
-     */
-    public HighSeas(Game game) {
-        super(game);
-    }
+	/**
+	 * Create a new high seas.
+	 *
+	 * @param game
+	 *            The enclosing <code>Game</code>.
+	 * @param id
+	 *            The object identifier.
+	 */
+	public HighSeas(Game game, String id) {
+		super(game, id);
+	}
 
-    /**
-     * Create a new high seas.
-     *
-     * @param game The enclosing <code>Game</code>.
-     * @param id The object identifier.
-     */
-    public HighSeas(Game game, String id) {
-        super(game, id);
-    }
+	/**
+	 * Get the destinations connected by these seas.
+	 *
+	 * @return A list of <code>Location</code>s.
+	 */
+	public final List<Location> getDestinations() {
+		return destinations;
+	}
 
+	/**
+	 * Add a single destination to this HighSeas instance.
+	 *
+	 * @param destination
+	 *            A destination <code>Location</code>.
+	 */
+	public void addDestination(Location destination) {
+		if (destination != null) {
+			if (!destinations.contains(destination)) {
+				destinations.add(destination);
+			} else {
+				logger.warning(getId() + " already included destination " + destination.getId());
+			}
+		} else {
+			logger.warning("Tried to add null destination to " + getId());
+		}
+	}
 
-    /**
-     * Get the destinations connected by these seas.
-     *
-     * @return A list of <code>Location</code>s.
-     */
-    public final List<Location> getDestinations() {
-        return destinations;
-    }
+	/**
+	 * Remove a single destination from this HighSeas instance.
+	 *
+	 * @param destination
+	 *            A destination <code>Location</code>.
+	 */
+	public void removeDestination(Location destination) {
+		destinations.remove(destination);
+	}
 
-    /**
-     * Add a single destination to this HighSeas instance.
-     *
-     * @param destination A destination <code>Location</code>.
-     */
-    public void addDestination(Location destination) {
-        if (destination != null) {
-            if (!destinations.contains(destination)) {
-                destinations.add(destination);
-            } else {
-                logger.warning(getId() + " already included destination "
-                    + destination.getId());
-            }
-        } else {
-            logger.warning("Tried to add null destination to " + getId());
-        }
-    }
+	// Override FreeColGameObject
 
-    /**
-     * Remove a single destination from this HighSeas instance.
-     *
-     * @param destination A destination <code>Location</code>.
-     */
-    public void removeDestination(Location destination) {
-        destinations.remove(destination);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public FreeColGameObject getLinkTarget(Player player) {
+		return player.getEurope();
+	}
 
+	// Interface Location (from UnitLocation)
+	// Inherits
+	// FreeColObject.getId
+	// UnitLocation.getTile
+	// UnitLocation.getLocationLabelFor
+	// UnitLocation.add
+	// UnitLocation.remove
+	// UnitLocation.contains
+	// UnitLocation.canAdd
+	// UnitLocation.getUnitCount
+	// UnitLocation.getUnitList
+	// UnitLocation.getGoodsContainer
+	// UnitLocation.getSettlement
 
-    // Override FreeColGameObject
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public StringTemplate getLocationLabel() {
+		return StringTemplate.key("model.tile.highSeas.name");
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public FreeColGameObject getLinkTarget(Player player) {
-        return player.getEurope();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location up() {
+		return this;
+	}
 
-    // Interface Location (from UnitLocation)
-    // Inherits
-    //   FreeColObject.getId
-    //   UnitLocation.getTile
-    //   UnitLocation.getLocationLabelFor
-    //   UnitLocation.add
-    //   UnitLocation.remove
-    //   UnitLocation.contains
-    //   UnitLocation.canAdd
-    //   UnitLocation.getUnitCount
-    //   UnitLocation.getUnitList
-    //   UnitLocation.getGoodsContainer
-    //   UnitLocation.getSettlement
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getRank() {
+		return Location.LOCATION_RANK_HIGHSEAS;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public StringTemplate getLocationLabel() {
-        return StringTemplate.key("model.tile.highSeas.name");
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toShortString() {
+		return "HighSeas";
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location up() {
-        return this;
-    }
+	// UnitLocation
+	// Inherits
+	// UnitLocation.getSpaceTaken
+	// UnitLocation.moveToFront
+	// UnitLocation.clearUnitList
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getRank() {
-        return Location.LOCATION_RANK_HIGHSEAS;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public NoAddReason getNoAddReason(Locatable locatable) {
+		return (locatable instanceof Unit && ((Unit) locatable).isNaval()) ? NoAddReason.NONE : NoAddReason.WRONG_TYPE;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toShortString() {
-        return "HighSeas";
-    }
+	// Serialization
 
+	/** The Constant DESTINATION_TAG. */
+	private static final String DESTINATION_TAG = "destination";
 
-    // UnitLocation
-    // Inherits
-    //   UnitLocation.getSpaceTaken
-    //   UnitLocation.moveToFront
-    //   UnitLocation.clearUnitList
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeChildren(xw);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public NoAddReason getNoAddReason(Locatable locatable) {
-        return (locatable instanceof Unit && ((Unit)locatable).isNaval())
-            ? NoAddReason.NONE
-            : NoAddReason.WRONG_TYPE;
-    }
+		for (Location destination : destinations) {
+			if (destination == null)
+				continue;
 
+			xw.writeStartElement(DESTINATION_TAG);
 
-    // Serialization
+			xw.writeLocationAttribute(ID_ATTRIBUTE_TAG, destination);
 
-    private static final String DESTINATION_TAG = "destination";
+			xw.writeEndElement();
+		}
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+		// Clear containers.
+		destinations.clear();
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeChildren(xw);
+		super.readChildren(xr);
+	}
 
-        for (Location destination : destinations) {
-            if (destination == null) continue;
-            
-            xw.writeStartElement(DESTINATION_TAG);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
+		final Game game = getGame();
+		final String tag = xr.getLocalName();
 
-            xw.writeLocationAttribute(ID_ATTRIBUTE_TAG, destination);
-            
-            xw.writeEndElement();
-        }
-    }
+		if (DESTINATION_TAG.equals(tag)) {
+			addDestination(xr.getLocationAttribute(game, ID_ATTRIBUTE_TAG, true));
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChildren(FreeColXMLReader xr) throws XMLStreamException {
-        // Clear containers.
-        destinations.clear();
+			xr.closeTag(DESTINATION_TAG);
 
-        super.readChildren(xr);
-    }
+		} else {
+			super.readChild(xr);
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readChild(FreeColXMLReader xr) throws XMLStreamException {
-        final Game game = getGame();
-        final String tag = xr.getLocalName();
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		return getId();
+	}
 
-        if (DESTINATION_TAG.equals(tag)) {
-            addDestination(xr.getLocationAttribute(game, ID_ATTRIBUTE_TAG,
-                                                   true));
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-            xr.closeTag(DESTINATION_TAG);
-
-        } else {
-            super.readChild(xr);
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-        return getId();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "highSeas"
-     */
-    public static String getXMLElementTagName() {
-        return "highSeas";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "highSeas"
+	 */
+	public static String getXMLElementTagName() {
+		return "highSeas";
+	}
 }

@@ -28,38 +28,38 @@ import javax.swing.JSlider;
 
 import net.sf.freecol.common.option.PercentageOption;
 
-
 /**
  * This class provides visualization for a
- * {@link net.sf.freecol.common.option.PercentageOption}
- * in order to enable values to be both seen and changed.
+ * {@link net.sf.freecol.common.option.PercentageOption} in order to enable
+ * values to be both seen and changed.
  */
-public final class PercentageOptionUI extends SliderOptionUI<PercentageOption>  {
+public final class PercentageOptionUI extends SliderOptionUI<PercentageOption> {
 
-    /**
-     * Creates a new <code>PercentageOptionUI</code> for the given
-     * <code>PercentageOption</code>.
-     *
-     * @param option The <code>PercentageOption</code> to make a user
-     *     interface for.
-     * @param editable boolean whether user can modify the setting
-     */
-    public PercentageOptionUI(final PercentageOption option, boolean editable) {
-        super(option, editable);
+	/**
+	 * Creates a new <code>PercentageOptionUI</code> for the given
+	 * <code>PercentageOption</code>.
+	 *
+	 * @param option
+	 *            The <code>PercentageOption</code> to make a user interface
+	 *            for.
+	 * @param editable
+	 *            boolean whether user can modify the setting
+	 */
+	public PercentageOptionUI(final PercentageOption option, boolean editable) {
+		super(option, editable);
 
-        JSlider slider = getComponent();
+		JSlider slider = getComponent();
 
-        slider.setModel(new DefaultBoundedRangeModel(option.getValue(), 0, 0, 100));
-        Hashtable<Integer, JComponent> labels
-            = new Hashtable<>();
-        labels.put(0,   new JLabel("0 %"));
-        labels.put(25,  new JLabel("25 %"));
-        labels.put(50,  new JLabel("50 %"));
-        labels.put(75,  new JLabel("75 %"));
-        labels.put(100, new JLabel("100 %"));
-        slider.setLabelTable(labels);
-        slider.setValue(option.getValue());
-        slider.setMajorTickSpacing(5);
-        slider.setSnapToTicks(false);
-    }
+		slider.setModel(new DefaultBoundedRangeModel(option.getValue(), 0, 0, 100));
+		Hashtable<Integer, JComponent> labels = new Hashtable<>();
+		labels.put(0, new JLabel("0 %"));
+		labels.put(25, new JLabel("25 %"));
+		labels.put(50, new JLabel("50 %"));
+		labels.put(75, new JLabel("75 %"));
+		labels.put(100, new JLabel("100 %"));
+		slider.setLabelTable(labels);
+		slider.setValue(option.getValue());
+		slider.setMajorTickSpacing(5);
+		slider.setSnapToTicks(false);
+	}
 }

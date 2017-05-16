@@ -21,67 +21,85 @@ package net.sf.freecol.client.gui.panel;
 
 import javax.swing.ImageIcon;
 
-
 /**
- * TreeCellItems are used to represent the name and icon of a node in
- * the Colopedia's tree.
+ * TreeCellItems are used to represent the name and icon of a node in the
+ * Colopedia's tree.
  */
 class ColopediaTreeItem {
 
-    private final ColopediaDetailPanel detailPanel;
-    private final String id;
-    private final String text;
-    private final ImageIcon icon;
+	/** The detail panel. */
+	private final ColopediaDetailPanel detailPanel;
 
+	/** The id. */
+	private final String id;
 
-    /**
-     * The default constructor for a ColopediaTreeItem that
-     * corresponds to a leaf node.
-     *
-     * @param detailPanel A <code>ColopediaDetailPanel</code> value.
-     * @param id The object identifier.
-     * @param text a <code>String</code> value
-     * @param icon an <code>ImageIcon</code> value
-     */
-    ColopediaTreeItem(ColopediaDetailPanel detailPanel, String id, String text,
-                      ImageIcon icon) {
-        this.detailPanel = detailPanel;
-        this.id = id;
-        this.text = text;
-        this.icon = icon;
-    }
+	/** The text. */
+	private final String text;
 
-    /**
-     * Returns the panel type this item belongs to.
-     *
-     * @return the panel type this item belongs to.
-     */
-    public ColopediaDetailPanel getPanelType() {
-        return detailPanel;
-    }
+	/** The icon. */
+	private final ImageIcon icon;
 
-    public String getId() {
-        return id;
-    }
+	/**
+	 * The default constructor for a ColopediaTreeItem that corresponds to a
+	 * leaf node.
+	 *
+	 * @param detailPanel
+	 *            A <code>ColopediaDetailPanel</code> value.
+	 * @param id
+	 *            The object identifier.
+	 * @param text
+	 *            a <code>String</code> value
+	 * @param icon
+	 *            an <code>ImageIcon</code> value
+	 */
+	ColopediaTreeItem(ColopediaDetailPanel detailPanel, String id, String text, ImageIcon icon) {
+		this.detailPanel = detailPanel;
+		this.id = id;
+		this.text = text;
+		this.icon = icon;
+	}
 
-    public String getText() {
-        return text;
-    }
+	/**
+	 * Returns the panel type this item belongs to.
+	 *
+	 * @return the panel type this item belongs to.
+	 */
+	public ColopediaDetailPanel getPanelType() {
+		return detailPanel;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-        return text;
-    }
+	/**
+	 * Gets the id.
+	 *
+	 * @return the id
+	 */
+	public String getId() {
+		return id;
+	}
 
-    /**
-     * Returns the item's icon.
-     *
-     * @return the item's icon.
-     */
-    public ImageIcon getIcon() {
-        return icon;
-    }
+	/**
+	 * Gets the text.
+	 *
+	 * @return the text
+	 */
+	public String getText() {
+		return text;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		return text;
+	}
+
+	/**
+	 * Returns the item's icon.
+	 *
+	 * @return the item's icon.
+	 */
+	public ImageIcon getIcon() {
+		return icon;
+	}
 }

@@ -27,204 +27,170 @@ import java.io.FilenameFilter;
 import java.util.HashMap;
 import java.util.Map;
 
-
 /**
  * Handle translations for the installer.
  */
 public class InstallerTranslations {
 
-    private static final File SOURCE_DIRECTORY =
-        new File("data/strings");
-    private static final File MAIN_FILE =
-        new File(SOURCE_DIRECTORY, "FreeColMessages.properties");
-    private static final File DESTINATION_DIRECTORY =
-        new File("build/installer");
-    private static final File LANGUAGE_CODES =
-        new File(DESTINATION_DIRECTORY, "iso-639-2.txt");
+	/** The Constant SOURCE_DIRECTORY. */
+	private static final File SOURCE_DIRECTORY = new File("data/strings");
 
-    // it seems IzPack doesn't use ISO codes at all
-    private static final String[][] IZPACK_CODES = {
-        { "ca", "cat", "Catalunyan" },
-        { "zh", "chn", "Chinese" },
-        { "cs", "cze", "Czech" },
-        { "da", "dan", "Danish" },
-        { "de", "deu", "German" },
-        { "en", "eng", "English" },
-        { "eu", "eus", "Basque" },
-        { "fi", "fin", "Finnish" },
-        { "fr", "fra", "French" },
-        { "gl", "glg", "Galician" },
-        { "hu", "hun", "Hungarian" },
-        { "it", "ita", "Italian" },
-        { "ja", "jpn", "Japanese" },
-        { "ms", "mys", "Malaysian" },
-        { "nl", "ned", "Nederlands" },
-        { "nn", "nor", "Norwegian" },
-        { "pl", "pol", "Polish" },
-        { "pt_BR", "por", "Portuguese (Brazilian)" },
-        { "pt_PT", "prt", "Portuguese (European)" },
-        { "ro", "rom", "Romanian" },
-        { "ru", "rus", "Russian" },
-        { "sr", "scg", "Serbian" },
-        { "es", "spa", "Spanish" },
-        { "sk", "svk", "Slovakian" },
-        { "sv", "swe", "Swedish" },
-        { "uk", "ukr", "Ukrainian" }
-    };
+	/** The Constant MAIN_FILE. */
+	private static final File MAIN_FILE = new File(SOURCE_DIRECTORY, "FreeColMessages.properties");
 
-    private static final String[] KEYS = {
-        "FreeCol",
-        "FreeCol.description",
-        "GameManual",
-        "GameManual.description",
-        "SourceCode",
-        "SourceCode.description",
-        "Music",
-        "Music.description",
-        "SoundEffects",
-        "SoundEffects.description",
-        "MovieClips",
-        "MovieClips.description",
-        "MovieClips.description2",
-        "Location.Web",
-        "FreeColLanguage",
-        "FreeColLanguage.autodetect",
-        "FreeColLanguage.description",
-        "UserFiles",
-        "UserFiles.home",
-        "UserFiles.freecol",
-        "UserFiles.other"
-    };
+	/** The Constant DESTINATION_DIRECTORY. */
+	private static final File DESTINATION_DIRECTORY = new File("build/installer");
 
+	/** The Constant LANGUAGE_CODES. */
+	private static final File LANGUAGE_CODES = new File(DESTINATION_DIRECTORY, "iso-639-2.txt");
 
-    public static void main(String[] args) throws Exception {
+	/** The Constant IZPACK_CODES. */
+	// it seems IzPack doesn't use ISO codes at all
+	private static final String[][] IZPACK_CODES = { { "ca", "cat", "Catalunyan" }, { "zh", "chn", "Chinese" },
+			{ "cs", "cze", "Czech" }, { "da", "dan", "Danish" }, { "de", "deu", "German" }, { "en", "eng", "English" },
+			{ "eu", "eus", "Basque" }, { "fi", "fin", "Finnish" }, { "fr", "fra", "French" },
+			{ "gl", "glg", "Galician" }, { "hu", "hun", "Hungarian" }, { "it", "ita", "Italian" },
+			{ "ja", "jpn", "Japanese" }, { "ms", "mys", "Malaysian" }, { "nl", "ned", "Nederlands" },
+			{ "nn", "nor", "Norwegian" }, { "pl", "pol", "Polish" }, { "pt_BR", "por", "Portuguese (Brazilian)" },
+			{ "pt_PT", "prt", "Portuguese (European)" }, { "ro", "rom", "Romanian" }, { "ru", "rus", "Russian" },
+			{ "sr", "scg", "Serbian" }, { "es", "spa", "Spanish" }, { "sk", "svk", "Slovakian" },
+			{ "sv", "swe", "Swedish" }, { "uk", "ukr", "Ukrainian" } };
 
-        /*
-        if (!LANGUAGE_CODES.exists()) {
-            System.out.println("Language codes not found.");
-            System.exit(1);
-        }
-        */
+	/** The Constant KEYS. */
+	private static final String[] KEYS = { "FreeCol", "FreeCol.description", "GameManual", "GameManual.description",
+			"SourceCode", "SourceCode.description", "Music", "Music.description", "SoundEffects",
+			"SoundEffects.description", "MovieClips", "MovieClips.description", "MovieClips.description2",
+			"Location.Web", "FreeColLanguage", "FreeColLanguage.autodetect", "FreeColLanguage.description", "UserFiles",
+			"UserFiles.home", "UserFiles.freecol", "UserFiles.other" };
 
-        if (!MAIN_FILE.exists()) {
-            System.out.println("Main input file not found.");
-            System.exit(1);
-        }
+	/**
+	 * The main method.
+	 *
+	 * @param args
+	 *            the arguments
+	 * @throws Exception
+	 *             the exception
+	 */
+	public static void main(String[] args) throws Exception {
 
-        if (!DESTINATION_DIRECTORY.exists()) {
-            DESTINATION_DIRECTORY.mkdirs();
-        }
+		/*
+		 * if (!LANGUAGE_CODES.exists()) {
+		 * System.out.println("Language codes not found."); System.exit(1); }
+		 */
 
-        //Map<String, String> languageMappings = readLanguageMappings(LANGUAGE_CODES);
-        Map<String, String> languageMappings = new HashMap<>();
-        for (String[] mapping : IZPACK_CODES) {
-            languageMappings.put(mapping[0], mapping[1]);
-        }
-        Map<String, String> mainProperties = readFile(MAIN_FILE);
-        //Set<String> languages = new HashSet<String>();
+		if (!MAIN_FILE.exists()) {
+			System.out.println("Main input file not found.");
+			System.exit(1);
+		}
 
-        String[] sourceFiles = SOURCE_DIRECTORY.list(new FilenameFilter() {
-                @Override
-                public boolean accept(File dir, String name) {
-                    return name.matches("FreeColMessages_.*\\.properties");
-                }
-            });
+		if (!DESTINATION_DIRECTORY.exists()) {
+			DESTINATION_DIRECTORY.mkdirs();
+		}
 
-        for (String name : sourceFiles) {
+		// Map<String, String> languageMappings =
+		// readLanguageMappings(LANGUAGE_CODES);
+		Map<String, String> languageMappings = new HashMap<>();
+		for (String[] mapping : IZPACK_CODES) {
+			languageMappings.put(mapping[0], mapping[1]);
+		}
+		Map<String, String> mainProperties = readFile(MAIN_FILE);
+		// Set<String> languages = new HashSet<String>();
 
-            String languageCode = null;
-            int index = name.indexOf('.', 16);
-            if (index < 0) {
-                continue;
-            } else {
-                languageCode = languageMappings.get(name.substring(16, index));
-                if (languageCode == null) {
-                    index = name.indexOf('_', 16);
-                    if (index < 0) {
-                        continue;
-                    } else {
-                        languageCode = languageMappings.get(name.substring(16, index));
-                    }
-                }
-            }
+		String[] sourceFiles = SOURCE_DIRECTORY.list(new FilenameFilter() {
+			@Override
+			public boolean accept(File dir, String name) {
+				return name.matches("FreeColMessages_.*\\.properties");
+			}
+		});
 
-            if (languageCode == null) {
-                System.out.println("Skipping source file: " + name);
-                continue;
-            }
+		for (String name : sourceFiles) {
 
-            System.out.println("Processing source file: " + name);
+			String languageCode = null;
+			int index = name.indexOf('.', 16);
+			if (index < 0) {
+				continue;
+			} else {
+				languageCode = languageMappings.get(name.substring(16, index));
+				if (languageCode == null) {
+					index = name.indexOf('_', 16);
+					if (index < 0) {
+						continue;
+					} else {
+						languageCode = languageMappings.get(name.substring(16, index));
+					}
+				}
+			}
 
-            File sourceFile = new File(SOURCE_DIRECTORY, name);
-            Map<String, String> sourceProperties = readFile(sourceFile);
-            StringBuilder output = new StringBuilder();
-            output.append("<?xml version = '1.0' encoding = 'UTF-8' standalone = 'yes'?>\n");
-            output.append("<!-- ATTENTION: Do not modify this file directly,\n");
-            output.append("     modify the source file\n         ");
-            output.append(sourceFile.getPath());
-            output.append("\n     instead. -->\n");
-            output.append("<langpack>\n");
+			if (languageCode == null) {
+				System.out.println("Skipping source file: " + name);
+				continue;
+			}
 
-            for (String key : KEYS) {
-                String longKey = "installer." + key;
-                String value = sourceProperties.get(longKey);
-                if (value == null) {
-                    value = mainProperties.get(longKey);
-                }
-                output.append("    <str id=\"");
-                output.append(key);
-                output.append("\" txt=\"");
-                output.append(value);
-                output.append("\" />\n");
-            }
-            output.append("</langpack>\n");
-            File destinationFile = new File(DESTINATION_DIRECTORY, "lang.xml_" + languageCode);
-            try (FileWriter out = new FileWriter(destinationFile)) {
-                out.write(output.toString());
-            }
-        }
+			System.out.println("Processing source file: " + name);
 
-    }
+			File sourceFile = new File(SOURCE_DIRECTORY, name);
+			Map<String, String> sourceProperties = readFile(sourceFile);
+			StringBuilder output = new StringBuilder();
+			output.append("<?xml version = '1.0' encoding = 'UTF-8' standalone = 'yes'?>\n");
+			output.append("<!-- ATTENTION: Do not modify this file directly,\n");
+			output.append("     modify the source file\n         ");
+			output.append(sourceFile.getPath());
+			output.append("\n     instead. -->\n");
+			output.append("<langpack>\n");
 
-    private static Map<String, String> readFile(File file) {
-        Map<String, String> result = new HashMap<>();
-        try (
-            FileReader fileReader = new FileReader(file);
-            BufferedReader bufferedReader = new BufferedReader(fileReader);
-        ) {
-            String line = bufferedReader.readLine();
-            while (line != null) {
-                int index = line.indexOf('=');
-                if (index >= 0) {
-                    result.put(line.substring(0, index), line.substring(index + 1));
-                }
-                line = bufferedReader.readLine();
-            }
-        } catch (Exception e) {
-            // forget it
-        }
-        return result;
-    }
-    /*
-    private static Map<String, String> readLanguageMappings(File file) {
-        Map<String, String> result = new HashMap<>();
-        try {
-            FileReader fileReader = new FileReader(file);
-            BufferedReader bufferedReader = new BufferedReader(fileReader);
-            String line = bufferedReader.readLine();
-            String[] fields;
-            while (line != null) {
-                fields = line.split(":");
-                if (fields[1].length() > 0) {
-                    result.put(fields[1], fields[0].substring(0, 3));
-                }
-                line = bufferedReader.readLine();
-            }
-        } catch(Exception e) {
-            // forget it
-        }
-        return result;
-    }
-    */
+			for (String key : KEYS) {
+				String longKey = "installer." + key;
+				String value = sourceProperties.get(longKey);
+				if (value == null) {
+					value = mainProperties.get(longKey);
+				}
+				output.append("    <str id=\"");
+				output.append(key);
+				output.append("\" txt=\"");
+				output.append(value);
+				output.append("\" />\n");
+			}
+			output.append("</langpack>\n");
+			File destinationFile = new File(DESTINATION_DIRECTORY, "lang.xml_" + languageCode);
+			try (FileWriter out = new FileWriter(destinationFile)) {
+				out.write(output.toString());
+			}
+		}
+
+	}
+
+	/**
+	 * Read file.
+	 *
+	 * @param file
+	 *            the file
+	 * @return the map
+	 */
+	private static Map<String, String> readFile(File file) {
+		Map<String, String> result = new HashMap<>();
+		try (FileReader fileReader = new FileReader(file);
+				BufferedReader bufferedReader = new BufferedReader(fileReader);) {
+			String line = bufferedReader.readLine();
+			while (line != null) {
+				int index = line.indexOf('=');
+				if (index >= 0) {
+					result.put(line.substring(0, index), line.substring(index + 1));
+				}
+				line = bufferedReader.readLine();
+			}
+		} catch (Exception e) {
+			// forget it
+		}
+		return result;
+	}
+	/*
+	 * private static Map<String, String> readLanguageMappings(File file) {
+	 * Map<String, String> result = new HashMap<>(); try { FileReader fileReader
+	 * = new FileReader(file); BufferedReader bufferedReader = new
+	 * BufferedReader(fileReader); String line = bufferedReader.readLine();
+	 * String[] fields; while (line != null) { fields = line.split(":"); if
+	 * (fields[1].length() > 0) { result.put(fields[1], fields[0].substring(0,
+	 * 3)); } line = bufferedReader.readLine(); } } catch(Exception e) { //
+	 * forget it } return result; }
+	 */
 }
-

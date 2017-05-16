@@ -21,35 +21,31 @@ package net.sf.freecol.client.gui.action;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
- * Super class for all actions that should be disabled when no unit is
- * selected.
+ * Super class for all actions that should be disabled when no unit is selected.
  */
 public abstract class UnitAction extends MapboardAction {
 
+	/**
+	 * Creates a new <code>UnitAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param id
+	 *            The object identifier.
+	 */
+	protected UnitAction(FreeColClient freeColClient, String id) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>UnitAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param id The object identifier.
-     */
-    protected UnitAction(FreeColClient freeColClient, String id) {
-        super(freeColClient, id);
-    }
+	// Override FreeColAction
 
-
-    // Override FreeColAction
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        return super.shouldBeEnabled()
-            && getGUI().getActiveUnit() != null
-            && getGUI().getActiveUnit().getOwner()
-            == getFreeColClient().getMyPlayer();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		return super.shouldBeEnabled() && getGUI().getActiveUnit() != null
+				&& getGUI().getActiveUnit().getOwner() == getFreeColClient().getMyPlayer();
+	}
 }

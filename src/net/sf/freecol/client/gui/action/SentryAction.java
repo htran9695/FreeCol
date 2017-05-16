@@ -24,34 +24,33 @@ import java.awt.event.ActionEvent;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.Unit;
 
-
 /**
  * An action to set sentry state to the active unit.
  */
 public class SentryAction extends UnitAction {
 
-    public static final String id = "sentryAction";
+	/** The Constant id. */
+	public static final String id = "sentryAction";
 
+	/**
+	 * Creates this action.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public SentryAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
 
-    /**
-     * Creates this action.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public SentryAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
+		addImageIcons("sentry");
+	}
 
-        addImageIcons("sentry");
-    }
+	// Interface ActionListener
 
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent actionEvent) {
-        igc().changeState(getGUI().getActiveUnit(), Unit.UnitState.SENTRY);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent actionEvent) {
+		igc().changeState(getGUI().getActiveUnit(), Unit.UnitState.SENTRY);
+	}
 }

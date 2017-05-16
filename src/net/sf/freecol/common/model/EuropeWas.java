@@ -21,64 +21,74 @@ package net.sf.freecol.common.model;
 
 import java.util.logging.Logger;
 
-
 /**
- * Helper container to remember the Europe state prior to some
- * change, and fire off any consequent property changes.
+ * Helper container to remember the Europe state prior to some change, and fire
+ * off any consequent property changes.
  */
 public class EuropeWas {
 
-    private static final Logger logger = Logger.getLogger(EuropeWas.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(EuropeWas.class.getName());
 
-    private final Europe europe;
-    private final int unitCount;
+	/** The europe. */
+	private final Europe europe;
 
+	/** The unit count. */
+	private final int unitCount;
 
-    public EuropeWas(Europe europe) {
-        this.europe = europe;
-        this.unitCount = europe.getUnitCount();
-    }
+	/**
+	 * Instantiates a new europe was.
+	 *
+	 * @param europe
+	 *            the europe
+	 */
+	public EuropeWas(Europe europe) {
+		this.europe = europe;
+		this.unitCount = europe.getUnitCount();
+	}
 
-    /**
-     * Gets a unit added to Europe since this EuropeWas was sampled.
-     *
-     * Simply makes sure there is at least one new unit, then picks the one
-     * with the highest numeric id.
-     *
-     * @return A new unit.
-     */
-    public Unit getNewUnit() {
-        if (europe.getUnitCount() < unitCount+1) return null;
-        Unit newUnit = null;
-        int idMax = 0;
-        final String unitPrefix = Unit.getXMLElementTagName() + ":";
-        for (Unit u : europe.getUnitList()) {
-            String uid = u.getId();
-            if (!uid.startsWith(unitPrefix)) continue;
-            try {
-                int id = Integer.parseInt(uid.substring(unitPrefix.length()));
-                if (idMax < id) {
-                    idMax = id;
-                    newUnit = u;
-                }
-            } catch (NumberFormatException nfe) {}
-        }
-        return newUnit;        
-    }
+	/**
+	 * Gets a unit added to Europe since this EuropeWas was sampled.
+	 *
+	 * Simply makes sure there is at least one new unit, then picks the one with
+	 * the highest numeric id.
+	 *
+	 * @return A new unit.
+	 */
+	public Unit getNewUnit() {
+		if (europe.getUnitCount() < unitCount + 1)
+			return null;
+		Unit newUnit = null;
+		int idMax = 0;
+		final String unitPrefix = Unit.getXMLElementTagName() + ":";
+		for (Unit u : europe.getUnitList()) {
+			String uid = u.getId();
+			if (!uid.startsWith(unitPrefix))
+				continue;
+			try {
+				int id = Integer.parseInt(uid.substring(unitPrefix.length()));
+				if (idMax < id) {
+					idMax = id;
+					newUnit = u;
+				}
+			} catch (NumberFormatException nfe) {
+			}
+		}
+		return newUnit;
+	}
 
-    /**
-     * Fire any property changes resulting from actions in Europe.
-     *
-     * @return True if something changed.
-     */
-    public boolean fireChanges() {
-        int newUnitCount = europe.getUnitCount();
+	/**
+	 * Fire any property changes resulting from actions in Europe.
+	 *
+	 * @return True if something changed.
+	 */
+	public boolean fireChanges() {
+		int newUnitCount = europe.getUnitCount();
 
-        if (newUnitCount != unitCount) {
-            europe.firePropertyChange(Europe.UNIT_CHANGE,
-                                      unitCount, newUnitCount);
-            return true;
-        }
-        return false;
-    }
+		if (newUnitCount != unitCount) {
+			europe.firePropertyChange(Europe.UNIT_CHANGE, unitCount, newUnitCount);
+			return true;
+		}
+		return false;
+	}
 }

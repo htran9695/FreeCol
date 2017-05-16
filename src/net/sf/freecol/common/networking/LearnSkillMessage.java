@@ -31,114 +31,111 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent when learning for the skill taught at a settlement.
  */
 public class LearnSkillMessage extends DOMMessage {
 
-    /** The identifier of the unit that is learning. */
-    private final String unitId;
+	/** The identifier of the unit that is learning. */
+	private final String unitId;
 
-    /** The direction the unit is learning in. */
-    private final String directionString;
+	/** The direction the unit is learning in. */
+	private final String directionString;
 
+	/**
+	 * Create a new <code>LearnSkillMessage</code> with the supplied unit and
+	 * direction.
+	 *
+	 * @param unit
+	 *            The <code>Unit</code> that is learning.
+	 * @param direction
+	 *            The <code>Direction</code> the unit is looking.
+	 */
+	public LearnSkillMessage(Unit unit, Direction direction) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>LearnSkillMessage</code> with the
-     * supplied unit and direction.
-     *
-     * @param unit The <code>Unit</code> that is learning.
-     * @param direction The <code>Direction</code> the unit is looking.
-     */
-    public LearnSkillMessage(Unit unit, Direction direction) {
-        super(getXMLElementTagName());
+		this.unitId = unit.getId();
+		this.directionString = String.valueOf(direction);
+	}
 
-        this.unitId = unit.getId();
-        this.directionString = String.valueOf(direction);
-    }
+	/**
+	 * Create a new <code>LearnSkillMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public LearnSkillMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>LearnSkillMessage</code> from a
-     * supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public LearnSkillMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.unitId = element.getAttribute("unitId");
+		this.directionString = element.getAttribute("direction");
+	}
 
-        this.unitId = element.getAttribute("unitId");
-        this.directionString = element.getAttribute("direction");
-    }
+	/**
+	 * Handle a "learnSkill"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the message.
+	 * @param player
+	 *            The <code>Player</code> the message applies to.
+	 * @param connection
+	 *            The <code>Connection</code> message was received on.
+	 * @return An <code>Element</code> to update the originating player with the
+	 *         result of the query.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
 
+		Unit unit;
+		try {
+			unit = player.getOurFreeColGameObject(unitId, Unit.class);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
 
-    /**
-     * Handle a "learnSkill"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the message.
-     * @param player The <code>Player</code> the message applies to.
-     * @param connection The <code>Connection</code> message was received on.
-     * @return An <code>Element</code> to update the originating
-     *     player with the result of the query.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
+		Tile tile;
+		try {
+			tile = unit.getNeighbourTile(directionString);
+		} catch (Exception e) {
+			return DOMMessage.clientError(e.getMessage());
+		}
 
-        Unit unit;
-        try {
-            unit = player.getOurFreeColGameObject(unitId, Unit.class);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
+		IndianSettlement is = tile.getIndianSettlement();
+		if (is == null) {
+			return DOMMessage.clientError("There is no native settlement at: " + tile.getId());
+		}
 
-        Tile tile;
-        try {
-            tile = unit.getNeighbourTile(directionString);
-        } catch (Exception e) {
-            return DOMMessage.clientError(e.getMessage());
-        }
+		// Do not use getMoveType (checking moves left) as the
+		// preceding AskLearnSkill transaction will have already
+		// zeroed the moves.
+		// Consider using a transaction, so that declining restores the moves?
+		MoveType type = unit.getSimpleMoveType(is.getTile());
+		if (type != MoveType.ENTER_INDIAN_SETTLEMENT_WITH_FREE_COLONIST) {
+			return DOMMessage.clientError("Unable to enter " + is.getName() + ": " + type.whyIllegal());
+		}
 
-        IndianSettlement is = tile.getIndianSettlement();
-        if (is == null) {
-            return DOMMessage.clientError("There is no native settlement at: "
-                + tile.getId());
-        }
+		// Learn the skill if possible.
+		return server.getInGameController().learnFromIndianSettlement(serverPlayer, unit, is);
+	}
 
-        // Do not use getMoveType (checking moves left) as the
-        // preceding AskLearnSkill transaction will have already
-        // zeroed the moves.
-        // Consider using a transaction, so that declining restores the moves?
-        MoveType type = unit.getSimpleMoveType(is.getTile());
-        if (type != MoveType.ENTER_INDIAN_SETTLEMENT_WITH_FREE_COLONIST) {
-            return DOMMessage.clientError("Unable to enter "
-                + is.getName() + ": " + type.whyIllegal());
-        }
+	/**
+	 * Convert this LearnSkillMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		return createMessage(getXMLElementTagName(), "unitId", unitId, "direction", directionString);
+	}
 
-        // Learn the skill if possible.
-        return server.getInGameController()
-            .learnFromIndianSettlement(serverPlayer, unit, is);
-    }
-
-    /**
-     * Convert this LearnSkillMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        return createMessage(getXMLElementTagName(),
-            "unitId", unitId,
-            "direction", directionString);
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "learnSkill".
-     */
-    public static String getXMLElementTagName() {
-        return "learnSkill";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "learnSkill".
+	 */
+	public static String getXMLElementTagName() {
+		return "learnSkill";
+	}
 }

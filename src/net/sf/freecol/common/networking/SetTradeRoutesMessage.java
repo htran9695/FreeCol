@@ -32,153 +32,173 @@ import net.sf.freecol.server.model.ServerPlayer;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-
 /**
  * The message sent when setting the trade routes.
  */
 public class SetTradeRoutesMessage extends DOMMessage {
 
-    private static final String idPrefix = "shadow-";
+	/** The Constant idPrefix. */
+	private static final String idPrefix = "shadow-";
 
-    /** The trade routes to set. */
-    private final List<TradeRoute> tradeRoutes;
+	/** The trade routes to set. */
+	private final List<TradeRoute> tradeRoutes;
 
+	/**
+	 * Create a new <code>SetTradeRoutesMessage</code> with the supplied routes.
+	 *
+	 * @param tradeRoutes
+	 *            A list of <code>TradeRoute</code>s to set.
+	 */
+	public SetTradeRoutesMessage(List<TradeRoute> tradeRoutes) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>SetTradeRoutesMessage</code> with the
-     * supplied routes.
-     *
-     * @param tradeRoutes A list of <code>TradeRoute</code>s to set.
-     */
-    public SetTradeRoutesMessage(List<TradeRoute> tradeRoutes) {
-        super(getXMLElementTagName());
+		this.tradeRoutes = tradeRoutes;
+	}
 
-        this.tradeRoutes = tradeRoutes;
-    }
+	/**
+	 * Create a new <code>SetTradeRoutesMessage</code> from a supplied element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public SetTradeRoutesMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>SetTradeRoutesMessage</code> from a
-     * supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public SetTradeRoutesMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		List<TradeRoute> newRoutes = new ArrayList<>();
+		NodeList nodes = element.getChildNodes();
+		for (int i = 0; i < nodes.getLength(); i++) {
+			TradeRoute route = tradeRouteFromElement(game, (Element) nodes.item(i));
+			if (route != null)
+				newRoutes.add(route);
+		}
+		this.tradeRoutes = newRoutes;
+	}
 
-        List<TradeRoute> newRoutes = new ArrayList<>();
-        NodeList nodes = element.getChildNodes();
-        for (int i = 0; i < nodes.getLength(); i++) {
-            TradeRoute route
-                = tradeRouteFromElement(game, (Element) nodes.item(i));
-            if (route != null) newRoutes.add(route);
-        }
-        this.tradeRoutes = newRoutes;
-    }
+	// Public interface
 
+	/**
+	 * Creates a trade route from an element. Be careful not to allow real IDs
+	 * to surface or the trade route constructor will replace the existing game
+	 * trade route with the one in the element before we have finished checking
+	 * it.
+	 *
+	 * Public routine as updateTradeRoute has the same problem.
+	 *
+	 * @param game
+	 *            The <code>Game</code> to create in.
+	 * @param element
+	 *            An <code>Element</code> to read from.
+	 * @return A <code>TradeRoute</code> on success, null on error.
+	 */
+	public static TradeRoute tradeRouteFromElement(Game game, Element element) {
+		String id = FreeColObject.readId(element);
+		element.setAttribute(FreeColObject.ID_ATTRIBUTE_TAG, idPrefix + id);
+		try {
+			return new TradeRoute(game, element);
+		} catch (Exception e) {
+			logger.log(Level.WARNING, "Could not build trade route " + id, e);
+			return null;
+		}
+	}
 
-    // Public interface
+	/**
+	 * Gets the prefix.
+	 *
+	 * @param route
+	 *            the route
+	 * @return the prefix
+	 */
+	public static String getPrefix(TradeRoute route) {
+		return route.getId().substring(0, idPrefix.length());
+	}
 
-    /**
-     * Creates a trade route from an element.  Be careful not to allow
-     * real IDs to surface or the trade route constructor will replace
-     * the existing game trade route with the one in the element
-     * before we have finished checking it.
-     *
-     * Public routine as updateTradeRoute has the same problem.
-     *
-     * @param game The <code>Game</code> to create in.
-     * @param element An <code>Element</code> to read from.
-     * @return A <code>TradeRoute</code> on success, null on error.
-     */
-    public static TradeRoute tradeRouteFromElement(Game game, Element element) {
-        String id = FreeColObject.readId(element);
-        element.setAttribute(FreeColObject.ID_ATTRIBUTE_TAG, idPrefix + id);
-        try {
-            return new TradeRoute(game, element);
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Could not build trade route " + id, e);
-            return null;
-        }
-    }
+	/**
+	 * Removes the prefix.
+	 *
+	 * @param route
+	 *            the route
+	 * @return the string
+	 */
+	public static String removePrefix(TradeRoute route) {
+		return route.getId().substring(idPrefix.length());
+	}
 
-    public static String getPrefix(TradeRoute route) {
-        return route.getId().substring(0, idPrefix.length());
-    }
+	/**
+	 * Checks for prefix.
+	 *
+	 * @param route
+	 *            the route
+	 * @return true, if successful
+	 */
+	public static boolean hasPrefix(TradeRoute route) {
+		return idPrefix.equals(getPrefix(route));
+	}
 
-    public static String removePrefix(TradeRoute route) {
-        return route.getId().substring(idPrefix.length());
-    }
+	/**
+	 * Handle a "setTradeRoutes"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the message.
+	 * @param connection
+	 *            The <code>Connection</code> message was received on.
+	 * @return Null, or an error <code>Element</code> on failure.
+	 */
+	public Element handle(FreeColServer server, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
+		final Game game = server.getGame();
 
-    public static boolean hasPrefix(TradeRoute route) {
-        return idPrefix.equals(getPrefix(route));
-    }
+		String errors = "";
+		for (TradeRoute tradeRoute : tradeRoutes) {
+			if (tradeRoute.getId() == null || !hasPrefix(tradeRoute)) {
+				errors += "Bogus route: " + tradeRoute.getId() + ". ";
+				continue;
+			}
+			String id = removePrefix(tradeRoute);
+			TradeRoute realRoute;
+			try {
+				realRoute = serverPlayer.getOurFreeColGameObject(id, TradeRoute.class);
+			} catch (Exception e) {
+				errors += e.getMessage() + ". ";
+				continue;
+			}
+		}
+		if (errors != null && !errors.isEmpty())
+			return DOMMessage.clientError(errors);
 
+		List<TradeRoute> newRoutes = new ArrayList<>();
+		for (TradeRoute tradeRoute : tradeRoutes) {
+			TradeRoute realRoute = game.getFreeColGameObject(removePrefix(tradeRoute), TradeRoute.class);
+			realRoute.updateFrom(tradeRoute);
+			newRoutes.add(realRoute);
+			tradeRoute.dispose();
+		}
 
-    /**
-     * Handle a "setTradeRoutes"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the message.
-     * @param connection The <code>Connection</code> message was received on.
-     * @return Null, or an error <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
-        final Game game = server.getGame();
+		// Proceed to set trade routes
+		return server.getInGameController().setTradeRoutes(serverPlayer, newRoutes);
+	}
 
-        String errors = "";
-        for (TradeRoute tradeRoute : tradeRoutes) {
-            if (tradeRoute.getId() == null || !hasPrefix(tradeRoute)) {
-                errors += "Bogus route: " + tradeRoute.getId() + ". ";
-                continue;
-            }
-            String id = removePrefix(tradeRoute);
-            TradeRoute realRoute;
-            try {
-                realRoute = serverPlayer.getOurFreeColGameObject(id,
-                    TradeRoute.class);
-            } catch (Exception e) {
-                errors += e.getMessage() + ". ";
-                continue;
-            }
-        }
-        if (errors != null && !errors.isEmpty()) return DOMMessage.clientError(errors);
-        
-        List<TradeRoute> newRoutes = new ArrayList<>();
-        for (TradeRoute tradeRoute : tradeRoutes) {
-            TradeRoute realRoute
-                = game.getFreeColGameObject(removePrefix(tradeRoute),
-                                            TradeRoute.class);
-            realRoute.updateFrom(tradeRoute);
-            newRoutes.add(realRoute);
-            tradeRoute.dispose();
-        }
+	/**
+	 * Convert this SetTradeRoutesMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		Element result = createMessage(getXMLElementTagName());
+		for (TradeRoute tradeRoute : tradeRoutes) {
+			result.appendChild(tradeRoute.toXMLElement(result.getOwnerDocument()));
+		}
+		return result;
+	}
 
-        // Proceed to set trade routes
-        return server.getInGameController()
-            .setTradeRoutes(serverPlayer, newRoutes);
-    }
-
-    /**
-     * Convert this SetTradeRoutesMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        Element result = createMessage(getXMLElementTagName());
-        for (TradeRoute tradeRoute : tradeRoutes) {
-            result.appendChild(tradeRoute.toXMLElement(result.getOwnerDocument()));
-        }
-        return result;
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "setTradeRoutes".
-     */
-    public static String getXMLElementTagName() {
-        return "setTradeRoutes";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "setTradeRoutes".
+	 */
+	public static String getXMLElementTagName() {
+		return "setTradeRoutes";
+	}
 }

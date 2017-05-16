@@ -33,213 +33,249 @@ import net.sf.freecol.common.io.FreeColXMLWriter;
 import net.sf.freecol.common.model.Specification;
 import static net.sf.freecol.common.util.CollectionUtils.*;
 
-
 /**
  * Option for selecting an audio mixer.
  */
 public class AudioMixerOption extends AbstractOption<AudioMixerOption.MixerWrapper> {
 
-    @SuppressWarnings("unused")
-    private static Logger logger = Logger.getLogger(AudioMixerOption.class.getName());
+	/** The logger. */
+	@SuppressWarnings("unused")
+	private static Logger logger = Logger.getLogger(AudioMixerOption.class.getName());
 
-    /**
-     * A wrapper for the mixer, including the Mixer.Info including a
-     * potentially null value.
-     */
-    public static class MixerWrapper implements Comparable<MixerWrapper> {
+	/**
+	 * A wrapper for the mixer, including the Mixer.Info including a potentially
+	 * null value.
+	 */
+	public static class MixerWrapper implements Comparable<MixerWrapper> {
 
-        /** The name for this wrapper. */
-        private final String name;
+		/** The name for this wrapper. */
+		private final String name;
 
-        /** The mixer info for a mixer. */
-        private final Mixer.Info mixerInfo;
+		/** The mixer info for a mixer. */
+		private final Mixer.Info mixerInfo;
 
+		/**
+		 * Instantiates a new mixer wrapper.
+		 *
+		 * @param name
+		 *            the name
+		 * @param mixerInfo
+		 *            the mixer info
+		 */
+		public MixerWrapper(String name, Mixer.Info mixerInfo) {
+			this.name = name;
+			this.mixerInfo = mixerInfo;
+		}
 
-        public MixerWrapper(String name, Mixer.Info mixerInfo) {
-            this.name = name;
-            this.mixerInfo = mixerInfo;
-        }
+		/**
+		 * Gets the key.
+		 *
+		 * @return the key
+		 */
+		public String getKey() {
+			return name;
+		}
 
-        public String getKey() {
-            return name;
-        }
+		/**
+		 * Gets the mixer info.
+		 *
+		 * @return the mixer info
+		 */
+		public Mixer.Info getMixerInfo() {
+			return mixerInfo;
+		}
 
-        public Mixer.Info getMixerInfo() {
-            return mixerInfo;
-        }
+		// Implement Comparable<MixerWrapper>
 
-        // Implement Comparable<MixerWrapper>
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.lang.Comparable#compareTo(java.lang.Object)
+		 */
+		@Override
+		public int compareTo(MixerWrapper mw) {
+			return getKey().compareTo(mw.getKey());
+		}
 
-        @Override
-        public int compareTo(MixerWrapper mw) {
-            return getKey().compareTo(mw.getKey());
-        }
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.lang.Object#equals(java.lang.Object)
+		 */
+		@Override
+		public boolean equals(Object o) {
+			if (this == o)
+				return true;
+			if (o instanceof MixerWrapper) {
+				return ((MixerWrapper) o).getKey().equals(getKey());
+			}
+			return false;
+		}
 
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o instanceof MixerWrapper) {
-                return ((MixerWrapper)o).getKey().equals(getKey());
-            }
-            return false;
-        }
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.lang.Object#hashCode()
+		 */
+		@Override
+		public int hashCode() {
+			return getKey().hashCode();
+		}
 
-        @Override
-        public int hashCode() {
-            return getKey().hashCode();
-        }
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.lang.Object#toString()
+		 */
+		@Override
+		public String toString() {
+			return name;
+		}
+	}
 
-        @Override
-        public String toString() {
-            return name;
-        }
-    }
+	/** Autodetect the mixer?. */
+	public static final String AUTO_NAME = Messages.message("clientOptions.audio.audioMixer.automatic");
 
-    /** Autodetect the mixer? */
-    public static final String AUTO_NAME
-        = Messages.message("clientOptions.audio.audioMixer.automatic");
+	/** The autodetected mixer. */
+	private static final Mixer AUTODETECTED_MIXER;
+	static {
+		Mixer mixer = null;
+		try {
+			mixer = AudioSystem.getMixer(null);
+		} catch (IllegalArgumentException e) {
+		}
+		AUTODETECTED_MIXER = mixer;
+	}
 
-    /** The autodetected mixer. */
-    private static final Mixer AUTODETECTED_MIXER;
-    static {
-        Mixer mixer = null;
-        try {
-            mixer = AudioSystem.getMixer(null);
-        } catch (IllegalArgumentException e) {}
-        AUTODETECTED_MIXER = mixer;
-    }
+	/** The default mixer wrapper around the autodetected mixer. */
+	private static final MixerWrapper DEFAULT_MIXER_WRAPPER = new MixerWrapper(AUTO_NAME,
+			(AUTODETECTED_MIXER == null) ? null : AUTODETECTED_MIXER.getMixerInfo());
 
-    /** The default mixer wrapper around the autodetected mixer. */
-    private static final MixerWrapper DEFAULT_MIXER_WRAPPER
-        = new MixerWrapper(AUTO_NAME, (AUTODETECTED_MIXER == null) ? null
-            : AUTODETECTED_MIXER.getMixerInfo());
+	/** The available audio mixers. */
+	private static final List<MixerWrapper> audioMixers = new ArrayList<>();
+	static {
+		for (Mixer.Info mi : AudioSystem.getMixerInfo()) {
+			audioMixers.add(new MixerWrapper(mi.getName(), mi));
+		}
+		Collections.sort(audioMixers);
+		audioMixers.add(0, DEFAULT_MIXER_WRAPPER);
+	}
 
-    /** The available audio mixers. */
-    private static final List<MixerWrapper> audioMixers = new ArrayList<>();
-    static {
-        for (Mixer.Info mi : AudioSystem.getMixerInfo()) {
-            audioMixers.add(new MixerWrapper(mi.getName(), mi));
-        }
-        Collections.sort(audioMixers);
-        audioMixers.add(0, DEFAULT_MIXER_WRAPPER);
-    }
+	/** The value of this option. */
+	private MixerWrapper value = null;
 
+	/**
+	 * Creates a new <code>AudioMixerOption</code>.
+	 *
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public AudioMixerOption(Specification specification) {
+		super(specification);
+	}
 
-    /** The value of this option. */
-    private MixerWrapper value = null;
+	/**
+	 * Gets a mixer wrapper by name.
+	 *
+	 * @param name
+	 *            The mixer wrapper name.
+	 * @return The mixer wrapper with the name given, or null if none.
+	 */
+	private MixerWrapper getMixerWrapperByName(String name) {
+		return find(audioMixers, mw -> mw.getKey().equals(name));
+	}
 
+	/**
+	 * Gets a list of the available audio mixers.
+	 *
+	 * @return The available mixers.
+	 */
+	public List<MixerWrapper> getChoices() {
+		return new ArrayList<>(audioMixers);
+	}
 
-    /**
-     * Creates a new <code>AudioMixerOption</code>.
-     *
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public AudioMixerOption(Specification specification) {
-        super(specification);
-    }
+	// Interface Option
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public AudioMixerOption clone() {
+		AudioMixerOption result = new AudioMixerOption(getSpecification());
+		result.setValues(this);
+		return result;
+	}
 
-    /**
-     * Gets a mixer wrapper by name.
-     *
-     * @param name The mixer wrapper name.
-     * @return The mixer wrapper with the name given, or null if none.
-     */
-    private MixerWrapper getMixerWrapperByName(String name) {
-        return find(audioMixers, mw -> mw.getKey().equals(name));
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public final MixerWrapper getValue() {
+		return value;
+	}
 
-    /**
-     * Gets a list of the available audio mixers.
-     *
-     * @return The available mixers.
-     */
-    public List<MixerWrapper> getChoices() {
-        return new ArrayList<>(audioMixers);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public final void setValue(MixerWrapper newValue) {
+		final MixerWrapper oldValue = this.value;
+		if (newValue == null)
+			newValue = DEFAULT_MIXER_WRAPPER;
+		this.value = newValue;
+		if (!newValue.equals(oldValue)) {
+			firePropertyChange(VALUE_TAG, oldValue, value);
+		}
+	}
 
+	// Override AbstractOption
+	// generateChoices() is effectively done in the audioMixers initialization.
 
-    // Interface Option
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void setValue(String valueString, String defaultValueString) {
+		MixerWrapper mw = null;
+		if (mw == null && valueString != null) {
+			mw = getMixerWrapperByName(valueString);
+		}
+		if (mw == null && defaultValueString != null) {
+			mw = getMixerWrapperByName(defaultValueString);
+		}
+		if (mw == null)
+			mw = DEFAULT_MIXER_WRAPPER;
+		setValue(mw);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public AudioMixerOption clone() {
-        AudioMixerOption result = new AudioMixerOption(getSpecification());
-        result.setValues(this);
-        return result;
-    }
+	// Serialization
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final MixerWrapper getValue() {
-        return value;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final void setValue(MixerWrapper newValue) {
-        final MixerWrapper oldValue = this.value;
-        if (newValue == null) newValue = DEFAULT_MIXER_WRAPPER;
-        this.value = newValue;
-        if (!newValue.equals(oldValue)) {
-            firePropertyChange(VALUE_TAG, oldValue, value);
-        }
-    }
+		if (value != null) {
+			xw.writeAttribute(VALUE_TAG, value.getKey());
+		}
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-    // Override AbstractOption
-    // generateChoices() is effectively done in the audioMixers initialization.
-    
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void setValue(String valueString, String defaultValueString) {
-        MixerWrapper mw = null;
-        if (mw == null && valueString != null) {
-            mw = getMixerWrapperByName(valueString);
-        }
-        if (mw == null && defaultValueString != null) {
-            mw = getMixerWrapperByName(defaultValueString);
-        }
-        if (mw == null) mw = DEFAULT_MIXER_WRAPPER;
-        setValue(mw);
-    }
-
-
-    // Serialization
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
-
-        if (value != null) {
-            xw.writeAttribute(VALUE_TAG, value.getKey());
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "audioMixerOption".
-     */
-    public static String getXMLElementTagName() {
-        return "audioMixerOption";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "audioMixerOption".
+	 */
+	public static String getXMLElementTagName() {
+		return "audioMixerOption";
+	}
 }

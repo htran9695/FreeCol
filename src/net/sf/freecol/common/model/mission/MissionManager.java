@@ -30,7 +30,6 @@ import javax.xml.stream.XMLStreamException;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 
-
 /**
  * The MissionManager keeps track of all missions defined.
  *
@@ -38,61 +37,63 @@ import net.sf.freecol.common.model.Game;
  */
 public class MissionManager {
 
-    private static final Logger logger = Logger.getLogger(MissionManager.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(MissionManager.class.getName());
 
-    private static final Map<String, Constructor<? extends Mission>> missionMap
-                                                     = new HashMap<>();
+	/** The Constant missionMap. */
+	private static final Map<String, Constructor<? extends Mission>> missionMap = new HashMap<>();
 
-    static {
-        try {
-            missionMap.put(CompoundMission.getXMLElementTagName(),
-                           CompoundMission.class.getConstructor(Game.class, FreeColXMLReader.class));
-            missionMap.put(GoToMission.getXMLElementTagName(),
-                           GoToMission.class.getConstructor(Game.class, FreeColXMLReader.class));
-            missionMap.put(ImprovementMission.getXMLElementTagName(),
-                           ImprovementMission.class.getConstructor(Game.class, FreeColXMLReader.class));
+	static {
+		try {
+			missionMap.put(CompoundMission.getXMLElementTagName(),
+					CompoundMission.class.getConstructor(Game.class, FreeColXMLReader.class));
+			missionMap.put(GoToMission.getXMLElementTagName(),
+					GoToMission.class.getConstructor(Game.class, FreeColXMLReader.class));
+			missionMap.put(ImprovementMission.getXMLElementTagName(),
+					ImprovementMission.class.getConstructor(Game.class, FreeColXMLReader.class));
 
-        } catch (NoSuchMethodException e) {
-            logger.log(Level.WARNING, "Missing constructor", e);
-        }
-    }
+		} catch (NoSuchMethodException e) {
+			logger.log(Level.WARNING, "Missing constructor", e);
+		}
+	}
 
+	/**
+	 * Returns true if the given String is a known mission tag.
+	 *
+	 * @param tag
+	 *            a <code>String</code> value
+	 * @return a <code>boolean</code> value
+	 */
+	public static boolean isMissionTag(String tag) {
+		return missionMap.containsKey(tag);
+	}
 
-    /**
-     * Returns true if the given String is a known mission tag.
-     *
-     * @param tag a <code>String</code> value
-     * @return a <code>boolean</code> value
-     */
-    public static boolean isMissionTag(String tag) {
-        return missionMap.containsKey(tag);
-    }
-
-    /**
-     * Returns a new Mission read from the input stream if possible,
-     * and null if not.
-     *
-     * @param game a <code>Game</code> value
-     * @param xr a <code>FreeColXMLReader</code> value
-     * @return a <code>Mission</code> value
-     * @exception XMLStreamException if an error occurs
-     */
-    public static Mission getMission(Game game,
-                                     FreeColXMLReader xr) throws XMLStreamException {
-        String tag = xr.getLocalName();
-        Constructor<? extends Mission> c = missionMap.get(tag);
-        if (c == null) {
-            logger.warning("Unknown type of mission: '" + tag + "'.");
-            xr.nextTag();
-            return null;
-        } else {
-            try {
-                return c.newInstance(game, xr);
-            } catch (Exception e) {
-                logger.log(Level.WARNING, "Failed to instatiate mission with tag: "
-                    + tag, e);
-                return null;
-            }
-        }
-    }
+	/**
+	 * Returns a new Mission read from the input stream if possible, and null if
+	 * not.
+	 *
+	 * @param game
+	 *            a <code>Game</code> value
+	 * @param xr
+	 *            a <code>FreeColXMLReader</code> value
+	 * @return a <code>Mission</code> value
+	 * @exception XMLStreamException
+	 *                if an error occurs
+	 */
+	public static Mission getMission(Game game, FreeColXMLReader xr) throws XMLStreamException {
+		String tag = xr.getLocalName();
+		Constructor<? extends Mission> c = missionMap.get(tag);
+		if (c == null) {
+			logger.warning("Unknown type of mission: '" + tag + "'.");
+			xr.nextTag();
+			return null;
+		} else {
+			try {
+				return c.newInstance(game, xr);
+			} catch (Exception e) {
+				logger.log(Level.WARNING, "Failed to instatiate mission with tag: " + tag, e);
+				return null;
+			}
+		}
+	}
 }

@@ -69,1209 +69,1638 @@ import net.sf.freecol.common.resources.ResourceManager;
 
 import static net.sf.freecol.common.util.StringUtils.*;
 
-
 /**
  * Holds various images that can be called upon by others in order to display
  * certain things.
  */
 public final class ImageLibrary {
 
-<span class="nc" id="L79">    private static final Logger logger = Logger.getLogger(ImageLibrary.class.getName());</span>
-
-    /**
-     * Canonical sizes of images GUI elements and map are expecting
-     * and current image files have.
-     * ICON_SIZE, TILE_SIZE, TILE_OVERLAY_SIZE and TILE_FOREST_SIZE constants
-     * are used in this way already, allowing them to tolerate changing sizes
-     * in the files.
-     * Most other images are currently still shown in a size of image size
-     * times scaling factor times requested size.
-     */
-<span class="nc" id="L90">    public static final Dimension ICON_SIZE = new Dimension(32, 32),</span>
-<span class="nc" id="L91">                                  BUILDING_SIZE = new Dimension(128, 96),</span>
-<span class="nc" id="L92">                                  TILE_SIZE = new Dimension(128, 64),</span>
-<span class="nc" id="L93">                                  TILE_OVERLAY_SIZE = new Dimension(128, 96),</span>
-<span class="nc" id="L94">                                  TILE_FOREST_SIZE = new Dimension(128, 84);</span>
-
-    public static final String DELETE = &quot;image.miscicon.delete&quot;,
-                               PLOWED = &quot;image.tile.model.improvement.plow&quot;,
-                               UNIT_SELECT = &quot;image.tile.unitSelect&quot;,
-                               TILE_TAKEN = &quot;image.tile.tileTaken&quot;,
-                               TILE_OWNED_BY_INDIANS = &quot;image.tileitem.nativeLand&quot;,
-                               LOST_CITY_RUMOUR = &quot;image.tileitem.lostCityRumour&quot;,
-                               DARKNESS = &quot;image.halo.dark&quot;,
-                               ICON_LOCK = &quot;image.icon.lock&quot;,
-                               ICON_COIN = &quot;image.icon.coin&quot;,
-                               BELLS = &quot;image.icon.model.goods.bells&quot;;
-
-<span class="nc" id="L107">    public static enum PathType {</span>
-<span class="nc" id="L108">        NAVAL,</span>
-<span class="nc" id="L109">        WAGON,</span>
-<span class="nc" id="L110">        HORSE,</span>
-<span class="nc" id="L111">        FOOT;</span>
-
-        /**
-         * Get a key for this path type.
-         *
-         * @return A key.
-         */
-        private String getKey() {
-<span class="nc" id="L119">            return getEnumKey(this);</span>
-        }
-
-        public String getImageKey() {
-<span class="nc" id="L123">            return &quot;image.tileitem.path.&quot; + getKey();</span>
-        }
-
-        public String getNextTurnImageKey() {
-<span class="nc" id="L127">            return &quot;image.tileitem.path.&quot; + getKey() + &quot;.nextTurn&quot;;</span>
-        }
-
-        /**
-         * Get the broad class of image to show along unit paths.
-         *
-         * @param u A &lt;code&gt;Unit&lt;/code&gt; to classify.
-         * @return A suitable &lt;code&gt;PathType&lt;/code&gt;.
-         */
-        public static PathType getPathType(Unit u) {
-<span class="nc bnc" id="L137" title="All 2 branches missed.">            return (u == null) ? PathType.FOOT</span>
-<span class="nc bnc" id="L138" title="All 2 branches missed.">                : (u.isNaval()) ? PathType.NAVAL</span>
-<span class="nc bnc" id="L139" title="All 2 branches missed.">                : (u.isMounted()) ? PathType.HORSE</span>
-<span class="nc bnc" id="L140" title="All 2 branches missed.">                : (u.isPerson()) ? PathType.FOOT</span>
-                : PathType.WAGON;
-        }
-    };
-
-
-    /**
-     * The scale factor used when creating this
-     * &lt;code&gt;ImageLibrary&lt;/code&gt;.  The value &lt;code&gt;1&lt;/code&gt; is used if
-     * this object is not a result of a scaling operation.
-     */
-    private final float scaleFactor;
-
-    final Dimension tileSize, tileOverlaySize, tileForestSize;
-
-    private final HashMap&lt;String,BufferedImage&gt; stringImageCache;
-
-    /**
-     * The constructor to use when needing an unscaled &lt;code&gt;ImageLibrary&lt;/code&gt;.
-     */
-    public ImageLibrary() {
-<span class="nc" id="L161">        this(1f);</span>
-<span class="nc" id="L162">    }</span>
-
-    /**
-     * The constructor to use when needing a scaled &lt;code&gt;ImageLibrary&lt;/code&gt;.
-     * 
-     * Please avoid using too many different scaling factors, as this will
-     * lead to wasted memory for caching images in ResourceManager!
-     * Currently, 0.25, 0.5, ..., 2.0 are used for the map. Colony tiles and
-     * the GUI use 1.0 here (maybe also 1.25, 1.5, 1.75 and 2.0 in future),
-     * but this gets multiplied for tiny 0.25(rarely, candidate for removal),
-     * smaller 0.5, small 0.75 and normal 1.0 image retrieval methods.
-     * 
-     * @param scaleFactor The factor used when scaling. 2 is twice
-     *      the size of the original images and 0.5 is half.
-     */
-<span class="nc" id="L177">    public ImageLibrary(float scaleFactor) {</span>
-<span class="nc" id="L178">        this.scaleFactor = scaleFactor;</span>
-<span class="nc" id="L179">        tileSize = scaleDimension(TILE_SIZE, scaleFactor);</span>
-<span class="nc" id="L180">        tileOverlaySize = scaleDimension(TILE_OVERLAY_SIZE, scaleFactor);</span>
-<span class="nc" id="L181">        tileForestSize = scaleDimension(TILE_FOREST_SIZE, scaleFactor);</span>
-<span class="nc" id="L182">        stringImageCache = new HashMap&lt;&gt;();</span>
-<span class="nc" id="L183">    }</span>
-
-
-    /**
-     * Returns the scaling factor used when creating this &lt;code&gt;ImageLibrary&lt;/code&gt;.
-     * It is 1 if the constructor without scaling factor was used to create
-     * this object.
-     * @return The scaling factor of this ImageLibrary.
-     */
-    public float getScaleFactor() {
-<span class="nc" id="L193">        return scaleFactor;</span>
-    }
-
-    public Dimension scaleDimension(Dimension size) {
-<span class="nc" id="L197">        return scaleDimension(size, scaleFactor);</span>
-    }
-
-    public static Dimension scaleDimension(Dimension size, float scaleFactor) {
-<span class="nc" id="L201">        return new Dimension(Math.round(size.width*scaleFactor),</span>
-<span class="nc" id="L202">                             Math.round(size.height*scaleFactor));</span>
-    }
-
-    /**
-     * Gets a suitable foreground color given a background color.
-     *
-     * Our eyes have different sensitivity towards red, green and
-     * blue.  We want a foreground color with the inverse brightness.
-     *
-     * @param background The background &lt;code&gt;Color&lt;/code&gt; to complement.
-     * @return A suitable foreground &lt;code&gt;Color&lt;/code&gt;.
-     */
-    public static Color getForegroundColor(Color background) {
-<span class="nc bnc" id="L215" title="All 2 branches missed.">        return (background == null</span>
-<span class="nc" id="L216">            || (background.getRed() * 0.3 + background.getGreen() * 0.59</span>
-<span class="nc bnc" id="L217" title="All 2 branches missed.">                + background.getBlue() * 0.11 &gt;= 126))</span>
-            ? Color.BLACK
-            : Color.WHITE;
-    }
-
-    /**
-     * The string border colors should be black unless the color of
-     * the string is really dark.
-     *
-     * @param color The &lt;code&gt;Color&lt;/code&gt; to complement.
-     * @return A suitable border &lt;code&gt;Color&lt;/code&gt;.
-     */
-    public static Color getStringBorderColor(Color color) {
-<span class="nc" id="L230">        return (color.getRed() * 0.3</span>
-<span class="nc" id="L231">            + color.getGreen() * 0.59</span>
-<span class="nc bnc" id="L232" title="All 2 branches missed.">            + color.getBlue() * 0.11 &lt; 10) ? Color.WHITE</span>
-            : Color.BLACK;
-    }
-
-
-    // Simple Image retrieval methods
-
-    /**
-     * Returns true if the tile with the given coordinates is to be
-     * considered &quot;even&quot;.  This is useful to select different images
-     * for the same tile type in order to prevent big stripes or a
-     * checker-board effect.
-     *
-     * @param x an &lt;code&gt;int&lt;/code&gt; value
-     * @param y an &lt;code&gt;int&lt;/code&gt; value
-     * @return a &lt;code&gt;boolean&lt;/code&gt; value
-     */
-    private static boolean isEven(int x, int y) {
-<span class="nc bnc" id="L250" title="All 4 branches missed.">        return ((y % 8 &lt;= 2) || ((x + y) % 2 == 0 ));</span>
-    }
-
-    /**
-     * Returns the beach corner image at the given index.
-     *
-     * @param index The index of the image to return.
-     * @param x an &lt;code&gt;int&lt;/code&gt; value
-     * @param y an &lt;code&gt;int&lt;/code&gt; value
-     * @return The image at the given index.
-     */
-    public BufferedImage getBeachCornerImage(int index, int x, int y) {
-<span class="nc" id="L262">        return ResourceManager.getImage(&quot;image.tile.model.tile.beach.corner&quot; + index</span>
-<span class="nc bnc" id="L263" title="All 2 branches missed.">                                        + &quot;.r&quot; + ((isEven(x, y)) ? &quot;0&quot; : &quot;1&quot;),</span>
-                                        tileSize);
-    }
-
-    /**
-     * Returns the beach edge image at the given index.
-     *
-     * @param index The index of the image to return.
-     * @param x an &lt;code&gt;int&lt;/code&gt; value
-     * @param y an &lt;code&gt;int&lt;/code&gt; value
-     * @return The image at the given index.
-     */
-    public BufferedImage getBeachEdgeImage(int index, int x, int y) {
-<span class="nc" id="L276">        return ResourceManager.getImage(&quot;image.tile.model.tile.beach.edge&quot; + index</span>
-<span class="nc bnc" id="L277" title="All 2 branches missed.">                                        + &quot;.r&quot;+ ((isEven(x, y)) ? &quot;0&quot; : &quot;1&quot;),</span>
-                                        tileSize);
-    }
-
-    /**
-     * Returns the border terrain-image for the given type.
-     *
-     * @param type The type of the terrain-image to return.
-     * @param direction a &lt;code&gt;Direction&lt;/code&gt; value
-     * @param x The x-coordinate of the location of the tile that is being
-     *     drawn.
-     * @param y The x-coordinate of the location of the tile that is being
-     *     drawn.
-     * @return The terrain-image at the given index.
-     */
-    public BufferedImage getBorderImage(TileType type, Direction direction,
-                                int x, int y) {
-<span class="nc bnc" id="L294" title="All 2 branches missed.">        String key = (type == null) ? &quot;model.tile.unexplored&quot; : type.getId();</span>
-<span class="nc" id="L295">        return ResourceManager.getImage(&quot;image.tile.&quot; + key + &quot;.border.&quot; + direction</span>
-<span class="nc bnc" id="L296" title="All 2 branches missed.">                                        + &quot;.r&quot; + ((isEven(x, y)) ?  &quot;0&quot; : &quot;1&quot;),</span>
-                                        tileSize);
-    }
-
-    /**
-     * Returns the forest image for a terrain type.
-     *
-     * @param type The type of the terrain-image to return.
-     * @return The image at the given index.
-     */
-    public BufferedImage getForestImage(TileType type) {
-<span class="nc" id="L307">        return getForestImage(type, tileForestSize);</span>
-    }
-
-    public static BufferedImage getForestImage(TileType type, Dimension size) {
-<span class="nc" id="L311">        return ResourceManager.getImage(&quot;image.tileforest.&quot; + type.getId(),</span>
-                                        size);
-    }
-
-    public BufferedImage getForestImage(TileType type,
-                                        TileImprovementStyle riverStyle) {
-<span class="nc" id="L317">        return getForestImage(type, riverStyle, tileForestSize);</span>
-    }
-
-    public static BufferedImage getForestImage(TileType type,
-                                               TileImprovementStyle riverStyle,
-                                               Dimension size) {
-<span class="nc bnc" id="L323" title="All 2 branches missed.">        if (riverStyle != null) {</span>
-<span class="nc" id="L324">            String key = &quot;image.tileforest.&quot; + type.getId() + &quot;.s&quot; + riverStyle.getMask();</span>
-            // @compat 0.10.6
-            // Workaround for BR#3599586.  America_large used to contain
-            // tiles with an isolated river (old river style=&quot;0&quot;!).
-            // There will never be an image for these, so just drop the
-            // river style.  The map is now fixed, this is just for the
-            // the saved games.
-            // Consider keeping the fallback, as its safer to have one.
-<span class="nc bnc" id="L332" title="All 2 branches missed.">            if (ResourceManager.hasImageResource(key))</span>
-            // end @compat
-<span class="nc" id="L334">                return ResourceManager.getImage(key, size);</span>
-        }
-<span class="nc" id="L336">        return ResourceManager.getImage(&quot;image.tileforest.&quot; + type.getId(), size);</span>
-    }
-
-    /**
-     * Returns the portrait of this Founding Father.
-     *
-     * @param father a &lt;code&gt;FoundingFather&lt;/code&gt; value
-     * @param grey if the image should be in greyscale
-     * @return an &lt;code&gt;BufferedImage&lt;/code&gt; value
-     */
-    public static BufferedImage getFoundingFatherImage(FoundingFather father, boolean grey) {
-<span class="nc" id="L347">        String resource = &quot;image.flavor.&quot; + father.getId();</span>
-<span class="nc bnc" id="L348" title="All 2 branches missed.">        return grey</span>
-<span class="nc" id="L349">            ? ResourceManager.getGrayscaleImage(resource, 1f)</span>
-<span class="nc" id="L350">            : ResourceManager.getImage(resource);</span>
-    }
-
-    public BufferedImage getSmallBuildableImage(BuildableType buildable, Player player) {
-        // FIXME: distinguish national unit types
-<span class="nc" id="L355">        float scale = scaleFactor * 0.75f;</span>
-<span class="nc bnc" id="L356" title="All 2 branches missed.">        BufferedImage image = (buildable instanceof BuildingType)</span>
-<span class="nc" id="L357">            ? ImageLibrary.getBuildingImage(</span>
-                (BuildingType) buildable, player, scale)
-<span class="nc" id="L359">            : ImageLibrary.getUnitImage((UnitType)buildable, scale);</span>
-<span class="nc" id="L360">        return image;</span>
-    }
-
-    public static BufferedImage getBuildableImage(BuildableType buildable, Dimension size) {
-<span class="nc bnc" id="L364" title="All 2 branches missed.">        BufferedImage image = (buildable instanceof BuildingType)</span>
-<span class="nc" id="L365">            ? ImageLibrary.getBuildingImage((BuildingType) buildable, size)</span>
-<span class="nc" id="L366">            : ImageLibrary.getUnitImage((UnitType)buildable, size);</span>
-<span class="nc" id="L367">        return image;</span>
-    }
-
-    public BufferedImage getSmallBuildingImage(Building building) {
-<span class="nc" id="L371">        return getBuildingImage(building.getType(), building.getOwner(),</span>
-            scaleFactor * 0.75f);
-    }
-
-    public BufferedImage getBuildingImage(Building building) {
-<span class="nc" id="L376">        return getBuildingImage(building.getType(), building.getOwner(),</span>
-            scaleFactor);
-    }
-
-    public static BufferedImage getBuildingImage(BuildingType buildingType,
-                                                 Player player, float scale) {
-<span class="nc" id="L382">        String key = &quot;image.buildingicon.&quot; + buildingType.getId()</span>
-<span class="nc" id="L383">            + &quot;.&quot; + player.getNationResourceKey();</span>
-<span class="nc bnc" id="L384" title="All 2 branches missed.">        if (!ResourceManager.hasImageResource(key)) {</span>
-<span class="nc" id="L385">            key = &quot;image.buildingicon.&quot; + buildingType.getId();</span>
-        }
-<span class="nc" id="L387">        return ResourceManager.getImage(key, scale);</span>
-    }
-
-    public static BufferedImage getBuildingImage(BuildingType buildingType,
-                                                 float scale) {
-<span class="nc" id="L392">        return ResourceManager.getImage(&quot;image.buildingicon.&quot;</span>
-<span class="nc" id="L393">            + buildingType.getId(), scale);</span>
-    }
-
-    public static BufferedImage getBuildingImage(BuildingType buildingType,
-                                                 Dimension size) {
-<span class="nc" id="L398">        return ResourceManager.getImage(&quot;image.buildingicon.&quot;</span>
-<span class="nc" id="L399">            + buildingType.getId(), size);</span>
-    }
-
-    public BufferedImage getSmallerIconImage(FreeColGameObjectType type) {
-<span class="nc" id="L403">        return getMiscImage(&quot;image.icon.&quot; + type.getId(),</span>
-<span class="nc" id="L404">            scaleDimension(ICON_SIZE, scaleFactor * 0.5f));</span>
-    }
-
-    public BufferedImage getSmallIconImage(FreeColGameObjectType type) {
-<span class="nc" id="L408">        return getMiscImage(&quot;image.icon.&quot; + type.getId(),</span>
-<span class="nc" id="L409">            scaleDimension(ICON_SIZE, scaleFactor * 0.75f));</span>
-    }
-
-    public BufferedImage getIconImage(FreeColGameObjectType type) {
-<span class="nc" id="L413">        return getMiscImage(&quot;image.icon.&quot; + type.getId(),</span>
-<span class="nc" id="L414">            scaleDimension(ICON_SIZE, scaleFactor));</span>
-    }
-
-    public BufferedImage getSmallerMiscIconImage(FreeColGameObjectType type) {
-<span class="nc" id="L418">        return getMiscIconImage(type, scaleFactor * 0.5f);</span>
-    }
-
-    public BufferedImage getSmallMiscIconImage(FreeColGameObjectType type) {
-<span class="nc" id="L422">        return getMiscIconImage(type, scaleFactor * 0.75f);</span>
-    }
-
-    public BufferedImage getMiscIconImage(FreeColGameObjectType type) {
-<span class="nc" id="L426">        return getMiscIconImage(type, scaleFactor);</span>
-    }
-
-    public static BufferedImage getMiscIconImage(FreeColGameObjectType type, float scale) {
-<span class="nc" id="L430">        return ResourceManager.getImage(&quot;image.miscicon.&quot; + type.getId(), scale);</span>
-    }
-
-    public static BufferedImage getMiscIconImage(FreeColGameObjectType type, Dimension size) {
-<span class="nc" id="L434">        return ResourceManager.getImage(&quot;image.miscicon.&quot; + type.getId(), size);</span>
-    }
-
-    /**
-     * Returns the image with the given identifier.
-     *
-     * @param id The object identifier.
-     * @return The image.
-     */
-    public BufferedImage getMiscImage(String id) {
-<span class="nc" id="L444">        return getMiscImage(id, scaleFactor);</span>
-    }
-
-    public static BufferedImage getMiscImage(String id, float scale) {
-<span class="nc" id="L448">        return ResourceManager.getImage(id, scale);</span>
-    }
-
-    public static BufferedImage getMiscImage(String id, Dimension size) {
-<span class="nc" id="L452">        return ResourceManager.getImage(id, size);</span>
-    }
-
-    /**
-     * Returns the appropriate BufferedImage for a FreeColObject.
-     * Please, use a more specific method!
-     *
-     * @param display The FreeColObject to display.
-     * @param scale How much the image should be scaled.
-     * @return The appropriate BufferedImage.
-     */
-    public BufferedImage getObjectImage(FreeColObject display, float scale) {
-        try {
-<span class="nc" id="L465">            final float combinedScale = scaleFactor * scale;</span>
-<span class="nc" id="L466">            final Dimension size = scaleDimension(ICON_SIZE, combinedScale);</span>
-            BufferedImage image;
-<span class="nc bnc" id="L468" title="All 2 branches missed.">            if (display instanceof Goods) {</span>
-<span class="nc" id="L469">                display = ((Goods)display).getType();</span>
-<span class="nc bnc" id="L470" title="All 2 branches missed.">            } else if (display instanceof Player) {</span>
-<span class="nc" id="L471">                display = ((Player)display).getNation();</span>
-            }
-
-<span class="nc bnc" id="L474" title="All 2 branches missed.">            if (display instanceof Unit) {</span>
-<span class="nc" id="L475">                Unit unit = (Unit)display;</span>
-<span class="nc" id="L476">                image = getUnitImage(unit, size);</span>
-<span class="nc bnc" id="L477" title="All 2 branches missed.">            } else if (display instanceof UnitType) {</span>
-<span class="nc" id="L478">                UnitType unitType = (UnitType)display;</span>
-<span class="nc" id="L479">                image = getUnitImage(unitType, size);</span>
-<span class="nc bnc" id="L480" title="All 2 branches missed.">            } else if (display instanceof Settlement) {</span>
-<span class="nc" id="L481">                Settlement settlement = (Settlement)display;</span>
-<span class="nc" id="L482">                image = getSettlementImage(settlement, size);</span>
-<span class="nc bnc" id="L483" title="All 2 branches missed.">            } else if (display instanceof LostCityRumour) {</span>
-<span class="nc" id="L484">                image = getMiscImage(ImageLibrary.LOST_CITY_RUMOUR, size);</span>
-<span class="nc bnc" id="L485" title="All 2 branches missed.">            } else if (display instanceof GoodsType) {</span>
-<span class="nc" id="L486">                FreeColGameObjectType type = (FreeColGameObjectType)display;</span>
-<span class="nc" id="L487">                image = getIconImage(type);</span>
-<span class="nc bnc" id="L488" title="All 2 branches missed.">            } else if (display instanceof Nation) {</span>
-<span class="nc" id="L489">                FreeColGameObjectType type = (FreeColGameObjectType)display;</span>
-<span class="nc" id="L490">                image = getMiscIconImage(type, size);</span>
-<span class="nc bnc" id="L491" title="All 2 branches missed.">            } else if (display instanceof BuildingType) {</span>
-<span class="nc" id="L492">                BuildingType type = (BuildingType)display;</span>
-<span class="nc" id="L493">                image = getBuildingImage(type, size);</span>
-<span class="nc" id="L494">            } else {</span>
-<span class="nc" id="L495">                logger.warning(&quot;could not find image of unknown type for &quot; + display);</span>
-<span class="nc" id="L496">                return null;</span>
-            }
-
-<span class="nc bnc" id="L499" title="All 2 branches missed.">            if (image == null) {</span>
-<span class="nc" id="L500">                logger.warning(&quot;could not find image for &quot; + display);</span>
-<span class="nc" id="L501">                return null;</span>
-            }
-<span class="nc" id="L503">            return image;</span>
-<span class="nc" id="L504">        } catch (Exception e) {</span>
-<span class="nc" id="L505">            logger.log(Level.WARNING, &quot;could not find image&quot;, e);</span>
-<span class="nc" id="L506">            return null;</span>
-        }
-    }
-
-    /**
-     * Returns the monarch-image for the given tile.
-     *
-     * @param nation The nation this monarch rules.
-     * @return the monarch-image for the given nation.
-     */
-    public static BufferedImage getMonarchImage(Nation nation) {
-<span class="nc" id="L517">        return ResourceManager.getImage(&quot;image.flavor.monarch.&quot; + nation.getId());</span>
-    }
-
-    /**
-     * Returns the overlay image for the given tile.
-     *
-     * @param tile The tile for which to return an image.
-     * @return A pseudo-random terrain image.
-     */
-    public BufferedImage getOverlayImage(Tile tile) {
-<span class="nc" id="L527">        return getOverlayImage(tile.getType(), tile.getId(), tileOverlaySize);</span>
-    }
-
-    /**
-     * Returns the overlay-image for the given type and scale.
-     * Currently used for hills and mountains.
-     *
-     * @param type The type of the terrain-image to return.
-     * @param id A string used to get a random image.
-     * @param size The size of the image to return.
-     * @return The terrain-image at the given index.
-     */
-    public static BufferedImage getOverlayImage(TileType type, String id,
-                                                Dimension size) {
-<span class="nc" id="L541">        String prefix = &quot;image.tileoverlay.&quot; + type.getId();</span>
-<span class="nc" id="L542">        List&lt;String&gt; keys = ResourceManager.getImageKeys(prefix);</span>
-<span class="nc" id="L543">        return getRandomizedImage(keys, id, size);</span>
-    }
-
-    public static Set&lt;String&gt; createOverlayCache() {
-<span class="nc" id="L547">        return ResourceManager.getImageKeySet(&quot;image.tileoverlay.&quot;);</span>
-    }
-
-    public BufferedImage getOverlayImage(Tile tile, Set&lt;String&gt; overlayCache) {
-<span class="nc" id="L551">        return getOverlayImage(tile.getType(), tile.getId(), tileOverlaySize,</span>
-                               overlayCache);
-    }
-
-    public static BufferedImage getOverlayImage(TileType type, String id,
-                                                Dimension size,
-                                                Set&lt;String&gt; overlayCache) {
-<span class="nc" id="L558">        final String prefix = &quot;image.tileoverlay.&quot; + type.getId() + &quot;.r&quot;;</span>
-<span class="nc" id="L559">        final List&lt;String&gt; keys = overlayCache.stream()</span>
-<span class="nc" id="L560">            .filter(k -&gt; k.startsWith(prefix))</span>
-<span class="nc" id="L561">            .collect(Collectors.toList());</span>
-<span class="nc" id="L562">        return getRandomizedImage(keys, id, size);</span>
-    }
-
-    private static BufferedImage getRandomizedImage(List&lt;String&gt; keys,
-                                                    String id, Dimension size) {
-<span class="nc" id="L567">        int count = keys.size();</span>
-<span class="nc bnc" id="L568" title="All 3 branches missed.">        switch(count) {</span>
-            case 0:
-<span class="nc" id="L570">                return null;</span>
-            case 1:
-<span class="nc" id="L572">                return ResourceManager.getImage(keys.get(0), size);</span>
-            default:
-<span class="nc" id="L574">                Collections.sort(keys);</span>
-<span class="nc" id="L575">                return ResourceManager.getImage(</span>
-<span class="nc" id="L576">                    keys.get(Math.abs(id.hashCode() % count)), size);</span>
-        }
-    }
-
-    /**
-     * Gets an image to represent the path of given path type.
-     *
-     * @param pt The &lt;code&gt;PathType&lt;/code&gt;
-     * @return The &lt;code&gt;BufferedImage&lt;/code&gt;.
-     */
-    public static BufferedImage getPathImage(PathType pt) {
-<span class="nc bnc" id="L587" title="All 2 branches missed.">        return (pt == null) ? null</span>
-<span class="nc" id="L588">            : ResourceManager.getImage(pt.getImageKey());</span>
-    }
-
-    /**
-     * Gets an image to represent the path of the given &lt;code&gt;Unit&lt;/code&gt;.
-     *
-     * @param u The &lt;code&gt;Unit&lt;/code&gt;
-     * @return The &lt;code&gt;BufferedImage&lt;/code&gt;.
-     */
-    public static BufferedImage getPathImage(Unit u) {
-<span class="nc bnc" id="L598" title="All 2 branches missed.">        return (u == null) ? null</span>
-<span class="nc" id="L599">            : getPathImage(PathType.getPathType(u));</span>
-    }
-
-    /**
-     * Gets an image to represent the path of the given &lt;code&gt;Unit&lt;/code&gt;.
-     *
-     * @param pt The &lt;code&gt;PathType&lt;/code&gt;
-     * @return The &lt;code&gt;BufferedImage&lt;/code&gt;.
-     */
-    public static BufferedImage getPathNextTurnImage(PathType pt) {
-<span class="nc bnc" id="L609" title="All 2 branches missed.">        return (pt == null) ? null</span>
-<span class="nc" id="L610">            : ResourceManager.getImage(pt.getNextTurnImageKey());</span>
-    }
-
-    /**
-     * Gets an image to represent the path of the given &lt;code&gt;Unit&lt;/code&gt;.
-     *
-     * @param u The &lt;code&gt;Unit&lt;/code&gt;
-     * @return The &lt;code&gt;BufferedImage&lt;/code&gt;.
-     */
-    public static BufferedImage getPathNextTurnImage(Unit u) {
-<span class="nc bnc" id="L620" title="All 2 branches missed.">        return (u == null) ? null</span>
-<span class="nc" id="L621">            : getPathNextTurnImage(PathType.getPathType(u));</span>
-    }
-
-    /**
-     * Returns the river image with the given style.
-     *
-     * @param style a &lt;code&gt;TileImprovementStyle&lt;/code&gt; value
-     * @return The image with the given style.
-     */
-    public BufferedImage getRiverImage(TileImprovementStyle style) {
-<span class="nc" id="L631">        return getRiverImage(style.getString(), tileSize);</span>
-    }
-
-    /**
-     * Returns the river image with the given style.
-     *
-     * @param style the style code
-     * @param size the image size
-     * @return The image with the given style.
-     */
-    public static BufferedImage getRiverImage(String style, Dimension size) {
-<span class="nc" id="L642">        return ResourceManager.getImage(</span>
-            &quot;image.tile.model.improvement.river.s&quot; + style, size);
-    }
-
-    /**
-     * Returns the river mouth terrain-image for the direction and magnitude.
-     *
-     * @param direction a &lt;code&gt;Direction&lt;/code&gt; value
-     * @param magnitude an &lt;code&gt;int&lt;/code&gt; value
-     * @param x The x-coordinate of the location of the tile that is being
-     *            drawn (ignored).
-     * @param y The x-coordinate of the location of the tile that is being
-     *            drawn (ignored).
-     * @return The terrain-image at the given index.
-     */
-    public BufferedImage getRiverMouthImage(Direction direction, int magnitude,
-                                    int x, int y) {
-<span class="nc bnc" id="L659" title="All 2 branches missed.">        String key = &quot;image.tile.model.tile.delta.&quot; + direction</span>
-            + (magnitude == 1 ? &quot;.small&quot; : &quot;.large&quot;);
-<span class="nc" id="L661">        return ResourceManager.getImage(key, tileSize);</span>
-    }
-
-    public BufferedImage getSmallSettlementImage(Settlement settlement) {
-<span class="nc" id="L665">        return getSettlementImage(settlement, scaleFactor * 0.75f);</span>
-    }
-
-    /**
-     * Returns the graphics that will represent the given settlement.
-     *
-     * @param settlement The settlement whose graphics type is needed.
-     * @return The graphics that will represent the given settlement.
-     */
-    public BufferedImage getSettlementImage(Settlement settlement) {
-<span class="nc" id="L675">        return getSettlementImage(settlement, scaleFactor);</span>
-    }
-
-    /**
-     * Returns the graphics that will represent the given settlement.
-     *
-     * @param settlement The settlement whose graphics type is needed.
-     * @param scale a &lt;code&gt;double&lt;/code&gt; value
-     * @return The graphics that will represent the given settlement.
-     */
-    public static BufferedImage getSettlementImage(Settlement settlement, float scale) {
-<span class="nc" id="L686">        return ResourceManager.getImage(settlement.getImageKey(), scale);</span>
-    }
-
-    public static BufferedImage getSettlementImage(Settlement settlement, Dimension size) {
-<span class="nc" id="L690">        return ResourceManager.getImage(settlement.getImageKey(), size);</span>
-    }
-
-    /**
-     * Returns the graphics that will represent the given settlement.
-     *
-     * @param settlementType The type of settlement whose graphics
-     *     type is needed.
-     * @return The graphics that will represent the given settlement.
-     */
-    public BufferedImage getSettlementImage(SettlementType settlementType) {
-<span class="nc" id="L701">        return getSettlementImage(settlementType, scaleFactor);</span>
-    }
-
-    public static BufferedImage getSettlementImage(SettlementType settlementType,
-                                    float scale) {
-<span class="nc" id="L706">        return ResourceManager.getImage(&quot;image.tileitem.&quot; + settlementType.getId(),</span>
-                                        scale);
-    }
-
-    /**
-     * Returns the terrain-image for the given type.
-     *
-     * @param type The type of the terrain-image to return.
-     * @param x The x-coordinate of the location of the tile that is being
-     *            drawn.
-     * @param y The x-coordinate of the location of the tile that is being
-     *            drawn.
-     * @return The terrain-image at the given index.
-     */
-    public BufferedImage getTerrainImage(TileType type, int x, int y) {
-<span class="nc" id="L721">        return getTerrainImage(type, x, y, tileSize);</span>
-    }
-
-    public static BufferedImage getTerrainImage(TileType type, int x, int y,
-                                                Dimension size) {
-<span class="nc bnc" id="L726" title="All 2 branches missed.">        String key = (type == null) ? &quot;model.tile.unexplored&quot; : type.getId();</span>
-<span class="nc" id="L727">        return ResourceManager.getImage(&quot;image.tile.&quot; + key + &quot;.center.r&quot;</span>
-<span class="nc bnc" id="L728" title="All 2 branches missed.">            + (isEven(x, y) ? &quot;0&quot; : &quot;1&quot;), size);</span>
-    }
-
-    public BufferedImage getSmallerUnitImage(Unit unit) {
-<span class="nc" id="L732">        return getUnitImage(unit.getType(), unit.getRole().getId(),</span>
-<span class="nc" id="L733">            unit.hasNativeEthnicity(), false, scaleFactor * 0.5f);</span>
-    }
-
-    public BufferedImage getSmallUnitImage(Unit unit) {
-<span class="nc" id="L737">        return getUnitImage(unit.getType(), unit.getRole().getId(),</span>
-<span class="nc" id="L738">            unit.hasNativeEthnicity(), false, scaleFactor * 0.75f);</span>
-    }
-
-    public BufferedImage getSmallUnitImage(Unit unit, boolean grayscale) {
-<span class="nc" id="L742">        return getUnitImage(unit.getType(), unit.getRole().getId(),</span>
-<span class="nc" id="L743">            unit.hasNativeEthnicity(), grayscale, scaleFactor * 0.75f);</span>
-    }
-
-    public BufferedImage getUnitImage(Unit unit) {
-<span class="nc" id="L747">        return getUnitImage(unit.getType(), unit.getRole().getId(),</span>
-<span class="nc" id="L748">            unit.hasNativeEthnicity(), false, scaleFactor);</span>
-    }
-
-    public BufferedImage getUnitImage(Unit unit, boolean grayscale) {
-<span class="nc" id="L752">        return getUnitImage(unit.getType(), unit.getRole().getId(),</span>
-<span class="nc" id="L753">            unit.hasNativeEthnicity(), grayscale, scaleFactor);</span>
-    }
-
-    public static BufferedImage getUnitImage(Unit unit, float scale) {
-<span class="nc" id="L757">        return getUnitImage(unit.getType(), unit.getRole().getId(),</span>
-<span class="nc" id="L758">            unit.hasNativeEthnicity(), false, scale);</span>
-    }
-
-    public BufferedImage getTinyUnitImage(UnitType unitType) {
-<span class="nc" id="L762">        return getUnitImage(unitType, unitType.getDisplayRoleId(),</span>
-            false, false, scaleFactor * 0.25f);
-    }
-
-    public BufferedImage getTinyUnitImage(UnitType unitType, boolean grayscale) {
-<span class="nc" id="L767">        return getUnitImage(unitType, unitType.getDisplayRoleId(),</span>
-            false, grayscale, scaleFactor * 0.25f);
-    }
-
-    public BufferedImage getSmallerUnitImage(UnitType unitType) {
-<span class="nc" id="L772">        return getUnitImage(unitType, unitType.getDisplayRoleId(),</span>
-            false, false, scaleFactor * 0.5f);
-    }
-
-    public BufferedImage getSmallUnitImage(UnitType unitType) {
-<span class="nc" id="L777">        return getUnitImage(unitType, unitType.getDisplayRoleId(),</span>
-            false, false, scaleFactor * 0.75f);
-    }
-
-    public BufferedImage getSmallUnitImage(UnitType unitType, boolean grayscale) {
-<span class="nc" id="L782">        return getUnitImage(unitType, unitType.getDisplayRoleId(),</span>
-            false, grayscale, scaleFactor * 0.75f);
-    }
-
-    public BufferedImage getSmallUnitImage(UnitType unitType, String roleId,
-                                   boolean grayscale) {
-<span class="nc" id="L788">        return getUnitImage(unitType, roleId,</span>
-            false, grayscale, scaleFactor * 0.75f);
-    }
-
-    public BufferedImage getUnitImage(UnitType unitType) {
-<span class="nc" id="L793">        return getUnitImage(unitType, unitType.getDisplayRoleId(),</span>
-            false, false, scaleFactor);
-    }
-
-    public static BufferedImage getUnitImage(UnitType unitType, float scale) {
-<span class="nc" id="L798">        return getUnitImage(unitType, unitType.getDisplayRoleId(),</span>
-            false, false, scale);
-    }
-
-    /**
-     * Gets the image that will represent a given unit.
-     *
-     * @param unitType The type of unit to be represented.
-     * @param roleId The id of the unit role.
-     * @param nativeEthnicity If true the unit is a former native.
-     * @param grayscale If true draw in inactive/disabled-looking state.
-     * @param scale How much the image is scaled.
-     * @return A suitable &lt;code&gt;BufferedImage&lt;/code&gt;.
-     */
-    public static BufferedImage getUnitImage(UnitType unitType, String roleId,
-                                             boolean nativeEthnicity,
-                                             boolean grayscale, float scale) {
-        // units that can only be native don't need the .native key part
-<span class="nc bnc" id="L816" title="All 2 branches missed.">        if (unitType.hasAbility(Ability.BORN_IN_INDIAN_SETTLEMENT)) {</span>
-<span class="nc" id="L817">            nativeEthnicity = false;</span>
-        }
-
-        // try to get an image matching the key
-<span class="nc bnc" id="L821" title="All 2 branches missed.">        String roleQual = (Role.isDefaultRoleId(roleId)) ? &quot;&quot;</span>
-<span class="nc" id="L822">            : &quot;.&quot; + Role.getRoleSuffix(roleId);</span>
-<span class="nc bnc" id="L823" title="All 2 branches missed.">        String key = &quot;image.unit.&quot; + unitType.getId() + roleQual</span>
-            + ((nativeEthnicity) ? &quot;.native&quot; : &quot;&quot;);
-<span class="nc bnc" id="L825" title="All 4 branches missed.">        if (!ResourceManager.hasImageResource(key) &amp;&amp; nativeEthnicity) {</span>
-<span class="nc" id="L826">            key = &quot;image.unit.&quot; + unitType.getId() + roleQual;</span>
-        }
-<span class="nc bnc" id="L828" title="All 2 branches missed.">        BufferedImage image = (grayscale)</span>
-<span class="nc" id="L829">            ? ResourceManager.getGrayscaleImage(key, scale)</span>
-<span class="nc" id="L830">            : ResourceManager.getImage(key, scale);</span>
-<span class="nc" id="L831">        return image;</span>
-    }
-
-    public static BufferedImage getUnitImage(Unit unit, Dimension size) {
-<span class="nc" id="L835">        return getUnitImage(unit.getType(), unit.getRole().getId(),</span>
-<span class="nc" id="L836">            unit.hasNativeEthnicity(), size);</span>
-    }
-
-    public static BufferedImage getUnitImage(UnitType unitType, Dimension size) {
-<span class="nc" id="L840">        String roleId = unitType.getDisplayRoleId();</span>
-<span class="nc bnc" id="L841" title="All 2 branches missed.">        String roleQual = (Role.isDefaultRoleId(roleId)) ? &quot;&quot;</span>
-<span class="nc" id="L842">            : &quot;.&quot; + Role.getRoleSuffix(roleId);</span>
-<span class="nc" id="L843">        String key = &quot;image.unit.&quot; + unitType.getId() + roleQual;</span>
-<span class="nc" id="L844">        return ResourceManager.getImage(key, size);</span>
-    }
-
-    public static BufferedImage getUnitImage(UnitType unitType, String roleId,
-                                             boolean nativeEthnicity,
-                                             Dimension size) {
-        // units that can only be native don't need the .native key part
-<span class="nc bnc" id="L851" title="All 2 branches missed.">        if (unitType.hasAbility(Ability.BORN_IN_INDIAN_SETTLEMENT)) {</span>
-<span class="nc" id="L852">            nativeEthnicity = false;</span>
-        }
-
-        // try to get an image matching the key
-<span class="nc bnc" id="L856" title="All 2 branches missed.">        String roleQual = (Role.isDefaultRoleId(roleId)) ? &quot;&quot;</span>
-<span class="nc" id="L857">            : &quot;.&quot; + Role.getRoleSuffix(roleId);</span>
-<span class="nc bnc" id="L858" title="All 2 branches missed.">        String key = &quot;image.unit.&quot; + unitType.getId() + roleQual</span>
-            + ((nativeEthnicity) ? &quot;.native&quot; : &quot;&quot;);
-<span class="nc bnc" id="L860" title="All 4 branches missed.">        if (!ResourceManager.hasImageResource(key) &amp;&amp; nativeEthnicity) {</span>
-<span class="nc" id="L861">            key = &quot;image.unit.&quot; + unitType.getId() + roleQual;</span>
-        }
-<span class="nc" id="L863">        BufferedImage image = ResourceManager.getImage(key, size);</span>
-<span class="nc" id="L864">        return image;</span>
-    }
-
-
-    // Methods for dynamically drawing images
-
-    /**
-     * Draw a (usually small) background image into a (usually larger)
-     * space specified by a component, tiling the image to fill up the
-     * space.  If the image is not available, just fill with the background
-     * colour.
-     *
-     * @param resource The name of the &lt;code&gt;ImageResource&lt;/code&gt; to tile with.
-     * @param g The &lt;code&gt;Graphics&lt;/code&gt; to draw to.
-     * @param c The &lt;code&gt;JComponent&lt;/code&gt; that defines the space.
-     * @param insets Optional &lt;code&gt;Insets&lt;/code&gt; to apply.
-     */
-    public static void drawTiledImage(String resource, Graphics g,
-                                      JComponent c, Insets insets) {
-<span class="nc" id="L883">        int width = c.getWidth();</span>
-<span class="nc" id="L884">        int height = c.getHeight();</span>
-        int xmin, ymin;
-<span class="nc bnc" id="L886" title="All 2 branches missed.">        if (insets == null) {</span>
-<span class="nc" id="L887">            xmin = 0;</span>
-<span class="nc" id="L888">            ymin = 0;</span>
-        } else {
-<span class="nc" id="L890">            xmin = insets.left;</span>
-<span class="nc" id="L891">            ymin = insets.top;</span>
-<span class="nc" id="L892">            width -= insets.left + insets.right;</span>
-<span class="nc" id="L893">            height -= insets.top + insets.bottom;</span>
-        }
-
-<span class="nc bnc" id="L896" title="All 2 branches missed.">        if (ResourceManager.hasImageResource(resource)) {</span>
-<span class="nc" id="L897">            BufferedImage image = ResourceManager.getImage(resource);</span>
-<span class="nc" id="L898">            int dx = image.getWidth();</span>
-<span class="nc" id="L899">            int dy = image.getHeight();</span>
-<span class="nc" id="L900">            int xmax = xmin + width;</span>
-<span class="nc" id="L901">            int ymax = ymin + height;</span>
-<span class="nc bnc" id="L902" title="All 2 branches missed.">            for (int x = xmin; x &lt; xmax; x += dx) {</span>
-<span class="nc bnc" id="L903" title="All 2 branches missed.">                for (int y = ymin; y &lt; ymax; y += dy) {</span>
-<span class="nc" id="L904">                    g.drawImage(image, x, y, null);</span>
-                }
-            }
-<span class="nc" id="L907">        } else {</span>
-<span class="nc" id="L908">            g.setColor(c.getBackground());</span>
-<span class="nc" id="L909">            g.fillRect(xmin, ymin, width, height);</span>
-        }
-<span class="nc" id="L911">    }</span>
-
-    /**
-     * Fills a certain rectangle with the image texture.
-     * 
-     * @param g2 The &lt;code&gt;Graphics&lt;/code&gt; used for painting the border.
-     * @param img The &lt;code&gt;BufferedImage&lt;/code&gt; to fill the texture.
-     * @param x The x-component of the offset.
-     * @param y The y-component of the offset.
-     * @param width The width of the rectangle.
-     * @param height The height of the rectangle.
-     */
-    public static void fillTexture(Graphics2D g2, BufferedImage img,
-                                   int x, int y, int width, int height) {
-<span class="nc" id="L925">        Rectangle anchor = new Rectangle(</span>
-<span class="nc" id="L926">            x, y, img.getWidth(), img.getHeight());</span>
-<span class="nc" id="L927">        TexturePaint paint = new TexturePaint(img, anchor);</span>
-<span class="nc" id="L928">        g2.setPaint(paint);</span>
-<span class="nc" id="L929">        g2.fillRect(x, y, width, height);</span>
-<span class="nc" id="L930">    }</span>
-
-
-    /**
-     * Creates a buffered image out of a given &lt;code&gt;Image&lt;/code&gt; object.
-     * 
-     * @param image The &lt;code&gt;Image&lt;/code&gt; object.
-     * @return The created &lt;code&gt;BufferedImage&lt;/code&gt; object.
-     */
-    public static BufferedImage createBufferedImage(Image image) {
-<span class="nc bnc" id="L940" title="All 2 branches missed.">        if(image == null)</span>
-<span class="nc" id="L941">            return null;</span>
-<span class="nc" id="L942">        BufferedImage result = new BufferedImage(image.getWidth(null),</span>
-<span class="nc" id="L943">            image.getHeight(null), BufferedImage.TYPE_INT_ARGB);</span>
-<span class="nc" id="L944">        Graphics2D g = result.createGraphics();</span>
-<span class="nc" id="L945">        g.drawImage(image, 0, 0, null);</span>
-<span class="nc" id="L946">        g.dispose();</span>
-<span class="nc" id="L947">        return result;</span>
-    }
-
-    public static BufferedImage createMirroredImage(Image image) {
-<span class="nc bnc" id="L951" title="All 2 branches missed.">        if(image == null)</span>
-<span class="nc" id="L952">            return null;</span>
-<span class="nc" id="L953">        final int width = image.getWidth(null);</span>
-<span class="nc" id="L954">        final int height = image.getHeight(null);</span>
-<span class="nc" id="L955">        BufferedImage result = new BufferedImage(width, height,</span>
-            BufferedImage.TYPE_INT_ARGB);
-<span class="nc" id="L957">        Graphics2D g = result.createGraphics();</span>
-<span class="nc" id="L958">        g.drawImage(image, width, 0, -width, height, null);</span>
-<span class="nc" id="L959">        g.dispose();</span>
-<span class="nc" id="L960">        return result;</span>
-    }
-
-    public static BufferedImage createResizedImage(Image image,
-                                                  int width, int height) {
-<span class="nc" id="L965">        BufferedImage scaled = new BufferedImage(width, height,</span>
-            BufferedImage.TYPE_INT_ARGB);
-<span class="nc" id="L967">        Graphics2D g = scaled.createGraphics();</span>
-<span class="nc" id="L968">        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,</span>
-            RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-<span class="nc" id="L970">        g.drawImage(image, 0, 0, width, height, null);</span>
-<span class="nc" id="L971">        g.dispose();</span>
-<span class="nc" id="L972">        return scaled;</span>
-    }
-
-    /**
-     * Create a faded version of an image.
-     *
-     * @param img The &lt;code&gt;Image&lt;/code&gt; to fade.
-     * @param fade The amount of fading.
-     * @param target The offset.
-     * @return The faded image.
-     */
-    public static BufferedImage fadeImage(Image img, float fade, float target) {
-<span class="nc" id="L984">        int w = img.getWidth(null);</span>
-<span class="nc" id="L985">        int h = img.getHeight(null);</span>
-<span class="nc" id="L986">        BufferedImage bi = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);</span>
-<span class="nc" id="L987">        Graphics2D g = bi.createGraphics();</span>
-<span class="nc" id="L988">        g.drawImage(img, 0, 0, null);</span>
-
-<span class="nc" id="L990">        float offset = target * (1.0f - fade);</span>
-<span class="nc" id="L991">        float[] scales = { fade, fade, fade, 1.0f };</span>
-<span class="nc" id="L992">        float[] offsets = { offset, offset, offset, 0.0f };</span>
-<span class="nc" id="L993">        RescaleOp rop = new RescaleOp(scales, offsets, null);</span>
-
-<span class="nc" id="L995">        g.drawImage(bi, rop, 0, 0);</span>
-
-<span class="nc" id="L997">        g.dispose();</span>
-<span class="nc" id="L998">        return bi;</span>
-    }
-
-    /**
-     * Create a &quot;chip&quot; with the given text and colors.
-     *
-     * @param g Graphics2D for getting the FontMetrics.
-     * @param text The text to display.
-     * @param border The border &lt;code&gt;Color&lt;/code&gt;.
-     * @param background The background &lt;code&gt;Color&lt;/code&gt;.
-     * @param foreground The foreground &lt;code&gt;Color&lt;/code&gt;.
-     * @return A chip.
-     */
-    private BufferedImage createChip(Graphics2D g, String text, Color border,
-                                     Color background, Color foreground) {
-<span class="nc" id="L1013">        Font font = FontLibrary.createFont(FontLibrary.FontType.SIMPLE,</span>
-            FontLibrary.FontSize.TINY, Font.BOLD, scaleFactor);
-<span class="nc" id="L1015">        FontMetrics fm = g.getFontMetrics(font);</span>
-<span class="nc" id="L1016">        int padding = (int)(6 * scaleFactor);</span>
-<span class="nc" id="L1017">        BufferedImage bi = new BufferedImage(fm.stringWidth(text) + padding,</span>
-<span class="nc" id="L1018">            fm.getMaxAscent() + fm.getMaxDescent() + padding,</span>
-            BufferedImage.TYPE_INT_ARGB);
-<span class="nc" id="L1020">        Graphics2D g2 = bi.createGraphics();</span>
-<span class="nc" id="L1021">        g2.setFont(font);</span>
-<span class="nc" id="L1022">        int width = bi.getWidth();</span>
-<span class="nc" id="L1023">        int height = bi.getHeight();</span>
-<span class="nc" id="L1024">        g2.setColor(border);</span>
-<span class="nc" id="L1025">        g2.fillRect(0, 0, width, height);</span>
-<span class="nc" id="L1026">        g2.setColor(background);</span>
-<span class="nc" id="L1027">        g2.fillRect(1, 1, width - 2, height - 2);</span>
-<span class="nc" id="L1028">        g2.setColor(foreground);</span>
-<span class="nc" id="L1029">        g2.drawString(text, padding/2, fm.getMaxAscent() + padding/2);</span>
-<span class="nc" id="L1030">        g2.dispose();</span>
-<span class="nc" id="L1031">        return bi;</span>
-    }
-
-    /**
-     * Create a filled &quot;chip&quot; with the given text and colors.
-     *
-     * @param g Graphics2D for getting the FontMetrics.
-     * @param text The text to display.
-     * @param border The border &lt;code&gt;Color&lt;/code&gt;.
-     * @param background The background &lt;code&gt;Color&lt;/code&gt;.
-     * @param amount How much to fill the chip with the fill color
-     * @param fill The fill &lt;code&gt;Color&lt;/code&gt;.
-     * @param foreground The foreground &lt;code&gt;Color&lt;/code&gt;.
-     * @return A chip.
-     */
-    private BufferedImage createFilledChip(Graphics2D g, String text,
-                                           Color border, Color background,
-                                           double amount, Color fill,
-                                           Color foreground) {
-<span class="nc" id="L1050">        Font font = FontLibrary.createFont(FontLibrary.FontType.SIMPLE,</span>
-            FontLibrary.FontSize.TINY, Font.BOLD, scaleFactor);
-<span class="nc" id="L1052">        FontMetrics fm = g.getFontMetrics(font);</span>
-<span class="nc" id="L1053">        int padding = (int)(6 * scaleFactor);</span>
-<span class="nc" id="L1054">        BufferedImage bi = new BufferedImage(fm.stringWidth(text) + padding,</span>
-<span class="nc" id="L1055">            fm.getMaxAscent() + fm.getMaxDescent() + padding,</span>
-            BufferedImage.TYPE_INT_ARGB);
-<span class="nc" id="L1057">        Graphics2D g2 = bi.createGraphics();</span>
-<span class="nc" id="L1058">        g2.setFont(font);</span>
-<span class="nc" id="L1059">        int width = bi.getWidth();</span>
-<span class="nc" id="L1060">        int height = bi.getHeight();</span>
-<span class="nc" id="L1061">        g2.setColor(border);</span>
-<span class="nc" id="L1062">        g2.fillRect(0, 0, width, height);</span>
-<span class="nc" id="L1063">        g2.setColor(background);</span>
-<span class="nc" id="L1064">        g2.fillRect(1, 1, width - 2, height - 2);</span>
-<span class="nc bnc" id="L1065" title="All 4 branches missed.">        if (amount &gt; 0.0 &amp;&amp; amount &lt;= 1.0) {</span>
-<span class="nc" id="L1066">            g2.setColor(fill);</span>
-<span class="nc" id="L1067">            g2.fillRect(1, 1, width - 2, (int)((height - 2) * amount));</span>
-        }
-<span class="nc" id="L1069">        g2.setColor(foreground);</span>
-<span class="nc" id="L1070">        g2.drawString(text, padding/2, fm.getMaxAscent() + padding/2);</span>
-<span class="nc" id="L1071">        g2.dispose();</span>
-<span class="nc" id="L1072">        return bi;</span>
-    }
-
-
-    // Methods for dynamically drawing images and adding them to ResourceManager
-
-    /**
-     * Gets a chip image for the alarm at an Indian settlement.
-     * The background is either the native owner's, or that of the
-     * most hated nation if any.
-     *
-     * @param g Graphics2D for getting the FontMetrics.
-     * @param is The &lt;code&gt;IndianSettlement&lt;/code&gt; to check.
-     * @param player The observing &lt;code&gt;Player&lt;/code&gt;.
-     * @return An alarm chip, or null if none suitable.
-     */
-    public BufferedImage getAlarmChip(Graphics2D g,
-                                      IndianSettlement is, Player player) {
-<span class="nc bnc" id="L1090" title="All 4 branches missed.">        if (player == null || !is.hasContacted(player)) return null;</span>
-<span class="nc" id="L1091">        Color ownerColor = is.getOwner().getNationColor();</span>
-<span class="nc" id="L1092">        Player enemy = is.getMostHated();</span>
-<span class="nc bnc" id="L1093" title="All 2 branches missed.">        Color enemyColor = (enemy == null) ? Nation.UNKNOWN_NATION_COLOR</span>
-<span class="nc" id="L1094">            : enemy.getNationColor();</span>
-        // Set amount to [0-4] corresponding to HAPPY, CONTENT,
-        // DISPLEASED, ANGRY, HATEFUL but only if the player is the
-        // most hated, because other nation alarm is not nor should be
-        // serialized to the client.
-<span class="nc" id="L1099">        int amount = 4;</span>
-<span class="nc bnc" id="L1100" title="All 2 branches missed.">        if (enemy == null) {</span>
-<span class="nc" id="L1101">            amount = 0;</span>
-<span class="nc bnc" id="L1102" title="All 2 branches missed.">        } else if (player == enemy) {</span>
-<span class="nc" id="L1103">            Tension alarm = is.getAlarm(enemy);</span>
-<span class="nc bnc" id="L1104" title="All 2 branches missed.">            amount = (alarm == null) ? 4 : alarm.getLevel().ordinal();</span>
-<span class="nc bnc" id="L1105" title="All 2 branches missed.">            if (amount == 0) amount = 1; // Show *something*!</span>
-        }
-<span class="nc" id="L1107">        Color foreground = getForegroundColor(enemyColor);</span>
-<span class="nc bnc" id="L1108" title="All 2 branches missed.">        String text = ResourceManager.getString((is.worthScouting(player))</span>
-                                                ? &quot;indianAlarmChip.contacted&quot;
-                                                : &quot;indianAlarmChip.scouted&quot;);
-<span class="nc" id="L1111">        return createFilledChip(g, text, Color.BLACK, ownerColor, amount/4.0,</span>
-                                   enemyColor, foreground);
-    }
-
-    /**
-     * Gets the owner chip for the settlement.
-     *
-     * @param g Graphics2D for getting the FontMetrics.
-     * @param is The &lt;code&gt;IndianSettlement&lt;/code&gt; to check.
-     * @return A chip.
-     */
-    public BufferedImage getIndianSettlementChip(Graphics2D g,
-                                                 IndianSettlement is) {
-<span class="nc" id="L1124">        String text = ResourceManager.getString(&quot;indianSettlementChip.&quot;</span>
-<span class="nc bnc" id="L1125" title="All 2 branches missed.">            + ((is.getType().isCapital()) ? &quot;capital&quot; : &quot;normal&quot;));</span>
-<span class="nc" id="L1126">        Color background = is.getOwner().getNationColor();</span>
-<span class="nc" id="L1127">        return createChip(g, text, Color.BLACK, background,</span>
-<span class="nc" id="L1128">                          getForegroundColor(background));</span>
-    }
-
-    /**
-     * Gets the mission chip for a native settlement.
-     *
-     * @param g Graphics2D for getting the FontMetrics.
-     * @param owner The player that owns the mission.
-     * @param expert True if the unit is an expert.
-     * @return A suitable chip, or null if no mission is present.
-     */
-    public BufferedImage getMissionChip(Graphics2D g,
-                                        Player owner, boolean expert) {
-<span class="nc" id="L1141">        Color background = owner.getNationColor();</span>
-<span class="nc bnc" id="L1142" title="All 2 branches missed.">        String key = &quot;color.foreground.mission.&quot;</span>
-            + ((expert) ? &quot;expert&quot; : &quot;normal&quot;);
-        Color foreground;
-<span class="nc bnc" id="L1145" title="All 2 branches missed.">        if (ResourceManager.hasColorResource(key)) {</span>
-<span class="nc" id="L1146">            foreground = ResourceManager.getColor(key);</span>
-        } else {
-<span class="nc bnc" id="L1148" title="All 2 branches missed.">            foreground = (expert) ? Color.BLACK : Color.GRAY;</span>
-        }
-<span class="nc" id="L1150">        return createChip(g, ResourceManager.getString(&quot;cross&quot;),</span>
-                          Color.BLACK, background, foreground);
-    }
-
-    /**
-     * Gets a chip for an occupation indicator, i.e. a small image with a
-     * single letter or symbol that indicates the Unit's state.
-     *
-     * @param g Graphics2D for getting the FontMetrics.
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; with the occupation.
-     * @param text The text for the chip.
-     * @return A suitable chip.
-     */
-    public BufferedImage getOccupationIndicatorChip(Graphics2D g,
-                                                    Unit unit, String text) {
-<span class="nc" id="L1165">        Color backgroundColor = unit.getOwner().getNationColor();</span>
-<span class="nc bnc" id="L1166" title="All 2 branches missed.">        Color foregroundColor = (unit.getState() == Unit.UnitState.FORTIFIED)</span>
-<span class="nc" id="L1167">            ? Color.GRAY : getForegroundColor(backgroundColor);</span>
-<span class="nc" id="L1168">        return createChip(g, text, Color.BLACK, backgroundColor, foregroundColor);</span>
-    }
-
-    /**
-     * Gets an image with a string of a given color and with
-     * a black border around the glyphs.
-     *
-     * @param g A &lt;code&gt;Graphics&lt;/code&gt;-object for getting the font metrics.
-     * @param text The &lt;code&gt;String&lt;/code&gt; to make an image of.
-     * @param color The &lt;code&gt;Color&lt;/code&gt; to use for the text.
-     * @param font The &lt;code&gt;Font&lt;/code&gt; to display the text with.
-     * @return The image that was created.
-     */
-    public BufferedImage getStringImage(Graphics g, String text, Color color,
-                                Font font) {
-<span class="nc bnc" id="L1183" title="All 2 branches missed.">        if (color == null) {</span>
-<span class="nc" id="L1184">            logger.warning(&quot;createStringImage called with color null&quot;);</span>
-<span class="nc" id="L1185">            color = Color.WHITE;</span>
-        }
-
-        // Lookup in the cache if the image has been generated already
-<span class="nc" id="L1189">        String key = text</span>
-<span class="nc" id="L1190">            + &quot;.&quot; + font.getFontName().replace(' ', '-')</span>
-<span class="nc" id="L1191">            + &quot;.&quot; + Integer.toString(font.getSize())</span>
-<span class="nc" id="L1192">            + &quot;.&quot; + Integer.toHexString(color.getRGB());</span>
-<span class="nc" id="L1193">        BufferedImage img = stringImageCache.get(key);</span>
-<span class="nc bnc" id="L1194" title="All 2 branches missed.">        if (img != null) {</span>
-<span class="nc" id="L1195">            return img;</span>
-        }
-        // create an image of the appropriate size
-<span class="nc" id="L1198">        FontMetrics fm = g.getFontMetrics(font);</span>
-<span class="nc" id="L1199">        int width = fm.stringWidth(text) + 4;</span>
-<span class="nc" id="L1200">        int height = fm.getMaxAscent() + fm.getMaxDescent();</span>
-<span class="nc" id="L1201">        BufferedImage bi = new BufferedImage(width, height,</span>
-            BufferedImage.TYPE_INT_ARGB);
-        // draw the string with selected color
-<span class="nc" id="L1204">        Graphics2D g2 = bi.createGraphics();</span>
-<span class="nc" id="L1205">        g2.setColor(getStringBorderColor(color));</span>
-<span class="nc" id="L1206">        g2.setFont(font);</span>
-<span class="nc" id="L1207">        g2.drawString(text, 2, fm.getMaxAscent());</span>
-
-        // draw the border around letters
-<span class="nc" id="L1210">        int borderWidth = 1;</span>
-<span class="nc" id="L1211">        int borderColor = getStringBorderColor(color).getRGB();</span>
-        int srcRGB, dstRGB, srcA;
-<span class="nc bnc" id="L1213" title="All 2 branches missed.">        for (int biY = 0; biY &lt; height; biY++) {</span>
-<span class="nc bnc" id="L1214" title="All 2 branches missed.">            for (int biX = borderWidth; biX &lt; width - borderWidth; biX++) {</span>
-<span class="nc" id="L1215">                int biXI = width - biX - 1;</span>
-<span class="nc bnc" id="L1216" title="All 2 branches missed.">                for (int d = 1; d &lt;= borderWidth; d++) {</span>
-                    // left to right
-<span class="nc" id="L1218">                    srcRGB = bi.getRGB(biX, biY);</span>
-<span class="nc" id="L1219">                    srcA = (srcRGB &gt;&gt; 24) &amp; 0xFF;</span>
-<span class="nc" id="L1220">                    dstRGB = bi.getRGB(biX - d, biY);</span>
-<span class="nc bnc" id="L1221" title="All 2 branches missed.">                    if (dstRGB != borderColor) {</span>
-<span class="nc bnc" id="L1222" title="All 2 branches missed.">                        if (srcA &gt; 0) {</span>
-<span class="nc" id="L1223">                            bi.setRGB(biX, biY, borderColor);</span>
-<span class="nc" id="L1224">                            bi.setRGB(biX - d, biY, srcRGB);</span>
-                        }
-                    }
-                    // right to left
-<span class="nc" id="L1228">                    srcRGB = bi.getRGB(biXI, biY);</span>
-<span class="nc" id="L1229">                    srcA = (srcRGB &gt;&gt; 24) &amp; 0xFF;</span>
-<span class="nc" id="L1230">                    dstRGB = bi.getRGB(biXI + d, biY);</span>
-<span class="nc bnc" id="L1231" title="All 2 branches missed.">                    if (dstRGB != borderColor) {</span>
-<span class="nc bnc" id="L1232" title="All 2 branches missed.">                        if (srcA &gt; 0) {</span>
-<span class="nc" id="L1233">                            bi.setRGB(biXI, biY, borderColor);</span>
-<span class="nc" id="L1234">                            bi.setRGB(biXI + d, biY, srcRGB);</span>
-                        }
-                    }
-                }
-            }
-        }
-<span class="nc bnc" id="L1240" title="All 2 branches missed.">        for (int biX = 0; biX &lt; width; biX++) {</span>
-<span class="nc bnc" id="L1241" title="All 2 branches missed.">            for (int biY = borderWidth; biY &lt; height - borderWidth; biY++) {</span>
-<span class="nc" id="L1242">                int biYI = height - biY - 1;</span>
-<span class="nc bnc" id="L1243" title="All 2 branches missed.">                for (int d = 1; d &lt;= borderWidth; d++) {</span>
-                    // top to bottom
-<span class="nc" id="L1245">                    srcRGB = bi.getRGB(biX, biY);</span>
-<span class="nc" id="L1246">                    srcA = (srcRGB &gt;&gt; 24) &amp; 0xFF;</span>
-<span class="nc" id="L1247">                    dstRGB = bi.getRGB(biX, biY - d);</span>
-<span class="nc bnc" id="L1248" title="All 2 branches missed.">                    if (dstRGB != borderColor) {</span>
-<span class="nc bnc" id="L1249" title="All 2 branches missed.">                        if (srcA &gt; 0) {</span>
-<span class="nc" id="L1250">                            bi.setRGB(biX, biY, borderColor);</span>
-<span class="nc" id="L1251">                            bi.setRGB(biX, biY - d, srcRGB);</span>
-                        }
-                    }
-                    // bottom to top
-<span class="nc" id="L1255">                    srcRGB = bi.getRGB(biX, biYI);</span>
-<span class="nc" id="L1256">                    srcA = (srcRGB &gt;&gt; 24) &amp; 0xFF;</span>
-<span class="nc" id="L1257">                    dstRGB = bi.getRGB(biX, biYI + d);</span>
-<span class="nc bnc" id="L1258" title="All 2 branches missed.">                    if (dstRGB != borderColor) {</span>
-<span class="nc bnc" id="L1259" title="All 2 branches missed.">                        if (srcA &gt; 0) {</span>
-<span class="nc" id="L1260">                            bi.setRGB(biX, biYI, borderColor);</span>
-<span class="nc" id="L1261">                            bi.setRGB(biX, biYI + d, srcRGB);</span>
-                        }
-                    }
-                }
-            }
-        }
-
-<span class="nc" id="L1268">        g2.setColor(color);</span>
-<span class="nc" id="L1269">        g2.drawString(text, 2, fm.getMaxAscent());</span>
-<span class="nc" id="L1270">        g2.dispose();</span>
-
-<span class="nc" id="L1272">        stringImageCache.put(key, bi);</span>
-<span class="nc" id="L1273">        return bi;</span>
-    }
+	/** The Constant logger. */
+<span class="nc" id="L79">	private static final Logger logger = Logger.getLogger(ImageLibrary.class.getName());</span>
+
+	/**
+	 * Canonical sizes of images GUI elements and map are expecting and current
+	 * image files have. ICON_SIZE, TILE_SIZE, TILE_OVERLAY_SIZE and
+	 * TILE_FOREST_SIZE constants are used in this way already, allowing them to
+	 * tolerate changing sizes in the files. Most other images are currently
+	 * still shown in a size of image size times scaling factor times requested
+	 * size.
+	 */
+<span class="nc" id="L89">	public static final Dimension ICON_SIZE = new Dimension(32, 32), BUILDING_SIZE = new Dimension(128, 96),</span>
+<span class="nc" id="L90">			TILE_SIZE = new Dimension(128, 64), TILE_OVERLAY_SIZE = new Dimension(128, 96),</span>
+<span class="nc" id="L91">			TILE_FOREST_SIZE = new Dimension(128, 84);</span>
+
+	/** The Constant BELLS. */
+	public static final String DELETE = &quot;image.miscicon.delete&quot;, PLOWED = &quot;image.tile.model.improvement.plow&quot;,
+			UNIT_SELECT = &quot;image.tile.unitSelect&quot;, TILE_TAKEN = &quot;image.tile.tileTaken&quot;,
+			TILE_OWNED_BY_INDIANS = &quot;image.tileitem.nativeLand&quot;, LOST_CITY_RUMOUR = &quot;image.tileitem.lostCityRumour&quot;,
+			DARKNESS = &quot;image.halo.dark&quot;, ICON_LOCK = &quot;image.icon.lock&quot;, ICON_COIN = &quot;image.icon.coin&quot;,
+			BELLS = &quot;image.icon.model.goods.bells&quot;;
+
+	/**
+	 * The Enum PathType.
+	 */
+<span class="nc" id="L103">	public static enum PathType {</span>
+
+		/** The naval. */
+<span class="nc" id="L106">		NAVAL,</span>
+
+		/** The wagon. */
+<span class="nc" id="L109">		WAGON,</span>
+
+		/** The horse. */
+<span class="nc" id="L112">		HORSE,</span>
+
+		/** The foot. */
+<span class="nc" id="L115">		FOOT;</span>
+
+		/**
+		 * Get a key for this path type.
+		 *
+		 * @return A key.
+		 */
+		private String getKey() {
+<span class="nc" id="L123">			return getEnumKey(this);</span>
+		}
+
+		/**
+		 * Gets the image key.
+		 *
+		 * @return the image key
+		 */
+		public String getImageKey() {
+<span class="nc" id="L132">			return &quot;image.tileitem.path.&quot; + getKey();</span>
+		}
+
+		/**
+		 * Gets the next turn image key.
+		 *
+		 * @return the next turn image key
+		 */
+		public String getNextTurnImageKey() {
+<span class="nc" id="L141">			return &quot;image.tileitem.path.&quot; + getKey() + &quot;.nextTurn&quot;;</span>
+		}
+
+		/**
+		 * Get the broad class of image to show along unit paths.
+		 *
+		 * @param u
+		 *            A &lt;code&gt;Unit&lt;/code&gt; to classify.
+		 * @return A suitable &lt;code&gt;PathType&lt;/code&gt;.
+		 */
+		public static PathType getPathType(Unit u) {
+<span class="nc bnc" id="L152" title="All 2 branches missed.">			return (u == null) ? PathType.FOOT</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">					: (u.isNaval()) ? PathType.NAVAL</span>
+<span class="nc bnc" id="L154" title="All 4 branches missed.">							: (u.isMounted()) ? PathType.HORSE : (u.isPerson()) ? PathType.FOOT : PathType.WAGON;</span>
+		}
+	};
+
+	/**
+	 * The scale factor used when creating this &lt;code&gt;ImageLibrary&lt;/code&gt;. The
+	 * value &lt;code&gt;1&lt;/code&gt; is used if this object is not a result of a scaling
+	 * operation.
+	 */
+	private final float scaleFactor;
+
+	/** The tile forest size. */
+	final Dimension tileSize, tileOverlaySize, tileForestSize;
+
+	/** The string image cache. */
+	private final HashMap&lt;String, BufferedImage&gt; stringImageCache;
+
+	/**
+	 * The constructor to use when needing an unscaled
+	 * &lt;code&gt;ImageLibrary&lt;/code&gt;.
+	 */
+	public ImageLibrary() {
+<span class="nc" id="L176">		this(1f);</span>
+<span class="nc" id="L177">	}</span>
+
+	/**
+	 * The constructor to use when needing a scaled &lt;code&gt;ImageLibrary&lt;/code&gt;.
+	 * 
+	 * Please avoid using too many different scaling factors, as this will lead
+	 * to wasted memory for caching images in ResourceManager! Currently, 0.25,
+	 * 0.5, ..., 2.0 are used for the map. Colony tiles and the GUI use 1.0 here
+	 * (maybe also 1.25, 1.5, 1.75 and 2.0 in future), but this gets multiplied
+	 * for tiny 0.25(rarely, candidate for removal), smaller 0.5, small 0.75 and
+	 * normal 1.0 image retrieval methods.
+	 * 
+	 * @param scaleFactor
+	 *            The factor used when scaling. 2 is twice the size of the
+	 *            original images and 0.5 is half.
+	 */
+<span class="nc" id="L193">	public ImageLibrary(float scaleFactor) {</span>
+<span class="nc" id="L194">		this.scaleFactor = scaleFactor;</span>
+<span class="nc" id="L195">		tileSize = scaleDimension(TILE_SIZE, scaleFactor);</span>
+<span class="nc" id="L196">		tileOverlaySize = scaleDimension(TILE_OVERLAY_SIZE, scaleFactor);</span>
+<span class="nc" id="L197">		tileForestSize = scaleDimension(TILE_FOREST_SIZE, scaleFactor);</span>
+<span class="nc" id="L198">		stringImageCache = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L199">	}</span>
+
+	/**
+	 * Returns the scaling factor used when creating this
+	 * &lt;code&gt;ImageLibrary&lt;/code&gt;. It is 1 if the constructor without scaling
+	 * factor was used to create this object.
+	 * 
+	 * @return The scaling factor of this ImageLibrary.
+	 */
+	public float getScaleFactor() {
+<span class="nc" id="L209">		return scaleFactor;</span>
+	}
+
+	/**
+	 * Scale dimension.
+	 *
+	 * @param size
+	 *            the size
+	 * @return the dimension
+	 */
+	public Dimension scaleDimension(Dimension size) {
+<span class="nc" id="L220">		return scaleDimension(size, scaleFactor);</span>
+	}
+
+	/**
+	 * Scale dimension.
+	 *
+	 * @param size
+	 *            the size
+	 * @param scaleFactor
+	 *            the scale factor
+	 * @return the dimension
+	 */
+	public static Dimension scaleDimension(Dimension size, float scaleFactor) {
+<span class="nc" id="L233">		return new Dimension(Math.round(size.width * scaleFactor), Math.round(size.height * scaleFactor));</span>
+	}
+
+	/**
+	 * Gets a suitable foreground color given a background color.
+	 *
+	 * Our eyes have different sensitivity towards red, green and blue. We want
+	 * a foreground color with the inverse brightness.
+	 *
+	 * @param background
+	 *            The background &lt;code&gt;Color&lt;/code&gt; to complement.
+	 * @return A suitable foreground &lt;code&gt;Color&lt;/code&gt;.
+	 */
+	public static Color getForegroundColor(Color background) {
+<span class="nc bnc" id="L247" title="All 2 branches missed.">		return (background == null</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">				|| (background.getRed() * 0.3 + background.getGreen() * 0.59 + background.getBlue() * 0.11 &gt;= 126))</span>
+						? Color.BLACK : Color.WHITE;
+	}
+
+	/**
+	 * The string border colors should be black unless the color of the string
+	 * is really dark.
+	 *
+	 * @param color
+	 *            The &lt;code&gt;Color&lt;/code&gt; to complement.
+	 * @return A suitable border &lt;code&gt;Color&lt;/code&gt;.
+	 */
+	public static Color getStringBorderColor(Color color) {
+<span class="nc bnc" id="L261" title="All 2 branches missed.">		return (color.getRed() * 0.3 + color.getGreen() * 0.59 + color.getBlue() * 0.11 &lt; 10) ? Color.WHITE</span>
+				: Color.BLACK;
+	}
+
+	// Simple Image retrieval methods
+
+	/**
+	 * Returns true if the tile with the given coordinates is to be considered
+	 * &quot;even&quot;. This is useful to select different images for the same tile type
+	 * in order to prevent big stripes or a checker-board effect.
+	 *
+	 * @param x
+	 *            an &lt;code&gt;int&lt;/code&gt; value
+	 * @param y
+	 *            an &lt;code&gt;int&lt;/code&gt; value
+	 * @return a &lt;code&gt;boolean&lt;/code&gt; value
+	 */
+	private static boolean isEven(int x, int y) {
+<span class="nc bnc" id="L279" title="All 4 branches missed.">		return ((y % 8 &lt;= 2) || ((x + y) % 2 == 0));</span>
+	}
+
+	/**
+	 * Returns the beach corner image at the given index.
+	 *
+	 * @param index
+	 *            The index of the image to return.
+	 * @param x
+	 *            an &lt;code&gt;int&lt;/code&gt; value
+	 * @param y
+	 *            an &lt;code&gt;int&lt;/code&gt; value
+	 * @return The image at the given index.
+	 */
+	public BufferedImage getBeachCornerImage(int index, int x, int y) {
+<span class="nc" id="L294">		return ResourceManager</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">				.getImage(&quot;image.tile.model.tile.beach.corner&quot; + index + &quot;.r&quot; + ((isEven(x, y)) ? &quot;0&quot; : &quot;1&quot;), tileSize);</span>
+	}
+
+	/**
+	 * Returns the beach edge image at the given index.
+	 *
+	 * @param index
+	 *            The index of the image to return.
+	 * @param x
+	 *            an &lt;code&gt;int&lt;/code&gt; value
+	 * @param y
+	 *            an &lt;code&gt;int&lt;/code&gt; value
+	 * @return The image at the given index.
+	 */
+	public BufferedImage getBeachEdgeImage(int index, int x, int y) {
+<span class="nc" id="L310">		return ResourceManager</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">				.getImage(&quot;image.tile.model.tile.beach.edge&quot; + index + &quot;.r&quot; + ((isEven(x, y)) ? &quot;0&quot; : &quot;1&quot;), tileSize);</span>
+	}
+
+	/**
+	 * Returns the border terrain-image for the given type.
+	 *
+	 * @param type
+	 *            The type of the terrain-image to return.
+	 * @param direction
+	 *            a &lt;code&gt;Direction&lt;/code&gt; value
+	 * @param x
+	 *            The x-coordinate of the location of the tile that is being
+	 *            drawn.
+	 * @param y
+	 *            The x-coordinate of the location of the tile that is being
+	 *            drawn.
+	 * @return The terrain-image at the given index.
+	 */
+	public BufferedImage getBorderImage(TileType type, Direction direction, int x, int y) {
+<span class="nc bnc" id="L330" title="All 2 branches missed.">		String key = (type == null) ? &quot;model.tile.unexplored&quot; : type.getId();</span>
+<span class="nc" id="L331">		return ResourceManager</span>
+<span class="nc bnc" id="L332" title="All 2 branches missed.">				.getImage(&quot;image.tile.&quot; + key + &quot;.border.&quot; + direction + &quot;.r&quot; + ((isEven(x, y)) ? &quot;0&quot; : &quot;1&quot;), tileSize);</span>
+	}
+
+	/**
+	 * Returns the forest image for a terrain type.
+	 *
+	 * @param type
+	 *            The type of the terrain-image to return.
+	 * @return The image at the given index.
+	 */
+	public BufferedImage getForestImage(TileType type) {
+<span class="nc" id="L343">		return getForestImage(type, tileForestSize);</span>
+	}
+
+	/**
+	 * Gets the forest image.
+	 *
+	 * @param type
+	 *            the type
+	 * @param size
+	 *            the size
+	 * @return the forest image
+	 */
+	public static BufferedImage getForestImage(TileType type, Dimension size) {
+<span class="nc" id="L356">		return ResourceManager.getImage(&quot;image.tileforest.&quot; + type.getId(), size);</span>
+	}
+
+	/**
+	 * Gets the forest image.
+	 *
+	 * @param type
+	 *            the type
+	 * @param riverStyle
+	 *            the river style
+	 * @return the forest image
+	 */
+	public BufferedImage getForestImage(TileType type, TileImprovementStyle riverStyle) {
+<span class="nc" id="L369">		return getForestImage(type, riverStyle, tileForestSize);</span>
+	}
+
+	/**
+	 * Gets the forest image.
+	 *
+	 * @param type
+	 *            the type
+	 * @param riverStyle
+	 *            the river style
+	 * @param size
+	 *            the size
+	 * @return the forest image
+	 */
+	public static BufferedImage getForestImage(TileType type, TileImprovementStyle riverStyle, Dimension size) {
+<span class="nc bnc" id="L384" title="All 2 branches missed.">		if (riverStyle != null) {</span>
+<span class="nc" id="L385">			String key = &quot;image.tileforest.&quot; + type.getId() + &quot;.s&quot; + riverStyle.getMask();</span>
+			// @compat 0.10.6
+			// Workaround for BR#3599586. America_large used to contain
+			// tiles with an isolated river (old river style=&quot;0&quot;!).
+			// There will never be an image for these, so just drop the
+			// river style. The map is now fixed, this is just for the
+			// the saved games.
+			// Consider keeping the fallback, as its safer to have one.
+<span class="nc bnc" id="L393" title="All 2 branches missed.">			if (ResourceManager.hasImageResource(key))</span>
+				// end @compat
+<span class="nc" id="L395">				return ResourceManager.getImage(key, size);</span>
+		}
+<span class="nc" id="L397">		return ResourceManager.getImage(&quot;image.tileforest.&quot; + type.getId(), size);</span>
+	}
+
+	/**
+	 * Returns the portrait of this Founding Father.
+	 *
+	 * @param father
+	 *            a &lt;code&gt;FoundingFather&lt;/code&gt; value
+	 * @param grey
+	 *            if the image should be in greyscale
+	 * @return an &lt;code&gt;BufferedImage&lt;/code&gt; value
+	 */
+	public static BufferedImage getFoundingFatherImage(FoundingFather father, boolean grey) {
+<span class="nc" id="L410">		String resource = &quot;image.flavor.&quot; + father.getId();</span>
+<span class="nc bnc" id="L411" title="All 2 branches missed.">		return grey ? ResourceManager.getGrayscaleImage(resource, 1f) : ResourceManager.getImage(resource);</span>
+	}
+
+	/**
+	 * Gets the small buildable image.
+	 *
+	 * @param buildable
+	 *            the buildable
+	 * @param player
+	 *            the player
+	 * @return the small buildable image
+	 */
+	public BufferedImage getSmallBuildableImage(BuildableType buildable, Player player) {
+		// FIXME: distinguish national unit types
+<span class="nc" id="L425">		float scale = scaleFactor * 0.75f;</span>
+<span class="nc bnc" id="L426" title="All 2 branches missed.">		BufferedImage image = (buildable instanceof BuildingType)</span>
+<span class="nc" id="L427">				? ImageLibrary.getBuildingImage((BuildingType) buildable, player, scale)</span>
+<span class="nc" id="L428">				: ImageLibrary.getUnitImage((UnitType) buildable, scale);</span>
+<span class="nc" id="L429">		return image;</span>
+	}
+
+	/**
+	 * Gets the buildable image.
+	 *
+	 * @param buildable
+	 *            the buildable
+	 * @param size
+	 *            the size
+	 * @return the buildable image
+	 */
+	public static BufferedImage getBuildableImage(BuildableType buildable, Dimension size) {
+<span class="nc bnc" id="L442" title="All 2 branches missed.">		BufferedImage image = (buildable instanceof BuildingType)</span>
+<span class="nc" id="L443">				? ImageLibrary.getBuildingImage((BuildingType) buildable, size)</span>
+<span class="nc" id="L444">				: ImageLibrary.getUnitImage((UnitType) buildable, size);</span>
+<span class="nc" id="L445">		return image;</span>
+	}
+
+	/**
+	 * Gets the small building image.
+	 *
+	 * @param building
+	 *            the building
+	 * @return the small building image
+	 */
+	public BufferedImage getSmallBuildingImage(Building building) {
+<span class="nc" id="L456">		return getBuildingImage(building.getType(), building.getOwner(), scaleFactor * 0.75f);</span>
+	}
+
+	/**
+	 * Gets the building image.
+	 *
+	 * @param building
+	 *            the building
+	 * @return the building image
+	 */
+	public BufferedImage getBuildingImage(Building building) {
+<span class="nc" id="L467">		return getBuildingImage(building.getType(), building.getOwner(), scaleFactor);</span>
+	}
+
+	/**
+	 * Gets the building image.
+	 *
+	 * @param buildingType
+	 *            the building type
+	 * @param player
+	 *            the player
+	 * @param scale
+	 *            the scale
+	 * @return the building image
+	 */
+	public static BufferedImage getBuildingImage(BuildingType buildingType, Player player, float scale) {
+<span class="nc" id="L482">		String key = &quot;image.buildingicon.&quot; + buildingType.getId() + &quot;.&quot; + player.getNationResourceKey();</span>
+<span class="nc bnc" id="L483" title="All 2 branches missed.">		if (!ResourceManager.hasImageResource(key)) {</span>
+<span class="nc" id="L484">			key = &quot;image.buildingicon.&quot; + buildingType.getId();</span>
+		}
+<span class="nc" id="L486">		return ResourceManager.getImage(key, scale);</span>
+	}
+
+	/**
+	 * Gets the building image.
+	 *
+	 * @param buildingType
+	 *            the building type
+	 * @param scale
+	 *            the scale
+	 * @return the building image
+	 */
+	public static BufferedImage getBuildingImage(BuildingType buildingType, float scale) {
+<span class="nc" id="L499">		return ResourceManager.getImage(&quot;image.buildingicon.&quot; + buildingType.getId(), scale);</span>
+	}
+
+	/**
+	 * Gets the building image.
+	 *
+	 * @param buildingType
+	 *            the building type
+	 * @param size
+	 *            the size
+	 * @return the building image
+	 */
+	public static BufferedImage getBuildingImage(BuildingType buildingType, Dimension size) {
+<span class="nc" id="L512">		return ResourceManager.getImage(&quot;image.buildingicon.&quot; + buildingType.getId(), size);</span>
+	}
+
+	/**
+	 * Gets the smaller icon image.
+	 *
+	 * @param type
+	 *            the type
+	 * @return the smaller icon image
+	 */
+	public BufferedImage getSmallerIconImage(FreeColGameObjectType type) {
+<span class="nc" id="L523">		return getMiscImage(&quot;image.icon.&quot; + type.getId(), scaleDimension(ICON_SIZE, scaleFactor * 0.5f));</span>
+	}
+
+	/**
+	 * Gets the small icon image.
+	 *
+	 * @param type
+	 *            the type
+	 * @return the small icon image
+	 */
+	public BufferedImage getSmallIconImage(FreeColGameObjectType type) {
+<span class="nc" id="L534">		return getMiscImage(&quot;image.icon.&quot; + type.getId(), scaleDimension(ICON_SIZE, scaleFactor * 0.75f));</span>
+	}
+
+	/**
+	 * Gets the icon image.
+	 *
+	 * @param type
+	 *            the type
+	 * @return the icon image
+	 */
+	public BufferedImage getIconImage(FreeColGameObjectType type) {
+<span class="nc" id="L545">		return getMiscImage(&quot;image.icon.&quot; + type.getId(), scaleDimension(ICON_SIZE, scaleFactor));</span>
+	}
+
+	/**
+	 * Gets the smaller misc icon image.
+	 *
+	 * @param type
+	 *            the type
+	 * @return the smaller misc icon image
+	 */
+	public BufferedImage getSmallerMiscIconImage(FreeColGameObjectType type) {
+<span class="nc" id="L556">		return getMiscIconImage(type, scaleFactor * 0.5f);</span>
+	}
+
+	/**
+	 * Gets the small misc icon image.
+	 *
+	 * @param type
+	 *            the type
+	 * @return the small misc icon image
+	 */
+	public BufferedImage getSmallMiscIconImage(FreeColGameObjectType type) {
+<span class="nc" id="L567">		return getMiscIconImage(type, scaleFactor * 0.75f);</span>
+	}
+
+	/**
+	 * Gets the misc icon image.
+	 *
+	 * @param type
+	 *            the type
+	 * @return the misc icon image
+	 */
+	public BufferedImage getMiscIconImage(FreeColGameObjectType type) {
+<span class="nc" id="L578">		return getMiscIconImage(type, scaleFactor);</span>
+	}
+
+	/**
+	 * Gets the misc icon image.
+	 *
+	 * @param type
+	 *            the type
+	 * @param scale
+	 *            the scale
+	 * @return the misc icon image
+	 */
+	public static BufferedImage getMiscIconImage(FreeColGameObjectType type, float scale) {
+<span class="nc" id="L591">		return ResourceManager.getImage(&quot;image.miscicon.&quot; + type.getId(), scale);</span>
+	}
+
+	/**
+	 * Gets the misc icon image.
+	 *
+	 * @param type
+	 *            the type
+	 * @param size
+	 *            the size
+	 * @return the misc icon image
+	 */
+	public static BufferedImage getMiscIconImage(FreeColGameObjectType type, Dimension size) {
+<span class="nc" id="L604">		return ResourceManager.getImage(&quot;image.miscicon.&quot; + type.getId(), size);</span>
+	}
+
+	/**
+	 * Returns the image with the given identifier.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @return The image.
+	 */
+	public BufferedImage getMiscImage(String id) {
+<span class="nc" id="L615">		return getMiscImage(id, scaleFactor);</span>
+	}
+
+	/**
+	 * Gets the misc image.
+	 *
+	 * @param id
+	 *            the id
+	 * @param scale
+	 *            the scale
+	 * @return the misc image
+	 */
+	public static BufferedImage getMiscImage(String id, float scale) {
+<span class="nc" id="L628">		return ResourceManager.getImage(id, scale);</span>
+	}
+
+	/**
+	 * Gets the misc image.
+	 *
+	 * @param id
+	 *            the id
+	 * @param size
+	 *            the size
+	 * @return the misc image
+	 */
+	public static BufferedImage getMiscImage(String id, Dimension size) {
+<span class="nc" id="L641">		return ResourceManager.getImage(id, size);</span>
+	}
+
+	/**
+	 * Returns the appropriate BufferedImage for a FreeColObject. Please, use a
+	 * more specific method!
+	 *
+	 * @param display
+	 *            The FreeColObject to display.
+	 * @param scale
+	 *            How much the image should be scaled.
+	 * @return The appropriate BufferedImage.
+	 */
+	public BufferedImage getObjectImage(FreeColObject display, float scale) {
+		try {
+<span class="nc" id="L656">			final float combinedScale = scaleFactor * scale;</span>
+<span class="nc" id="L657">			final Dimension size = scaleDimension(ICON_SIZE, combinedScale);</span>
+			BufferedImage image;
+<span class="nc bnc" id="L659" title="All 2 branches missed.">			if (display instanceof Goods) {</span>
+<span class="nc" id="L660">				display = ((Goods) display).getType();</span>
+<span class="nc bnc" id="L661" title="All 2 branches missed.">			} else if (display instanceof Player) {</span>
+<span class="nc" id="L662">				display = ((Player) display).getNation();</span>
+			}
+
+<span class="nc bnc" id="L665" title="All 2 branches missed.">			if (display instanceof Unit) {</span>
+<span class="nc" id="L666">				Unit unit = (Unit) display;</span>
+<span class="nc" id="L667">				image = getUnitImage(unit, size);</span>
+<span class="nc bnc" id="L668" title="All 2 branches missed.">			} else if (display instanceof UnitType) {</span>
+<span class="nc" id="L669">				UnitType unitType = (UnitType) display;</span>
+<span class="nc" id="L670">				image = getUnitImage(unitType, size);</span>
+<span class="nc bnc" id="L671" title="All 2 branches missed.">			} else if (display instanceof Settlement) {</span>
+<span class="nc" id="L672">				Settlement settlement = (Settlement) display;</span>
+<span class="nc" id="L673">				image = getSettlementImage(settlement, size);</span>
+<span class="nc bnc" id="L674" title="All 2 branches missed.">			} else if (display instanceof LostCityRumour) {</span>
+<span class="nc" id="L675">				image = getMiscImage(ImageLibrary.LOST_CITY_RUMOUR, size);</span>
+<span class="nc bnc" id="L676" title="All 2 branches missed.">			} else if (display instanceof GoodsType) {</span>
+<span class="nc" id="L677">				FreeColGameObjectType type = (FreeColGameObjectType) display;</span>
+<span class="nc" id="L678">				image = getIconImage(type);</span>
+<span class="nc bnc" id="L679" title="All 2 branches missed.">			} else if (display instanceof Nation) {</span>
+<span class="nc" id="L680">				FreeColGameObjectType type = (FreeColGameObjectType) display;</span>
+<span class="nc" id="L681">				image = getMiscIconImage(type, size);</span>
+<span class="nc bnc" id="L682" title="All 2 branches missed.">			} else if (display instanceof BuildingType) {</span>
+<span class="nc" id="L683">				BuildingType type = (BuildingType) display;</span>
+<span class="nc" id="L684">				image = getBuildingImage(type, size);</span>
+<span class="nc" id="L685">			} else {</span>
+<span class="nc" id="L686">				logger.warning(&quot;could not find image of unknown type for &quot; + display);</span>
+<span class="nc" id="L687">				return null;</span>
+			}
+
+<span class="nc bnc" id="L690" title="All 2 branches missed.">			if (image == null) {</span>
+<span class="nc" id="L691">				logger.warning(&quot;could not find image for &quot; + display);</span>
+<span class="nc" id="L692">				return null;</span>
+			}
+<span class="nc" id="L694">			return image;</span>
+<span class="nc" id="L695">		} catch (Exception e) {</span>
+<span class="nc" id="L696">			logger.log(Level.WARNING, &quot;could not find image&quot;, e);</span>
+<span class="nc" id="L697">			return null;</span>
+		}
+	}
+
+	/**
+	 * Returns the monarch-image for the given tile.
+	 *
+	 * @param nation
+	 *            The nation this monarch rules.
+	 * @return the monarch-image for the given nation.
+	 */
+	public static BufferedImage getMonarchImage(Nation nation) {
+<span class="nc" id="L709">		return ResourceManager.getImage(&quot;image.flavor.monarch.&quot; + nation.getId());</span>
+	}
+
+	/**
+	 * Returns the overlay image for the given tile.
+	 *
+	 * @param tile
+	 *            The tile for which to return an image.
+	 * @return A pseudo-random terrain image.
+	 */
+	public BufferedImage getOverlayImage(Tile tile) {
+<span class="nc" id="L720">		return getOverlayImage(tile.getType(), tile.getId(), tileOverlaySize);</span>
+	}
+
+	/**
+	 * Returns the overlay-image for the given type and scale. Currently used
+	 * for hills and mountains.
+	 *
+	 * @param type
+	 *            The type of the terrain-image to return.
+	 * @param id
+	 *            A string used to get a random image.
+	 * @param size
+	 *            The size of the image to return.
+	 * @return The terrain-image at the given index.
+	 */
+	public static BufferedImage getOverlayImage(TileType type, String id, Dimension size) {
+<span class="nc" id="L736">		String prefix = &quot;image.tileoverlay.&quot; + type.getId();</span>
+<span class="nc" id="L737">		List&lt;String&gt; keys = ResourceManager.getImageKeys(prefix);</span>
+<span class="nc" id="L738">		return getRandomizedImage(keys, id, size);</span>
+	}
+
+	/**
+	 * Creates the overlay cache.
+	 *
+	 * @return the sets the
+	 */
+	public static Set&lt;String&gt; createOverlayCache() {
+<span class="nc" id="L747">		return ResourceManager.getImageKeySet(&quot;image.tileoverlay.&quot;);</span>
+	}
+
+	/**
+	 * Gets the overlay image.
+	 *
+	 * @param tile
+	 *            the tile
+	 * @param overlayCache
+	 *            the overlay cache
+	 * @return the overlay image
+	 */
+	public BufferedImage getOverlayImage(Tile tile, Set&lt;String&gt; overlayCache) {
+<span class="nc" id="L760">		return getOverlayImage(tile.getType(), tile.getId(), tileOverlaySize, overlayCache);</span>
+	}
+
+	/**
+	 * Gets the overlay image.
+	 *
+	 * @param type
+	 *            the type
+	 * @param id
+	 *            the id
+	 * @param size
+	 *            the size
+	 * @param overlayCache
+	 *            the overlay cache
+	 * @return the overlay image
+	 */
+	public static BufferedImage getOverlayImage(TileType type, String id, Dimension size, Set&lt;String&gt; overlayCache) {
+<span class="nc" id="L777">		final String prefix = &quot;image.tileoverlay.&quot; + type.getId() + &quot;.r&quot;;</span>
+<span class="nc" id="L778">		final List&lt;String&gt; keys = overlayCache.stream().filter(k -&gt; k.startsWith(prefix)).collect(Collectors.toList());</span>
+<span class="nc" id="L779">		return getRandomizedImage(keys, id, size);</span>
+	}
+
+	/**
+	 * Gets the randomized image.
+	 *
+	 * @param keys
+	 *            the keys
+	 * @param id
+	 *            the id
+	 * @param size
+	 *            the size
+	 * @return the randomized image
+	 */
+	private static BufferedImage getRandomizedImage(List&lt;String&gt; keys, String id, Dimension size) {
+<span class="nc" id="L794">		int count = keys.size();</span>
+<span class="nc bnc" id="L795" title="All 3 branches missed.">		switch (count) {</span>
+		case 0:
+<span class="nc" id="L797">			return null;</span>
+		case 1:
+<span class="nc" id="L799">			return ResourceManager.getImage(keys.get(0), size);</span>
+		default:
+<span class="nc" id="L801">			Collections.sort(keys);</span>
+<span class="nc" id="L802">			return ResourceManager.getImage(keys.get(Math.abs(id.hashCode() % count)), size);</span>
+		}
+	}
+
+	/**
+	 * Gets an image to represent the path of given path type.
+	 *
+	 * @param pt
+	 *            The &lt;code&gt;PathType&lt;/code&gt;
+	 * @return The &lt;code&gt;BufferedImage&lt;/code&gt;.
+	 */
+	public static BufferedImage getPathImage(PathType pt) {
+<span class="nc bnc" id="L814" title="All 2 branches missed.">		return (pt == null) ? null : ResourceManager.getImage(pt.getImageKey());</span>
+	}
+
+	/**
+	 * Gets an image to represent the path of the given &lt;code&gt;Unit&lt;/code&gt;.
+	 *
+	 * @param u
+	 *            The &lt;code&gt;Unit&lt;/code&gt;
+	 * @return The &lt;code&gt;BufferedImage&lt;/code&gt;.
+	 */
+	public static BufferedImage getPathImage(Unit u) {
+<span class="nc bnc" id="L825" title="All 2 branches missed.">		return (u == null) ? null : getPathImage(PathType.getPathType(u));</span>
+	}
+
+	/**
+	 * Gets an image to represent the path of the given &lt;code&gt;Unit&lt;/code&gt;.
+	 *
+	 * @param pt
+	 *            The &lt;code&gt;PathType&lt;/code&gt;
+	 * @return The &lt;code&gt;BufferedImage&lt;/code&gt;.
+	 */
+	public static BufferedImage getPathNextTurnImage(PathType pt) {
+<span class="nc bnc" id="L836" title="All 2 branches missed.">		return (pt == null) ? null : ResourceManager.getImage(pt.getNextTurnImageKey());</span>
+	}
+
+	/**
+	 * Gets an image to represent the path of the given &lt;code&gt;Unit&lt;/code&gt;.
+	 *
+	 * @param u
+	 *            The &lt;code&gt;Unit&lt;/code&gt;
+	 * @return The &lt;code&gt;BufferedImage&lt;/code&gt;.
+	 */
+	public static BufferedImage getPathNextTurnImage(Unit u) {
+<span class="nc bnc" id="L847" title="All 2 branches missed.">		return (u == null) ? null : getPathNextTurnImage(PathType.getPathType(u));</span>
+	}
+
+	/**
+	 * Returns the river image with the given style.
+	 *
+	 * @param style
+	 *            a &lt;code&gt;TileImprovementStyle&lt;/code&gt; value
+	 * @return The image with the given style.
+	 */
+	public BufferedImage getRiverImage(TileImprovementStyle style) {
+<span class="nc" id="L858">		return getRiverImage(style.getString(), tileSize);</span>
+	}
+
+	/**
+	 * Returns the river image with the given style.
+	 *
+	 * @param style
+	 *            the style code
+	 * @param size
+	 *            the image size
+	 * @return The image with the given style.
+	 */
+	public static BufferedImage getRiverImage(String style, Dimension size) {
+<span class="nc" id="L871">		return ResourceManager.getImage(&quot;image.tile.model.improvement.river.s&quot; + style, size);</span>
+	}
+
+	/**
+	 * Returns the river mouth terrain-image for the direction and magnitude.
+	 *
+	 * @param direction
+	 *            a &lt;code&gt;Direction&lt;/code&gt; value
+	 * @param magnitude
+	 *            an &lt;code&gt;int&lt;/code&gt; value
+	 * @param x
+	 *            The x-coordinate of the location of the tile that is being
+	 *            drawn (ignored).
+	 * @param y
+	 *            The x-coordinate of the location of the tile that is being
+	 *            drawn (ignored).
+	 * @return The terrain-image at the given index.
+	 */
+	public BufferedImage getRiverMouthImage(Direction direction, int magnitude, int x, int y) {
+<span class="nc bnc" id="L890" title="All 2 branches missed.">		String key = &quot;image.tile.model.tile.delta.&quot; + direction + (magnitude == 1 ? &quot;.small&quot; : &quot;.large&quot;);</span>
+<span class="nc" id="L891">		return ResourceManager.getImage(key, tileSize);</span>
+	}
+
+	/**
+	 * Gets the small settlement image.
+	 *
+	 * @param settlement
+	 *            the settlement
+	 * @return the small settlement image
+	 */
+	public BufferedImage getSmallSettlementImage(Settlement settlement) {
+<span class="nc" id="L902">		return getSettlementImage(settlement, scaleFactor * 0.75f);</span>
+	}
+
+	/**
+	 * Returns the graphics that will represent the given settlement.
+	 *
+	 * @param settlement
+	 *            The settlement whose graphics type is needed.
+	 * @return The graphics that will represent the given settlement.
+	 */
+	public BufferedImage getSettlementImage(Settlement settlement) {
+<span class="nc" id="L913">		return getSettlementImage(settlement, scaleFactor);</span>
+	}
+
+	/**
+	 * Returns the graphics that will represent the given settlement.
+	 *
+	 * @param settlement
+	 *            The settlement whose graphics type is needed.
+	 * @param scale
+	 *            a &lt;code&gt;double&lt;/code&gt; value
+	 * @return The graphics that will represent the given settlement.
+	 */
+	public static BufferedImage getSettlementImage(Settlement settlement, float scale) {
+<span class="nc" id="L926">		return ResourceManager.getImage(settlement.getImageKey(), scale);</span>
+	}
+
+	/**
+	 * Gets the settlement image.
+	 *
+	 * @param settlement
+	 *            the settlement
+	 * @param size
+	 *            the size
+	 * @return the settlement image
+	 */
+	public static BufferedImage getSettlementImage(Settlement settlement, Dimension size) {
+<span class="nc" id="L939">		return ResourceManager.getImage(settlement.getImageKey(), size);</span>
+	}
+
+	/**
+	 * Returns the graphics that will represent the given settlement.
+	 *
+	 * @param settlementType
+	 *            The type of settlement whose graphics type is needed.
+	 * @return The graphics that will represent the given settlement.
+	 */
+	public BufferedImage getSettlementImage(SettlementType settlementType) {
+<span class="nc" id="L950">		return getSettlementImage(settlementType, scaleFactor);</span>
+	}
+
+	/**
+	 * Gets the settlement image.
+	 *
+	 * @param settlementType
+	 *            the settlement type
+	 * @param scale
+	 *            the scale
+	 * @return the settlement image
+	 */
+	public static BufferedImage getSettlementImage(SettlementType settlementType, float scale) {
+<span class="nc" id="L963">		return ResourceManager.getImage(&quot;image.tileitem.&quot; + settlementType.getId(), scale);</span>
+	}
+
+	/**
+	 * Returns the terrain-image for the given type.
+	 *
+	 * @param type
+	 *            The type of the terrain-image to return.
+	 * @param x
+	 *            The x-coordinate of the location of the tile that is being
+	 *            drawn.
+	 * @param y
+	 *            The x-coordinate of the location of the tile that is being
+	 *            drawn.
+	 * @return The terrain-image at the given index.
+	 */
+	public BufferedImage getTerrainImage(TileType type, int x, int y) {
+<span class="nc" id="L980">		return getTerrainImage(type, x, y, tileSize);</span>
+	}
+
+	/**
+	 * Gets the terrain image.
+	 *
+	 * @param type
+	 *            the type
+	 * @param x
+	 *            the x
+	 * @param y
+	 *            the y
+	 * @param size
+	 *            the size
+	 * @return the terrain image
+	 */
+	public static BufferedImage getTerrainImage(TileType type, int x, int y, Dimension size) {
+<span class="nc bnc" id="L997" title="All 2 branches missed.">		String key = (type == null) ? &quot;model.tile.unexplored&quot; : type.getId();</span>
+<span class="nc bnc" id="L998" title="All 2 branches missed.">		return ResourceManager.getImage(&quot;image.tile.&quot; + key + &quot;.center.r&quot; + (isEven(x, y) ? &quot;0&quot; : &quot;1&quot;), size);</span>
+	}
+
+	/**
+	 * Gets the smaller unit image.
+	 *
+	 * @param unit
+	 *            the unit
+	 * @return the smaller unit image
+	 */
+	public BufferedImage getSmallerUnitImage(Unit unit) {
+<span class="nc" id="L1009">		return getUnitImage(unit.getType(), unit.getRole().getId(), unit.hasNativeEthnicity(), false,</span>
+				scaleFactor * 0.5f);
+	}
+
+	/**
+	 * Gets the small unit image.
+	 *
+	 * @param unit
+	 *            the unit
+	 * @return the small unit image
+	 */
+	public BufferedImage getSmallUnitImage(Unit unit) {
+<span class="nc" id="L1021">		return getUnitImage(unit.getType(), unit.getRole().getId(), unit.hasNativeEthnicity(), false,</span>
+				scaleFactor * 0.75f);
+	}
+
+	/**
+	 * Gets the small unit image.
+	 *
+	 * @param unit
+	 *            the unit
+	 * @param grayscale
+	 *            the grayscale
+	 * @return the small unit image
+	 */
+	public BufferedImage getSmallUnitImage(Unit unit, boolean grayscale) {
+<span class="nc" id="L1035">		return getUnitImage(unit.getType(), unit.getRole().getId(), unit.hasNativeEthnicity(), grayscale,</span>
+				scaleFactor * 0.75f);
+	}
+
+	/**
+	 * Gets the unit image.
+	 *
+	 * @param unit
+	 *            the unit
+	 * @return the unit image
+	 */
+	public BufferedImage getUnitImage(Unit unit) {
+<span class="nc" id="L1047">		return getUnitImage(unit.getType(), unit.getRole().getId(), unit.hasNativeEthnicity(), false, scaleFactor);</span>
+	}
+
+	/**
+	 * Gets the unit image.
+	 *
+	 * @param unit
+	 *            the unit
+	 * @param grayscale
+	 *            the grayscale
+	 * @return the unit image
+	 */
+	public BufferedImage getUnitImage(Unit unit, boolean grayscale) {
+<span class="nc" id="L1060">		return getUnitImage(unit.getType(), unit.getRole().getId(), unit.hasNativeEthnicity(), grayscale, scaleFactor);</span>
+	}
+
+	/**
+	 * Gets the unit image.
+	 *
+	 * @param unit
+	 *            the unit
+	 * @param scale
+	 *            the scale
+	 * @return the unit image
+	 */
+	public static BufferedImage getUnitImage(Unit unit, float scale) {
+<span class="nc" id="L1073">		return getUnitImage(unit.getType(), unit.getRole().getId(), unit.hasNativeEthnicity(), false, scale);</span>
+	}
+
+	/**
+	 * Gets the tiny unit image.
+	 *
+	 * @param unitType
+	 *            the unit type
+	 * @return the tiny unit image
+	 */
+	public BufferedImage getTinyUnitImage(UnitType unitType) {
+<span class="nc" id="L1084">		return getUnitImage(unitType, unitType.getDisplayRoleId(), false, false, scaleFactor * 0.25f);</span>
+	}
+
+	/**
+	 * Gets the tiny unit image.
+	 *
+	 * @param unitType
+	 *            the unit type
+	 * @param grayscale
+	 *            the grayscale
+	 * @return the tiny unit image
+	 */
+	public BufferedImage getTinyUnitImage(UnitType unitType, boolean grayscale) {
+<span class="nc" id="L1097">		return getUnitImage(unitType, unitType.getDisplayRoleId(), false, grayscale, scaleFactor * 0.25f);</span>
+	}
+
+	/**
+	 * Gets the smaller unit image.
+	 *
+	 * @param unitType
+	 *            the unit type
+	 * @return the smaller unit image
+	 */
+	public BufferedImage getSmallerUnitImage(UnitType unitType) {
+<span class="nc" id="L1108">		return getUnitImage(unitType, unitType.getDisplayRoleId(), false, false, scaleFactor * 0.5f);</span>
+	}
+
+	/**
+	 * Gets the small unit image.
+	 *
+	 * @param unitType
+	 *            the unit type
+	 * @return the small unit image
+	 */
+	public BufferedImage getSmallUnitImage(UnitType unitType) {
+<span class="nc" id="L1119">		return getUnitImage(unitType, unitType.getDisplayRoleId(), false, false, scaleFactor * 0.75f);</span>
+	}
+
+	/**
+	 * Gets the small unit image.
+	 *
+	 * @param unitType
+	 *            the unit type
+	 * @param grayscale
+	 *            the grayscale
+	 * @return the small unit image
+	 */
+	public BufferedImage getSmallUnitImage(UnitType unitType, boolean grayscale) {
+<span class="nc" id="L1132">		return getUnitImage(unitType, unitType.getDisplayRoleId(), false, grayscale, scaleFactor * 0.75f);</span>
+	}
+
+	/**
+	 * Gets the small unit image.
+	 *
+	 * @param unitType
+	 *            the unit type
+	 * @param roleId
+	 *            the role id
+	 * @param grayscale
+	 *            the grayscale
+	 * @return the small unit image
+	 */
+	public BufferedImage getSmallUnitImage(UnitType unitType, String roleId, boolean grayscale) {
+<span class="nc" id="L1147">		return getUnitImage(unitType, roleId, false, grayscale, scaleFactor * 0.75f);</span>
+	}
+
+	/**
+	 * Gets the unit image.
+	 *
+	 * @param unitType
+	 *            the unit type
+	 * @return the unit image
+	 */
+	public BufferedImage getUnitImage(UnitType unitType) {
+<span class="nc" id="L1158">		return getUnitImage(unitType, unitType.getDisplayRoleId(), false, false, scaleFactor);</span>
+	}
+
+	/**
+	 * Gets the unit image.
+	 *
+	 * @param unitType
+	 *            the unit type
+	 * @param scale
+	 *            the scale
+	 * @return the unit image
+	 */
+	public static BufferedImage getUnitImage(UnitType unitType, float scale) {
+<span class="nc" id="L1171">		return getUnitImage(unitType, unitType.getDisplayRoleId(), false, false, scale);</span>
+	}
+
+	/**
+	 * Gets the image that will represent a given unit.
+	 *
+	 * @param unitType
+	 *            The type of unit to be represented.
+	 * @param roleId
+	 *            The id of the unit role.
+	 * @param nativeEthnicity
+	 *            If true the unit is a former native.
+	 * @param grayscale
+	 *            If true draw in inactive/disabled-looking state.
+	 * @param scale
+	 *            How much the image is scaled.
+	 * @return A suitable &lt;code&gt;BufferedImage&lt;/code&gt;.
+	 */
+	public static BufferedImage getUnitImage(UnitType unitType, String roleId, boolean nativeEthnicity,
+			boolean grayscale, float scale) {
+		// units that can only be native don't need the .native key part
+<span class="nc bnc" id="L1192" title="All 2 branches missed.">		if (unitType.hasAbility(Ability.BORN_IN_INDIAN_SETTLEMENT)) {</span>
+<span class="nc" id="L1193">			nativeEthnicity = false;</span>
+		}
+
+		// try to get an image matching the key
+<span class="nc bnc" id="L1197" title="All 2 branches missed.">		String roleQual = (Role.isDefaultRoleId(roleId)) ? &quot;&quot; : &quot;.&quot; + Role.getRoleSuffix(roleId);</span>
+<span class="nc bnc" id="L1198" title="All 2 branches missed.">		String key = &quot;image.unit.&quot; + unitType.getId() + roleQual + ((nativeEthnicity) ? &quot;.native&quot; : &quot;&quot;);</span>
+<span class="nc bnc" id="L1199" title="All 4 branches missed.">		if (!ResourceManager.hasImageResource(key) &amp;&amp; nativeEthnicity) {</span>
+<span class="nc" id="L1200">			key = &quot;image.unit.&quot; + unitType.getId() + roleQual;</span>
+		}
+<span class="nc bnc" id="L1202" title="All 2 branches missed.">		BufferedImage image = (grayscale) ? ResourceManager.getGrayscaleImage(key, scale)</span>
+<span class="nc" id="L1203">				: ResourceManager.getImage(key, scale);</span>
+<span class="nc" id="L1204">		return image;</span>
+	}
+
+	/**
+	 * Gets the unit image.
+	 *
+	 * @param unit
+	 *            the unit
+	 * @param size
+	 *            the size
+	 * @return the unit image
+	 */
+	public static BufferedImage getUnitImage(Unit unit, Dimension size) {
+<span class="nc" id="L1217">		return getUnitImage(unit.getType(), unit.getRole().getId(), unit.hasNativeEthnicity(), size);</span>
+	}
+
+	/**
+	 * Gets the unit image.
+	 *
+	 * @param unitType
+	 *            the unit type
+	 * @param size
+	 *            the size
+	 * @return the unit image
+	 */
+	public static BufferedImage getUnitImage(UnitType unitType, Dimension size) {
+<span class="nc" id="L1230">		String roleId = unitType.getDisplayRoleId();</span>
+<span class="nc bnc" id="L1231" title="All 2 branches missed.">		String roleQual = (Role.isDefaultRoleId(roleId)) ? &quot;&quot; : &quot;.&quot; + Role.getRoleSuffix(roleId);</span>
+<span class="nc" id="L1232">		String key = &quot;image.unit.&quot; + unitType.getId() + roleQual;</span>
+<span class="nc" id="L1233">		return ResourceManager.getImage(key, size);</span>
+	}
+
+	/**
+	 * Gets the unit image.
+	 *
+	 * @param unitType
+	 *            the unit type
+	 * @param roleId
+	 *            the role id
+	 * @param nativeEthnicity
+	 *            the native ethnicity
+	 * @param size
+	 *            the size
+	 * @return the unit image
+	 */
+	public static BufferedImage getUnitImage(UnitType unitType, String roleId, boolean nativeEthnicity,
+			Dimension size) {
+		// units that can only be native don't need the .native key part
+<span class="nc bnc" id="L1252" title="All 2 branches missed.">		if (unitType.hasAbility(Ability.BORN_IN_INDIAN_SETTLEMENT)) {</span>
+<span class="nc" id="L1253">			nativeEthnicity = false;</span>
+		}
+
+		// try to get an image matching the key
+<span class="nc bnc" id="L1257" title="All 2 branches missed.">		String roleQual = (Role.isDefaultRoleId(roleId)) ? &quot;&quot; : &quot;.&quot; + Role.getRoleSuffix(roleId);</span>
+<span class="nc bnc" id="L1258" title="All 2 branches missed.">		String key = &quot;image.unit.&quot; + unitType.getId() + roleQual + ((nativeEthnicity) ? &quot;.native&quot; : &quot;&quot;);</span>
+<span class="nc bnc" id="L1259" title="All 4 branches missed.">		if (!ResourceManager.hasImageResource(key) &amp;&amp; nativeEthnicity) {</span>
+<span class="nc" id="L1260">			key = &quot;image.unit.&quot; + unitType.getId() + roleQual;</span>
+		}
+<span class="nc" id="L1262">		BufferedImage image = ResourceManager.getImage(key, size);</span>
+<span class="nc" id="L1263">		return image;</span>
+	}
+
+	// Methods for dynamically drawing images
+
+	/**
+	 * Draw a (usually small) background image into a (usually larger) space
+	 * specified by a component, tiling the image to fill up the space. If the
+	 * image is not available, just fill with the background colour.
+	 *
+	 * @param resource
+	 *            The name of the &lt;code&gt;ImageResource&lt;/code&gt; to tile with.
+	 * @param g
+	 *            The &lt;code&gt;Graphics&lt;/code&gt; to draw to.
+	 * @param c
+	 *            The &lt;code&gt;JComponent&lt;/code&gt; that defines the space.
+	 * @param insets
+	 *            Optional &lt;code&gt;Insets&lt;/code&gt; to apply.
+	 */
+	public static void drawTiledImage(String resource, Graphics g, JComponent c, Insets insets) {
+<span class="nc" id="L1283">		int width = c.getWidth();</span>
+<span class="nc" id="L1284">		int height = c.getHeight();</span>
+		int xmin, ymin;
+<span class="nc bnc" id="L1286" title="All 2 branches missed.">		if (insets == null) {</span>
+<span class="nc" id="L1287">			xmin = 0;</span>
+<span class="nc" id="L1288">			ymin = 0;</span>
+		} else {
+<span class="nc" id="L1290">			xmin = insets.left;</span>
+<span class="nc" id="L1291">			ymin = insets.top;</span>
+<span class="nc" id="L1292">			width -= insets.left + insets.right;</span>
+<span class="nc" id="L1293">			height -= insets.top + insets.bottom;</span>
+		}
+
+<span class="nc bnc" id="L1296" title="All 2 branches missed.">		if (ResourceManager.hasImageResource(resource)) {</span>
+<span class="nc" id="L1297">			BufferedImage image = ResourceManager.getImage(resource);</span>
+<span class="nc" id="L1298">			int dx = image.getWidth();</span>
+<span class="nc" id="L1299">			int dy = image.getHeight();</span>
+<span class="nc" id="L1300">			int xmax = xmin + width;</span>
+<span class="nc" id="L1301">			int ymax = ymin + height;</span>
+<span class="nc bnc" id="L1302" title="All 2 branches missed.">			for (int x = xmin; x &lt; xmax; x += dx) {</span>
+<span class="nc bnc" id="L1303" title="All 2 branches missed.">				for (int y = ymin; y &lt; ymax; y += dy) {</span>
+<span class="nc" id="L1304">					g.drawImage(image, x, y, null);</span>
+				}
+			}
+<span class="nc" id="L1307">		} else {</span>
+<span class="nc" id="L1308">			g.setColor(c.getBackground());</span>
+<span class="nc" id="L1309">			g.fillRect(xmin, ymin, width, height);</span>
+		}
+<span class="nc" id="L1311">	}</span>
+
+	/**
+	 * Fills a certain rectangle with the image texture.
+	 * 
+	 * @param g2
+	 *            The &lt;code&gt;Graphics&lt;/code&gt; used for painting the border.
+	 * @param img
+	 *            The &lt;code&gt;BufferedImage&lt;/code&gt; to fill the texture.
+	 * @param x
+	 *            The x-component of the offset.
+	 * @param y
+	 *            The y-component of the offset.
+	 * @param width
+	 *            The width of the rectangle.
+	 * @param height
+	 *            The height of the rectangle.
+	 */
+	public static void fillTexture(Graphics2D g2, BufferedImage img, int x, int y, int width, int height) {
+<span class="nc" id="L1330">		Rectangle anchor = new Rectangle(x, y, img.getWidth(), img.getHeight());</span>
+<span class="nc" id="L1331">		TexturePaint paint = new TexturePaint(img, anchor);</span>
+<span class="nc" id="L1332">		g2.setPaint(paint);</span>
+<span class="nc" id="L1333">		g2.fillRect(x, y, width, height);</span>
+<span class="nc" id="L1334">	}</span>
+
+	/**
+	 * Creates a buffered image out of a given &lt;code&gt;Image&lt;/code&gt; object.
+	 * 
+	 * @param image
+	 *            The &lt;code&gt;Image&lt;/code&gt; object.
+	 * @return The created &lt;code&gt;BufferedImage&lt;/code&gt; object.
+	 */
+	public static BufferedImage createBufferedImage(Image image) {
+<span class="nc bnc" id="L1344" title="All 2 branches missed.">		if (image == null)</span>
+<span class="nc" id="L1345">			return null;</span>
+<span class="nc" id="L1346">		BufferedImage result = new BufferedImage(image.getWidth(null), image.getHeight(null),</span>
+				BufferedImage.TYPE_INT_ARGB);
+<span class="nc" id="L1348">		Graphics2D g = result.createGraphics();</span>
+<span class="nc" id="L1349">		g.drawImage(image, 0, 0, null);</span>
+<span class="nc" id="L1350">		g.dispose();</span>
+<span class="nc" id="L1351">		return result;</span>
+	}
+
+	/**
+	 * Creates the mirrored image.
+	 *
+	 * @param image
+	 *            the image
+	 * @return the buffered image
+	 */
+	public static BufferedImage createMirroredImage(Image image) {
+<span class="nc bnc" id="L1362" title="All 2 branches missed.">		if (image == null)</span>
+<span class="nc" id="L1363">			return null;</span>
+<span class="nc" id="L1364">		final int width = image.getWidth(null);</span>
+<span class="nc" id="L1365">		final int height = image.getHeight(null);</span>
+<span class="nc" id="L1366">		BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);</span>
+<span class="nc" id="L1367">		Graphics2D g = result.createGraphics();</span>
+<span class="nc" id="L1368">		g.drawImage(image, width, 0, -width, height, null);</span>
+<span class="nc" id="L1369">		g.dispose();</span>
+<span class="nc" id="L1370">		return result;</span>
+	}
+
+	/**
+	 * Creates the resized image.
+	 *
+	 * @param image
+	 *            the image
+	 * @param width
+	 *            the width
+	 * @param height
+	 *            the height
+	 * @return the buffered image
+	 */
+	public static BufferedImage createResizedImage(Image image, int width, int height) {
+<span class="nc" id="L1385">		BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);</span>
+<span class="nc" id="L1386">		Graphics2D g = scaled.createGraphics();</span>
+<span class="nc" id="L1387">		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);</span>
+<span class="nc" id="L1388">		g.drawImage(image, 0, 0, width, height, null);</span>
+<span class="nc" id="L1389">		g.dispose();</span>
+<span class="nc" id="L1390">		return scaled;</span>
+	}
+
+	/**
+	 * Create a faded version of an image.
+	 *
+	 * @param img
+	 *            The &lt;code&gt;Image&lt;/code&gt; to fade.
+	 * @param fade
+	 *            The amount of fading.
+	 * @param target
+	 *            The offset.
+	 * @return The faded image.
+	 */
+	public static BufferedImage fadeImage(Image img, float fade, float target) {
+<span class="nc" id="L1405">		int w = img.getWidth(null);</span>
+<span class="nc" id="L1406">		int h = img.getHeight(null);</span>
+<span class="nc" id="L1407">		BufferedImage bi = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);</span>
+<span class="nc" id="L1408">		Graphics2D g = bi.createGraphics();</span>
+<span class="nc" id="L1409">		g.drawImage(img, 0, 0, null);</span>
+
+<span class="nc" id="L1411">		float offset = target * (1.0f - fade);</span>
+<span class="nc" id="L1412">		float[] scales = { fade, fade, fade, 1.0f };</span>
+<span class="nc" id="L1413">		float[] offsets = { offset, offset, offset, 0.0f };</span>
+<span class="nc" id="L1414">		RescaleOp rop = new RescaleOp(scales, offsets, null);</span>
+
+<span class="nc" id="L1416">		g.drawImage(bi, rop, 0, 0);</span>
+
+<span class="nc" id="L1418">		g.dispose();</span>
+<span class="nc" id="L1419">		return bi;</span>
+	}
+
+	/**
+	 * Create a &quot;chip&quot; with the given text and colors.
+	 *
+	 * @param g
+	 *            Graphics2D for getting the FontMetrics.
+	 * @param text
+	 *            The text to display.
+	 * @param border
+	 *            The border &lt;code&gt;Color&lt;/code&gt;.
+	 * @param background
+	 *            The background &lt;code&gt;Color&lt;/code&gt;.
+	 * @param foreground
+	 *            The foreground &lt;code&gt;Color&lt;/code&gt;.
+	 * @return A chip.
+	 */
+	private BufferedImage createChip(Graphics2D g, String text, Color border, Color background, Color foreground) {
+<span class="nc" id="L1438">		Font font = FontLibrary.createFont(FontLibrary.FontType.SIMPLE, FontLibrary.FontSize.TINY, Font.BOLD,</span>
+				scaleFactor);
+<span class="nc" id="L1440">		FontMetrics fm = g.getFontMetrics(font);</span>
+<span class="nc" id="L1441">		int padding = (int) (6 * scaleFactor);</span>
+<span class="nc" id="L1442">		BufferedImage bi = new BufferedImage(fm.stringWidth(text) + padding,</span>
+<span class="nc" id="L1443">				fm.getMaxAscent() + fm.getMaxDescent() + padding, BufferedImage.TYPE_INT_ARGB);</span>
+<span class="nc" id="L1444">		Graphics2D g2 = bi.createGraphics();</span>
+<span class="nc" id="L1445">		g2.setFont(font);</span>
+<span class="nc" id="L1446">		int width = bi.getWidth();</span>
+<span class="nc" id="L1447">		int height = bi.getHeight();</span>
+<span class="nc" id="L1448">		g2.setColor(border);</span>
+<span class="nc" id="L1449">		g2.fillRect(0, 0, width, height);</span>
+<span class="nc" id="L1450">		g2.setColor(background);</span>
+<span class="nc" id="L1451">		g2.fillRect(1, 1, width - 2, height - 2);</span>
+<span class="nc" id="L1452">		g2.setColor(foreground);</span>
+<span class="nc" id="L1453">		g2.drawString(text, padding / 2, fm.getMaxAscent() + padding / 2);</span>
+<span class="nc" id="L1454">		g2.dispose();</span>
+<span class="nc" id="L1455">		return bi;</span>
+	}
+
+	/**
+	 * Create a filled &quot;chip&quot; with the given text and colors.
+	 *
+	 * @param g
+	 *            Graphics2D for getting the FontMetrics.
+	 * @param text
+	 *            The text to display.
+	 * @param border
+	 *            The border &lt;code&gt;Color&lt;/code&gt;.
+	 * @param background
+	 *            The background &lt;code&gt;Color&lt;/code&gt;.
+	 * @param amount
+	 *            How much to fill the chip with the fill color
+	 * @param fill
+	 *            The fill &lt;code&gt;Color&lt;/code&gt;.
+	 * @param foreground
+	 *            The foreground &lt;code&gt;Color&lt;/code&gt;.
+	 * @return A chip.
+	 */
+	private BufferedImage createFilledChip(Graphics2D g, String text, Color border, Color background, double amount,
+			Color fill, Color foreground) {
+<span class="nc" id="L1479">		Font font = FontLibrary.createFont(FontLibrary.FontType.SIMPLE, FontLibrary.FontSize.TINY, Font.BOLD,</span>
+				scaleFactor);
+<span class="nc" id="L1481">		FontMetrics fm = g.getFontMetrics(font);</span>
+<span class="nc" id="L1482">		int padding = (int) (6 * scaleFactor);</span>
+<span class="nc" id="L1483">		BufferedImage bi = new BufferedImage(fm.stringWidth(text) + padding,</span>
+<span class="nc" id="L1484">				fm.getMaxAscent() + fm.getMaxDescent() + padding, BufferedImage.TYPE_INT_ARGB);</span>
+<span class="nc" id="L1485">		Graphics2D g2 = bi.createGraphics();</span>
+<span class="nc" id="L1486">		g2.setFont(font);</span>
+<span class="nc" id="L1487">		int width = bi.getWidth();</span>
+<span class="nc" id="L1488">		int height = bi.getHeight();</span>
+<span class="nc" id="L1489">		g2.setColor(border);</span>
+<span class="nc" id="L1490">		g2.fillRect(0, 0, width, height);</span>
+<span class="nc" id="L1491">		g2.setColor(background);</span>
+<span class="nc" id="L1492">		g2.fillRect(1, 1, width - 2, height - 2);</span>
+<span class="nc bnc" id="L1493" title="All 4 branches missed.">		if (amount &gt; 0.0 &amp;&amp; amount &lt;= 1.0) {</span>
+<span class="nc" id="L1494">			g2.setColor(fill);</span>
+<span class="nc" id="L1495">			g2.fillRect(1, 1, width - 2, (int) ((height - 2) * amount));</span>
+		}
+<span class="nc" id="L1497">		g2.setColor(foreground);</span>
+<span class="nc" id="L1498">		g2.drawString(text, padding / 2, fm.getMaxAscent() + padding / 2);</span>
+<span class="nc" id="L1499">		g2.dispose();</span>
+<span class="nc" id="L1500">		return bi;</span>
+	}
+
+	// Methods for dynamically drawing images and adding them to ResourceManager
+
+	/**
+	 * Gets a chip image for the alarm at an Indian settlement. The background
+	 * is either the native owner's, or that of the most hated nation if any.
+	 *
+	 * @param g
+	 *            Graphics2D for getting the FontMetrics.
+	 * @param is
+	 *            The &lt;code&gt;IndianSettlement&lt;/code&gt; to check.
+	 * @param player
+	 *            The observing &lt;code&gt;Player&lt;/code&gt;.
+	 * @return An alarm chip, or null if none suitable.
+	 */
+	public BufferedImage getAlarmChip(Graphics2D g, IndianSettlement is, Player player) {
+<span class="nc bnc" id="L1518" title="All 4 branches missed.">		if (player == null || !is.hasContacted(player))</span>
+<span class="nc" id="L1519">			return null;</span>
+<span class="nc" id="L1520">		Color ownerColor = is.getOwner().getNationColor();</span>
+<span class="nc" id="L1521">		Player enemy = is.getMostHated();</span>
+<span class="nc bnc" id="L1522" title="All 2 branches missed.">		Color enemyColor = (enemy == null) ? Nation.UNKNOWN_NATION_COLOR : enemy.getNationColor();</span>
+		// Set amount to [0-4] corresponding to HAPPY, CONTENT,
+		// DISPLEASED, ANGRY, HATEFUL but only if the player is the
+		// most hated, because other nation alarm is not nor should be
+		// serialized to the client.
+<span class="nc" id="L1527">		int amount = 4;</span>
+<span class="nc bnc" id="L1528" title="All 2 branches missed.">		if (enemy == null) {</span>
+<span class="nc" id="L1529">			amount = 0;</span>
+<span class="nc bnc" id="L1530" title="All 2 branches missed.">		} else if (player == enemy) {</span>
+<span class="nc" id="L1531">			Tension alarm = is.getAlarm(enemy);</span>
+<span class="nc bnc" id="L1532" title="All 2 branches missed.">			amount = (alarm == null) ? 4 : alarm.getLevel().ordinal();</span>
+<span class="nc bnc" id="L1533" title="All 2 branches missed.">			if (amount == 0)</span>
+<span class="nc" id="L1534">				amount = 1; // Show *something*!</span>
+		}
+<span class="nc" id="L1536">		Color foreground = getForegroundColor(enemyColor);</span>
+<span class="nc" id="L1537">		String text = ResourceManager</span>
+<span class="nc bnc" id="L1538" title="All 2 branches missed.">				.getString((is.worthScouting(player)) ? &quot;indianAlarmChip.contacted&quot; : &quot;indianAlarmChip.scouted&quot;);</span>
+<span class="nc" id="L1539">		return createFilledChip(g, text, Color.BLACK, ownerColor, amount / 4.0, enemyColor, foreground);</span>
+	}
+
+	/**
+	 * Gets the owner chip for the settlement.
+	 *
+	 * @param g
+	 *            Graphics2D for getting the FontMetrics.
+	 * @param is
+	 *            The &lt;code&gt;IndianSettlement&lt;/code&gt; to check.
+	 * @return A chip.
+	 */
+	public BufferedImage getIndianSettlementChip(Graphics2D g, IndianSettlement is) {
+<span class="nc" id="L1552">		String text = ResourceManager</span>
+<span class="nc bnc" id="L1553" title="All 2 branches missed.">				.getString(&quot;indianSettlementChip.&quot; + ((is.getType().isCapital()) ? &quot;capital&quot; : &quot;normal&quot;));</span>
+<span class="nc" id="L1554">		Color background = is.getOwner().getNationColor();</span>
+<span class="nc" id="L1555">		return createChip(g, text, Color.BLACK, background, getForegroundColor(background));</span>
+	}
+
+	/**
+	 * Gets the mission chip for a native settlement.
+	 *
+	 * @param g
+	 *            Graphics2D for getting the FontMetrics.
+	 * @param owner
+	 *            The player that owns the mission.
+	 * @param expert
+	 *            True if the unit is an expert.
+	 * @return A suitable chip, or null if no mission is present.
+	 */
+	public BufferedImage getMissionChip(Graphics2D g, Player owner, boolean expert) {
+<span class="nc" id="L1570">		Color background = owner.getNationColor();</span>
+<span class="nc bnc" id="L1571" title="All 2 branches missed.">		String key = &quot;color.foreground.mission.&quot; + ((expert) ? &quot;expert&quot; : &quot;normal&quot;);</span>
+		Color foreground;
+<span class="nc bnc" id="L1573" title="All 2 branches missed.">		if (ResourceManager.hasColorResource(key)) {</span>
+<span class="nc" id="L1574">			foreground = ResourceManager.getColor(key);</span>
+		} else {
+<span class="nc bnc" id="L1576" title="All 2 branches missed.">			foreground = (expert) ? Color.BLACK : Color.GRAY;</span>
+		}
+<span class="nc" id="L1578">		return createChip(g, ResourceManager.getString(&quot;cross&quot;), Color.BLACK, background, foreground);</span>
+	}
+
+	/**
+	 * Gets a chip for an occupation indicator, i.e. a small image with a single
+	 * letter or symbol that indicates the Unit's state.
+	 *
+	 * @param g
+	 *            Graphics2D for getting the FontMetrics.
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; with the occupation.
+	 * @param text
+	 *            The text for the chip.
+	 * @return A suitable chip.
+	 */
+	public BufferedImage getOccupationIndicatorChip(Graphics2D g, Unit unit, String text) {
+<span class="nc" id="L1594">		Color backgroundColor = unit.getOwner().getNationColor();</span>
+<span class="nc bnc" id="L1595" title="All 2 branches missed.">		Color foregroundColor = (unit.getState() == Unit.UnitState.FORTIFIED) ? Color.GRAY</span>
+<span class="nc" id="L1596">				: getForegroundColor(backgroundColor);</span>
+<span class="nc" id="L1597">		return createChip(g, text, Color.BLACK, backgroundColor, foregroundColor);</span>
+	}
+
+	/**
+	 * Gets an image with a string of a given color and with a black border
+	 * around the glyphs.
+	 *
+	 * @param g
+	 *            A &lt;code&gt;Graphics&lt;/code&gt;-object for getting the font metrics.
+	 * @param text
+	 *            The &lt;code&gt;String&lt;/code&gt; to make an image of.
+	 * @param color
+	 *            The &lt;code&gt;Color&lt;/code&gt; to use for the text.
+	 * @param font
+	 *            The &lt;code&gt;Font&lt;/code&gt; to display the text with.
+	 * @return The image that was created.
+	 */
+	public BufferedImage getStringImage(Graphics g, String text, Color color, Font font) {
+<span class="nc bnc" id="L1615" title="All 2 branches missed.">		if (color == null) {</span>
+<span class="nc" id="L1616">			logger.warning(&quot;createStringImage called with color null&quot;);</span>
+<span class="nc" id="L1617">			color = Color.WHITE;</span>
+		}
+
+		// Lookup in the cache if the image has been generated already
+<span class="nc" id="L1621">		String key = text + &quot;.&quot; + font.getFontName().replace(' ', '-') + &quot;.&quot; + Integer.toString(font.getSize()) + &quot;.&quot;</span>
+<span class="nc" id="L1622">				+ Integer.toHexString(color.getRGB());</span>
+<span class="nc" id="L1623">		BufferedImage img = stringImageCache.get(key);</span>
+<span class="nc bnc" id="L1624" title="All 2 branches missed.">		if (img != null) {</span>
+<span class="nc" id="L1625">			return img;</span>
+		}
+		// create an image of the appropriate size
+<span class="nc" id="L1628">		FontMetrics fm = g.getFontMetrics(font);</span>
+<span class="nc" id="L1629">		int width = fm.stringWidth(text) + 4;</span>
+<span class="nc" id="L1630">		int height = fm.getMaxAscent() + fm.getMaxDescent();</span>
+<span class="nc" id="L1631">		BufferedImage bi = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);</span>
+		// draw the string with selected color
+<span class="nc" id="L1633">		Graphics2D g2 = bi.createGraphics();</span>
+<span class="nc" id="L1634">		g2.setColor(getStringBorderColor(color));</span>
+<span class="nc" id="L1635">		g2.setFont(font);</span>
+<span class="nc" id="L1636">		g2.drawString(text, 2, fm.getMaxAscent());</span>
+
+		// draw the border around letters
+<span class="nc" id="L1639">		int borderWidth = 1;</span>
+<span class="nc" id="L1640">		int borderColor = getStringBorderColor(color).getRGB();</span>
+		int srcRGB, dstRGB, srcA;
+<span class="nc bnc" id="L1642" title="All 2 branches missed.">		for (int biY = 0; biY &lt; height; biY++) {</span>
+<span class="nc bnc" id="L1643" title="All 2 branches missed.">			for (int biX = borderWidth; biX &lt; width - borderWidth; biX++) {</span>
+<span class="nc" id="L1644">				int biXI = width - biX - 1;</span>
+<span class="nc bnc" id="L1645" title="All 2 branches missed.">				for (int d = 1; d &lt;= borderWidth; d++) {</span>
+					// left to right
+<span class="nc" id="L1647">					srcRGB = bi.getRGB(biX, biY);</span>
+<span class="nc" id="L1648">					srcA = (srcRGB &gt;&gt; 24) &amp; 0xFF;</span>
+<span class="nc" id="L1649">					dstRGB = bi.getRGB(biX - d, biY);</span>
+<span class="nc bnc" id="L1650" title="All 2 branches missed.">					if (dstRGB != borderColor) {</span>
+<span class="nc bnc" id="L1651" title="All 2 branches missed.">						if (srcA &gt; 0) {</span>
+<span class="nc" id="L1652">							bi.setRGB(biX, biY, borderColor);</span>
+<span class="nc" id="L1653">							bi.setRGB(biX - d, biY, srcRGB);</span>
+						}
+					}
+					// right to left
+<span class="nc" id="L1657">					srcRGB = bi.getRGB(biXI, biY);</span>
+<span class="nc" id="L1658">					srcA = (srcRGB &gt;&gt; 24) &amp; 0xFF;</span>
+<span class="nc" id="L1659">					dstRGB = bi.getRGB(biXI + d, biY);</span>
+<span class="nc bnc" id="L1660" title="All 2 branches missed.">					if (dstRGB != borderColor) {</span>
+<span class="nc bnc" id="L1661" title="All 2 branches missed.">						if (srcA &gt; 0) {</span>
+<span class="nc" id="L1662">							bi.setRGB(biXI, biY, borderColor);</span>
+<span class="nc" id="L1663">							bi.setRGB(biXI + d, biY, srcRGB);</span>
+						}
+					}
+				}
+			}
+		}
+<span class="nc bnc" id="L1669" title="All 2 branches missed.">		for (int biX = 0; biX &lt; width; biX++) {</span>
+<span class="nc bnc" id="L1670" title="All 2 branches missed.">			for (int biY = borderWidth; biY &lt; height - borderWidth; biY++) {</span>
+<span class="nc" id="L1671">				int biYI = height - biY - 1;</span>
+<span class="nc bnc" id="L1672" title="All 2 branches missed.">				for (int d = 1; d &lt;= borderWidth; d++) {</span>
+					// top to bottom
+<span class="nc" id="L1674">					srcRGB = bi.getRGB(biX, biY);</span>
+<span class="nc" id="L1675">					srcA = (srcRGB &gt;&gt; 24) &amp; 0xFF;</span>
+<span class="nc" id="L1676">					dstRGB = bi.getRGB(biX, biY - d);</span>
+<span class="nc bnc" id="L1677" title="All 2 branches missed.">					if (dstRGB != borderColor) {</span>
+<span class="nc bnc" id="L1678" title="All 2 branches missed.">						if (srcA &gt; 0) {</span>
+<span class="nc" id="L1679">							bi.setRGB(biX, biY, borderColor);</span>
+<span class="nc" id="L1680">							bi.setRGB(biX, biY - d, srcRGB);</span>
+						}
+					}
+					// bottom to top
+<span class="nc" id="L1684">					srcRGB = bi.getRGB(biX, biYI);</span>
+<span class="nc" id="L1685">					srcA = (srcRGB &gt;&gt; 24) &amp; 0xFF;</span>
+<span class="nc" id="L1686">					dstRGB = bi.getRGB(biX, biYI + d);</span>
+<span class="nc bnc" id="L1687" title="All 2 branches missed.">					if (dstRGB != borderColor) {</span>
+<span class="nc bnc" id="L1688" title="All 2 branches missed.">						if (srcA &gt; 0) {</span>
+<span class="nc" id="L1689">							bi.setRGB(biX, biYI, borderColor);</span>
+<span class="nc" id="L1690">							bi.setRGB(biX, biYI + d, srcRGB);</span>
+						}
+					}
+				}
+			}
+		}
+
+<span class="nc" id="L1697">		g2.setColor(color);</span>
+<span class="nc" id="L1698">		g2.drawString(text, 2, fm.getMaxAscent());</span>
+<span class="nc" id="L1699">		g2.dispose();</span>
+
+<span class="nc" id="L1701">		stringImageCache.put(key, bi);</span>
+<span class="nc" id="L1702">		return bi;</span>
+	}
 
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

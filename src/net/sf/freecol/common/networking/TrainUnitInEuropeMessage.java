@@ -27,83 +27,83 @@ import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Element;
 
-
 /**
  * The message sent when training a unit in Europe.
  */
 public class TrainUnitInEuropeMessage extends DOMMessage {
 
-    /** The identifier of the unit type. */
-    private final String typeId;
+	/** The identifier of the unit type. */
+	private final String typeId;
 
+	/**
+	 * Create a new <code>TrainUnitInEuropeMessage</code> with the supplied
+	 * type.
+	 *
+	 * @param type
+	 *            The <code>UnitType</code> to train.
+	 */
+	public TrainUnitInEuropeMessage(UnitType type) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>TrainUnitInEuropeMessage</code> with the
-     * supplied type.
-     *
-     * @param type The <code>UnitType</code> to train.
-     */
-    public TrainUnitInEuropeMessage(UnitType type) {
-        super(getXMLElementTagName());
+		this.typeId = type.getId();
+	}
 
-        this.typeId = type.getId();
-    }
+	/**
+	 * Create a new <code>TrainUnitInEuropeMessage</code> from a supplied
+	 * element.
+	 *
+	 * @param game
+	 *            The <code>Game</code> this message belongs to.
+	 * @param element
+	 *            The <code>Element</code> to use to create the message.
+	 */
+	public TrainUnitInEuropeMessage(Game game, Element element) {
+		super(getXMLElementTagName());
 
-    /**
-     * Create a new <code>TrainUnitInEuropeMessage</code> from a
-     * supplied element.
-     *
-     * @param game The <code>Game</code> this message belongs to.
-     * @param element The <code>Element</code> to use to create the message.
-     */
-    public TrainUnitInEuropeMessage(Game game, Element element) {
-        super(getXMLElementTagName());
+		this.typeId = element.getAttribute("unitType");
+	}
 
-        this.typeId = element.getAttribute("unitType");
-    }
+	/**
+	 * Handle a "trainUnitInEurope"-message.
+	 *
+	 * @param server
+	 *            The <code>FreeColServer</code> handling the message.
+	 * @param player
+	 *            The <code>Player</code> the message applies to.
+	 * @param connection
+	 *            The <code>Connection</code> message was received on.
+	 *
+	 * @return An update containing the trainUnitInEuroped unit, or an error
+	 *         <code>Element</code> on failure.
+	 */
+	public Element handle(FreeColServer server, Player player, Connection connection) {
+		final ServerPlayer serverPlayer = server.getPlayer(connection);
 
+		UnitType type = server.getSpecification().getUnitType(typeId);
+		if (type == null) {
+			return DOMMessage.clientError("Not a unit type: " + typeId);
+		}
 
-    /**
-     * Handle a "trainUnitInEurope"-message.
-     *
-     * @param server The <code>FreeColServer</code> handling the message.
-     * @param player The <code>Player</code> the message applies to.
-     * @param connection The <code>Connection</code> message was received on.
-     *
-     * @return An update containing the trainUnitInEuroped unit,
-     *         or an error <code>Element</code> on failure.
-     */
-    public Element handle(FreeColServer server, Player player,
-                          Connection connection) {
-        final ServerPlayer serverPlayer = server.getPlayer(connection);
+		// Proceed to train a unit.
+		return server.getInGameController().trainUnitInEurope(serverPlayer, type);
+	}
 
-        UnitType type = server.getSpecification().getUnitType(typeId);
-        if (type == null) {
-            return DOMMessage.clientError("Not a unit type: " + typeId);
-        }
+	/**
+	 * Convert this TrainUnitInEuropeMessage to XML.
+	 *
+	 * @return The XML representation of this message.
+	 */
+	@Override
+	public Element toXMLElement() {
+		return createMessage(getXMLElementTagName(), "unitType", typeId);
+	}
 
-        // Proceed to train a unit.
-        return server.getInGameController()
-            .trainUnitInEurope(serverPlayer, type);
-    }
-
-    /**
-     * Convert this TrainUnitInEuropeMessage to XML.
-     *
-     * @return The XML representation of this message.
-     */
-    @Override
-    public Element toXMLElement() {
-        return createMessage(getXMLElementTagName(),
-            "unitType", typeId);
-    }
-
-    /**
-     * The tag name of the root element representing this object.
-     *
-     * @return "trainUnitInEurope".
-     */
-    public static String getXMLElementTagName() {
-        return "trainUnitInEurope";
-    }
+	/**
+	 * The tag name of the root element representing this object.
+	 *
+	 * @return "trainUnitInEurope".
+	 */
+	public static String getXMLElementTagName() {
+		return "trainUnitInEurope";
+	}
 }

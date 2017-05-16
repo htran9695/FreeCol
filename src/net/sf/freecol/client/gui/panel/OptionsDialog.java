@@ -38,202 +38,232 @@ import net.sf.freecol.common.io.FreeColDirectories;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.option.OptionGroup;
 
-
 /**
  * Dialog for changing the options of an {@link OptionGroup}.
  */
 public abstract class OptionsDialog extends FreeColDialog<OptionGroup> {
 
-    private static final Logger logger = Logger.getLogger(OptionsDialog.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(OptionsDialog.class.getName());
 
-    private final boolean editable;
-    private OptionGroup group;
-    private OptionGroupUI ui;
-    private final String defaultFileName;
-    private final String optionGroupId;
-    private JScrollPane scrollPane;
-    private MigPanel optionPanel;
-    protected MigPanel panel;
+	/** The editable. */
+	private final boolean editable;
 
+	/** The group. */
+	private OptionGroup group;
 
-    /**
-     * The constructor that will add the items to this panel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param frame The owner frame.
-     * @param editable Whether the dialog is editable.
-     */
-    public OptionsDialog(FreeColClient freeColClient, JFrame frame,
-            boolean editable, OptionGroup group,
-            String headerKey, String defaultFileName, String optionGroupId) {
-        super(freeColClient, frame);
+	/** The ui. */
+	private OptionGroupUI ui;
 
-        this.editable = editable;
-        this.group = group;
-        this.ui = new OptionGroupUI(getGUI(), this.group, this.editable);
-        this.defaultFileName = defaultFileName;
-        this.optionGroupId = optionGroupId;
-        preparePanel(headerKey, this.ui);
-    }
+	/** The default file name. */
+	private final String defaultFileName;
 
+	/** The option group id. */
+	private final String optionGroupId;
 
-    /**
-     * Is this dialog editable?
-     *
-     * @return True if the dialog is editable.
-     */
-    protected boolean isEditable() {
-        return this.editable;
-    }
+	/** The scroll pane. */
+	private JScrollPane scrollPane;
 
-    /**
-     * Get the option group being displayed by this dialog.
-     *
-     * @return The <code>OptionGroup</code>.
-     */
-    protected OptionGroup getGroup() {
-        return this.group;
-    }
+	/** The option panel. */
+	private MigPanel optionPanel;
 
-    /**
-     * Get the option group UI controlling this dialog.
-     *
-     * @return The <code>OptionGroupUI</code>.
-     */
-    protected OptionGroupUI getOptionUI() {
-        return this.ui;
-    }
+	/** The panel. */
+	protected MigPanel panel;
 
-    /**
-     * Get the default name of the file to save the <code>OptionGroup</code>.
-     *
-     * @return A default file name.
-     */
-    protected String getDefaultFileName() {
-        return this.defaultFileName;
-    }
+	/**
+	 * The constructor that will add the items to this panel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param frame
+	 *            The owner frame.
+	 * @param editable
+	 *            Whether the dialog is editable.
+	 * @param group
+	 *            the group
+	 * @param headerKey
+	 *            the header key
+	 * @param defaultFileName
+	 *            the default file name
+	 * @param optionGroupId
+	 *            the option group id
+	 */
+	public OptionsDialog(FreeColClient freeColClient, JFrame frame, boolean editable, OptionGroup group,
+			String headerKey, String defaultFileName, String optionGroupId) {
+		super(freeColClient, frame);
 
-    /**
-     * Get the identifier of the <code>OptionGroup</code>.
-     *
-     * @return The option group identifier.
-     */
-    protected String getOptionGroupId() {
-        return this.optionGroupId;
-    }
+		this.editable = editable;
+		this.group = group;
+		this.ui = new OptionGroupUI(getGUI(), this.group, this.editable);
+		this.defaultFileName = defaultFileName;
+		this.optionGroupId = optionGroupId;
+		preparePanel(headerKey, this.ui);
+	}
 
-    /**
-     * Load the panel.
-     */
-    private void preparePanel(String headerKey, OptionGroupUI ui) {
-        this.optionPanel = new MigPanel("ReportPanelUI");
-        this.optionPanel.setOpaque(true);
-        this.optionPanel.add(ui);
-        this.optionPanel.setSize(this.optionPanel.getPreferredSize());
-        this.scrollPane = new JScrollPane(this.optionPanel,
-            JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-            JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        this.scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        
-        this.panel = new MigPanel(new MigLayout("wrap 1, fill"));
-        this.panel.add(Utility.localizedHeader(Messages.nameKey(headerKey), false),
-                       "span, center");
-    }
+	/**
+	 * Is this dialog editable?.
+	 *
+	 * @return True if the dialog is editable.
+	 */
+	protected boolean isEditable() {
+		return this.editable;
+	}
 
-    /**
-     * Initialize this dialog.
-     * 
-     * @param frame The owner frame.
-     */
-    protected void initialize(JFrame frame) {
-        this.panel.add(this.scrollPane, "height 100%, width 100%");
-        this.panel.setPreferredSize(new Dimension(850, 650));
-        this.panel.setSize(this.panel.getPreferredSize());
+	/**
+	 * Get the option group being displayed by this dialog.
+	 *
+	 * @return The <code>OptionGroup</code>.
+	 */
+	protected OptionGroup getGroup() {
+		return this.group;
+	}
 
-        List<ChoiceItem<OptionGroup>> c = choices();
-        c.add(new ChoiceItem<>(Messages.message("ok"), this.group).okOption());
-        c.add(new ChoiceItem<>(Messages.message("cancel"), (OptionGroup)null,
-                isEditable()).cancelOption().defaultOption());
-        initializeDialog(frame, DialogType.PLAIN, true, this.panel, null, c);
-    }
+	/**
+	 * Get the option group UI controlling this dialog.
+	 *
+	 * @return The <code>OptionGroupUI</code>.
+	 */
+	protected OptionGroupUI getOptionUI() {
+		return this.ui;
+	}
 
-    /**
-     * Reset the group for this panel.
-     *
-     * @param group The new <code>OptionGroup</code>.
-     */
-    private void reset(OptionGroup group) {
-        this.group = group;
-        this.optionPanel.removeAll();
-        this.ui = new OptionGroupUI(getGUI(), this.group, this.editable);
-        this.optionPanel.add(this.ui);
-        invalidate();
-        validate();
-        repaint();
-    }
+	/**
+	 * Get the default name of the file to save the <code>OptionGroup</code>.
+	 *
+	 * @return A default file name.
+	 */
+	protected String getDefaultFileName() {
+		return this.defaultFileName;
+	}
 
-    /**
-     * Load an option group from given File.
-     *
-     * @param file A <code>File</code> to load from.
-     * @return True if the load succeeded.
-     */
-    protected boolean load(File file) {
-        OptionGroup og = getSpecification()
-            .loadOptionsFile(getOptionGroupId(), file);
-        if (og == null) return false;
+	/**
+	 * Get the identifier of the <code>OptionGroup</code>.
+	 *
+	 * @return The option group identifier.
+	 */
+	protected String getOptionGroupId() {
+		return this.optionGroupId;
+	}
 
-        reset(og);
-        return true;
-    }
+	/**
+	 * Load the panel.
+	 *
+	 * @param headerKey
+	 *            the header key
+	 * @param ui
+	 *            the ui
+	 */
+	private void preparePanel(String headerKey, OptionGroupUI ui) {
+		this.optionPanel = new MigPanel("ReportPanelUI");
+		this.optionPanel.setOpaque(true);
+		this.optionPanel.add(ui);
+		this.optionPanel.setSize(this.optionPanel.getPreferredSize());
+		this.scrollPane = new JScrollPane(this.optionPanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+				JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+		this.scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
-    /**
-     * Save an option group to a given File.
-     *
-     * @param file The <code>File</code> to save to.
-     * @return True if the save succeeded.
-     */
-    protected boolean save(File file) {
-        OptionGroup og = Specification.saveOptionsFile(this.group, file);
-        if (og != null) return true;
-        getGUI().showErrorMessage(FreeCol.badSave(file));
-        return false;
-    }
+		this.panel = new MigPanel(new MigLayout("wrap 1, fill"));
+		this.panel.add(Utility.localizedHeader(Messages.nameKey(headerKey), false), "span, center");
+	}
 
-    /**
-     * Load the option group from the default file.
-     *
-     * @return True if the options were loaded.
-     */
-    protected boolean loadDefaultOptions() {
-        File f = FreeColDirectories.getOptionsFile(getDefaultFileName());
-        return (f.exists()) ? load(f) : false;
-    }
+	/**
+	 * Initialize this dialog.
+	 * 
+	 * @param frame
+	 *            The owner frame.
+	 */
+	protected void initialize(JFrame frame) {
+		this.panel.add(this.scrollPane, "height 100%, width 100%");
+		this.panel.setPreferredSize(new Dimension(850, 650));
+		this.panel.setSize(this.panel.getPreferredSize());
 
-    /**
-     * Save the option group to the default file.
-     *
-     * @return True if the options were saved.
-     */
-    protected boolean saveDefaultOptions() {
-        File f = FreeColDirectories.getOptionsFile(getDefaultFileName());
-        return save(f);
-    }
+		List<ChoiceItem<OptionGroup>> c = choices();
+		c.add(new ChoiceItem<>(Messages.message("ok"), this.group).okOption());
+		c.add(new ChoiceItem<>(Messages.message("cancel"), (OptionGroup) null, isEditable()).cancelOption()
+				.defaultOption());
+		initializeDialog(frame, DialogType.PLAIN, true, this.panel, null, c);
+	}
 
+	/**
+	 * Reset the group for this panel.
+	 *
+	 * @param group
+	 *            The new <code>OptionGroup</code>.
+	 */
+	private void reset(OptionGroup group) {
+		this.group = group;
+		this.optionPanel.removeAll();
+		this.ui = new OptionGroupUI(getGUI(), this.group, this.editable);
+		this.optionPanel.add(this.ui);
+		invalidate();
+		validate();
+		repaint();
+	}
 
-    // Override FreeColDialog
+	/**
+	 * Load an option group from given File.
+	 *
+	 * @param file
+	 *            A <code>File</code> to load from.
+	 * @return True if the load succeeded.
+	 */
+	protected boolean load(File file) {
+		OptionGroup og = getSpecification().loadOptionsFile(getOptionGroupId(), file);
+		if (og == null)
+			return false;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public OptionGroup getResponse() {
-        OptionGroup value = super.getResponse();
-        if (value == null) {
-            getOptionUI().reset();
-        } else {
-            getOptionUI().updateOption();
-        }
-        return value;
-    }
+		reset(og);
+		return true;
+	}
+
+	/**
+	 * Save an option group to a given File.
+	 *
+	 * @param file
+	 *            The <code>File</code> to save to.
+	 * @return True if the save succeeded.
+	 */
+	protected boolean save(File file) {
+		OptionGroup og = Specification.saveOptionsFile(this.group, file);
+		if (og != null)
+			return true;
+		getGUI().showErrorMessage(FreeCol.badSave(file));
+		return false;
+	}
+
+	/**
+	 * Load the option group from the default file.
+	 *
+	 * @return True if the options were loaded.
+	 */
+	protected boolean loadDefaultOptions() {
+		File f = FreeColDirectories.getOptionsFile(getDefaultFileName());
+		return (f.exists()) ? load(f) : false;
+	}
+
+	/**
+	 * Save the option group to the default file.
+	 *
+	 * @return True if the options were saved.
+	 */
+	protected boolean saveDefaultOptions() {
+		File f = FreeColDirectories.getOptionsFile(getDefaultFileName());
+		return save(f);
+	}
+
+	// Override FreeColDialog
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public OptionGroup getResponse() {
+		OptionGroup value = super.getResponse();
+		if (value == null) {
+			getOptionUI().reset();
+		} else {
+			getOptionUI().updateOption();
+		}
+		return value;
+	}
 }

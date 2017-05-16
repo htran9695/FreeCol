@@ -34,83 +34,82 @@ import net.miginfocom.swing.MigLayout;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColDirectories;
 
-
 /**
  * This is the panel that pops up when an error needs to be reported.
  */
 public final class ErrorPanel extends FreeColPanel {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(ErrorPanel.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(ErrorPanel.class.getName());
 
-    private static final String SHOW = "show";
+	/** The Constant SHOW. */
+	private static final String SHOW = "show";
 
+	/**
+	 * Creates a panel to display the given error message.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param message
+	 *            The error message to display in this error panel.
+	 */
+	public ErrorPanel(FreeColClient freeColClient, String message) {
+		super(freeColClient, new MigLayout());
 
-    /**
-     * Creates a panel to display the given error message.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param message The error message to display in this error panel.
-     */
-    public ErrorPanel(FreeColClient freeColClient, String message) {
-        super(freeColClient, new MigLayout());
+		JButton showButton = Utility.localizedButton("errorPanel.showLogFile");
+		showButton.setActionCommand(SHOW);
+		showButton.addActionListener(this);
 
-        JButton showButton = Utility.localizedButton("errorPanel.showLogFile");
-        showButton.setActionCommand(SHOW);
-        showButton.addActionListener(this);
+		add(Utility.getDefaultTextArea(message, 40), "wrap 20");
+		add(okButton, "split 2, tag ok");
+		add(showButton);
+	}
 
-        add(Utility.getDefaultTextArea(message, 40), "wrap 20");
-        add(okButton, "split 2, tag ok");
-        add(showButton);
-    }
+	/**
+	 * Creates an error panel containing the log file.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public ErrorPanel(FreeColClient freeColClient) {
+		super(freeColClient, new MigLayout());
 
-    /**
-     * Creates an error panel containing the log file.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public ErrorPanel(FreeColClient freeColClient) {
-        super(freeColClient, new MigLayout());
+		File logFile = new File(FreeColDirectories.getLogFilePath());
+		byte[] buffer = new byte[(int) logFile.length()];
+		String message = null;
+		try (FileInputStream fis = new FileInputStream(logFile);
+				BufferedInputStream logFileStream = new BufferedInputStream(fis);) {
+			logFileStream.read(buffer);
+			message = new String(buffer, "UTF-8");
+		} catch (Exception e) {
+			;// ignore
+		}
 
-        File logFile = new File(FreeColDirectories.getLogFilePath());
-        byte[] buffer = new byte[(int) logFile.length()];
-        String message = null;
-        try (
-            FileInputStream fis = new FileInputStream(logFile);
-            BufferedInputStream logFileStream = new BufferedInputStream(fis);
-        ) {
-            logFileStream.read(buffer);
-            message = new String(buffer, "UTF-8");
-        } catch (Exception e) {
-            ;// ignore
-        }
+		JTextArea textArea = Utility.getDefaultTextArea(message, 40);
+		textArea.setFocusable(true);
+		textArea.setEditable(false);
 
-        JTextArea textArea = Utility.getDefaultTextArea(message, 40);
-        textArea.setFocusable(true);
-        textArea.setEditable(false);
-        
-        JScrollPane scrollPane = new JScrollPane(textArea,
-            JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-            JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollPane.getViewport().setOpaque(false);
+		JScrollPane scrollPane = new JScrollPane(textArea, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+				JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+		scrollPane.getViewport().setOpaque(false);
 
-        add(scrollPane, "height 200:200:, wrap 20");
-        add(okButton, "tag ok");
-    }
+		add(scrollPane, "height 200:200:, wrap 20");
+		add(okButton, "tag ok");
+	}
 
+	// Interface ActionListener
 
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        final String command = ae.getActionCommand();
-        if (SHOW.equals(command)) {
-            getGUI().showLogFilePanel();
-        } else {
-            super.actionPerformed(ae);
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		final String command = ae.getActionCommand();
+		if (SHOW.equals(command)) {
+			getGUI().showLogFilePanel();
+		} else {
+			super.actionPerformed(ae);
+		}
+	}
 }

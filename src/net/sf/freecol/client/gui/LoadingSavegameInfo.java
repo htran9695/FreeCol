@@ -21,44 +21,59 @@ package net.sf.freecol.client.gui;
 
 /**
  * Used for transferring data for the savegame to be loaded.
-*/
+ */
 public class LoadingSavegameInfo {
 
-    private final boolean singlePlayer;
-    private final int port;
-    private final String serverName;
+	/** The single player. */
+	private final boolean singlePlayer;
 
-    public LoadingSavegameInfo(boolean singlePlayer, int port, String serverName) {
-        this.singlePlayer=singlePlayer;
-        this.port=port;
-        this.serverName=serverName;
-    }
+	/** The port. */
+	private final int port;
 
-    /**
-     * Is a single player game selected?
-     *
-     * @return True if single player is selected.
-     */
-    public boolean isSinglePlayer() {
-        return singlePlayer;
-    }
+	/** The server name. */
+	private final String serverName;
 
-    /**
-     * Get the selected port number.
-     *
-     * @return The port number.
-     */
-    public int getPort() {
-        return port;
-    }
+	/**
+	 * Instantiates a new loading savegame info.
+	 *
+	 * @param singlePlayer
+	 *            the single player
+	 * @param port
+	 *            the port
+	 * @param serverName
+	 *            the server name
+	 */
+	public LoadingSavegameInfo(boolean singlePlayer, int port, String serverName) {
+		this.singlePlayer = singlePlayer;
+		this.port = port;
+		this.serverName = serverName;
+	}
 
-    /**
-     * Get the specified server name.
-     *
-     * @return The server name.
-     */
-    public String getServerName() {
-        return serverName;
-    }
+	/**
+	 * Is a single player game selected?.
+	 *
+	 * @return True if single player is selected.
+	 */
+	public boolean isSinglePlayer() {
+		return singlePlayer;
+	}
+
+	/**
+	 * Get the selected port number.
+	 *
+	 * @return The port number.
+	 */
+	public int getPort() {
+		return port;
+	}
+
+	/**
+	 * Get the specified server name.
+	 *
+	 * @return The server name.
+	 */
+	public String getServerName() {
+		return serverName;
+	}
 
 }

@@ -73,1192 +73,1279 @@ import net.sf.freecol.common.model.TradeItem;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitTradeItem;
 
-
 /**
  * The panel that allows negotiations between players.
  */
 public final class NegotiationDialog extends FreeColDialog&lt;DiplomaticTrade&gt; {
 
-<span class="nc" id="L82">    private static final Logger logger = Logger.getLogger(NegotiationDialog.class.getName());</span>
-
-    private static final int HUGE_DEMAND = 100000;
-
-    private static final String ADD = &quot;add&quot;;
-    private static final String CLEAR = &quot;clear&quot;;
-
-
-    private class RemoveAction extends AbstractAction {
-        private final TradeItem item;
-
-<span class="nc" id="L93">        public RemoveAction(TradeItem item) {</span>
-<span class="nc" id="L94">            this.item = item;</span>
-<span class="nc" id="L95">        }</span>
-
-        // Interface ActionListener
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void actionPerformed(ActionEvent ae) {
-<span class="nc" id="L104">            agreement.remove(item);</span>
-<span class="nc" id="L105">            updateDialog();</span>
-<span class="nc" id="L106">        }</span>
-    }
-
-    private class ColonyTradeItemPanel extends JPanel
-        implements ActionListener {
-
-        private final Player source;
-        private final JComboBox&lt;Colony&gt; colonyBox;
-        private final JButton clearButton;
-        private final JButton addButton;
-        private final JLabel label;
-        private final List&lt;Colony&gt; allColonies;
-
-
-        /**
-         * Creates a new &lt;code&gt;ColonyTradeItemPanel&lt;/code&gt; instance.
-         *
-         * @param source The &lt;code&gt;Player&lt;/code&gt; source.
-         */
-<span class="nc" id="L125">        public ColonyTradeItemPanel(Player source) {</span>
-<span class="nc" id="L126">            this.source = source;</span>
-<span class="nc" id="L127">            this.colonyBox = new JComboBox&lt;&gt;();</span>
-<span class="nc" id="L128">            this.clearButton = Utility.localizedButton(&quot;negotiationDialog.clear&quot;);</span>
-<span class="nc" id="L129">            this.clearButton.addActionListener(this);</span>
-<span class="nc" id="L130">            this.clearButton.setActionCommand(CLEAR);</span>
-<span class="nc" id="L131">            this.addButton = Utility.localizedButton(&quot;negotiationDialog.add&quot;);</span>
-<span class="nc" id="L132">            this.addButton.addActionListener(this);</span>
-<span class="nc" id="L133">            this.addButton.setActionCommand(ADD);</span>
-<span class="nc" id="L134">            this.label = Utility.localizedLabel(Messages.getName(&quot;model.tradeItem.colony&quot;));</span>
-<span class="nc" id="L135">            this.allColonies = source.getColonies();</span>
-
-<span class="nc" id="L137">            setLayout(new MigLayout(&quot;wrap 1&quot;, &quot;&quot;, &quot;&quot;));</span>
-<span class="nc" id="L138">            setBorder(Utility.SIMPLE_LINE_BORDER);</span>
-
-<span class="nc" id="L140">            add(this.label);</span>
-<span class="nc" id="L141">            add(this.colonyBox);</span>
-<span class="nc" id="L142">            add(this.clearButton, &quot;split 2&quot;);</span>
-<span class="nc" id="L143">            add(this.addButton);</span>
-
-<span class="nc" id="L145">            setSize(getPreferredSize());</span>
-<span class="nc" id="L146">        }</span>
-
-
-        /**
-         * Update this panel.
-         *
-         * @param dt The &lt;code&gt;DiplomaticTrade&lt;/code&gt; to update with.
-         */
-        private void update(DiplomaticTrade dt) {
-<span class="nc bnc" id="L155" title="All 2 branches missed.">            if (!source.isEuropean()) return;</span>
-
-            // Remove all action listeners, so the update has no effect (except
-            // updating the list).
-<span class="nc" id="L159">            ActionListener[] listeners = this.colonyBox.getActionListeners();</span>
-<span class="nc bnc" id="L160" title="All 2 branches missed.">            for (ActionListener al : listeners) {</span>
-<span class="nc" id="L161">                this.colonyBox.removeActionListener(al);</span>
-            }
-
-<span class="nc" id="L164">            List&lt;Colony&gt; available = new ArrayList&lt;&gt;(allColonies);</span>
-<span class="nc bnc" id="L165" title="All 2 branches missed.">            for (Colony c : dt.getColoniesGivenBy(source)) {</span>
-<span class="nc bnc" id="L166" title="All 2 branches missed.">                if (available.contains(c)) {</span>
-<span class="nc" id="L167">                    available.remove(c);</span>
-                } else {
-<span class="nc" id="L169">                    allColonies.add(c); // did not know about this!</span>
-                }
-<span class="nc" id="L171">            }</span>
-<span class="nc" id="L172">            Collections.sort(available, getFreeColClient()</span>
-<span class="nc" id="L173">                .getClientOptions().getColonyComparator());</span>
-
-<span class="nc" id="L175">            this.colonyBox.removeAllItems();</span>
-<span class="nc bnc" id="L176" title="All 2 branches missed.">            for (Colony c : available) this.colonyBox.addItem(c);</span>
-
-<span class="nc bnc" id="L178" title="All 2 branches missed.">            boolean enable = !available.isEmpty();</span>
-<span class="nc bnc" id="L179" title="All 2 branches missed.">            this.clearButton.setEnabled(!enable);</span>
-<span class="nc" id="L180">            this.addButton.setEnabled(enable);</span>
-<span class="nc" id="L181">            this.colonyBox.setEnabled(enable);</span>
-<span class="nc" id="L182">            this.label.setEnabled(enable);</span>
-
-<span class="nc bnc" id="L184" title="All 2 branches missed.">            for (ActionListener al : listeners) {</span>
-<span class="nc" id="L185">                this.colonyBox.addActionListener(al);</span>
-            }
-<span class="nc" id="L187">        }</span>
-
-
-        // Implement ActionListener
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void actionPerformed(ActionEvent ae) {
-<span class="nc" id="L197">            final String command = ae.getActionCommand();</span>
-<span class="nc bnc" id="L198" title="All 12 branches missed.">            if (null != command) switch (command) {</span>
-                case ADD:
-<span class="nc" id="L200">                    NegotiationDialog.this.addColonyTradeItem(source,</span>
-<span class="nc" id="L201">                            (Colony)colonyBox.getSelectedItem());</span>
-<span class="nc" id="L202">                    break;</span>
-                case CLEAR:
-<span class="nc" id="L204">                    NegotiationDialog.this</span>
-<span class="nc" id="L205">                            .removeTradeItems(ColonyTradeItem.class);</span>
-<span class="nc" id="L206">                    break;</span>
-                default:
-<span class="nc" id="L208">                    logger.warning(&quot;Bad command: &quot; + command);</span>
-                    break;
-            }
-<span class="nc" id="L211">        }</span>
-    }
-
-    private class GoldTradeItemPanel extends JPanel
-        implements ActionListener {
-
-        private final Player source;
-        private final JSpinner spinner;
-
-
-        /**
-         * Creates a new &lt;code&gt;GoldTradeItemPanel&lt;/code&gt; instance.
-         *
-         * @param source The &lt;code&gt;Player&lt;/code&gt; that is trading.
-         * @param gold The maximum amount of gold to trade.
-         */
-<span class="nc" id="L227">        public GoldTradeItemPanel(Player source, int gold) {</span>
-<span class="nc" id="L228">            this.source = source;</span>
-<span class="nc" id="L229">            this.spinner = new JSpinner(new SpinnerNumberModel(0, 0, gold, 1));</span>
-<span class="nc" id="L230">            JButton clearButton = Utility.localizedButton(&quot;negotiationDialog.clear&quot;);</span>
-<span class="nc" id="L231">            clearButton.addActionListener(this);</span>
-<span class="nc" id="L232">            clearButton.setActionCommand(CLEAR);</span>
-<span class="nc" id="L233">            JButton addButton = Utility.localizedButton(&quot;negotiationDialog.add&quot;);</span>
-<span class="nc" id="L234">            addButton.addActionListener(this);</span>
-<span class="nc" id="L235">            addButton.setActionCommand(ADD);</span>
-            // adjust entry size
-<span class="nc" id="L237">            ((JSpinner.DefaultEditor)this.spinner.getEditor())</span>
-<span class="nc" id="L238">                .getTextField().setColumns(5);</span>
-
-<span class="nc" id="L240">            setBorder(Utility.SIMPLE_LINE_BORDER);</span>
-<span class="nc" id="L241">            setLayout(new MigLayout(&quot;wrap 1&quot;, &quot;&quot;, &quot;&quot;));</span>
-
-<span class="nc" id="L243">            add(Utility.localizedLabel(Messages.getName(&quot;model.tradeItem.gold&quot;)));</span>
-<span class="nc" id="L244">            add(Utility.localizedLabel(StringTemplate</span>
-<span class="nc" id="L245">                    .template(&quot;negotiationDialog.goldAvailable&quot;)</span>
-<span class="nc" id="L246">                    .addAmount(&quot;%amount%&quot;, gold)));</span>
-<span class="nc" id="L247">            add(this.spinner);</span>
-<span class="nc" id="L248">            add(clearButton, &quot;split 2&quot;);</span>
-<span class="nc" id="L249">            add(addButton);</span>
-
-<span class="nc" id="L251">            setSize(getPreferredSize());</span>
-<span class="nc" id="L252">        }</span>
-
-
-        /**
-         * Update this panel.
-         *
-         * @param dt The &lt;code&gt;DiplomaticTrade&lt;/code&gt; to update with.
-         */
-        public void update(DiplomaticTrade dt) {
-<span class="nc" id="L261">            int gold = dt.getGoldGivenBy(source);</span>
-<span class="nc bnc" id="L262" title="All 2 branches missed.">            if (gold &gt;= 0) {</span>
-<span class="nc" id="L263">                SpinnerNumberModel model</span>
-<span class="nc" id="L264">                    = (SpinnerNumberModel)spinner.getModel();</span>
-<span class="nc" id="L265">                model.setValue(gold);</span>
-            }
-<span class="nc" id="L267">        }</span>
-
-
-        // Implement ActionListener
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void actionPerformed(ActionEvent ae) {
-<span class="nc" id="L277">            final String command = ae.getActionCommand();</span>
-<span class="nc bnc" id="L278" title="All 12 branches missed.">            if (null != command) switch (command) {</span>
-                case ADD:
-<span class="nc" id="L280">                    int amount = ((Integer)spinner.getValue());</span>
-<span class="nc" id="L281">                    NegotiationDialog.this.addGoldTradeItem(source, amount);</span>
-<span class="nc" id="L282">                    break;</span>
-                case CLEAR:
-<span class="nc" id="L284">                    NegotiationDialog.this</span>
-<span class="nc" id="L285">                            .removeTradeItems(GoldTradeItem.class);</span>
-<span class="nc" id="L286">                    break;</span>
-                default:
-<span class="nc" id="L288">                    logger.warning(&quot;Bad command: &quot; + command);</span>
-                    break;
-            }
-<span class="nc" id="L291">        }</span>
-    }
-
-    private class GoodsTradeItemPanel extends JPanel
-        implements ActionListener {
-
-<span class="nc" id="L297">        private class GoodsBoxRenderer extends JLabel</span>
-            implements ListCellRenderer&lt;Goods&gt; {
-
-            /**
-             * {@inheritDoc}
-             */
-            @Override
-            public Component getListCellRendererComponent(JList&lt;? extends Goods&gt; list,
-                Goods value, int index, boolean isSelected,
-                boolean cellHasFocus) {
-<span class="nc bnc" id="L307" title="All 2 branches missed.">                setText((value == null) ? &quot;&quot;</span>
-<span class="nc" id="L308">                    : Messages.message(value.getLabel(true)));</span>
-<span class="nc" id="L309">                return this;</span>
-            }
-        }
-
-        private final Player source;
-        private final JComboBox&lt;Goods&gt; goodsBox;
-        private final JButton clearButton;
-        private final JButton addButton;
-        private final JLabel label;
-        private final List&lt;Goods&gt; allGoods;
-
-
-        /**
-         * Creates a new &lt;code&gt;GoodsTradeItemPanel&lt;/code&gt; instance.
-         *
-         * @param source The &lt;code&gt;Player&lt;/code&gt; nominally in possession of the
-         *     goods (this may be totally fictional).
-         * @param allGoods The &lt;code&gt;Goods&lt;/code&gt; to trade.
-         */
-<span class="nc" id="L328">        public GoodsTradeItemPanel(Player source, List&lt;Goods&gt; allGoods) {</span>
-<span class="nc" id="L329">            this.source = source;</span>
-<span class="nc" id="L330">            this.goodsBox = new JComboBox&lt;&gt;(new DefaultComboBoxModel&lt;Goods&gt;());</span>
-<span class="nc" id="L331">            this.goodsBox.setRenderer(new GoodsBoxRenderer());</span>
-<span class="nc" id="L332">            this.clearButton = Utility.localizedButton(&quot;negotiationDialog.clear&quot;);</span>
-<span class="nc" id="L333">            this.clearButton.addActionListener(this);</span>
-<span class="nc" id="L334">            this.clearButton.setActionCommand(CLEAR);</span>
-<span class="nc" id="L335">            this.addButton = Utility.localizedButton(&quot;negotiationDialog.add&quot;);</span>
-<span class="nc" id="L336">            this.addButton.addActionListener(this);</span>
-<span class="nc" id="L337">            this.addButton.setActionCommand(ADD);</span>
-<span class="nc" id="L338">            this.label = Utility.localizedLabel(Messages.nameKey(&quot;model.tradeItem.goods&quot;));</span>
-<span class="nc" id="L339">            this.allGoods = allGoods;</span>
-
-<span class="nc" id="L341">            setLayout(new MigLayout(&quot;wrap 1&quot;, &quot;&quot;, &quot;&quot;));</span>
-<span class="nc" id="L342">            setBorder(Utility.SIMPLE_LINE_BORDER);</span>
-
-<span class="nc" id="L344">            add(this.label);</span>
-<span class="nc" id="L345">            add(this.goodsBox);</span>
-<span class="nc" id="L346">            add(this.clearButton, &quot;split 2&quot;);</span>
-<span class="nc" id="L347">            add(this.addButton);</span>
-
-<span class="nc" id="L349">            setSize(getPreferredSize());</span>
-<span class="nc" id="L350">        }</span>
-
-
-        /**
-         * Update this panel.
-         *
-         * @param dt The &lt;code&gt;DiplomaticTrade&lt;/code&gt; to update with.
-         */
-        public void update(DiplomaticTrade dt) {
-            // Remove all action listeners, so the update has no
-            // effect (except updating the list).
-<span class="nc" id="L361">            ActionListener[] listeners = this.goodsBox.getActionListeners();</span>
-<span class="nc bnc" id="L362" title="All 2 branches missed.">            for (ActionListener al : listeners) {</span>
-<span class="nc" id="L363">                this.goodsBox.removeActionListener(al);</span>
-            }
-
-<span class="nc" id="L366">            List&lt;Goods&gt; available = new ArrayList&lt;&gt;(allGoods);</span>
-<span class="nc bnc" id="L367" title="All 2 branches missed.">            for (Goods goods : dt.getGoodsGivenBy(source)) {</span>
-                // Remove the ones already on the table
-<span class="nc bnc" id="L369" title="All 2 branches missed.">                for (int i = 0; i &lt; available.size(); i++) {</span>
-<span class="nc" id="L370">                    Goods g = available.get(i);</span>
-<span class="nc bnc" id="L371" title="All 2 branches missed.">                    if (g.getType() == goods.getType()) {</span>
-<span class="nc bnc" id="L372" title="All 2 branches missed.">                        if (g.getAmount() &lt;= goods.getAmount()) {</span>
-<span class="nc" id="L373">                            available.remove(i);</span>
-                        } else {
-<span class="nc" id="L375">                            g.setAmount(g.getAmount() - goods.getAmount());</span>
-                        }
-<span class="nc" id="L377">                        break;</span>
-                    }
-                }
-<span class="nc" id="L380">            }</span>
-
-<span class="nc" id="L382">            this.goodsBox.removeAllItems();</span>
-<span class="nc bnc" id="L383" title="All 2 branches missed.">            for (Goods g : available) goodsBox.addItem(g);</span>
-
-<span class="nc bnc" id="L385" title="All 2 branches missed.">            boolean enable = !available.isEmpty();</span>
-<span class="nc" id="L386">            this.label.setEnabled(enable);</span>
-<span class="nc bnc" id="L387" title="All 2 branches missed.">            this.clearButton.setEnabled(!enable);</span>
-<span class="nc" id="L388">            this.addButton.setEnabled(enable);</span>
-<span class="nc" id="L389">            this.goodsBox.setEnabled(enable);</span>
-
-<span class="nc bnc" id="L391" title="All 2 branches missed.">            for (ActionListener al : listeners) {</span>
-<span class="nc" id="L392">                this.goodsBox.addActionListener(al);</span>
-            }
-<span class="nc" id="L394">        }</span>
-
-
-        // Interface ActionListener
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void actionPerformed(ActionEvent ae) {
-<span class="nc" id="L404">            final String command = ae.getActionCommand();</span>
-<span class="nc bnc" id="L405" title="All 12 branches missed.">            if (null != command) switch (command) {</span>
-                case ADD:
-<span class="nc" id="L407">                    NegotiationDialog.this.addGoodsTradeItem(source,</span>
-<span class="nc" id="L408">                            (Goods)goodsBox.getSelectedItem());</span>
-<span class="nc" id="L409">                    break;</span>
-                case CLEAR:
-<span class="nc" id="L411">                    NegotiationDialog.this</span>
-<span class="nc" id="L412">                            .removeTradeItems(GoodsTradeItem.class);</span>
-<span class="nc" id="L413">                    break;</span>
-                default:
-<span class="nc" id="L415">                    logger.warning(&quot;Bad command: &quot; + command);</span>
-                    break;
-            }
-<span class="nc" id="L418">        }</span>
-    }
-
-    private class InciteTradeItemPanel extends JPanel
-        implements ActionListener {
-
-<span class="nc" id="L424">        private class InciteBoxRenderer extends JLabel</span>
-            implements ListCellRenderer&lt;Player&gt; {
-
-            /**
-             * {@inheritDoc}
-             */
-            @Override
-            public Component getListCellRendererComponent(JList&lt;? extends Player&gt; list,
-                Player value, int index, boolean isSelected,
-                boolean cellHasFocus) {
-<span class="nc bnc" id="L434" title="All 2 branches missed.">                setText((value == null) ? &quot;&quot;</span>
-<span class="nc" id="L435">                    : Messages.message(value.getNationLabel()));</span>
-<span class="nc" id="L436">                return this;</span>
-            }
-        }
-
-        private final Player source;
-        private final Player other;
-        private final JComboBox&lt;Player&gt; victimBox;
-        private final JLabel label;
-        private final JButton clearButton;
-        private final JButton addButton;
-<span class="nc" id="L446">        private final List&lt;Player&gt; available = new ArrayList&lt;&gt;();</span>
-
-
-        /**
-         * Creates a new &lt;code&gt;InciteTradeItemPanel&lt;/code&gt; instance.
-         *
-         * @param source The &lt;code&gt;Player&lt;/code&gt; that is trading.
-         * @param other The &lt;code&gt;Player&lt;/code&gt; negotiated with.
-         */
-<span class="nc" id="L455">        public InciteTradeItemPanel(Player source, Player other) {</span>
-<span class="nc" id="L456">            this.source = source;</span>
-<span class="nc" id="L457">            this.other = other;</span>
-<span class="nc" id="L458">            this.victimBox = new JComboBox&lt;&gt;(new DefaultComboBoxModel&lt;Player&gt;());</span>
-<span class="nc" id="L459">            this.victimBox.setRenderer(new InciteBoxRenderer());</span>
-<span class="nc" id="L460">            this.clearButton = Utility.localizedButton(&quot;negotiationDialog.clear&quot;);</span>
-<span class="nc" id="L461">            this.clearButton.addActionListener(this);</span>
-<span class="nc" id="L462">            this.clearButton.setActionCommand(CLEAR);</span>
-<span class="nc" id="L463">            this.addButton = Utility.localizedButton(&quot;negotiationDialog.add&quot;);</span>
-<span class="nc" id="L464">            this.addButton.addActionListener(this);</span>
-<span class="nc" id="L465">            this.addButton.setActionCommand(ADD);</span>
-<span class="nc" id="L466">            this.label = Utility.localizedLabel(Messages.nameKey(&quot;model.tradeItem.incite&quot;));</span>
-
-<span class="nc" id="L468">            setBorder(Utility.SIMPLE_LINE_BORDER);</span>
-<span class="nc" id="L469">            setLayout(new MigLayout(&quot;wrap 1&quot;, &quot;&quot;, &quot;&quot;));</span>
-
-<span class="nc" id="L471">            available.clear();</span>
-<span class="nc bnc" id="L472" title="All 2 branches missed.">            for (Player p : getGame().getLivePlayers(this.source)) {</span>
-<span class="nc bnc" id="L473" title="All 2 branches missed.">                if (p == this.other</span>
-<span class="nc bnc" id="L474" title="All 2 branches missed.">                    || this.source.getStance(p) == Stance.ALLIANCE</span>
-<span class="nc bnc" id="L475" title="All 2 branches missed.">                    || this.source.getStance(p) == Stance.WAR) continue;</span>
-<span class="nc" id="L476">                available.add(p);</span>
-<span class="nc" id="L477">            }</span>
-
-<span class="nc" id="L479">            add(this.label);</span>
-<span class="nc" id="L480">            add(this.victimBox);</span>
-<span class="nc" id="L481">            add(this.clearButton, &quot;split 2&quot;);</span>
-<span class="nc" id="L482">            add(this.addButton);</span>
-
-<span class="nc" id="L484">            setSize(getPreferredSize());</span>
-<span class="nc" id="L485">        }</span>
-
-
-        /**
-         * Update this panel.
-         *
-         * @param dt The &lt;code&gt;DiplomaticTrade&lt;/code&gt; to update with.
-         */
-        public void update(DiplomaticTrade dt) {
-            // Remove all action listeners, so the update has no
-            // effect (except updating the list).
-<span class="nc" id="L496">            ActionListener[] listeners = this.victimBox.getActionListeners();</span>
-<span class="nc bnc" id="L497" title="All 2 branches missed.">            for (ActionListener al : listeners) {</span>
-<span class="nc" id="L498">                this.victimBox.removeActionListener(al);</span>
-            }
-
-<span class="nc" id="L501">            this.victimBox.removeAllItems();</span>
-<span class="nc bnc" id="L502" title="All 2 branches missed.">            for (Player p : available) victimBox.addItem(p);</span>
-
-<span class="nc bnc" id="L504" title="All 2 branches missed.">            boolean enable = !available.isEmpty();</span>
-<span class="nc" id="L505">            this.label.setEnabled(enable);</span>
-<span class="nc bnc" id="L506" title="All 2 branches missed.">            this.clearButton.setEnabled(!enable);</span>
-<span class="nc" id="L507">            this.addButton.setEnabled(enable);</span>
-<span class="nc" id="L508">            this.victimBox.setEnabled(enable);</span>
-
-<span class="nc bnc" id="L510" title="All 2 branches missed.">            for (ActionListener al : listeners) {</span>
-<span class="nc" id="L511">                this.victimBox.addActionListener(al);</span>
-            }
-<span class="nc" id="L513">        }</span>
-
-
-        // Implement ActionListener
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void actionPerformed(ActionEvent ae) {
-<span class="nc" id="L523">            final String command = ae.getActionCommand();</span>
-<span class="nc bnc" id="L524" title="All 12 branches missed.">            if (null != command) switch (command) {</span>
-                case ADD:
-<span class="nc" id="L526">                    Player victim = (Player)victimBox.getSelectedItem();</span>
-<span class="nc bnc" id="L527" title="All 2 branches missed.">                    if (victim != null) {</span>
-<span class="nc" id="L528">                        NegotiationDialog.this</span>
-<span class="nc" id="L529">                                .addInciteTradeItem(source, victim);</span>
-                    }   break;
-                case CLEAR:
-<span class="nc" id="L532">                    NegotiationDialog.this</span>
-<span class="nc" id="L533">                            .removeTradeItems(InciteTradeItem.class);</span>
-<span class="nc" id="L534">                    break;</span>
-                default:
-<span class="nc" id="L536">                    logger.warning(&quot;Bad command: &quot; + command);</span>
-                    break;
-            }
-<span class="nc" id="L539">        }</span>
-    }
-
-    /**
-     * Class for the stance trade panel.  Access needs to be public so
-     * that comboBoxLabel() is externally visible.
-     */
-    public class StanceTradeItemPanel extends JPanel
-        implements ActionListener {
-
-<span class="nc" id="L549">        private class StanceBoxRenderer extends JLabel</span>
-            implements ListCellRenderer&lt;Stance&gt; {
-
-            /**
-             * {@inheritDoc}
-             */
-            @Override
-            public Component getListCellRendererComponent(JList&lt;? extends Stance&gt; list,
-                Stance value, int index, boolean isSelected,
-                boolean cellHasFocus) {
-<span class="nc bnc" id="L559" title="All 2 branches missed.">                setText((value == null) ? &quot;&quot; : Messages.getName(value));</span>
-<span class="nc" id="L560">                return this;</span>
-            }
-        }
-
-        private final Player source;
-        private final Player target;
-        private final JComboBox&lt;Stance&gt; stanceBox;
-        private final JButton clearButton;
-        private final JButton addButton;
-
-
-        /**
-         * Creates a new &lt;code&gt;StanceTradeItemPanel&lt;/code&gt; instance.
-         *
-         * @param source The &lt;code&gt;Player&lt;/code&gt; offering the stance change.
-         * @param target The &lt;code&gt;Player&lt;/code&gt; to consider the stance change.
-         */
-<span class="nc" id="L577">        public StanceTradeItemPanel(Player source, Player target) {</span>
-<span class="nc" id="L578">            this.source = source;</span>
-<span class="nc" id="L579">            this.target = target;</span>
-<span class="nc" id="L580">            this.stanceBox = new JComboBox&lt;&gt;(new DefaultComboBoxModel&lt;Stance&gt;());</span>
-<span class="nc" id="L581">            this.stanceBox.setRenderer(new StanceBoxRenderer());</span>
-<span class="nc" id="L582">            this.clearButton = Utility.localizedButton(&quot;negotiationDialog.clear&quot;);</span>
-<span class="nc" id="L583">            this.clearButton.addActionListener(this);</span>
-<span class="nc" id="L584">            this.clearButton.setActionCommand(CLEAR);</span>
-<span class="nc" id="L585">            this.addButton = Utility.localizedButton(&quot;negotiationDialog.add&quot;);</span>
-<span class="nc" id="L586">            this.addButton.addActionListener(this);</span>
-<span class="nc" id="L587">            this.addButton.setActionCommand(ADD);</span>
-
-<span class="nc" id="L589">            setBorder(Utility.SIMPLE_LINE_BORDER);</span>
-<span class="nc" id="L590">            setLayout(new MigLayout(&quot;wrap 1&quot;, &quot;&quot;, &quot;&quot;));</span>
-
-<span class="nc" id="L592">            add(Utility.localizedLabel(Messages.nameKey(&quot;model.tradeItem.stance&quot;)));</span>
-<span class="nc" id="L593">            add(this.stanceBox);</span>
-<span class="nc" id="L594">            add(this.clearButton, &quot;split 2&quot;);</span>
-<span class="nc" id="L595">            add(this.addButton);</span>
-<span class="nc" id="L596">        }</span>
-
-
-        /**
-         * Select the item with a given stance.
-         *
-         * @param stance The &lt;code&gt;Stance&lt;/code&gt; to select.
-         */
-        private void setSelectedValue(Stance stance) {
-<span class="nc bnc" id="L605" title="All 2 branches missed.">            for (int i = 0; i &lt; stanceBox.getItemCount(); i++) {</span>
-<span class="nc bnc" id="L606" title="All 2 branches missed.">                if (stanceBox.getItemAt(i) == stance) {</span>
-<span class="nc" id="L607">                    stanceBox.setSelectedItem(i);</span>
-                }
-            }
-<span class="nc" id="L610">        }</span>
-
-        /**
-         * Update this panel with a given trade.
-         *
-         * @param dt The &lt;code&gt;DiplomaticTrade&lt;/code&gt; to update with.
-         */
-        public void update(DiplomaticTrade dt) {
-<span class="nc" id="L618">            stanceBox.removeAllItems();</span>
-
-<span class="nc" id="L620">            Stance stance = source.getStance(target);</span>
-<span class="nc bnc" id="L621" title="All 2 branches missed.">            if (stance != Stance.WAR) {</span>
-<span class="nc" id="L622">                stanceBox.addItem(Stance.WAR);</span>
-            } else {
-<span class="nc" id="L624">                stanceBox.addItem(Stance.CEASE_FIRE);</span>
-            }
-<span class="nc bnc" id="L626" title="All 4 branches missed.">            if (stance != Stance.PEACE &amp;&amp; stance != Stance.UNCONTACTED) {</span>
-<span class="nc" id="L627">                stanceBox.addItem(Stance.PEACE);</span>
-            }
-<span class="nc bnc" id="L629" title="All 2 branches missed.">            if (stance == Stance.PEACE) {</span>
-<span class="nc" id="L630">                stanceBox.addItem(Stance.ALLIANCE);</span>
-            }
-
-<span class="nc" id="L633">            Stance select = dt.getStance();</span>
-<span class="nc bnc" id="L634" title="All 2 branches missed.">            if (select != null) setSelectedValue(select);</span>
-<span class="nc" id="L635">        }</span>
-
-
-        // Interface ActionListener
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void actionPerformed(ActionEvent ae) {
-<span class="nc" id="L645">            final String command = ae.getActionCommand();</span>
-<span class="nc bnc" id="L646" title="All 12 branches missed.">            if (null != command) switch (command) {</span>
-                case ADD:
-<span class="nc" id="L648">                    Stance stance = (Stance)stanceBox.getSelectedItem();</span>
-<span class="nc" id="L649">                    NegotiationDialog.this.addStanceTradeItem(stance);</span>
-<span class="nc" id="L650">                    break;</span>
-                case CLEAR:
-<span class="nc" id="L652">                    NegotiationDialog.this</span>
-<span class="nc" id="L653">                            .removeTradeItems(StanceTradeItem.class);</span>
-<span class="nc" id="L654">                    break;</span>
-                default:
-<span class="nc" id="L656">                    logger.warning(&quot;Bad command: &quot; + command);</span>
-                    break;
-            }
-<span class="nc" id="L659">        }</span>
-    }
-
-    private class UnitTradeItemPanel extends JPanel
-        implements ActionListener {
-
-<span class="nc" id="L665">        private class UnitBoxRenderer extends JLabel</span>
-            implements ListCellRenderer&lt;Unit&gt; {
-
-            /**
-             * {@inheritDoc}
-             */
-            @Override
-            public Component getListCellRendererComponent(JList&lt;? extends Unit&gt; list,
-                Unit value, int index, boolean isSelected,
-                boolean cellHasFocus) {
-<span class="nc bnc" id="L675" title="All 2 branches missed.">                setText((value == null) ? &quot;&quot; : value.getDescription());</span>
-<span class="nc" id="L676">                return this;</span>
-            }
-        }
-
-        private final Player source;
-        private final JComboBox&lt;Unit&gt; unitBox;
-        private final JButton clearButton;
-        private final JButton addButton;
-        private final JLabel label;
-        private final List&lt;Unit&gt; allUnits;
-
-
-        /**
-         * Creates a new &lt;code&gt;UnitTradeItemPanel&lt;/code&gt; instance.
-         *
-         * @param source The &lt;code&gt;Player&lt;/code&gt; nominally in posession of the
-         *     unit (this may be totally fictional).
-         * @param allUnits The &lt;code&gt;Unit&lt;/code&gt;s to trade.
-         */
-<span class="nc" id="L695">        public UnitTradeItemPanel(Player source, List&lt;Unit&gt; allUnits) {</span>
-<span class="nc" id="L696">            this.source = source;</span>
-<span class="nc" id="L697">            this.unitBox = new JComboBox&lt;&gt;(new DefaultComboBoxModel&lt;Unit&gt;());</span>
-<span class="nc" id="L698">            this.unitBox.setRenderer(new UnitBoxRenderer());</span>
-<span class="nc" id="L699">            this.clearButton = Utility.localizedButton(&quot;negotiationDialog.clear&quot;);</span>
-<span class="nc" id="L700">            this.clearButton.addActionListener(this);</span>
-<span class="nc" id="L701">            this.clearButton.setActionCommand(CLEAR);</span>
-<span class="nc" id="L702">            this.addButton = Utility.localizedButton(&quot;negotiationDialog.add&quot;);</span>
-<span class="nc" id="L703">            this.addButton.addActionListener(this);</span>
-<span class="nc" id="L704">            this.addButton.setActionCommand(ADD);</span>
-<span class="nc" id="L705">            this.label = Utility.localizedLabel(Messages.nameKey(&quot;model.tradeItem.unit&quot;));</span>
-<span class="nc" id="L706">            this.allUnits = allUnits;</span>
-
-<span class="nc" id="L708">            setLayout(new MigLayout(&quot;wrap 1&quot;, &quot;&quot;, &quot;&quot;));</span>
-<span class="nc" id="L709">            setBorder(Utility.SIMPLE_LINE_BORDER);</span>
-
-<span class="nc" id="L711">            add(this.label);</span>
-<span class="nc" id="L712">            add(this.unitBox);</span>
-<span class="nc" id="L713">            add(this.clearButton, &quot;split 2&quot;);</span>
-<span class="nc" id="L714">            add(this.addButton);</span>
-
-<span class="nc" id="L716">            setSize(getPreferredSize());</span>
-<span class="nc" id="L717">        }</span>
-
-
-        /**
-         * Update this panel with a given trade.
-         *
-         * @param dt The &lt;code&gt;DiplomaticTrade&lt;/code&gt; to update with.
-         */
-        private void update(DiplomaticTrade dt) {
-            // Remove all action listeners, so the update has no
-            // effect (except updating the list).
-<span class="nc" id="L728">            ActionListener[] listeners = unitBox.getActionListeners();</span>
-<span class="nc bnc" id="L729" title="All 2 branches missed.">            for (ActionListener al : listeners) {</span>
-<span class="nc" id="L730">                unitBox.removeActionListener(al);</span>
-            }
-
-<span class="nc" id="L733">            List&lt;Unit&gt; available = new ArrayList&lt;&gt;(allUnits);</span>
-<span class="nc bnc" id="L734" title="All 2 branches missed.">            for (Unit u : dt.getUnitsGivenBy(source)) {</span>
-                // Remove the ones already on the table
-<span class="nc bnc" id="L736" title="All 2 branches missed.">                if (available.contains(u)) {</span>
-<span class="nc" id="L737">                    available.remove(u);</span>
-                } else {
-<span class="nc" id="L739">                    allUnits.add(u); // Did not know about this!</span>
-                }
-<span class="nc" id="L741">            }</span>
-
-<span class="nc" id="L743">            unitBox.removeAllItems();</span>
-<span class="nc bnc" id="L744" title="All 2 branches missed.">            for (Unit u : available) unitBox.addItem(u);</span>
-
-<span class="nc bnc" id="L746" title="All 2 branches missed.">            boolean enable = !available.isEmpty();</span>
-<span class="nc" id="L747">            this.label.setEnabled(enable);</span>
-<span class="nc bnc" id="L748" title="All 2 branches missed.">            clearButton.setEnabled(!enable);</span>
-<span class="nc" id="L749">            addButton.setEnabled(enable);</span>
-<span class="nc" id="L750">            unitBox.setEnabled(enable);</span>
-
-<span class="nc bnc" id="L752" title="All 2 branches missed.">            for (ActionListener al : listeners) {</span>
-<span class="nc" id="L753">                unitBox.addActionListener(al);</span>
-            }
-<span class="nc" id="L755">        }</span>
-
-
-        // Interface ActionListener
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void actionPerformed(ActionEvent ae) {
-<span class="nc" id="L765">            final String command = ae.getActionCommand();</span>
-<span class="nc bnc" id="L766" title="All 12 branches missed.">            if (null != command) switch (command) {</span>
-                case ADD:
-<span class="nc" id="L768">                    NegotiationDialog.this.addUnitTradeItem(source,</span>
-<span class="nc" id="L769">                            (Unit)unitBox.getSelectedItem());</span>
-<span class="nc" id="L770">                    break;</span>
-                case CLEAR:
-<span class="nc" id="L772">                    NegotiationDialog.this</span>
-<span class="nc" id="L773">                            .removeTradeItems(UnitTradeItem.class);</span>
-<span class="nc" id="L774">                    break;</span>
-                default:
-<span class="nc" id="L776">                    logger.warning(&quot;Bad command: &quot; + command);</span>
-                    break;
-            }
-<span class="nc" id="L779">        }</span>
-    }
-
-
-    /** The other player in the negotiation (!= getMyPlayer()). */
-    private final Player otherPlayer;
-
-    /** The agreement under negotiation. */
-    private final DiplomaticTrade agreement;
-
-    /** A comment message. */
-    private final StringTemplate comment;
-
-    /** The panels for various negotiable data. */
-    private StanceTradeItemPanel stancePanel;
-    private GoldTradeItemPanel goldOfferPanel, goldDemandPanel;
-    private ColonyTradeItemPanel colonyOfferPanel, colonyDemandPanel;
-    private GoodsTradeItemPanel goodsOfferPanel, goodsDemandPanel;
-    private InciteTradeItemPanel inciteOfferPanel, inciteDemandPanel;
-    private UnitTradeItemPanel unitOfferPanel, unitDemandPanel;
-
-    /** A panel showing a summary of the current agreement. */
-    private JPanel summary;
-
-    /** Useful internal messages. */
-    private StringTemplate demand, offer;
-    private String exchangeMessage;
-
-    /** Responses. */
-<span class="nc" id="L808">    private ChoiceItem&lt;DiplomaticTrade&gt; send = null, accept = null;</span>
-
-
-    /**
-     * Creates a new &lt;code&gt;NegotiationDialog&lt;/code&gt; instance.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     * @param frame The owner frame.
-     * @param our Our &lt;code&gt;FreeColGameObject&lt;/code&gt; that is negotiating.
-     * @param other The other &lt;code&gt;FreeColGameObject&lt;/code&gt;.
-     * @param agreement The &lt;code&gt;DiplomaticTrade&lt;/code&gt; agreement that
-     *     is being negotiated.
-     * @param comment An optional &lt;code&gt;StringTemplate&lt;/code&gt;
-     *     commentary message.
-     */
-    public NegotiationDialog(FreeColClient freeColClient, JFrame frame,
-                             FreeColGameObject our, FreeColGameObject other,
-                             DiplomaticTrade agreement, StringTemplate comment) {
-<span class="nc" id="L826">        super(freeColClient, frame);</span>
-
-<span class="nc" id="L828">        final Player player = getMyPlayer();</span>
-<span class="nc bnc" id="L829" title="All 2 branches missed.">        final Unit ourUnit = (our instanceof Unit) ? (Unit)our : null;</span>
-<span class="nc bnc" id="L830" title="All 2 branches missed.">        final Colony ourColony = (our instanceof Colony) ? (Colony)our : null;</span>
-<span class="nc bnc" id="L831" title="All 2 branches missed.">        final Unit otherUnit = (other instanceof Unit) ? (Unit)other : null;</span>
-<span class="nc bnc" id="L832" title="All 2 branches missed.">        final Colony otherColony = (other instanceof Colony) ? (Colony)other</span>
-            : null;
-
-<span class="nc" id="L835">        this.otherPlayer = ((Ownable)other).getOwner();</span>
-<span class="nc" id="L836">        this.agreement = agreement;</span>
-<span class="nc" id="L837">        this.comment = comment;</span>
-
-<span class="nc" id="L839">        StringTemplate nation = player.getNationLabel(),</span>
-<span class="nc" id="L840">            otherNation = otherPlayer.getNationLabel();</span>
-<span class="nc" id="L841">        this.demand = StringTemplate.template(&quot;negotiationDialog.demand&quot;)</span>
-<span class="nc" id="L842">            .addStringTemplate(&quot;%nation%&quot;, nation)</span>
-<span class="nc" id="L843">            .addStringTemplate(&quot;%otherNation%&quot;, otherNation);</span>
-<span class="nc" id="L844">        this.offer = StringTemplate.template(&quot;negotiationDialog.offer&quot;)</span>
-<span class="nc" id="L845">            .addStringTemplate(&quot;%nation%&quot;, nation)</span>
-<span class="nc" id="L846">            .addStringTemplate(&quot;%otherNation%&quot;, otherNation);</span>
-<span class="nc" id="L847">        this.exchangeMessage = Messages.message(&quot;negotiationDialog.exchange&quot;);</span>
-
-<span class="nc" id="L849">        NationSummary ns = igc().getNationSummary(otherPlayer);</span>
-<span class="nc bnc" id="L850" title="All 2 branches missed.">        int gold = (ns == null</span>
-<span class="nc bnc" id="L851" title="All 2 branches missed.">            || ns.getGold() == Player.GOLD_NOT_ACCOUNTED) ? HUGE_DEMAND</span>
-<span class="nc" id="L852">            : ns.getGold();</span>
-<span class="nc" id="L853">        this.goldDemandPanel = new GoldTradeItemPanel(otherPlayer, gold);</span>
-
-<span class="nc bnc" id="L855" title="All 2 branches missed.">        gold = (player.getGold() == Player.GOLD_NOT_ACCOUNTED) ? HUGE_DEMAND</span>
-<span class="nc" id="L856">            : player.getGold();</span>
-<span class="nc" id="L857">        this.goldOfferPanel = new GoldTradeItemPanel(player, gold);</span>
-
-<span class="nc" id="L859">        StringTemplate tutorial = null;</span>
-<span class="nc" id="L860">        TradeContext context = agreement.getContext();</span>
-<span class="nc bnc" id="L861" title="All 5 branches missed.">        switch (context) {</span>
-        case CONTACT:
-<span class="nc bnc" id="L863" title="All 2 branches missed.">            if (freeColClient.tutorialMode()) {</span>
-<span class="nc" id="L864">                tutorial = StringTemplate.key(&quot;negotiationDialog.contact.tutorial&quot;);</span>
-            }
-<span class="nc" id="L866">            this.stancePanel = new StanceTradeItemPanel(player, otherPlayer);</span>
-<span class="nc" id="L867">            this.inciteOfferPanel = new InciteTradeItemPanel(player, otherPlayer);</span>
-<span class="nc" id="L868">            this.inciteDemandPanel = new InciteTradeItemPanel(otherPlayer, player);</span>
-<span class="nc" id="L869">            break;</span>
-        case DIPLOMATIC:
-<span class="nc" id="L871">            this.stancePanel = new StanceTradeItemPanel(player, otherPlayer);</span>
-<span class="nc" id="L872">            this.colonyDemandPanel = new ColonyTradeItemPanel(otherPlayer);</span>
-<span class="nc" id="L873">            this.colonyOfferPanel = new ColonyTradeItemPanel(player);</span>
-<span class="nc" id="L874">            this.goodsDemandPanel = this.goodsOfferPanel = null;</span>
-<span class="nc" id="L875">            this.inciteOfferPanel = new InciteTradeItemPanel(player, otherPlayer);</span>
-<span class="nc" id="L876">            this.inciteDemandPanel = new InciteTradeItemPanel(otherPlayer, player);</span>
-<span class="nc" id="L877">            this.unitOfferPanel = this.unitDemandPanel = null;</span>
-<span class="nc" id="L878">            break;</span>
-        case TRADE:
-<span class="nc" id="L880">            this.stancePanel = null;</span>
-<span class="nc" id="L881">            this.colonyDemandPanel = this.colonyOfferPanel = null;</span>
-<span class="nc bnc" id="L882" title="All 2 branches missed.">            GoodsLocation gl = (otherUnit != null) ? otherUnit : otherColony;</span>
-<span class="nc" id="L883">            List&lt;Goods&gt; goods = getAnyGoods(gl);</span>
-<span class="nc" id="L884">            this.goodsDemandPanel = new GoodsTradeItemPanel(otherPlayer, goods);</span>
-<span class="nc bnc" id="L885" title="All 2 branches missed.">            gl = (ourUnit != null) ? ourUnit : ourColony;</span>
-<span class="nc bnc" id="L886" title="All 2 branches missed.">            goods = (ourUnit != null) ? ourUnit.getGoodsList()</span>
-<span class="nc" id="L887">                : ourColony.getCompactGoods();</span>
-<span class="nc bnc" id="L888" title="All 2 branches missed.">            for (Goods g : goods) {</span>
-<span class="nc bnc" id="L889" title="All 2 branches missed.">                if (g.getAmount() &gt; GoodsContainer.CARGO_SIZE) {</span>
-<span class="nc" id="L890">                    g.setAmount(GoodsContainer.CARGO_SIZE);</span>
-                }
-<span class="nc" id="L892">                g.setLocation(gl);</span>
-<span class="nc" id="L893">            }</span>
-<span class="nc" id="L894">            this.goodsOfferPanel = new GoodsTradeItemPanel(player, goods);</span>
-<span class="nc" id="L895">            this.inciteOfferPanel = this.inciteDemandPanel = null;</span>
-<span class="nc" id="L896">            this.unitDemandPanel = new UnitTradeItemPanel(otherPlayer,</span>
-<span class="nc" id="L897">                    getUnitUnitList(null));</span>
-<span class="nc bnc" id="L898" title="All 2 branches missed.">            this.unitOfferPanel = new UnitTradeItemPanel(player,</span>
-<span class="nc" id="L899">                ((ourUnit != null) ? getUnitUnitList(ourUnit)</span>
-<span class="nc" id="L900">                    : ourColony.getUnitList()));</span>
-<span class="nc" id="L901">            break;</span>
-        case TRIBUTE:
-<span class="nc" id="L903">            this.stancePanel = new StanceTradeItemPanel(player, otherPlayer);</span>
-<span class="nc" id="L904">            this.colonyDemandPanel = this.colonyOfferPanel = null;</span>
-<span class="nc" id="L905">            this.goodsDemandPanel = this.goodsOfferPanel = null;</span>
-<span class="nc" id="L906">            this.inciteOfferPanel = new InciteTradeItemPanel(player, otherPlayer);</span>
-<span class="nc" id="L907">            this.inciteDemandPanel = new InciteTradeItemPanel(otherPlayer, player);</span>
-<span class="nc" id="L908">            this.unitOfferPanel = this.unitDemandPanel = null;</span>
-<span class="nc" id="L909">            break;</span>
-        default:
-<span class="nc" id="L911">            throw new IllegalStateException(&quot;Bogus trade context: &quot; + context);</span>
-        }
-
-<span class="nc" id="L914">        this.summary = new MigPanel(new MigLayout(&quot;wrap 2&quot;, &quot;[20px:n:n][]&quot;));</span>
-<span class="nc" id="L915">        this.summary.setOpaque(false);</span>
-<span class="nc" id="L916">        this.summary.add(Utility.localizedTextArea(comment), &quot;center, span 2&quot;);</span>
-
-        /**
-         * Build Layout of Diplomatic Trade Dialog
-         */
-<span class="nc" id="L921">        MigPanel panel = new MigPanel(new MigLayout(&quot;wrap 3&quot;,</span>
-                &quot;[30%|40%|30%]&quot;, &quot;&quot;));
-        // Main Panel Header
-<span class="nc" id="L924">        panel.add(Utility.localizedHeader(&quot;negotiationDialog.title.&quot;</span>
-<span class="nc" id="L925">                + agreement.getContext().getKey(), false), </span>
-                  &quot;span 3, center&quot;);
-        
-        // Panel contents Header row
-<span class="nc" id="L929">        JTextArea labelDemandMessage = Utility.localizedTextArea(this.demand);</span>
-<span class="nc" id="L930">        Font font = FontLibrary.createFont(FontLibrary.FontType.NORMAL, </span>
-                FontLibrary.FontSize.TINY, Font.BOLD,
-<span class="nc" id="L932">                getImageLibrary().getScaleFactor());</span>
-<span class="nc" id="L933">        labelDemandMessage.setFont(font);</span>
-<span class="nc" id="L934">        panel.add(labelDemandMessage);</span>
-<span class="nc" id="L935">        JTextArea blank = new JTextArea(&quot; &quot;);</span>
-<span class="nc" id="L936">        blank.setVisible(false);</span>
-<span class="nc" id="L937">        panel.add(blank, &quot;&quot;);</span>
-<span class="nc" id="L938">        JTextArea labelOfferMessage = Utility.localizedTextArea(this.offer);</span>
-<span class="nc" id="L939">        labelOfferMessage.setFont(font);</span>
-<span class="nc" id="L940">        panel.add(labelOfferMessage);</span>
-
-        // Panel contents
-        // TODO: Expand center panel so that contents fill cell horizontally. 
-<span class="nc" id="L944">        panel.add(this.goldDemandPanel); // Left pane</span>
-<span class="nc" id="L945">            JPanel centerPanel = new MigPanel();</span>
-<span class="nc" id="L946">            centerPanel.setLayout(new MigLayout(&quot;wrap 1&quot;));</span>
-<span class="nc bnc" id="L947" title="All 2 branches missed.">            if (tutorial != null) {</span>
-                // Display only if tutorial variable contents overriden
-                //      Can only occur if: First Contact with a forgeign Nation
-<span class="nc" id="L950">                JTextArea tutArea = Utility.localizedTextArea(tutorial, 30);</span>
-<span class="nc" id="L951">                centerPanel.add(tutArea, &quot;center&quot;);</span>
-            }
-<span class="nc" id="L953">            centerPanel.add(this.summary, &quot;top&quot;);</span>
-<span class="nc" id="L954">        panel.add(centerPanel, &quot;spany, top&quot;); // Center pane</span>
-<span class="nc" id="L955">        panel.add(this.goldOfferPanel); // Right pane</span>
-
-<span class="nc bnc" id="L957" title="All 2 branches missed.">        if (this.colonyDemandPanel != null) {</span>
-<span class="nc" id="L958">            panel.add(this.colonyDemandPanel);</span>
-<span class="nc" id="L959">            panel.add(this.colonyOfferPanel);</span>
-        }
-<span class="nc bnc" id="L961" title="All 2 branches missed.">        if (this.stancePanel != null) {</span>
-<span class="nc" id="L962">            panel.add(this.stancePanel, &quot;skip&quot;);</span>
-        }
-<span class="nc bnc" id="L964" title="All 2 branches missed.">        if (this.goodsDemandPanel != null) {</span>
-<span class="nc" id="L965">            panel.add(this.goodsDemandPanel);</span>
-<span class="nc" id="L966">            panel.add(this.goodsOfferPanel);</span>
-        }
-<span class="nc bnc" id="L968" title="All 2 branches missed.">        if (this.inciteDemandPanel != null) {</span>
-<span class="nc" id="L969">            panel.add(this.inciteDemandPanel);</span>
-<span class="nc" id="L970">            panel.add(this.inciteOfferPanel);</span>
-        }
-<span class="nc bnc" id="L972" title="All 2 branches missed.">        if (this.unitDemandPanel != null) {</span>
-<span class="nc" id="L973">            panel.add(this.unitDemandPanel);</span>
-<span class="nc" id="L974">            panel.add(this.unitOfferPanel);</span>
-        }
-<span class="nc bnc" id="L976" title="All 2 branches missed.">        if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.MENUS)) {</span>
-<span class="nc" id="L977">            panel.add(new JLabel(&quot;Version = &quot; + agreement.getVersion()));</span>
-        }
-<span class="nc" id="L979">        panel.setPreferredSize(panel.getPreferredSize());</span>
-
-<span class="nc" id="L981">        DiplomaticTrade bogus = null;</span>
-        String str;
-<span class="nc" id="L983">        List&lt;ChoiceItem&lt;DiplomaticTrade&gt;&gt; c = choices();</span>
-<span class="nc bnc" id="L984" title="All 2 branches missed.">        if (agreement.getVersion() &gt; 0) { // A new offer can not be accepted</span>
-<span class="nc" id="L985">            str = Messages.message(&quot;negotiationDialog.accept&quot;);</span>
-<span class="nc" id="L986">            c.add(this.accept = new ChoiceItem&lt;&gt;(str, bogus));</span>
-        }
-<span class="nc" id="L988">        str = Messages.message(&quot;negotiationDialog.send&quot;);</span>
-<span class="nc" id="L989">        c.add(this.send = new ChoiceItem&lt;&gt;(str, bogus).okOption());</span>
-<span class="nc bnc" id="L990" title="All 4 branches missed.">        if (agreement.getVersion() &gt; 0 || context != TradeContext.CONTACT) {</span>
-<span class="nc" id="L991">            str = Messages.message(&quot;negotiationDialog.cancel&quot;);</span>
-<span class="nc" id="L992">            c.add(new ChoiceItem&lt;&gt;(str, bogus).cancelOption().defaultOption());</span>
-        }
-<span class="nc" id="L994">        updateDialog();</span>
-
-<span class="nc bnc" id="L996" title="All 2 branches missed.">        ImageIcon icon = new ImageIcon((otherColony != null)</span>
-<span class="nc" id="L997">            ? getImageLibrary().getSettlementImage(otherColony)</span>
-<span class="nc" id="L998">            : getImageLibrary().getUnitImage(otherUnit));</span>
-<span class="nc" id="L999">        initializeDialog(frame, DialogType.QUESTION, true, panel, icon, c);</span>
-<span class="nc" id="L1000">    }</span>
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public DiplomaticTrade getResponse() {
-<span class="nc" id="L1008">        Object value = getValue();</span>
-<span class="nc bnc" id="L1009" title="All 6 branches missed.">        TradeStatus s = (value == null) ? TradeStatus.REJECT_TRADE</span>
-            : (value == this.accept) ? TradeStatus.ACCEPT_TRADE
-            : (value == this.send) ? TradeStatus.PROPOSE_TRADE
-            : TradeStatus.REJECT_TRADE;
-<span class="nc" id="L1013">        agreement.setStatus(s);</span>
-<span class="nc" id="L1014">        return agreement;</span>
-    }
-
-    /**
-     * Gets a list of all possible storable goods (one cargo load).
-     * Note that these goods are fictional.  They are the goods that
-     * *might* be in the other player's store.  Therefore they have a
-     * bogus location (i.e. not the actual goods container).
-     *
-     * @param gl The &lt;code&gt;GoodsLocation&lt;/code&gt; for the goods.
-     * @return A list of storable &lt;code&gt;Goods&lt;/code&gt;.
-     */
-    private List&lt;Goods&gt; getAnyGoods(GoodsLocation gl) {
-<span class="nc" id="L1027">        List&lt;Goods&gt; goodsList = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L1028" title="All 2 branches missed.">        for (GoodsType type : getSpecification().getStorableGoodsTypeList()) {</span>
-<span class="nc" id="L1029">            Goods g = new Goods(getGame(), null, type,</span>
-                                GoodsContainer.CARGO_SIZE);
-<span class="nc" id="L1031">            g.setLocation(gl);</span>
-<span class="nc" id="L1032">            goodsList.add(g);</span>
-<span class="nc" id="L1033">        }</span>
-<span class="nc" id="L1034">        return goodsList;</span>
-    }
-
-    /**
-     * Get a list of units to offer that are associated with a given unit.
-     *
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; that is trading.
-     * @return A list of &lt;code&gt;Unit&lt;/code&gt;s.
-     */
-    private List&lt;Unit&gt; getUnitUnitList(Unit unit) {
-<span class="nc" id="L1044">        List&lt;Unit&gt; ul = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L1045" title="All 2 branches missed.">        if (unit != null) {</span>
-<span class="nc bnc" id="L1046" title="All 2 branches missed.">            if (unit.isCarrier()) {</span>
-<span class="nc" id="L1047">                ul.addAll(unit.getUnitList());</span>
-<span class="nc bnc" id="L1048" title="All 2 branches missed.">            } else if (unit.isOnCarrier()) {</span>
-<span class="nc" id="L1049">                ul.addAll(unit.getCarrier().getUnitList());</span>
-            } else {
-<span class="nc" id="L1051">                ul.add(unit);</span>
-            }
-        }
-<span class="nc" id="L1054">        return ul;</span>
-    }
-
-    /**
-     * Update the entire dialog.
-     */
-    private void updateDialog() {
-<span class="nc bnc" id="L1061" title="All 2 branches missed.">        if (this.goldOfferPanel != null) {</span>
-<span class="nc" id="L1062">            this.goldOfferPanel.update(agreement);</span>
-        }
-<span class="nc bnc" id="L1064" title="All 2 branches missed.">        if (this.stancePanel != null) {</span>
-<span class="nc" id="L1065">            this.stancePanel.update(agreement);</span>
-        }
-<span class="nc bnc" id="L1067" title="All 2 branches missed.">        if (this.colonyOfferPanel != null) {</span>
-<span class="nc" id="L1068">            this.colonyOfferPanel.update(agreement);</span>
-        }
-<span class="nc bnc" id="L1070" title="All 2 branches missed.">        if (this.colonyDemandPanel != null) {</span>
-<span class="nc" id="L1071">            this.colonyDemandPanel.update(agreement);</span>
-        }
-<span class="nc bnc" id="L1073" title="All 2 branches missed.">        if (this.goodsOfferPanel != null) {</span>
-<span class="nc" id="L1074">            this.goodsOfferPanel.update(agreement);</span>
-        }
-<span class="nc bnc" id="L1076" title="All 2 branches missed.">        if (this.goodsDemandPanel != null) {</span>
-<span class="nc" id="L1077">            this.goodsDemandPanel.update(agreement);</span>
-        }
-<span class="nc bnc" id="L1079" title="All 2 branches missed.">        if (this.inciteOfferPanel != null) {</span>
-<span class="nc" id="L1080">            this.inciteOfferPanel.update(agreement);</span>
-        }
-<span class="nc bnc" id="L1082" title="All 2 branches missed.">        if (this.inciteDemandPanel != null) {</span>
-<span class="nc" id="L1083">            this.inciteDemandPanel.update(agreement);</span>
-        }
-<span class="nc bnc" id="L1085" title="All 2 branches missed.">        if (this.unitOfferPanel != null) {</span>
-<span class="nc" id="L1086">            this.unitOfferPanel.update(agreement);</span>
-        }
-<span class="nc bnc" id="L1088" title="All 2 branches missed.">        if (this.unitDemandPanel != null) {</span>
-<span class="nc" id="L1089">            this.unitDemandPanel.update(agreement);</span>
-        }
-
-<span class="nc" id="L1092">        updateSummary();</span>
-<span class="nc" id="L1093">    }</span>
-
-    /**
-     * Gets a trade item button for a given item.
-     *
-     * @param item The &lt;code&gt;TradeItem&lt;/code&gt; to make a button for.
-     * @return A new &lt;code&gt;JButton&lt;/code&gt; for the item.
-     */
-    private JButton getTradeItemButton(TradeItem item) {
-<span class="nc" id="L1102">        JButton button = new JButton(new RemoveAction(item));</span>
-<span class="nc" id="L1103">        button.setText(Messages.message(item.getLabel()));</span>
-<span class="nc" id="L1104">        button.setMargin(Utility.EMPTY_MARGIN);</span>
-<span class="nc" id="L1105">        button.setOpaque(false);</span>
-<span class="nc" id="L1106">        button.setForeground(Utility.LINK_COLOR);</span>
-<span class="nc" id="L1107">        button.setBorder(Utility.blankBorder(0, 0, 0, 0));</span>
-<span class="nc" id="L1108">        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));</span>
-<span class="nc" id="L1109">        return button;</span>
-    }
-
-    /**
-     * Update the text summary of the proposed transaction.
-     */
-    private void updateSummary() {
-<span class="nc" id="L1116">        final Player player = getMyPlayer();</span>
-
-<span class="nc" id="L1118">        summary.removeAll();</span>
-
-<span class="nc" id="L1120">        summary.add(Utility.localizedTextArea(comment), &quot;center, span 2&quot;);</span>
-
-<span class="nc" id="L1122">        List&lt;TradeItem&gt; offers = agreement.getItemsGivenBy(player);</span>
-<span class="nc bnc" id="L1123" title="All 2 branches missed.">        if (!offers.isEmpty()) {</span>
-<span class="nc" id="L1124">            summary.add(Utility.localizedLabel(this.offer), &quot;span&quot;);</span>
-<span class="nc bnc" id="L1125" title="All 2 branches missed.">            for (TradeItem item : offers) {</span>
-<span class="nc" id="L1126">                summary.add(getTradeItemButton(item), &quot;skip&quot;);</span>
-<span class="nc" id="L1127">            }</span>
-        }
-
-<span class="nc" id="L1130">        List&lt;TradeItem&gt; demands = agreement.getItemsGivenBy(otherPlayer);</span>
-<span class="nc bnc" id="L1131" title="All 2 branches missed.">        if (!demands.isEmpty()) {</span>
-<span class="nc bnc" id="L1132" title="All 2 branches missed.">            if (offers.isEmpty()) {</span>
-<span class="nc" id="L1133">                summary.add(Utility.localizedLabel(this.demand), &quot;span&quot;);</span>
-            } else {
-<span class="nc" id="L1135">                summary.add(new JLabel(exchangeMessage), &quot;newline 20, span&quot;);</span>
-            }
-<span class="nc bnc" id="L1137" title="All 2 branches missed.">            for (TradeItem item : demands) {</span>
-<span class="nc" id="L1138">                summary.add(getTradeItemButton(item), &quot;skip&quot;);</span>
-<span class="nc" id="L1139">            }</span>
-        }
-<span class="nc" id="L1141">    }</span>
-
-
-    /**
-     * Remove trade items of a given type.
-     *
-     * @param itemClass The class of &lt;code&gt;TradeItem&lt;/code&gt; to remove.
-     */
-    public void removeTradeItems(Class&lt;? extends TradeItem&gt; itemClass) {
-<span class="nc" id="L1150">        this.agreement.removeType(itemClass);</span>
-<span class="nc" id="L1151">        updateDialog();</span>
-<span class="nc" id="L1152">    }</span>
-
-    /**
-     * Adds a &lt;code&gt;ColonyTradeItem&lt;/code&gt; to the list of TradeItems.
-     *
-     * @param source The sourced &lt;code&gt;Player&lt;/code&gt;.
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; to add.
-     */
-    public void addColonyTradeItem(Player source, Colony colony) {
-<span class="nc" id="L1161">        final Player player = getMyPlayer();</span>
-
-<span class="nc bnc" id="L1163" title="All 2 branches missed.">        Player destination = (source == otherPlayer) ? player : otherPlayer;</span>
-<span class="nc" id="L1164">        agreement.add(new ColonyTradeItem(getGame(), source, destination,</span>
-                                          colony));
-<span class="nc" id="L1166">        updateDialog();</span>
-<span class="nc" id="L1167">    }</span>
-
-    /**
-     * Adds a &lt;code&gt;GoldTradeItem&lt;/code&gt; to the list of TradeItems.
-     *
-     * @param source The source &lt;code&gt;Player&lt;/code&gt;.
-     * @param amount The amount of gold.
-     */
-    public void addGoldTradeItem(Player source, int amount) {
-<span class="nc" id="L1176">        final Player player = getMyPlayer();</span>
-
-<span class="nc bnc" id="L1178" title="All 2 branches missed.">        Player destination = (source == otherPlayer) ? player : otherPlayer;</span>
-<span class="nc" id="L1179">        agreement.add(new GoldTradeItem(getGame(), source, destination,</span>
-                                        amount));
-<span class="nc" id="L1181">        updateDialog();</span>
-<span class="nc" id="L1182">    }</span>
-
-    /**
-     * Adds a &lt;code&gt;GoodsTradeItem&lt;/code&gt; to the list of TradeItems.
-     *
-     * @param source The source &lt;code&gt;Player&lt;/code&gt;.
-     * @param goods The &lt;code&gt;Goods&lt;/code&gt; to add.
-     */
-    public void addGoodsTradeItem(Player source, Goods goods) {
-<span class="nc" id="L1191">        final Player player = getMyPlayer();</span>
-
-<span class="nc bnc" id="L1193" title="All 2 branches missed.">        Player destination = (source == otherPlayer) ? player : otherPlayer;</span>
-<span class="nc" id="L1194">        agreement.add(new GoodsTradeItem(getGame(), source, destination, goods));</span>
-<span class="nc" id="L1195">        updateDialog();</span>
-<span class="nc" id="L1196">    }</span>
-
-    /**
-     * Add an &lt;code&gt;InciteTradeItem&lt;/code&gt; to the list of trade items.
-     *
-     * @param source The source &lt;code&gt;Player&lt;/code&gt;.
-     * @param victim The &lt;code&gt;Player&lt;/code&gt; to be attacked.
-     */
-    public void addInciteTradeItem(Player source, Player victim) {
-<span class="nc" id="L1205">        final Player player = getMyPlayer();</span>
-
-<span class="nc bnc" id="L1207" title="All 2 branches missed.">        Player destination = (source == otherPlayer) ? player : otherPlayer;</span>
-<span class="nc" id="L1208">        agreement.add(new InciteTradeItem(getGame(), source, destination,</span>
-                                          victim));
-<span class="nc" id="L1210">        updateDialog();</span>
-<span class="nc" id="L1211">    }</span>
-
-    /**
-     * Trade a stance change between the players.
-     *
-     * @param stance The &lt;code&gt;Stance&lt;/code&gt; to trade.
-     */
-    public void addStanceTradeItem(Stance stance) {
-<span class="nc" id="L1219">        final Player player = getMyPlayer();</span>
-
-<span class="nc" id="L1221">        agreement.add(new StanceTradeItem(getGame(), otherPlayer, player,</span>
-                                          stance));
-<span class="nc" id="L1223">        updateDialog();</span>
-<span class="nc" id="L1224">    }</span>
-
-    /**
-     * Adds a &lt;code&gt;UnitTradeItem&lt;/code&gt; to the list of TradeItems.
-     *
-     * @param source The source &lt;code&gt;Player&lt;/code&gt;.
-     * @param unit The &lt;code&gt;Unit&lt;/code&gt; to add.
-     */
-    public void addUnitTradeItem(Player source, Unit unit) {
-<span class="nc" id="L1233">        final Player player = getMyPlayer();</span>
-
-<span class="nc bnc" id="L1235" title="All 2 branches missed.">        Player destination = (source == otherPlayer) ? player : otherPlayer;</span>
-<span class="nc" id="L1236">        agreement.add(new UnitTradeItem(getGame(), source, destination,</span>
-                                        unit));
-<span class="nc" id="L1238">        updateDialog();</span>
-<span class="nc" id="L1239">    }</span>
-
-
-    // Override Component
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void removeNotify() {
-<span class="nc" id="L1249">        super.removeNotify();</span>
-        
-<span class="nc" id="L1251">        removeAll();</span>
-
-<span class="nc" id="L1253">        this.stancePanel = null;</span>
-<span class="nc" id="L1254">        this.goldOfferPanel = this.goldDemandPanel = null;</span>
-<span class="nc" id="L1255">        this.colonyOfferPanel = this.colonyDemandPanel = null;</span>
-<span class="nc" id="L1256">        this.goodsOfferPanel = this.goodsDemandPanel = null;</span>
-<span class="nc" id="L1257">        this.inciteOfferPanel = this.inciteDemandPanel = null;</span>
-<span class="nc" id="L1258">        this.unitOfferPanel = this.unitDemandPanel = null;</span>
-<span class="nc" id="L1259">        this.summary = null;</span>
-<span class="nc" id="L1260">        this.demand = this.offer = null;</span>
-<span class="nc" id="L1261">        this.exchangeMessage = null;</span>
-<span class="nc" id="L1262">    }</span>
+	/** The Constant logger. */
+<span class="nc" id="L82">	private static final Logger logger = Logger.getLogger(NegotiationDialog.class.getName());</span>
+
+	/** The Constant HUGE_DEMAND. */
+	private static final int HUGE_DEMAND = 100000;
+
+	/** The Constant ADD. */
+	private static final String ADD = &quot;add&quot;;
+
+	/** The Constant CLEAR. */
+	private static final String CLEAR = &quot;clear&quot;;
+
+	/**
+	 * The Class RemoveAction.
+	 */
+	private class RemoveAction extends AbstractAction {
+
+		/** The item. */
+		private final TradeItem item;
+
+		/**
+		 * Instantiates a new removes the action.
+		 *
+		 * @param item
+		 *            the item
+		 */
+<span class="nc" id="L107">		public RemoveAction(TradeItem item) {</span>
+<span class="nc" id="L108">			this.item = item;</span>
+<span class="nc" id="L109">		}</span>
+
+		// Interface ActionListener
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L118">			agreement.remove(item);</span>
+<span class="nc" id="L119">			updateDialog();</span>
+<span class="nc" id="L120">		}</span>
+	}
+
+	/**
+	 * The Class ColonyTradeItemPanel.
+	 */
+	private class ColonyTradeItemPanel extends JPanel implements ActionListener {
+
+		/** The source. */
+		private final Player source;
+
+		/** The colony box. */
+		private final JComboBox&lt;Colony&gt; colonyBox;
+
+		/** The clear button. */
+		private final JButton clearButton;
+
+		/** The add button. */
+		private final JButton addButton;
+
+		/** The label. */
+		private final JLabel label;
+
+		/** The all colonies. */
+		private final List&lt;Colony&gt; allColonies;
+
+		/**
+		 * Creates a new &lt;code&gt;ColonyTradeItemPanel&lt;/code&gt; instance.
+		 *
+		 * @param source
+		 *            The &lt;code&gt;Player&lt;/code&gt; source.
+		 */
+<span class="nc" id="L152">		public ColonyTradeItemPanel(Player source) {</span>
+<span class="nc" id="L153">			this.source = source;</span>
+<span class="nc" id="L154">			this.colonyBox = new JComboBox&lt;&gt;();</span>
+<span class="nc" id="L155">			this.clearButton = Utility.localizedButton(&quot;negotiationDialog.clear&quot;);</span>
+<span class="nc" id="L156">			this.clearButton.addActionListener(this);</span>
+<span class="nc" id="L157">			this.clearButton.setActionCommand(CLEAR);</span>
+<span class="nc" id="L158">			this.addButton = Utility.localizedButton(&quot;negotiationDialog.add&quot;);</span>
+<span class="nc" id="L159">			this.addButton.addActionListener(this);</span>
+<span class="nc" id="L160">			this.addButton.setActionCommand(ADD);</span>
+<span class="nc" id="L161">			this.label = Utility.localizedLabel(Messages.getName(&quot;model.tradeItem.colony&quot;));</span>
+<span class="nc" id="L162">			this.allColonies = source.getColonies();</span>
+
+<span class="nc" id="L164">			setLayout(new MigLayout(&quot;wrap 1&quot;, &quot;&quot;, &quot;&quot;));</span>
+<span class="nc" id="L165">			setBorder(Utility.SIMPLE_LINE_BORDER);</span>
+
+<span class="nc" id="L167">			add(this.label);</span>
+<span class="nc" id="L168">			add(this.colonyBox);</span>
+<span class="nc" id="L169">			add(this.clearButton, &quot;split 2&quot;);</span>
+<span class="nc" id="L170">			add(this.addButton);</span>
+
+<span class="nc" id="L172">			setSize(getPreferredSize());</span>
+<span class="nc" id="L173">		}</span>
+
+		/**
+		 * Update this panel.
+		 *
+		 * @param dt
+		 *            The &lt;code&gt;DiplomaticTrade&lt;/code&gt; to update with.
+		 */
+		private void update(DiplomaticTrade dt) {
+<span class="nc bnc" id="L182" title="All 2 branches missed.">			if (!source.isEuropean())</span>
+<span class="nc" id="L183">				return;</span>
+
+			// Remove all action listeners, so the update has no effect (except
+			// updating the list).
+<span class="nc" id="L187">			ActionListener[] listeners = this.colonyBox.getActionListeners();</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">			for (ActionListener al : listeners) {</span>
+<span class="nc" id="L189">				this.colonyBox.removeActionListener(al);</span>
+			}
+
+<span class="nc" id="L192">			List&lt;Colony&gt; available = new ArrayList&lt;&gt;(allColonies);</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">			for (Colony c : dt.getColoniesGivenBy(source)) {</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">				if (available.contains(c)) {</span>
+<span class="nc" id="L195">					available.remove(c);</span>
+				} else {
+<span class="nc" id="L197">					allColonies.add(c); // did not know about this!</span>
+				}
+<span class="nc" id="L199">			}</span>
+<span class="nc" id="L200">			Collections.sort(available, getFreeColClient().getClientOptions().getColonyComparator());</span>
+
+<span class="nc" id="L202">			this.colonyBox.removeAllItems();</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">			for (Colony c : available)</span>
+<span class="nc" id="L204">				this.colonyBox.addItem(c);</span>
+
+<span class="nc bnc" id="L206" title="All 2 branches missed.">			boolean enable = !available.isEmpty();</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">			this.clearButton.setEnabled(!enable);</span>
+<span class="nc" id="L208">			this.addButton.setEnabled(enable);</span>
+<span class="nc" id="L209">			this.colonyBox.setEnabled(enable);</span>
+<span class="nc" id="L210">			this.label.setEnabled(enable);</span>
+
+<span class="nc bnc" id="L212" title="All 2 branches missed.">			for (ActionListener al : listeners) {</span>
+<span class="nc" id="L213">				this.colonyBox.addActionListener(al);</span>
+			}
+<span class="nc" id="L215">		}</span>
+
+		// Implement ActionListener
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L224">			final String command = ae.getActionCommand();</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">			if (null != command)</span>
+<span class="nc bnc" id="L226" title="All 10 branches missed.">				switch (command) {</span>
+				case ADD:
+<span class="nc" id="L228">					NegotiationDialog.this.addColonyTradeItem(source, (Colony) colonyBox.getSelectedItem());</span>
+<span class="nc" id="L229">					break;</span>
+				case CLEAR:
+<span class="nc" id="L231">					NegotiationDialog.this.removeTradeItems(ColonyTradeItem.class);</span>
+<span class="nc" id="L232">					break;</span>
+				default:
+<span class="nc" id="L234">					logger.warning(&quot;Bad command: &quot; + command);</span>
+					break;
+				}
+<span class="nc" id="L237">		}</span>
+	}
+
+	/**
+	 * The Class GoldTradeItemPanel.
+	 */
+	private class GoldTradeItemPanel extends JPanel implements ActionListener {
+
+		/** The source. */
+		private final Player source;
+
+		/** The spinner. */
+		private final JSpinner spinner;
+
+		/**
+		 * Creates a new &lt;code&gt;GoldTradeItemPanel&lt;/code&gt; instance.
+		 *
+		 * @param source
+		 *            The &lt;code&gt;Player&lt;/code&gt; that is trading.
+		 * @param gold
+		 *            The maximum amount of gold to trade.
+		 */
+<span class="nc" id="L259">		public GoldTradeItemPanel(Player source, int gold) {</span>
+<span class="nc" id="L260">			this.source = source;</span>
+<span class="nc" id="L261">			this.spinner = new JSpinner(new SpinnerNumberModel(0, 0, gold, 1));</span>
+<span class="nc" id="L262">			JButton clearButton = Utility.localizedButton(&quot;negotiationDialog.clear&quot;);</span>
+<span class="nc" id="L263">			clearButton.addActionListener(this);</span>
+<span class="nc" id="L264">			clearButton.setActionCommand(CLEAR);</span>
+<span class="nc" id="L265">			JButton addButton = Utility.localizedButton(&quot;negotiationDialog.add&quot;);</span>
+<span class="nc" id="L266">			addButton.addActionListener(this);</span>
+<span class="nc" id="L267">			addButton.setActionCommand(ADD);</span>
+			// adjust entry size
+<span class="nc" id="L269">			((JSpinner.DefaultEditor) this.spinner.getEditor()).getTextField().setColumns(5);</span>
+
+<span class="nc" id="L271">			setBorder(Utility.SIMPLE_LINE_BORDER);</span>
+<span class="nc" id="L272">			setLayout(new MigLayout(&quot;wrap 1&quot;, &quot;&quot;, &quot;&quot;));</span>
+
+<span class="nc" id="L274">			add(Utility.localizedLabel(Messages.getName(&quot;model.tradeItem.gold&quot;)));</span>
+<span class="nc" id="L275">			add(Utility.localizedLabel(</span>
+<span class="nc" id="L276">					StringTemplate.template(&quot;negotiationDialog.goldAvailable&quot;).addAmount(&quot;%amount%&quot;, gold)));</span>
+<span class="nc" id="L277">			add(this.spinner);</span>
+<span class="nc" id="L278">			add(clearButton, &quot;split 2&quot;);</span>
+<span class="nc" id="L279">			add(addButton);</span>
+
+<span class="nc" id="L281">			setSize(getPreferredSize());</span>
+<span class="nc" id="L282">		}</span>
+
+		/**
+		 * Update this panel.
+		 *
+		 * @param dt
+		 *            The &lt;code&gt;DiplomaticTrade&lt;/code&gt; to update with.
+		 */
+		public void update(DiplomaticTrade dt) {
+<span class="nc" id="L291">			int gold = dt.getGoldGivenBy(source);</span>
+<span class="nc bnc" id="L292" title="All 2 branches missed.">			if (gold &gt;= 0) {</span>
+<span class="nc" id="L293">				SpinnerNumberModel model = (SpinnerNumberModel) spinner.getModel();</span>
+<span class="nc" id="L294">				model.setValue(gold);</span>
+			}
+<span class="nc" id="L296">		}</span>
+
+		// Implement ActionListener
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L305">			final String command = ae.getActionCommand();</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">			if (null != command)</span>
+<span class="nc bnc" id="L307" title="All 10 branches missed.">				switch (command) {</span>
+				case ADD:
+<span class="nc" id="L309">					int amount = ((Integer) spinner.getValue());</span>
+<span class="nc" id="L310">					NegotiationDialog.this.addGoldTradeItem(source, amount);</span>
+<span class="nc" id="L311">					break;</span>
+				case CLEAR:
+<span class="nc" id="L313">					NegotiationDialog.this.removeTradeItems(GoldTradeItem.class);</span>
+<span class="nc" id="L314">					break;</span>
+				default:
+<span class="nc" id="L316">					logger.warning(&quot;Bad command: &quot; + command);</span>
+					break;
+				}
+<span class="nc" id="L319">		}</span>
+	}
+
+	/**
+	 * The Class GoodsTradeItemPanel.
+	 */
+	private class GoodsTradeItemPanel extends JPanel implements ActionListener {
+
+		/**
+		 * The Class GoodsBoxRenderer.
+		 */
+<span class="nc" id="L330">		private class GoodsBoxRenderer extends JLabel implements ListCellRenderer&lt;Goods&gt; {</span>
+
+			/**
+			 * {@inheritDoc}
+			 */
+			@Override
+			public Component getListCellRendererComponent(JList&lt;? extends Goods&gt; list, Goods value, int index,
+					boolean isSelected, boolean cellHasFocus) {
+<span class="nc bnc" id="L338" title="All 2 branches missed.">				setText((value == null) ? &quot;&quot; : Messages.message(value.getLabel(true)));</span>
+<span class="nc" id="L339">				return this;</span>
+			}
+		}
+
+		/** The source. */
+		private final Player source;
+
+		/** The goods box. */
+		private final JComboBox&lt;Goods&gt; goodsBox;
+
+		/** The clear button. */
+		private final JButton clearButton;
+
+		/** The add button. */
+		private final JButton addButton;
+
+		/** The label. */
+		private final JLabel label;
+
+		/** The all goods. */
+		private final List&lt;Goods&gt; allGoods;
+
+		/**
+		 * Creates a new &lt;code&gt;GoodsTradeItemPanel&lt;/code&gt; instance.
+		 *
+		 * @param source
+		 *            The &lt;code&gt;Player&lt;/code&gt; nominally in possession of the
+		 *            goods (this may be totally fictional).
+		 * @param allGoods
+		 *            The &lt;code&gt;Goods&lt;/code&gt; to trade.
+		 */
+<span class="nc" id="L370">		public GoodsTradeItemPanel(Player source, List&lt;Goods&gt; allGoods) {</span>
+<span class="nc" id="L371">			this.source = source;</span>
+<span class="nc" id="L372">			this.goodsBox = new JComboBox&lt;&gt;(new DefaultComboBoxModel&lt;Goods&gt;());</span>
+<span class="nc" id="L373">			this.goodsBox.setRenderer(new GoodsBoxRenderer());</span>
+<span class="nc" id="L374">			this.clearButton = Utility.localizedButton(&quot;negotiationDialog.clear&quot;);</span>
+<span class="nc" id="L375">			this.clearButton.addActionListener(this);</span>
+<span class="nc" id="L376">			this.clearButton.setActionCommand(CLEAR);</span>
+<span class="nc" id="L377">			this.addButton = Utility.localizedButton(&quot;negotiationDialog.add&quot;);</span>
+<span class="nc" id="L378">			this.addButton.addActionListener(this);</span>
+<span class="nc" id="L379">			this.addButton.setActionCommand(ADD);</span>
+<span class="nc" id="L380">			this.label = Utility.localizedLabel(Messages.nameKey(&quot;model.tradeItem.goods&quot;));</span>
+<span class="nc" id="L381">			this.allGoods = allGoods;</span>
+
+<span class="nc" id="L383">			setLayout(new MigLayout(&quot;wrap 1&quot;, &quot;&quot;, &quot;&quot;));</span>
+<span class="nc" id="L384">			setBorder(Utility.SIMPLE_LINE_BORDER);</span>
+
+<span class="nc" id="L386">			add(this.label);</span>
+<span class="nc" id="L387">			add(this.goodsBox);</span>
+<span class="nc" id="L388">			add(this.clearButton, &quot;split 2&quot;);</span>
+<span class="nc" id="L389">			add(this.addButton);</span>
+
+<span class="nc" id="L391">			setSize(getPreferredSize());</span>
+<span class="nc" id="L392">		}</span>
+
+		/**
+		 * Update this panel.
+		 *
+		 * @param dt
+		 *            The &lt;code&gt;DiplomaticTrade&lt;/code&gt; to update with.
+		 */
+		public void update(DiplomaticTrade dt) {
+			// Remove all action listeners, so the update has no
+			// effect (except updating the list).
+<span class="nc" id="L403">			ActionListener[] listeners = this.goodsBox.getActionListeners();</span>
+<span class="nc bnc" id="L404" title="All 2 branches missed.">			for (ActionListener al : listeners) {</span>
+<span class="nc" id="L405">				this.goodsBox.removeActionListener(al);</span>
+			}
+
+<span class="nc" id="L408">			List&lt;Goods&gt; available = new ArrayList&lt;&gt;(allGoods);</span>
+<span class="nc bnc" id="L409" title="All 2 branches missed.">			for (Goods goods : dt.getGoodsGivenBy(source)) {</span>
+				// Remove the ones already on the table
+<span class="nc bnc" id="L411" title="All 2 branches missed.">				for (int i = 0; i &lt; available.size(); i++) {</span>
+<span class="nc" id="L412">					Goods g = available.get(i);</span>
+<span class="nc bnc" id="L413" title="All 2 branches missed.">					if (g.getType() == goods.getType()) {</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">						if (g.getAmount() &lt;= goods.getAmount()) {</span>
+<span class="nc" id="L415">							available.remove(i);</span>
+						} else {
+<span class="nc" id="L417">							g.setAmount(g.getAmount() - goods.getAmount());</span>
+						}
+<span class="nc" id="L419">						break;</span>
+					}
+				}
+<span class="nc" id="L422">			}</span>
+
+<span class="nc" id="L424">			this.goodsBox.removeAllItems();</span>
+<span class="nc bnc" id="L425" title="All 2 branches missed.">			for (Goods g : available)</span>
+<span class="nc" id="L426">				goodsBox.addItem(g);</span>
+
+<span class="nc bnc" id="L428" title="All 2 branches missed.">			boolean enable = !available.isEmpty();</span>
+<span class="nc" id="L429">			this.label.setEnabled(enable);</span>
+<span class="nc bnc" id="L430" title="All 2 branches missed.">			this.clearButton.setEnabled(!enable);</span>
+<span class="nc" id="L431">			this.addButton.setEnabled(enable);</span>
+<span class="nc" id="L432">			this.goodsBox.setEnabled(enable);</span>
+
+<span class="nc bnc" id="L434" title="All 2 branches missed.">			for (ActionListener al : listeners) {</span>
+<span class="nc" id="L435">				this.goodsBox.addActionListener(al);</span>
+			}
+<span class="nc" id="L437">		}</span>
+
+		// Interface ActionListener
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L446">			final String command = ae.getActionCommand();</span>
+<span class="nc bnc" id="L447" title="All 2 branches missed.">			if (null != command)</span>
+<span class="nc bnc" id="L448" title="All 10 branches missed.">				switch (command) {</span>
+				case ADD:
+<span class="nc" id="L450">					NegotiationDialog.this.addGoodsTradeItem(source, (Goods) goodsBox.getSelectedItem());</span>
+<span class="nc" id="L451">					break;</span>
+				case CLEAR:
+<span class="nc" id="L453">					NegotiationDialog.this.removeTradeItems(GoodsTradeItem.class);</span>
+<span class="nc" id="L454">					break;</span>
+				default:
+<span class="nc" id="L456">					logger.warning(&quot;Bad command: &quot; + command);</span>
+					break;
+				}
+<span class="nc" id="L459">		}</span>
+	}
+
+	/**
+	 * The Class InciteTradeItemPanel.
+	 */
+	private class InciteTradeItemPanel extends JPanel implements ActionListener {
+
+		/**
+		 * The Class InciteBoxRenderer.
+		 */
+<span class="nc" id="L470">		private class InciteBoxRenderer extends JLabel implements ListCellRenderer&lt;Player&gt; {</span>
+
+			/**
+			 * {@inheritDoc}
+			 */
+			@Override
+			public Component getListCellRendererComponent(JList&lt;? extends Player&gt; list, Player value, int index,
+					boolean isSelected, boolean cellHasFocus) {
+<span class="nc bnc" id="L478" title="All 2 branches missed.">				setText((value == null) ? &quot;&quot; : Messages.message(value.getNationLabel()));</span>
+<span class="nc" id="L479">				return this;</span>
+			}
+		}
+
+		/** The source. */
+		private final Player source;
+
+		/** The other. */
+		private final Player other;
+
+		/** The victim box. */
+		private final JComboBox&lt;Player&gt; victimBox;
+
+		/** The label. */
+		private final JLabel label;
+
+		/** The clear button. */
+		private final JButton clearButton;
+
+		/** The add button. */
+		private final JButton addButton;
+
+		/** The available. */
+<span class="nc" id="L502">		private final List&lt;Player&gt; available = new ArrayList&lt;&gt;();</span>
+
+		/**
+		 * Creates a new &lt;code&gt;InciteTradeItemPanel&lt;/code&gt; instance.
+		 *
+		 * @param source
+		 *            The &lt;code&gt;Player&lt;/code&gt; that is trading.
+		 * @param other
+		 *            The &lt;code&gt;Player&lt;/code&gt; negotiated with.
+		 */
+<span class="nc" id="L512">		public InciteTradeItemPanel(Player source, Player other) {</span>
+<span class="nc" id="L513">			this.source = source;</span>
+<span class="nc" id="L514">			this.other = other;</span>
+<span class="nc" id="L515">			this.victimBox = new JComboBox&lt;&gt;(new DefaultComboBoxModel&lt;Player&gt;());</span>
+<span class="nc" id="L516">			this.victimBox.setRenderer(new InciteBoxRenderer());</span>
+<span class="nc" id="L517">			this.clearButton = Utility.localizedButton(&quot;negotiationDialog.clear&quot;);</span>
+<span class="nc" id="L518">			this.clearButton.addActionListener(this);</span>
+<span class="nc" id="L519">			this.clearButton.setActionCommand(CLEAR);</span>
+<span class="nc" id="L520">			this.addButton = Utility.localizedButton(&quot;negotiationDialog.add&quot;);</span>
+<span class="nc" id="L521">			this.addButton.addActionListener(this);</span>
+<span class="nc" id="L522">			this.addButton.setActionCommand(ADD);</span>
+<span class="nc" id="L523">			this.label = Utility.localizedLabel(Messages.nameKey(&quot;model.tradeItem.incite&quot;));</span>
+
+<span class="nc" id="L525">			setBorder(Utility.SIMPLE_LINE_BORDER);</span>
+<span class="nc" id="L526">			setLayout(new MigLayout(&quot;wrap 1&quot;, &quot;&quot;, &quot;&quot;));</span>
+
+<span class="nc" id="L528">			available.clear();</span>
+<span class="nc bnc" id="L529" title="All 2 branches missed.">			for (Player p : getGame().getLivePlayers(this.source)) {</span>
+<span class="nc bnc" id="L530" title="All 4 branches missed.">				if (p == this.other || this.source.getStance(p) == Stance.ALLIANCE</span>
+<span class="nc bnc" id="L531" title="All 2 branches missed.">						|| this.source.getStance(p) == Stance.WAR)</span>
+<span class="nc" id="L532">					continue;</span>
+<span class="nc" id="L533">				available.add(p);</span>
+<span class="nc" id="L534">			}</span>
+
+<span class="nc" id="L536">			add(this.label);</span>
+<span class="nc" id="L537">			add(this.victimBox);</span>
+<span class="nc" id="L538">			add(this.clearButton, &quot;split 2&quot;);</span>
+<span class="nc" id="L539">			add(this.addButton);</span>
+
+<span class="nc" id="L541">			setSize(getPreferredSize());</span>
+<span class="nc" id="L542">		}</span>
+
+		/**
+		 * Update this panel.
+		 *
+		 * @param dt
+		 *            The &lt;code&gt;DiplomaticTrade&lt;/code&gt; to update with.
+		 */
+		public void update(DiplomaticTrade dt) {
+			// Remove all action listeners, so the update has no
+			// effect (except updating the list).
+<span class="nc" id="L553">			ActionListener[] listeners = this.victimBox.getActionListeners();</span>
+<span class="nc bnc" id="L554" title="All 2 branches missed.">			for (ActionListener al : listeners) {</span>
+<span class="nc" id="L555">				this.victimBox.removeActionListener(al);</span>
+			}
+
+<span class="nc" id="L558">			this.victimBox.removeAllItems();</span>
+<span class="nc bnc" id="L559" title="All 2 branches missed.">			for (Player p : available)</span>
+<span class="nc" id="L560">				victimBox.addItem(p);</span>
+
+<span class="nc bnc" id="L562" title="All 2 branches missed.">			boolean enable = !available.isEmpty();</span>
+<span class="nc" id="L563">			this.label.setEnabled(enable);</span>
+<span class="nc bnc" id="L564" title="All 2 branches missed.">			this.clearButton.setEnabled(!enable);</span>
+<span class="nc" id="L565">			this.addButton.setEnabled(enable);</span>
+<span class="nc" id="L566">			this.victimBox.setEnabled(enable);</span>
+
+<span class="nc bnc" id="L568" title="All 2 branches missed.">			for (ActionListener al : listeners) {</span>
+<span class="nc" id="L569">				this.victimBox.addActionListener(al);</span>
+			}
+<span class="nc" id="L571">		}</span>
+
+		// Implement ActionListener
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L580">			final String command = ae.getActionCommand();</span>
+<span class="nc bnc" id="L581" title="All 2 branches missed.">			if (null != command)</span>
+<span class="nc bnc" id="L582" title="All 10 branches missed.">				switch (command) {</span>
+				case ADD:
+<span class="nc" id="L584">					Player victim = (Player) victimBox.getSelectedItem();</span>
+<span class="nc bnc" id="L585" title="All 2 branches missed.">					if (victim != null) {</span>
+<span class="nc" id="L586">						NegotiationDialog.this.addInciteTradeItem(source, victim);</span>
+					}
+					break;
+				case CLEAR:
+<span class="nc" id="L590">					NegotiationDialog.this.removeTradeItems(InciteTradeItem.class);</span>
+<span class="nc" id="L591">					break;</span>
+				default:
+<span class="nc" id="L593">					logger.warning(&quot;Bad command: &quot; + command);</span>
+					break;
+				}
+<span class="nc" id="L596">		}</span>
+	}
+
+	/**
+	 * Class for the stance trade panel. Access needs to be public so that
+	 * comboBoxLabel() is externally visible.
+	 */
+	public class StanceTradeItemPanel extends JPanel implements ActionListener {
+
+		/**
+		 * The Class StanceBoxRenderer.
+		 */
+<span class="nc" id="L608">		private class StanceBoxRenderer extends JLabel implements ListCellRenderer&lt;Stance&gt; {</span>
+
+			/**
+			 * {@inheritDoc}
+			 */
+			@Override
+			public Component getListCellRendererComponent(JList&lt;? extends Stance&gt; list, Stance value, int index,
+					boolean isSelected, boolean cellHasFocus) {
+<span class="nc bnc" id="L616" title="All 2 branches missed.">				setText((value == null) ? &quot;&quot; : Messages.getName(value));</span>
+<span class="nc" id="L617">				return this;</span>
+			}
+		}
+
+		/** The source. */
+		private final Player source;
+
+		/** The target. */
+		private final Player target;
+
+		/** The stance box. */
+		private final JComboBox&lt;Stance&gt; stanceBox;
+
+		/** The clear button. */
+		private final JButton clearButton;
+
+		/** The add button. */
+		private final JButton addButton;
+
+		/**
+		 * Creates a new &lt;code&gt;StanceTradeItemPanel&lt;/code&gt; instance.
+		 *
+		 * @param source
+		 *            The &lt;code&gt;Player&lt;/code&gt; offering the stance change.
+		 * @param target
+		 *            The &lt;code&gt;Player&lt;/code&gt; to consider the stance change.
+		 */
+<span class="nc" id="L644">		public StanceTradeItemPanel(Player source, Player target) {</span>
+<span class="nc" id="L645">			this.source = source;</span>
+<span class="nc" id="L646">			this.target = target;</span>
+<span class="nc" id="L647">			this.stanceBox = new JComboBox&lt;&gt;(new DefaultComboBoxModel&lt;Stance&gt;());</span>
+<span class="nc" id="L648">			this.stanceBox.setRenderer(new StanceBoxRenderer());</span>
+<span class="nc" id="L649">			this.clearButton = Utility.localizedButton(&quot;negotiationDialog.clear&quot;);</span>
+<span class="nc" id="L650">			this.clearButton.addActionListener(this);</span>
+<span class="nc" id="L651">			this.clearButton.setActionCommand(CLEAR);</span>
+<span class="nc" id="L652">			this.addButton = Utility.localizedButton(&quot;negotiationDialog.add&quot;);</span>
+<span class="nc" id="L653">			this.addButton.addActionListener(this);</span>
+<span class="nc" id="L654">			this.addButton.setActionCommand(ADD);</span>
+
+<span class="nc" id="L656">			setBorder(Utility.SIMPLE_LINE_BORDER);</span>
+<span class="nc" id="L657">			setLayout(new MigLayout(&quot;wrap 1&quot;, &quot;&quot;, &quot;&quot;));</span>
+
+<span class="nc" id="L659">			add(Utility.localizedLabel(Messages.nameKey(&quot;model.tradeItem.stance&quot;)));</span>
+<span class="nc" id="L660">			add(this.stanceBox);</span>
+<span class="nc" id="L661">			add(this.clearButton, &quot;split 2&quot;);</span>
+<span class="nc" id="L662">			add(this.addButton);</span>
+<span class="nc" id="L663">		}</span>
+
+		/**
+		 * Select the item with a given stance.
+		 *
+		 * @param stance
+		 *            The &lt;code&gt;Stance&lt;/code&gt; to select.
+		 */
+		private void setSelectedValue(Stance stance) {
+<span class="nc bnc" id="L672" title="All 2 branches missed.">			for (int i = 0; i &lt; stanceBox.getItemCount(); i++) {</span>
+<span class="nc bnc" id="L673" title="All 2 branches missed.">				if (stanceBox.getItemAt(i) == stance) {</span>
+<span class="nc" id="L674">					stanceBox.setSelectedItem(i);</span>
+				}
+			}
+<span class="nc" id="L677">		}</span>
+
+		/**
+		 * Update this panel with a given trade.
+		 *
+		 * @param dt
+		 *            The &lt;code&gt;DiplomaticTrade&lt;/code&gt; to update with.
+		 */
+		public void update(DiplomaticTrade dt) {
+<span class="nc" id="L686">			stanceBox.removeAllItems();</span>
+
+<span class="nc" id="L688">			Stance stance = source.getStance(target);</span>
+<span class="nc bnc" id="L689" title="All 2 branches missed.">			if (stance != Stance.WAR) {</span>
+<span class="nc" id="L690">				stanceBox.addItem(Stance.WAR);</span>
+			} else {
+<span class="nc" id="L692">				stanceBox.addItem(Stance.CEASE_FIRE);</span>
+			}
+<span class="nc bnc" id="L694" title="All 4 branches missed.">			if (stance != Stance.PEACE &amp;&amp; stance != Stance.UNCONTACTED) {</span>
+<span class="nc" id="L695">				stanceBox.addItem(Stance.PEACE);</span>
+			}
+<span class="nc bnc" id="L697" title="All 2 branches missed.">			if (stance == Stance.PEACE) {</span>
+<span class="nc" id="L698">				stanceBox.addItem(Stance.ALLIANCE);</span>
+			}
+
+<span class="nc" id="L701">			Stance select = dt.getStance();</span>
+<span class="nc bnc" id="L702" title="All 2 branches missed.">			if (select != null)</span>
+<span class="nc" id="L703">				setSelectedValue(select);</span>
+<span class="nc" id="L704">		}</span>
+
+		// Interface ActionListener
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L713">			final String command = ae.getActionCommand();</span>
+<span class="nc bnc" id="L714" title="All 2 branches missed.">			if (null != command)</span>
+<span class="nc bnc" id="L715" title="All 10 branches missed.">				switch (command) {</span>
+				case ADD:
+<span class="nc" id="L717">					Stance stance = (Stance) stanceBox.getSelectedItem();</span>
+<span class="nc" id="L718">					NegotiationDialog.this.addStanceTradeItem(stance);</span>
+<span class="nc" id="L719">					break;</span>
+				case CLEAR:
+<span class="nc" id="L721">					NegotiationDialog.this.removeTradeItems(StanceTradeItem.class);</span>
+<span class="nc" id="L722">					break;</span>
+				default:
+<span class="nc" id="L724">					logger.warning(&quot;Bad command: &quot; + command);</span>
+					break;
+				}
+<span class="nc" id="L727">		}</span>
+	}
+
+	/**
+	 * The Class UnitTradeItemPanel.
+	 */
+	private class UnitTradeItemPanel extends JPanel implements ActionListener {
+
+		/**
+		 * The Class UnitBoxRenderer.
+		 */
+<span class="nc" id="L738">		private class UnitBoxRenderer extends JLabel implements ListCellRenderer&lt;Unit&gt; {</span>
+
+			/**
+			 * {@inheritDoc}
+			 */
+			@Override
+			public Component getListCellRendererComponent(JList&lt;? extends Unit&gt; list, Unit value, int index,
+					boolean isSelected, boolean cellHasFocus) {
+<span class="nc bnc" id="L746" title="All 2 branches missed.">				setText((value == null) ? &quot;&quot; : value.getDescription());</span>
+<span class="nc" id="L747">				return this;</span>
+			}
+		}
+
+		/** The source. */
+		private final Player source;
+
+		/** The unit box. */
+		private final JComboBox&lt;Unit&gt; unitBox;
+
+		/** The clear button. */
+		private final JButton clearButton;
+
+		/** The add button. */
+		private final JButton addButton;
+
+		/** The label. */
+		private final JLabel label;
+
+		/** The all units. */
+		private final List&lt;Unit&gt; allUnits;
+
+		/**
+		 * Creates a new &lt;code&gt;UnitTradeItemPanel&lt;/code&gt; instance.
+		 *
+		 * @param source
+		 *            The &lt;code&gt;Player&lt;/code&gt; nominally in posession of the unit
+		 *            (this may be totally fictional).
+		 * @param allUnits
+		 *            The &lt;code&gt;Unit&lt;/code&gt;s to trade.
+		 */
+<span class="nc" id="L778">		public UnitTradeItemPanel(Player source, List&lt;Unit&gt; allUnits) {</span>
+<span class="nc" id="L779">			this.source = source;</span>
+<span class="nc" id="L780">			this.unitBox = new JComboBox&lt;&gt;(new DefaultComboBoxModel&lt;Unit&gt;());</span>
+<span class="nc" id="L781">			this.unitBox.setRenderer(new UnitBoxRenderer());</span>
+<span class="nc" id="L782">			this.clearButton = Utility.localizedButton(&quot;negotiationDialog.clear&quot;);</span>
+<span class="nc" id="L783">			this.clearButton.addActionListener(this);</span>
+<span class="nc" id="L784">			this.clearButton.setActionCommand(CLEAR);</span>
+<span class="nc" id="L785">			this.addButton = Utility.localizedButton(&quot;negotiationDialog.add&quot;);</span>
+<span class="nc" id="L786">			this.addButton.addActionListener(this);</span>
+<span class="nc" id="L787">			this.addButton.setActionCommand(ADD);</span>
+<span class="nc" id="L788">			this.label = Utility.localizedLabel(Messages.nameKey(&quot;model.tradeItem.unit&quot;));</span>
+<span class="nc" id="L789">			this.allUnits = allUnits;</span>
+
+<span class="nc" id="L791">			setLayout(new MigLayout(&quot;wrap 1&quot;, &quot;&quot;, &quot;&quot;));</span>
+<span class="nc" id="L792">			setBorder(Utility.SIMPLE_LINE_BORDER);</span>
+
+<span class="nc" id="L794">			add(this.label);</span>
+<span class="nc" id="L795">			add(this.unitBox);</span>
+<span class="nc" id="L796">			add(this.clearButton, &quot;split 2&quot;);</span>
+<span class="nc" id="L797">			add(this.addButton);</span>
+
+<span class="nc" id="L799">			setSize(getPreferredSize());</span>
+<span class="nc" id="L800">		}</span>
+
+		/**
+		 * Update this panel with a given trade.
+		 *
+		 * @param dt
+		 *            The &lt;code&gt;DiplomaticTrade&lt;/code&gt; to update with.
+		 */
+		private void update(DiplomaticTrade dt) {
+			// Remove all action listeners, so the update has no
+			// effect (except updating the list).
+<span class="nc" id="L811">			ActionListener[] listeners = unitBox.getActionListeners();</span>
+<span class="nc bnc" id="L812" title="All 2 branches missed.">			for (ActionListener al : listeners) {</span>
+<span class="nc" id="L813">				unitBox.removeActionListener(al);</span>
+			}
+
+<span class="nc" id="L816">			List&lt;Unit&gt; available = new ArrayList&lt;&gt;(allUnits);</span>
+<span class="nc bnc" id="L817" title="All 2 branches missed.">			for (Unit u : dt.getUnitsGivenBy(source)) {</span>
+				// Remove the ones already on the table
+<span class="nc bnc" id="L819" title="All 2 branches missed.">				if (available.contains(u)) {</span>
+<span class="nc" id="L820">					available.remove(u);</span>
+				} else {
+<span class="nc" id="L822">					allUnits.add(u); // Did not know about this!</span>
+				}
+<span class="nc" id="L824">			}</span>
+
+<span class="nc" id="L826">			unitBox.removeAllItems();</span>
+<span class="nc bnc" id="L827" title="All 2 branches missed.">			for (Unit u : available)</span>
+<span class="nc" id="L828">				unitBox.addItem(u);</span>
+
+<span class="nc bnc" id="L830" title="All 2 branches missed.">			boolean enable = !available.isEmpty();</span>
+<span class="nc" id="L831">			this.label.setEnabled(enable);</span>
+<span class="nc bnc" id="L832" title="All 2 branches missed.">			clearButton.setEnabled(!enable);</span>
+<span class="nc" id="L833">			addButton.setEnabled(enable);</span>
+<span class="nc" id="L834">			unitBox.setEnabled(enable);</span>
+
+<span class="nc bnc" id="L836" title="All 2 branches missed.">			for (ActionListener al : listeners) {</span>
+<span class="nc" id="L837">				unitBox.addActionListener(al);</span>
+			}
+<span class="nc" id="L839">		}</span>
+
+		// Interface ActionListener
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void actionPerformed(ActionEvent ae) {
+<span class="nc" id="L848">			final String command = ae.getActionCommand();</span>
+<span class="nc bnc" id="L849" title="All 2 branches missed.">			if (null != command)</span>
+<span class="nc bnc" id="L850" title="All 10 branches missed.">				switch (command) {</span>
+				case ADD:
+<span class="nc" id="L852">					NegotiationDialog.this.addUnitTradeItem(source, (Unit) unitBox.getSelectedItem());</span>
+<span class="nc" id="L853">					break;</span>
+				case CLEAR:
+<span class="nc" id="L855">					NegotiationDialog.this.removeTradeItems(UnitTradeItem.class);</span>
+<span class="nc" id="L856">					break;</span>
+				default:
+<span class="nc" id="L858">					logger.warning(&quot;Bad command: &quot; + command);</span>
+					break;
+				}
+<span class="nc" id="L861">		}</span>
+	}
+
+	/** The other player in the negotiation (!= getMyPlayer()). */
+	private final Player otherPlayer;
+
+	/** The agreement under negotiation. */
+	private final DiplomaticTrade agreement;
+
+	/** A comment message. */
+	private final StringTemplate comment;
+
+	/** The panels for various negotiable data. */
+	private StanceTradeItemPanel stancePanel;
+
+	/** The gold demand panel. */
+	private GoldTradeItemPanel goldOfferPanel, goldDemandPanel;
+
+	/** The colony demand panel. */
+	private ColonyTradeItemPanel colonyOfferPanel, colonyDemandPanel;
+
+	/** The goods demand panel. */
+	private GoodsTradeItemPanel goodsOfferPanel, goodsDemandPanel;
+
+	/** The incite demand panel. */
+	private InciteTradeItemPanel inciteOfferPanel, inciteDemandPanel;
+
+	/** The unit demand panel. */
+	private UnitTradeItemPanel unitOfferPanel, unitDemandPanel;
+
+	/** A panel showing a summary of the current agreement. */
+	private JPanel summary;
+
+	/** Useful internal messages. */
+	private StringTemplate demand, offer;
+
+	/** The exchange message. */
+	private String exchangeMessage;
+
+	/** Responses. */
+<span class="nc" id="L901">	private ChoiceItem&lt;DiplomaticTrade&gt; send = null, accept = null;</span>
+
+	/**
+	 * Creates a new &lt;code&gt;NegotiationDialog&lt;/code&gt; instance.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 * @param frame
+	 *            The owner frame.
+	 * @param our
+	 *            Our &lt;code&gt;FreeColGameObject&lt;/code&gt; that is negotiating.
+	 * @param other
+	 *            The other &lt;code&gt;FreeColGameObject&lt;/code&gt;.
+	 * @param agreement
+	 *            The &lt;code&gt;DiplomaticTrade&lt;/code&gt; agreement that is being
+	 *            negotiated.
+	 * @param comment
+	 *            An optional &lt;code&gt;StringTemplate&lt;/code&gt; commentary message.
+	 */
+	public NegotiationDialog(FreeColClient freeColClient, JFrame frame, FreeColGameObject our, FreeColGameObject other,
+			DiplomaticTrade agreement, StringTemplate comment) {
+<span class="nc" id="L922">		super(freeColClient, frame);</span>
+
+<span class="nc" id="L924">		final Player player = getMyPlayer();</span>
+<span class="nc bnc" id="L925" title="All 2 branches missed.">		final Unit ourUnit = (our instanceof Unit) ? (Unit) our : null;</span>
+<span class="nc bnc" id="L926" title="All 2 branches missed.">		final Colony ourColony = (our instanceof Colony) ? (Colony) our : null;</span>
+<span class="nc bnc" id="L927" title="All 2 branches missed.">		final Unit otherUnit = (other instanceof Unit) ? (Unit) other : null;</span>
+<span class="nc bnc" id="L928" title="All 2 branches missed.">		final Colony otherColony = (other instanceof Colony) ? (Colony) other : null;</span>
+
+<span class="nc" id="L930">		this.otherPlayer = ((Ownable) other).getOwner();</span>
+<span class="nc" id="L931">		this.agreement = agreement;</span>
+<span class="nc" id="L932">		this.comment = comment;</span>
+
+<span class="nc" id="L934">		StringTemplate nation = player.getNationLabel(), otherNation = otherPlayer.getNationLabel();</span>
+<span class="nc" id="L935">		this.demand = StringTemplate.template(&quot;negotiationDialog.demand&quot;).addStringTemplate(&quot;%nation%&quot;, nation)</span>
+<span class="nc" id="L936">				.addStringTemplate(&quot;%otherNation%&quot;, otherNation);</span>
+<span class="nc" id="L937">		this.offer = StringTemplate.template(&quot;negotiationDialog.offer&quot;).addStringTemplate(&quot;%nation%&quot;, nation)</span>
+<span class="nc" id="L938">				.addStringTemplate(&quot;%otherNation%&quot;, otherNation);</span>
+<span class="nc" id="L939">		this.exchangeMessage = Messages.message(&quot;negotiationDialog.exchange&quot;);</span>
+
+<span class="nc" id="L941">		NationSummary ns = igc().getNationSummary(otherPlayer);</span>
+<span class="nc bnc" id="L942" title="All 4 branches missed.">		int gold = (ns == null || ns.getGold() == Player.GOLD_NOT_ACCOUNTED) ? HUGE_DEMAND : ns.getGold();</span>
+<span class="nc" id="L943">		this.goldDemandPanel = new GoldTradeItemPanel(otherPlayer, gold);</span>
+
+<span class="nc bnc" id="L945" title="All 2 branches missed.">		gold = (player.getGold() == Player.GOLD_NOT_ACCOUNTED) ? HUGE_DEMAND : player.getGold();</span>
+<span class="nc" id="L946">		this.goldOfferPanel = new GoldTradeItemPanel(player, gold);</span>
+
+<span class="nc" id="L948">		StringTemplate tutorial = null;</span>
+<span class="nc" id="L949">		TradeContext context = agreement.getContext();</span>
+<span class="nc bnc" id="L950" title="All 5 branches missed.">		switch (context) {</span>
+		case CONTACT:
+<span class="nc bnc" id="L952" title="All 2 branches missed.">			if (freeColClient.tutorialMode()) {</span>
+<span class="nc" id="L953">				tutorial = StringTemplate.key(&quot;negotiationDialog.contact.tutorial&quot;);</span>
+			}
+<span class="nc" id="L955">			this.stancePanel = new StanceTradeItemPanel(player, otherPlayer);</span>
+<span class="nc" id="L956">			this.inciteOfferPanel = new InciteTradeItemPanel(player, otherPlayer);</span>
+<span class="nc" id="L957">			this.inciteDemandPanel = new InciteTradeItemPanel(otherPlayer, player);</span>
+<span class="nc" id="L958">			break;</span>
+		case DIPLOMATIC:
+<span class="nc" id="L960">			this.stancePanel = new StanceTradeItemPanel(player, otherPlayer);</span>
+<span class="nc" id="L961">			this.colonyDemandPanel = new ColonyTradeItemPanel(otherPlayer);</span>
+<span class="nc" id="L962">			this.colonyOfferPanel = new ColonyTradeItemPanel(player);</span>
+<span class="nc" id="L963">			this.goodsDemandPanel = this.goodsOfferPanel = null;</span>
+<span class="nc" id="L964">			this.inciteOfferPanel = new InciteTradeItemPanel(player, otherPlayer);</span>
+<span class="nc" id="L965">			this.inciteDemandPanel = new InciteTradeItemPanel(otherPlayer, player);</span>
+<span class="nc" id="L966">			this.unitOfferPanel = this.unitDemandPanel = null;</span>
+<span class="nc" id="L967">			break;</span>
+		case TRADE:
+<span class="nc" id="L969">			this.stancePanel = null;</span>
+<span class="nc" id="L970">			this.colonyDemandPanel = this.colonyOfferPanel = null;</span>
+<span class="nc bnc" id="L971" title="All 2 branches missed.">			GoodsLocation gl = (otherUnit != null) ? otherUnit : otherColony;</span>
+<span class="nc" id="L972">			List&lt;Goods&gt; goods = getAnyGoods(gl);</span>
+<span class="nc" id="L973">			this.goodsDemandPanel = new GoodsTradeItemPanel(otherPlayer, goods);</span>
+<span class="nc bnc" id="L974" title="All 2 branches missed.">			gl = (ourUnit != null) ? ourUnit : ourColony;</span>
+<span class="nc bnc" id="L975" title="All 2 branches missed.">			goods = (ourUnit != null) ? ourUnit.getGoodsList() : ourColony.getCompactGoods();</span>
+<span class="nc bnc" id="L976" title="All 2 branches missed.">			for (Goods g : goods) {</span>
+<span class="nc bnc" id="L977" title="All 2 branches missed.">				if (g.getAmount() &gt; GoodsContainer.CARGO_SIZE) {</span>
+<span class="nc" id="L978">					g.setAmount(GoodsContainer.CARGO_SIZE);</span>
+				}
+<span class="nc" id="L980">				g.setLocation(gl);</span>
+<span class="nc" id="L981">			}</span>
+<span class="nc" id="L982">			this.goodsOfferPanel = new GoodsTradeItemPanel(player, goods);</span>
+<span class="nc" id="L983">			this.inciteOfferPanel = this.inciteDemandPanel = null;</span>
+<span class="nc" id="L984">			this.unitDemandPanel = new UnitTradeItemPanel(otherPlayer, getUnitUnitList(null));</span>
+<span class="nc bnc" id="L985" title="All 2 branches missed.">			this.unitOfferPanel = new UnitTradeItemPanel(player,</span>
+<span class="nc" id="L986">					((ourUnit != null) ? getUnitUnitList(ourUnit) : ourColony.getUnitList()));</span>
+<span class="nc" id="L987">			break;</span>
+		case TRIBUTE:
+<span class="nc" id="L989">			this.stancePanel = new StanceTradeItemPanel(player, otherPlayer);</span>
+<span class="nc" id="L990">			this.colonyDemandPanel = this.colonyOfferPanel = null;</span>
+<span class="nc" id="L991">			this.goodsDemandPanel = this.goodsOfferPanel = null;</span>
+<span class="nc" id="L992">			this.inciteOfferPanel = new InciteTradeItemPanel(player, otherPlayer);</span>
+<span class="nc" id="L993">			this.inciteDemandPanel = new InciteTradeItemPanel(otherPlayer, player);</span>
+<span class="nc" id="L994">			this.unitOfferPanel = this.unitDemandPanel = null;</span>
+<span class="nc" id="L995">			break;</span>
+		default:
+<span class="nc" id="L997">			throw new IllegalStateException(&quot;Bogus trade context: &quot; + context);</span>
+		}
+
+<span class="nc" id="L1000">		this.summary = new MigPanel(new MigLayout(&quot;wrap 2&quot;, &quot;[20px:n:n][]&quot;));</span>
+<span class="nc" id="L1001">		this.summary.setOpaque(false);</span>
+<span class="nc" id="L1002">		this.summary.add(Utility.localizedTextArea(comment), &quot;center, span 2&quot;);</span>
+
+		/**
+		 * Build Layout of Diplomatic Trade Dialog
+		 */
+<span class="nc" id="L1007">		MigPanel panel = new MigPanel(new MigLayout(&quot;wrap 3&quot;, &quot;[30%|40%|30%]&quot;, &quot;&quot;));</span>
+		// Main Panel Header
+<span class="nc" id="L1009">		panel.add(Utility.localizedHeader(&quot;negotiationDialog.title.&quot; + agreement.getContext().getKey(), false),</span>
+				&quot;span 3, center&quot;);
+
+		// Panel contents Header row
+<span class="nc" id="L1013">		JTextArea labelDemandMessage = Utility.localizedTextArea(this.demand);</span>
+<span class="nc" id="L1014">		Font font = FontLibrary.createFont(FontLibrary.FontType.NORMAL, FontLibrary.FontSize.TINY, Font.BOLD,</span>
+<span class="nc" id="L1015">				getImageLibrary().getScaleFactor());</span>
+<span class="nc" id="L1016">		labelDemandMessage.setFont(font);</span>
+<span class="nc" id="L1017">		panel.add(labelDemandMessage);</span>
+<span class="nc" id="L1018">		JTextArea blank = new JTextArea(&quot; &quot;);</span>
+<span class="nc" id="L1019">		blank.setVisible(false);</span>
+<span class="nc" id="L1020">		panel.add(blank, &quot;&quot;);</span>
+<span class="nc" id="L1021">		JTextArea labelOfferMessage = Utility.localizedTextArea(this.offer);</span>
+<span class="nc" id="L1022">		labelOfferMessage.setFont(font);</span>
+<span class="nc" id="L1023">		panel.add(labelOfferMessage);</span>
+
+		// Panel contents
+		// TODO: Expand center panel so that contents fill cell horizontally.
+<span class="nc" id="L1027">		panel.add(this.goldDemandPanel); // Left pane</span>
+<span class="nc" id="L1028">		JPanel centerPanel = new MigPanel();</span>
+<span class="nc" id="L1029">		centerPanel.setLayout(new MigLayout(&quot;wrap 1&quot;));</span>
+<span class="nc bnc" id="L1030" title="All 2 branches missed.">		if (tutorial != null) {</span>
+			// Display only if tutorial variable contents overriden
+			// Can only occur if: First Contact with a forgeign Nation
+<span class="nc" id="L1033">			JTextArea tutArea = Utility.localizedTextArea(tutorial, 30);</span>
+<span class="nc" id="L1034">			centerPanel.add(tutArea, &quot;center&quot;);</span>
+		}
+<span class="nc" id="L1036">		centerPanel.add(this.summary, &quot;top&quot;);</span>
+<span class="nc" id="L1037">		panel.add(centerPanel, &quot;spany, top&quot;); // Center pane</span>
+<span class="nc" id="L1038">		panel.add(this.goldOfferPanel); // Right pane</span>
+
+<span class="nc bnc" id="L1040" title="All 2 branches missed.">		if (this.colonyDemandPanel != null) {</span>
+<span class="nc" id="L1041">			panel.add(this.colonyDemandPanel);</span>
+<span class="nc" id="L1042">			panel.add(this.colonyOfferPanel);</span>
+		}
+<span class="nc bnc" id="L1044" title="All 2 branches missed.">		if (this.stancePanel != null) {</span>
+<span class="nc" id="L1045">			panel.add(this.stancePanel, &quot;skip&quot;);</span>
+		}
+<span class="nc bnc" id="L1047" title="All 2 branches missed.">		if (this.goodsDemandPanel != null) {</span>
+<span class="nc" id="L1048">			panel.add(this.goodsDemandPanel);</span>
+<span class="nc" id="L1049">			panel.add(this.goodsOfferPanel);</span>
+		}
+<span class="nc bnc" id="L1051" title="All 2 branches missed.">		if (this.inciteDemandPanel != null) {</span>
+<span class="nc" id="L1052">			panel.add(this.inciteDemandPanel);</span>
+<span class="nc" id="L1053">			panel.add(this.inciteOfferPanel);</span>
+		}
+<span class="nc bnc" id="L1055" title="All 2 branches missed.">		if (this.unitDemandPanel != null) {</span>
+<span class="nc" id="L1056">			panel.add(this.unitDemandPanel);</span>
+<span class="nc" id="L1057">			panel.add(this.unitOfferPanel);</span>
+		}
+<span class="nc bnc" id="L1059" title="All 2 branches missed.">		if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.MENUS)) {</span>
+<span class="nc" id="L1060">			panel.add(new JLabel(&quot;Version = &quot; + agreement.getVersion()));</span>
+		}
+<span class="nc" id="L1062">		panel.setPreferredSize(panel.getPreferredSize());</span>
+
+<span class="nc" id="L1064">		DiplomaticTrade bogus = null;</span>
+		String str;
+<span class="nc" id="L1066">		List&lt;ChoiceItem&lt;DiplomaticTrade&gt;&gt; c = choices();</span>
+<span class="nc bnc" id="L1067" title="All 2 branches missed.">		if (agreement.getVersion() &gt; 0) { // A new offer can not be accepted</span>
+<span class="nc" id="L1068">			str = Messages.message(&quot;negotiationDialog.accept&quot;);</span>
+<span class="nc" id="L1069">			c.add(this.accept = new ChoiceItem&lt;&gt;(str, bogus));</span>
+		}
+<span class="nc" id="L1071">		str = Messages.message(&quot;negotiationDialog.send&quot;);</span>
+<span class="nc" id="L1072">		c.add(this.send = new ChoiceItem&lt;&gt;(str, bogus).okOption());</span>
+<span class="nc bnc" id="L1073" title="All 4 branches missed.">		if (agreement.getVersion() &gt; 0 || context != TradeContext.CONTACT) {</span>
+<span class="nc" id="L1074">			str = Messages.message(&quot;negotiationDialog.cancel&quot;);</span>
+<span class="nc" id="L1075">			c.add(new ChoiceItem&lt;&gt;(str, bogus).cancelOption().defaultOption());</span>
+		}
+<span class="nc" id="L1077">		updateDialog();</span>
+
+<span class="nc bnc" id="L1079" title="All 2 branches missed.">		ImageIcon icon = new ImageIcon((otherColony != null) ? getImageLibrary().getSettlementImage(otherColony)</span>
+<span class="nc" id="L1080">				: getImageLibrary().getUnitImage(otherUnit));</span>
+<span class="nc" id="L1081">		initializeDialog(frame, DialogType.QUESTION, true, panel, icon, c);</span>
+<span class="nc" id="L1082">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public DiplomaticTrade getResponse() {
+<span class="nc" id="L1089">		Object value = getValue();</span>
+<span class="nc bnc" id="L1090" title="All 6 branches missed.">		TradeStatus s = (value == null) ? TradeStatus.REJECT_TRADE</span>
+				: (value == this.accept) ? TradeStatus.ACCEPT_TRADE
+						: (value == this.send) ? TradeStatus.PROPOSE_TRADE : TradeStatus.REJECT_TRADE;
+<span class="nc" id="L1093">		agreement.setStatus(s);</span>
+<span class="nc" id="L1094">		return agreement;</span>
+	}
+
+	/**
+	 * Gets a list of all possible storable goods (one cargo load). Note that
+	 * these goods are fictional. They are the goods that *might* be in the
+	 * other player's store. Therefore they have a bogus location (i.e. not the
+	 * actual goods container).
+	 *
+	 * @param gl
+	 *            The &lt;code&gt;GoodsLocation&lt;/code&gt; for the goods.
+	 * @return A list of storable &lt;code&gt;Goods&lt;/code&gt;.
+	 */
+	private List&lt;Goods&gt; getAnyGoods(GoodsLocation gl) {
+<span class="nc" id="L1108">		List&lt;Goods&gt; goodsList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L1109" title="All 2 branches missed.">		for (GoodsType type : getSpecification().getStorableGoodsTypeList()) {</span>
+<span class="nc" id="L1110">			Goods g = new Goods(getGame(), null, type, GoodsContainer.CARGO_SIZE);</span>
+<span class="nc" id="L1111">			g.setLocation(gl);</span>
+<span class="nc" id="L1112">			goodsList.add(g);</span>
+<span class="nc" id="L1113">		}</span>
+<span class="nc" id="L1114">		return goodsList;</span>
+	}
+
+	/**
+	 * Get a list of units to offer that are associated with a given unit.
+	 *
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; that is trading.
+	 * @return A list of &lt;code&gt;Unit&lt;/code&gt;s.
+	 */
+	private List&lt;Unit&gt; getUnitUnitList(Unit unit) {
+<span class="nc" id="L1125">		List&lt;Unit&gt; ul = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L1126" title="All 2 branches missed.">		if (unit != null) {</span>
+<span class="nc bnc" id="L1127" title="All 2 branches missed.">			if (unit.isCarrier()) {</span>
+<span class="nc" id="L1128">				ul.addAll(unit.getUnitList());</span>
+<span class="nc bnc" id="L1129" title="All 2 branches missed.">			} else if (unit.isOnCarrier()) {</span>
+<span class="nc" id="L1130">				ul.addAll(unit.getCarrier().getUnitList());</span>
+			} else {
+<span class="nc" id="L1132">				ul.add(unit);</span>
+			}
+		}
+<span class="nc" id="L1135">		return ul;</span>
+	}
+
+	/**
+	 * Update the entire dialog.
+	 */
+	private void updateDialog() {
+<span class="nc bnc" id="L1142" title="All 2 branches missed.">		if (this.goldOfferPanel != null) {</span>
+<span class="nc" id="L1143">			this.goldOfferPanel.update(agreement);</span>
+		}
+<span class="nc bnc" id="L1145" title="All 2 branches missed.">		if (this.stancePanel != null) {</span>
+<span class="nc" id="L1146">			this.stancePanel.update(agreement);</span>
+		}
+<span class="nc bnc" id="L1148" title="All 2 branches missed.">		if (this.colonyOfferPanel != null) {</span>
+<span class="nc" id="L1149">			this.colonyOfferPanel.update(agreement);</span>
+		}
+<span class="nc bnc" id="L1151" title="All 2 branches missed.">		if (this.colonyDemandPanel != null) {</span>
+<span class="nc" id="L1152">			this.colonyDemandPanel.update(agreement);</span>
+		}
+<span class="nc bnc" id="L1154" title="All 2 branches missed.">		if (this.goodsOfferPanel != null) {</span>
+<span class="nc" id="L1155">			this.goodsOfferPanel.update(agreement);</span>
+		}
+<span class="nc bnc" id="L1157" title="All 2 branches missed.">		if (this.goodsDemandPanel != null) {</span>
+<span class="nc" id="L1158">			this.goodsDemandPanel.update(agreement);</span>
+		}
+<span class="nc bnc" id="L1160" title="All 2 branches missed.">		if (this.inciteOfferPanel != null) {</span>
+<span class="nc" id="L1161">			this.inciteOfferPanel.update(agreement);</span>
+		}
+<span class="nc bnc" id="L1163" title="All 2 branches missed.">		if (this.inciteDemandPanel != null) {</span>
+<span class="nc" id="L1164">			this.inciteDemandPanel.update(agreement);</span>
+		}
+<span class="nc bnc" id="L1166" title="All 2 branches missed.">		if (this.unitOfferPanel != null) {</span>
+<span class="nc" id="L1167">			this.unitOfferPanel.update(agreement);</span>
+		}
+<span class="nc bnc" id="L1169" title="All 2 branches missed.">		if (this.unitDemandPanel != null) {</span>
+<span class="nc" id="L1170">			this.unitDemandPanel.update(agreement);</span>
+		}
+
+<span class="nc" id="L1173">		updateSummary();</span>
+<span class="nc" id="L1174">	}</span>
+
+	/**
+	 * Gets a trade item button for a given item.
+	 *
+	 * @param item
+	 *            The &lt;code&gt;TradeItem&lt;/code&gt; to make a button for.
+	 * @return A new &lt;code&gt;JButton&lt;/code&gt; for the item.
+	 */
+	private JButton getTradeItemButton(TradeItem item) {
+<span class="nc" id="L1184">		JButton button = new JButton(new RemoveAction(item));</span>
+<span class="nc" id="L1185">		button.setText(Messages.message(item.getLabel()));</span>
+<span class="nc" id="L1186">		button.setMargin(Utility.EMPTY_MARGIN);</span>
+<span class="nc" id="L1187">		button.setOpaque(false);</span>
+<span class="nc" id="L1188">		button.setForeground(Utility.LINK_COLOR);</span>
+<span class="nc" id="L1189">		button.setBorder(Utility.blankBorder(0, 0, 0, 0));</span>
+<span class="nc" id="L1190">		button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));</span>
+<span class="nc" id="L1191">		return button;</span>
+	}
+
+	/**
+	 * Update the text summary of the proposed transaction.
+	 */
+	private void updateSummary() {
+<span class="nc" id="L1198">		final Player player = getMyPlayer();</span>
+
+<span class="nc" id="L1200">		summary.removeAll();</span>
+
+<span class="nc" id="L1202">		summary.add(Utility.localizedTextArea(comment), &quot;center, span 2&quot;);</span>
+
+<span class="nc" id="L1204">		List&lt;TradeItem&gt; offers = agreement.getItemsGivenBy(player);</span>
+<span class="nc bnc" id="L1205" title="All 2 branches missed.">		if (!offers.isEmpty()) {</span>
+<span class="nc" id="L1206">			summary.add(Utility.localizedLabel(this.offer), &quot;span&quot;);</span>
+<span class="nc bnc" id="L1207" title="All 2 branches missed.">			for (TradeItem item : offers) {</span>
+<span class="nc" id="L1208">				summary.add(getTradeItemButton(item), &quot;skip&quot;);</span>
+<span class="nc" id="L1209">			}</span>
+		}
+
+<span class="nc" id="L1212">		List&lt;TradeItem&gt; demands = agreement.getItemsGivenBy(otherPlayer);</span>
+<span class="nc bnc" id="L1213" title="All 2 branches missed.">		if (!demands.isEmpty()) {</span>
+<span class="nc bnc" id="L1214" title="All 2 branches missed.">			if (offers.isEmpty()) {</span>
+<span class="nc" id="L1215">				summary.add(Utility.localizedLabel(this.demand), &quot;span&quot;);</span>
+			} else {
+<span class="nc" id="L1217">				summary.add(new JLabel(exchangeMessage), &quot;newline 20, span&quot;);</span>
+			}
+<span class="nc bnc" id="L1219" title="All 2 branches missed.">			for (TradeItem item : demands) {</span>
+<span class="nc" id="L1220">				summary.add(getTradeItemButton(item), &quot;skip&quot;);</span>
+<span class="nc" id="L1221">			}</span>
+		}
+<span class="nc" id="L1223">	}</span>
+
+	/**
+	 * Remove trade items of a given type.
+	 *
+	 * @param itemClass
+	 *            The class of &lt;code&gt;TradeItem&lt;/code&gt; to remove.
+	 */
+	public void removeTradeItems(Class&lt;? extends TradeItem&gt; itemClass) {
+<span class="nc" id="L1232">		this.agreement.removeType(itemClass);</span>
+<span class="nc" id="L1233">		updateDialog();</span>
+<span class="nc" id="L1234">	}</span>
+
+	/**
+	 * Adds a &lt;code&gt;ColonyTradeItem&lt;/code&gt; to the list of TradeItems.
+	 *
+	 * @param source
+	 *            The sourced &lt;code&gt;Player&lt;/code&gt;.
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; to add.
+	 */
+	public void addColonyTradeItem(Player source, Colony colony) {
+<span class="nc" id="L1245">		final Player player = getMyPlayer();</span>
+
+<span class="nc bnc" id="L1247" title="All 2 branches missed.">		Player destination = (source == otherPlayer) ? player : otherPlayer;</span>
+<span class="nc" id="L1248">		agreement.add(new ColonyTradeItem(getGame(), source, destination, colony));</span>
+<span class="nc" id="L1249">		updateDialog();</span>
+<span class="nc" id="L1250">	}</span>
+
+	/**
+	 * Adds a &lt;code&gt;GoldTradeItem&lt;/code&gt; to the list of TradeItems.
+	 *
+	 * @param source
+	 *            The source &lt;code&gt;Player&lt;/code&gt;.
+	 * @param amount
+	 *            The amount of gold.
+	 */
+	public void addGoldTradeItem(Player source, int amount) {
+<span class="nc" id="L1261">		final Player player = getMyPlayer();</span>
+
+<span class="nc bnc" id="L1263" title="All 2 branches missed.">		Player destination = (source == otherPlayer) ? player : otherPlayer;</span>
+<span class="nc" id="L1264">		agreement.add(new GoldTradeItem(getGame(), source, destination, amount));</span>
+<span class="nc" id="L1265">		updateDialog();</span>
+<span class="nc" id="L1266">	}</span>
+
+	/**
+	 * Adds a &lt;code&gt;GoodsTradeItem&lt;/code&gt; to the list of TradeItems.
+	 *
+	 * @param source
+	 *            The source &lt;code&gt;Player&lt;/code&gt;.
+	 * @param goods
+	 *            The &lt;code&gt;Goods&lt;/code&gt; to add.
+	 */
+	public void addGoodsTradeItem(Player source, Goods goods) {
+<span class="nc" id="L1277">		final Player player = getMyPlayer();</span>
+
+<span class="nc bnc" id="L1279" title="All 2 branches missed.">		Player destination = (source == otherPlayer) ? player : otherPlayer;</span>
+<span class="nc" id="L1280">		agreement.add(new GoodsTradeItem(getGame(), source, destination, goods));</span>
+<span class="nc" id="L1281">		updateDialog();</span>
+<span class="nc" id="L1282">	}</span>
+
+	/**
+	 * Add an &lt;code&gt;InciteTradeItem&lt;/code&gt; to the list of trade items.
+	 *
+	 * @param source
+	 *            The source &lt;code&gt;Player&lt;/code&gt;.
+	 * @param victim
+	 *            The &lt;code&gt;Player&lt;/code&gt; to be attacked.
+	 */
+	public void addInciteTradeItem(Player source, Player victim) {
+<span class="nc" id="L1293">		final Player player = getMyPlayer();</span>
+
+<span class="nc bnc" id="L1295" title="All 2 branches missed.">		Player destination = (source == otherPlayer) ? player : otherPlayer;</span>
+<span class="nc" id="L1296">		agreement.add(new InciteTradeItem(getGame(), source, destination, victim));</span>
+<span class="nc" id="L1297">		updateDialog();</span>
+<span class="nc" id="L1298">	}</span>
+
+	/**
+	 * Trade a stance change between the players.
+	 *
+	 * @param stance
+	 *            The &lt;code&gt;Stance&lt;/code&gt; to trade.
+	 */
+	public void addStanceTradeItem(Stance stance) {
+<span class="nc" id="L1307">		final Player player = getMyPlayer();</span>
+
+<span class="nc" id="L1309">		agreement.add(new StanceTradeItem(getGame(), otherPlayer, player, stance));</span>
+<span class="nc" id="L1310">		updateDialog();</span>
+<span class="nc" id="L1311">	}</span>
+
+	/**
+	 * Adds a &lt;code&gt;UnitTradeItem&lt;/code&gt; to the list of TradeItems.
+	 *
+	 * @param source
+	 *            The source &lt;code&gt;Player&lt;/code&gt;.
+	 * @param unit
+	 *            The &lt;code&gt;Unit&lt;/code&gt; to add.
+	 */
+	public void addUnitTradeItem(Player source, Unit unit) {
+<span class="nc" id="L1322">		final Player player = getMyPlayer();</span>
+
+<span class="nc bnc" id="L1324" title="All 2 branches missed.">		Player destination = (source == otherPlayer) ? player : otherPlayer;</span>
+<span class="nc" id="L1325">		agreement.add(new UnitTradeItem(getGame(), source, destination, unit));</span>
+<span class="nc" id="L1326">		updateDialog();</span>
+<span class="nc" id="L1327">	}</span>
+
+	// Override Component
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void removeNotify() {
+<span class="nc" id="L1336">		super.removeNotify();</span>
+
+<span class="nc" id="L1338">		removeAll();</span>
+
+<span class="nc" id="L1340">		this.stancePanel = null;</span>
+<span class="nc" id="L1341">		this.goldOfferPanel = this.goldDemandPanel = null;</span>
+<span class="nc" id="L1342">		this.colonyOfferPanel = this.colonyDemandPanel = null;</span>
+<span class="nc" id="L1343">		this.goodsOfferPanel = this.goodsDemandPanel = null;</span>
+<span class="nc" id="L1344">		this.inciteOfferPanel = this.inciteDemandPanel = null;</span>
+<span class="nc" id="L1345">		this.unitOfferPanel = this.unitDemandPanel = null;</span>
+<span class="nc" id="L1346">		this.summary = null;</span>
+<span class="nc" id="L1347">		this.demand = this.offer = null;</span>
+<span class="nc" id="L1348">		this.exchangeMessage = null;</span>
+<span class="nc" id="L1349">	}</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -26,124 +26,120 @@ import javax.xml.stream.XMLStreamException;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 import net.sf.freecol.common.model.Specification;
 
-
 /**
- * Represents an option that can be either <i>true</i>
- * or <i>false</i>.
+ * Represents an option that can be either <i>true</i> or <i>false</i>.
  */
 public class BooleanOption extends AbstractOption<Boolean> {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(BooleanOption.class.getName());
+	/** The Constant logger. */
+	@SuppressWarnings("unused")
+	private static final Logger logger = Logger.getLogger(BooleanOption.class.getName());
 
-    /** The value of this option. */
-    private boolean value;
+	/** The value of this option. */
+	private boolean value;
 
+	/**
+	 * Creates a new <code>BooleanOption</code>.
+	 *
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public BooleanOption(Specification specification) {
+		super(specification);
+	}
 
-    /**
-     * Creates a new <code>BooleanOption</code>.
-     *
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public BooleanOption(Specification specification) {
-        super(specification);
-    }
+	/**
+	 * Creates a new <code>BooleanOption</code>.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public BooleanOption(String id, Specification specification) {
+		super(id, specification);
+	}
 
-    /**
-     * Creates a new <code>BooleanOption</code>.
-     *
-     * @param id The object identifier.
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public BooleanOption(String id, Specification specification) {
-        super(id, specification);
-    }
+	// Interface Option
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public BooleanOption clone() {
+		BooleanOption result = new BooleanOption(getId(), getSpecification());
+		result.setValues(this);
+		return result;
+	}
 
-    // Interface Option
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Boolean getValue() {
+		return value;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public BooleanOption clone() {
-        BooleanOption result = new BooleanOption(getId(), getSpecification());
-        result.setValues(this);
-        return result;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void setValue(Boolean value) {
+		final boolean oldValue = this.value;
+		this.value = value;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Boolean getValue() {
-        return value;
-    }
+		if (value != oldValue && isDefined) {
+			firePropertyChange(VALUE_TAG, oldValue, (boolean) value);
+		}
+		isDefined = true;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setValue(Boolean value) {
-        final boolean oldValue = this.value;
-        this.value = value;
+	// Override AbstractOption
 
-        if (value != oldValue && isDefined) {
-            firePropertyChange(VALUE_TAG, oldValue, (boolean)value);
-        }
-        isDefined = true;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void setValue(String valueString, String defaultValueString) {
+		setValue(Boolean.valueOf((valueString != null) ? valueString : defaultValueString));
+	}
 
+	// Serialization
 
-    // Override AbstractOption
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void setValue(String valueString, String defaultValueString) {
-        setValue(Boolean.valueOf((valueString != null) ? valueString
-                : defaultValueString));
-    }
+		xw.writeAttribute(VALUE_TAG, Boolean.toString(value));
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder(16);
+		sb.append("[").append(getId()).append(" value=").append(value).append("]");
+		return sb.toString();
+	}
 
-    // Serialization
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
-
-        xw.writeAttribute(VALUE_TAG, Boolean.toString(value));
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(16);
-        sb.append("[").append(getId())
-            .append(" value=").append(value)
-            .append("]");
-        return sb.toString();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "booleanOption".
-     */
-    public static String getXMLElementTagName() {
-        return "booleanOption";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "booleanOption".
+	 */
+	public static String getXMLElementTagName() {
+		return "booleanOption";
+	}
 }

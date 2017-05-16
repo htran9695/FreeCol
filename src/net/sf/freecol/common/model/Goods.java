@@ -29,242 +29,247 @@ import net.sf.freecol.common.util.Utils;
 
 import org.w3c.dom.Element;
 
-
 /**
- * Represents locatable goods of a specified type and amount. Use
- * AbstractGoods to represent abstract or potential goods that need
- * not be present in any particular location.
+ * Represents locatable goods of a specified type and amount. Use AbstractGoods
+ * to represent abstract or potential goods that need not be present in any
+ * particular location.
  *
  * @see AbstractGoods
  */
 public class Goods extends AbstractGoods implements Locatable, Ownable {
 
-    private static final Logger logger = Logger.getLogger(Goods.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(Goods.class.getName());
 
-    /** The game containing these goods. */
-    private final Game game;
+	/** The game containing these goods. */
+	private final Game game;
 
-    /**
-     * Where the goods are.  This should always be non-null except for the
-     * really special case of goods that are in the process of being looted
-     * from a ship --- we can not use the ship as it is removed/disposed
-     * at once while the looting is still being resolved.
-     */
-    private Location location;
+	/**
+	 * Where the goods are. This should always be non-null except for the really
+	 * special case of goods that are in the process of being looted from a ship
+	 * --- we can not use the ship as it is removed/disposed at once while the
+	 * looting is still being resolved.
+	 */
+	private Location location;
 
+	/**
+	 * Creates a standard <code>Goods</code>-instance given the place where the
+	 * goods is.
+	 *
+	 * This constructor only asserts that the game and that the location (if
+	 * given) can store goods. The goods will not be added to the location (use
+	 * Location.add for this).
+	 *
+	 * @param game
+	 *            The enclosing <code>Game</code>.
+	 * @param location
+	 *            The <code>Location</code> of the goods (may be null).
+	 * @param type
+	 *            The type of the goods.
+	 * @param amount
+	 *            The amount of the goods.
+	 *
+	 * @throws IllegalArgumentException
+	 *             if the location cannot store any goods.
+	 */
+	public Goods(Game game, Location location, GoodsType type, int amount) {
+		if (game == null) {
+			throw new IllegalArgumentException("Null game.");
+		}
+		if (type == null) {
+			throw new IllegalArgumentException("Null type.");
+		}
+		if (location != null && location.getGoodsContainer() == null) {
+			throw new IllegalArgumentException("Can not store goods at: " + location);
+		}
 
-    /**
-     * Creates a standard <code>Goods</code>-instance given the place where
-     * the goods is.
-     *
-     * This constructor only asserts that the game and
-     * that the location (if given) can store goods. The goods will not
-     * be added to the location (use Location.add for this).
-     *
-     * @param game The enclosing <code>Game</code>.
-     * @param location The <code>Location</code> of the goods (may be null).
-     * @param type The type of the goods.
-     * @param amount The amount of the goods.
-     *
-     * @throws IllegalArgumentException if the location cannot store any goods.
-     */
-    public Goods(Game game, Location location, GoodsType type, int amount) {
-        if (game == null) {
-            throw new IllegalArgumentException("Null game.");
-        }
-        if (type == null) {
-            throw new IllegalArgumentException("Null type.");
-        }
-        if (location != null && location.getGoodsContainer() == null) {
-            throw new IllegalArgumentException("Can not store goods at: "
-                + location);
-        }
+		this.game = game;
+		setId(type.getId());
+		setSpecification(game.getSpecification());
+		setType(type);
+		setAmount(amount);
+		this.location = location;
+	}
 
-        this.game = game;
-        setId(type.getId());
-        setSpecification(game.getSpecification());
-        setType(type);
-        setAmount(amount);
-        this.location = location;
-    }
+	/**
+	 * Creates a new <code>Goods</code> instance.
+	 *
+	 * @param game
+	 *            The enclosing <code>Game</code>.
+	 * @param xr
+	 *            The <code>FreeColXMLReader</code> to read from.
+	 * @exception XMLStreamException
+	 *                if an error occurs
+	 */
+	public Goods(Game game, FreeColXMLReader xr) throws XMLStreamException {
+		this.game = game;
+		setSpecification(game.getSpecification());
+		readFromXML(xr);
+	}
 
-    /**
-     * Creates a new <code>Goods</code> instance.
-     *
-     * @param game The enclosing <code>Game</code>.
-     * @param xr The <code>FreeColXMLReader</code> to read from.
-     * @exception XMLStreamException if an error occurs
-     */
-    public Goods(Game game, FreeColXMLReader xr) throws XMLStreamException {
-        this.game = game;
-        setSpecification(game.getSpecification());
-        readFromXML(xr);
-    }
+	/**
+	 * Creates a new <code>Goods</code> instance.
+	 *
+	 * @param game
+	 *            The enclosing <code>Game</code>.
+	 * @param e
+	 *            an <code>Element</code> value
+	 */
+	public Goods(Game game, Element e) {
+		this.game = game;
+		setSpecification(game.getSpecification());
+		readFromXMLElement(e);
+	}
 
-    /**
-     * Creates a new <code>Goods</code> instance.
-     *
-     * @param game The enclosing <code>Game</code>.
-     * @param e an <code>Element</code> value
-     */
-    public Goods(Game game, Element e) {
-        this.game = game;
-        setSpecification(game.getSpecification());
-        readFromXMLElement(e);
-    }
+	/**
+	 * Get the game containing these goods.
+	 *
+	 * @return The <code>Game</code> containing these <code>Goods</code>.
+	 */
+	public Game getGame() {
+		return game;
+	}
 
+	/**
+	 * If the amount of goods is greater than the container can hold, then this
+	 * method adjusts the amount to the maximum amount possible.
+	 */
+	public void adjustAmount() {
+		if (location == null)
+			return;
+		GoodsContainer gc = location.getGoodsContainer();
+		if (gc != null) {
+			int maxAmount = gc.getGoodsCount(getType());
+			if (getAmount() > maxAmount)
+				setAmount(maxAmount);
+		}
+	}
 
-    /**
-     * Get the game containing these goods.
-     *
-     * @return The <code>Game</code> containing these <code>Goods</code>.
-     */
-    public Game getGame() {
-        return game;
-    }
+	// Interface Locatable
 
-    /**
-     * If the amount of goods is greater than the container can hold,
-     * then this method adjusts the amount to the maximum amount possible.
-     */
-    public void adjustAmount() {
-        if (location == null) return;
-        GoodsContainer gc = location.getGoodsContainer();
-        if (gc != null) {
-            int maxAmount = gc.getGoodsCount(getType());
-            if (getAmount() > maxAmount) setAmount(maxAmount);
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location getLocation() {
+		return location;
+	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean setLocation(Location location) {
+		this.location = location;
+		return true;
+	}
 
-    // Interface Locatable
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean isInEurope() {
+		return (location instanceof Europe) || (location instanceof Unit && ((Unit) location).isInEurope());
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location getLocation() {
-        return location;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Tile getTile() {
+		return (location == null) ? null : location.getTile();
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean setLocation(Location location) {
-        this.location = location;
-        return true;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getSpaceTaken() {
+		return 1;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isInEurope() {
-        return (location instanceof Europe)
-            || (location instanceof Unit && ((Unit)location).isInEurope());
-    }
+	// Interface Ownable
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Tile getTile() {
-        return (location == null) ? null : location.getTile();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Player getOwner() {
+		return (location instanceof Ownable) ? ((Ownable) location).getOwner() : null;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getSpaceTaken() {
-        return 1;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void setOwner(Player p) {
+		throw new UnsupportedOperationException();
+	}
 
+	// Override Object
 
-    // Interface Ownable
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean equals(Object o) {
+		if (o instanceof Goods) {
+			Goods g = (Goods) o;
+			return this.location == g.location && super.equals(g);
+		}
+		return false;
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Player getOwner() {
-        return (location instanceof Ownable) ? ((Ownable)location).getOwner()
-            : null;
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int hashCode() {
+		int hash = super.hashCode();
+		return 31 * hash + Utils.hashCode(this.location);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setOwner(Player p) {
-        throw new UnsupportedOperationException();
-    }
+	// Serialization
 
+	/** The Constant LOCATION_TAG. */
+	private static final String LOCATION_TAG = "location";
 
-    // Override Object
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean equals(Object o) {
-        if (o instanceof Goods) {
-            Goods g = (Goods)o;
-            return this.location == g.location && super.equals(g);
-        }
-        return false;
-    }
+		if (location != null) {
+			xw.writeLocationAttribute(LOCATION_TAG, location);
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int hashCode() {
-        int hash = super.hashCode();
-        return 31 * hash + Utils.hashCode(this.location);
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		super.readAttributes(xr);
 
+		location = xr.getLocationAttribute(game, LOCATION_TAG, true);
+	}
 
-    // Serialization
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+		return getXMLElementTagName();
+	}
 
-    private static final String LOCATION_TAG = "location";
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
-
-        if (location != null) {
-            xw.writeLocationAttribute(LOCATION_TAG, location);
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        super.readAttributes(xr);
-
-        location = xr.getLocationAttribute(game, LOCATION_TAG, true);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getXMLTagName() { return getXMLElementTagName(); }
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return "goods".
-     */
-    public static String getXMLElementTagName() {
-        return "goods";
-    }
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return "goods".
+	 */
+	public static String getXMLElementTagName() {
+		return "goods";
+	}
 }

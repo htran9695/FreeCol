@@ -30,74 +30,73 @@ import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.option.UnitTypeOption;
 
-
 /**
  * This class provides visualization for a
- * {@link net.sf.freecol.common.option.UnitTypeOption} in order to enable
- * values to be both seen and changed.
+ * {@link net.sf.freecol.common.option.UnitTypeOption} in order to enable values
+ * to be both seen and changed.
  */
-public final class UnitTypeOptionUI extends OptionUI<UnitTypeOption>  {
+public final class UnitTypeOptionUI extends OptionUI<UnitTypeOption> {
 
-    private static class ChoiceRenderer
-        extends FreeColComboBoxRenderer<UnitType> {
+	/**
+	 * The Class ChoiceRenderer.
+	 */
+	private static class ChoiceRenderer extends FreeColComboBoxRenderer<UnitType> {
 
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void setLabelValues(JLabel label, UnitType value) {
-            label.setText((value == null) ? Messages.message("none")
-                : Messages.getName(value));
-        }
-    }
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void setLabelValues(JLabel label, UnitType value) {
+			label.setText((value == null) ? Messages.message("none") : Messages.getName(value));
+		}
+	}
 
-    private final JComboBox<UnitType> box = new JComboBox<>();
+	/** The box. */
+	private final JComboBox<UnitType> box = new JComboBox<>();
 
+	/**
+	 * Creates a new <code>UnitTypeOptionUI</code> for the given
+	 * <code>UnitTypeOption</code>.
+	 *
+	 * @param option
+	 *            The <code>UnitTypeOption</code> to make a user interface for.
+	 * @param editable
+	 *            boolean whether user can modify the setting
+	 */
+	public UnitTypeOptionUI(final UnitTypeOption option, boolean editable) {
+		super(option, editable);
 
-    /**
-     * Creates a new <code>UnitTypeOptionUI</code> for the given
-     * <code>UnitTypeOption</code>.
-     *
-     * @param option The <code>UnitTypeOption</code> to make a user
-     *     interface for.
-     * @param editable boolean whether user can modify the setting
-     */
-    public UnitTypeOptionUI(final UnitTypeOption option, boolean editable) {
-        super(option, editable);
+		List<UnitType> choices = option.getChoices();
+		box.setModel(new DefaultComboBoxModel<>(choices.toArray(new UnitType[choices.size()])));
+		box.setSelectedItem(option.getValue());
+		box.setRenderer(new ChoiceRenderer());
 
-        List<UnitType> choices = option.getChoices();
-        box.setModel(new DefaultComboBoxModel<>(choices
-                .toArray(new UnitType[choices.size()])));
-        box.setSelectedItem(option.getValue());
-        box.setRenderer(new ChoiceRenderer());
+		initialize();
+	}
 
-        initialize();
-    }
+	// Implement OptionUI
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public JComboBox getComponent() {
+		return box;
+	}
 
-    // Implement OptionUI
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void updateOption() {
+		getOption().setValue((UnitType) box.getSelectedItem());
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public JComboBox getComponent() {
-        return box;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateOption() {
-        getOption().setValue((UnitType) box.getSelectedItem());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void reset() {
-        box.setSelectedItem(getOption().getValue());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void reset() {
+		box.setSelectedItem(getOption().getValue());
+	}
 }

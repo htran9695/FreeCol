@@ -27,49 +27,46 @@ import javax.swing.KeyStroke;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.debug.FreeColDebugger;
 
-
 /**
  * Switch debug mode on.
  */
 public class DebugAction extends FreeColAction {
 
-    public static final String id = "debugAction";
+	/** The Constant id. */
+	public static final String id = "debugAction";
 
+	/**
+	 * Creates a new <code>DebugAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public DebugAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
 
-    /**
-     * Creates a new <code>DebugAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public DebugAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
+		setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_D, KeyEvent.SHIFT_MASK | KeyEvent.CTRL_MASK));
+	}
 
-        setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_D,
-                KeyEvent.SHIFT_MASK | KeyEvent.CTRL_MASK));
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean shouldBeEnabled() {
+		return !FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.MENUS);
+	}
 
-    // Override FreeColAction
+	// Interface ActionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean shouldBeEnabled() {
-        return !FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.MENUS);
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        if (shouldBeEnabled()) {
-            igc().setInDebugMode();
-            getConnectController().reconnect();
-        }
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		if (shouldBeEnabled()) {
+			igc().setInDebugMode();
+			getConnectController().reconnect();
+		}
+	}
 }

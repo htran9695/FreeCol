@@ -26,30 +26,50 @@ import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.server.control.ChangeSet;
 
-
 /**
  * A type of session to handle looting of cargo.
  */
 public class LootSession extends TransactionSession {
 
-    private static final Logger logger = Logger.getLogger(LootSession.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(LootSession.class.getName());
 
-    /** The goods that are available to be captured. */
-    private final List<Goods> capture;
+	/** The goods that are available to be captured. */
+	private final List<Goods> capture;
 
+	/**
+	 * Instantiates a new loot session.
+	 *
+	 * @param winner
+	 *            the winner
+	 * @param loser
+	 *            the loser
+	 * @param capture
+	 *            the capture
+	 */
+	public LootSession(Unit winner, Unit loser, List<Goods> capture) {
+		super(makeSessionKey(LootSession.class, winner, loser));
+		this.capture = capture;
+	}
 
-    public LootSession(Unit winner, Unit loser, List<Goods> capture) {
-        super(makeSessionKey(LootSession.class, winner, loser));
-        this.capture = capture;
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * net.sf.freecol.server.model.TransactionSession#complete(net.sf.freecol.
+	 * server.control.ChangeSet)
+	 */
+	@Override
+	public void complete(ChangeSet cs) {
+		super.complete(cs);
+	}
 
-
-    @Override
-    public void complete(ChangeSet cs) {
-        super.complete(cs);
-    }
-
-    public List<Goods> getCapture() {
-        return capture;
-    }
+	/**
+	 * Gets the capture.
+	 *
+	 * @return the capture
+	 */
+	public List<Goods> getCapture() {
+		return capture;
+	}
 }

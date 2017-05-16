@@ -31,191 +31,190 @@ import net.sf.freecol.common.model.Location;
 
 import org.w3c.dom.Element;
 
-
 /**
  * Represents a need for something at a given <code>Location</code>.
  */
 public abstract class Wish extends ValuedAIObject {
 
-    private static final Logger logger = Logger.getLogger(Wish.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(Wish.class.getName());
 
-    /** The requesting location of this wish. */
-    protected Location destination;
+	/** The requesting location of this wish. */
+	protected Location destination;
 
-    /**
-     * The <code>TransportableAIObject</code> which will realize the wish,
-     * or null if none has been assigned.
-     */
-    protected TransportableAIObject transportable;
+	/**
+	 * The <code>TransportableAIObject</code> which will realize the wish, or
+	 * null if none has been assigned.
+	 */
+	protected TransportableAIObject transportable;
 
+	/**
+	 * Creates a new uninitialized <code>Wish</code>.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param id
+	 *            The object identifier.
+	 */
+	public Wish(AIMain aiMain, String id) {
+		super(aiMain, id);
 
-    /**
-     * Creates a new uninitialized <code>Wish</code>.
-     *
-     * @param aiMain The main AI-object.
-     * @param id The object identifier.
-     */
-    public Wish(AIMain aiMain, String id) {
-        super(aiMain, id);
+		this.destination = null;
+		this.transportable = null;
+	}
 
-        this.destination = null;
-        this.transportable = null;
-    }
+	/**
+	 * Creates a new <code>Wish</code> from the given XML-representation.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param element
+	 *            The root element for the XML-representation of a
+	 *            <code>Wish</code>.
+	 */
+	public Wish(AIMain aiMain, Element element) {
+		super(aiMain, element);
+	}
 
-    /**
-     * Creates a new <code>Wish</code> from the given
-     * XML-representation.
-     *
-     * @param aiMain The main AI-object.
-     * @param element The root element for the XML-representation 
-     *       of a <code>Wish</code>.
-     */
-    public Wish(AIMain aiMain, Element element) {
-        super(aiMain, element);
-    }
-    
-    /**
-     * Creates a new <code>Wish</code> from the given
-     * XML-representation.
-     *
-     * @param aiMain The main AI-object.
-     * @param xr The input stream containing the XML.
-     * @throws XMLStreamException if a problem was encountered
-     *      during parsing.
-     */
-    public Wish(AIMain aiMain, FreeColXMLReader xr) throws XMLStreamException {
-        super(aiMain, xr);
-    }
+	/**
+	 * Creates a new <code>Wish</code> from the given XML-representation.
+	 *
+	 * @param aiMain
+	 *            The main AI-object.
+	 * @param xr
+	 *            The input stream containing the XML.
+	 * @throws XMLStreamException
+	 *             if a problem was encountered during parsing.
+	 */
+	public Wish(AIMain aiMain, FreeColXMLReader xr) throws XMLStreamException {
+		super(aiMain, xr);
+	}
 
+	/**
+	 * Checks if this <code>Wish</code> needs to be stored in a savegame.
+	 *
+	 * @return True if it has been allocated a transportable.
+	 */
+	public boolean shouldBeStored() {
+		return transportable != null;
+	}
 
-    /**
-     * Checks if this <code>Wish</code> needs to be stored in a savegame.
-     *
-     * @return True if it has been allocated a transportable.
-     */
-    public boolean shouldBeStored() {
-        return transportable != null;
-    }
+	/**
+	 * Gets the <code>TransportableAIObject</code> assigned to this wish.
+	 *
+	 * @return The <code>TransportableAIObject</code> which will realize this
+	 *         wish, or null if none has been assigned.
+	 * @see #setTransportable
+	 * @see net.sf.freecol.server.ai.mission.WishRealizationMission
+	 */
+	public TransportableAIObject getTransportable() {
+		return transportable;
+	}
 
-    /**
-     * Gets the <code>TransportableAIObject</code> assigned to this wish.
-     *
-     * @see #setTransportable
-     * @see net.sf.freecol.server.ai.mission.WishRealizationMission
-     * @return The <code>TransportableAIObject</code> which will
-     *     realize this wish, or null if none has been assigned.
-     */
-    public TransportableAIObject getTransportable() {
-        return transportable;
-    }
+	/**
+	 * Assigns a <code>TransportableAIObject</code> to this <code>Wish</code>.
+	 *
+	 * @param transportable
+	 *            The <code>TransportableAIObject</code> which should realize
+	 *            this wish.
+	 * @see #getTransportable
+	 * @see net.sf.freecol.server.ai.mission.WishRealizationMission
+	 */
+	public void setTransportable(TransportableAIObject transportable) {
+		this.transportable = transportable;
+	}
 
-    /**
-     * Assigns a <code>TransportableAIObject</code> to this <code>Wish</code>.
-     *
-     * @param transportable The <code>TransportableAIObject</code>
-     *     which should realize this wish.
-     * @see #getTransportable
-     * @see net.sf.freecol.server.ai.mission.WishRealizationMission
-     */
-    public void setTransportable(TransportableAIObject transportable) {
-        this.transportable = transportable;
-    }
+	/**
+	 * Gets the destination of this <code>Wish</code>.
+	 *
+	 * @return The <code>Location</code> in which the {@link #getTransportable
+	 *         transportable} assigned to this <code>Wish</code> will have to
+	 *         reach.
+	 */
+	public Location getDestination() {
+		return destination;
+	}
 
-    /**
-     * Gets the destination of this <code>Wish</code>.
-     *
-     * @return The <code>Location</code> in which the
-     *     {@link #getTransportable transportable} assigned to
-     *     this <code>Wish</code> will have to reach.
-     */
-    public Location getDestination() {
-        return destination;
-    }
+	/**
+	 * Gets the destination AI colony, if any.
+	 *
+	 * @return The destination <code>AIColony</code>.
+	 */
+	public AIColony getDestinationAIColony() {
+		return (destination instanceof Colony) ? getAIMain().getAIColony((Colony) destination) : null;
+	}
 
-    /**
-     * Gets the destination AI colony, if any.
-     *
-     * @return The destination <code>AIColony</code>.
-     */
-    public AIColony getDestinationAIColony() {
-        return (destination instanceof Colony)
-            ? getAIMain().getAIColony((Colony)destination)
-            : null;
-    }
+	// Override AIObject
 
+	/**
+	 * Disposes of this <code>AIObject</code> by removing any references to this
+	 * object.
+	 */
+	@Override
+	public void dispose() {
+		this.destination = null;
+		this.transportable = null;
+		super.dispose();
+	}
 
-    // Override AIObject
+	/**
+	 * Checks the integrity of a <code>Wish</code>. The destination must be
+	 * neither null nor disposed, the transportable may be null but must
+	 * otherwise be intact.
+	 *
+	 * @param fix
+	 *            Fix problems if possible.
+	 * @return Negative if there are problems remaining, zero if problems were
+	 *         fixed, positive if no problems found at all.
+	 */
+	@Override
+	public int checkIntegrity(boolean fix) {
+		int result = super.checkIntegrity(fix);
+		if (transportable != null) {
+			result = Math.min(result, transportable.checkIntegrity(fix));
+		}
+		if (destination == null || ((FreeColGameObject) destination).isDisposed()) {
+			result = -1;
+		}
+		return result;
+	}
 
-    /**
-     * Disposes of this <code>AIObject</code> by removing any references
-     * to this object.
-     */
-    @Override
-    public void dispose() {
-        this.destination = null;
-        this.transportable = null;
-        super.dispose();
-    }
+	// Serialization
 
-    /**
-     * Checks the integrity of a <code>Wish</code>.
-     * The destination must be neither null nor disposed, the
-     * transportable may be null but must otherwise be intact.
-     *
-     * @param fix Fix problems if possible.
-     * @return Negative if there are problems remaining, zero if
-     *     problems were fixed, positive if no problems found at all.
-     */
-    @Override
-    public int checkIntegrity(boolean fix) {
-        int result = super.checkIntegrity(fix);
-        if (transportable != null) {
-            result = Math.min(result, 
-                              transportable.checkIntegrity(fix));
-        }
-        if (destination == null
-            || ((FreeColGameObject)destination).isDisposed()) {
-            result = -1;
-        }
-        return result;
-    }
+	/** The Constant DESTINATION_TAG. */
+	private static final String DESTINATION_TAG = "destination";
 
+	/** The Constant TRANSPORTABLE_TAG. */
+	private static final String TRANSPORTABLE_TAG = "transportable";
 
-    // Serialization
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-    private static final String DESTINATION_TAG = "destination";
-    private static final String TRANSPORTABLE_TAG = "transportable";
+		// Write identifier, Location will match Object
+		if (destination != null) {
+			xw.writeAttribute(DESTINATION_TAG, destination.getId());
 
+			if (transportable != null) {
+				xw.writeAttribute(TRANSPORTABLE_TAG, transportable.getId());
+			}
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		super.readAttributes(xr);
 
-        // Write identifier, Location will match Object
-        if (destination != null) {
-            xw.writeAttribute(DESTINATION_TAG, destination.getId());
+		final AIMain aiMain = getAIMain();
 
-            if (transportable != null) {
-                xw.writeAttribute(TRANSPORTABLE_TAG, transportable.getId());
-            }
-        }
-    }
+		destination = xr.getLocationAttribute(aiMain.getGame(), DESTINATION_TAG, false);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        super.readAttributes(xr);
-
-        final AIMain aiMain = getAIMain();
-
-        destination = xr.getLocationAttribute(aiMain.getGame(),
-                                              DESTINATION_TAG, false);
-
-        // Delegate transportable one level down
-    }
+		// Delegate transportable one level down
+	}
 }

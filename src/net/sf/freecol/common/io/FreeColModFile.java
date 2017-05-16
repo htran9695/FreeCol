@@ -30,124 +30,123 @@ import javax.xml.stream.XMLStreamException;
 import net.sf.freecol.common.ObjectWithId;
 import net.sf.freecol.common.model.Specification;
 
-
 /**
  * A wrapped for a file containing a FreeCol modification (mod).
  */
 public class FreeColModFile extends FreeColDataFile implements ObjectWithId {
 
-    /** The Constant SPECIFICATION_FILE. */
-    protected static final String SPECIFICATION_FILE = "specification.xml";
-    
-    /** The Constant MOD_DESCRIPTOR_FILE. */
-    protected static final String MOD_DESCRIPTOR_FILE = "mod.xml";
+	/** The Constant SPECIFICATION_FILE. */
+	protected static final String SPECIFICATION_FILE = "specification.xml";
 
-    /** A file filter to select mods. */
-    private static final FileFilter fileFilter
-        = makeFileFilter(MOD_DESCRIPTOR_FILE, "fmd", ZIP_FILE_EXTENSION);
+	/** The Constant MOD_DESCRIPTOR_FILE. */
+	protected static final String MOD_DESCRIPTOR_FILE = "mod.xml";
 
-    /** The identifier for this mod. */
-    private String id;
+	/** A file filter to select mods. */
+	private static final FileFilter fileFilter = makeFileFilter(MOD_DESCRIPTOR_FILE, "fmd", ZIP_FILE_EXTENSION);
 
-    /** The identifier for the parent of this mod, if any. */
-    private String parent;
+	/** The identifier for this mod. */
+	private String id;
 
+	/** The identifier for the parent of this mod, if any. */
+	private String parent;
 
-    /**
-     * Make a FreeColModFile from a File.
-     *
-     * @param file The <code>File</code> containing a FreeCol mod.
-     * @exception IOException if thrown while opening the file.
-     */
-    public FreeColModFile(final File file) throws IOException {
-        super(file);
+	/**
+	 * Make a FreeColModFile from a File.
+	 *
+	 * @param file
+	 *            The <code>File</code> containing a FreeCol mod.
+	 * @exception IOException
+	 *                if thrown while opening the file.
+	 */
+	public FreeColModFile(final File file) throws IOException {
+		super(file);
 
-        readModDescriptor();
-    }
+		readModDescriptor();
+	}
 
+	/**
+	 * Gets the input stream to the specification.
+	 *
+	 * @return An <code>InputStream</code> to the file "specification.xml"
+	 *         within this data file, or null if none present.
+	 * @exception IOException
+	 *                if thrown while opening the input stream.
+	 */
+	public InputStream getSpecificationInputStream() throws IOException {
+		try {
+			return getInputStream(SPECIFICATION_FILE);
+		} catch (FileNotFoundException fnfe) {
+			; // Normal for graphic-only mods.
+		}
+		return null;
+	}
 
-    /**
-     * Gets the input stream to the specification.
-     *
-     * @return An <code>InputStream</code> to the file
-     *     "specification.xml" within this data file, or null if none present.
-     * @exception IOException if thrown while opening the input stream.
-     */
-    public InputStream getSpecificationInputStream() throws IOException {
-        try {
-            return getInputStream(SPECIFICATION_FILE);
-        } catch (FileNotFoundException fnfe) {
-            ; // Normal for graphic-only mods.
-        }
-        return null;
-    }
+	/**
+	 * Gets the Specification.
+	 *
+	 * @return The <code>Specification</code>, or null if none present.
+	 * @exception IOException
+	 *                if an error occurs reading the specification.
+	 */
+	public Specification getSpecification() throws IOException {
+		try (InputStream si = getSpecificationInputStream()) {
+			return (si == null) ? null : new Specification(si);
+		}
+	}
 
-    /**
-     * Gets the Specification.
-     *
-     * @return The <code>Specification</code>, or null if none present.
-     * @exception IOException if an error occurs reading the specification.
-     */
-    public Specification getSpecification() throws IOException {
-        try (InputStream si = getSpecificationInputStream()) {
-            return (si == null) ? null : new Specification(si);
-        }
-    }
+	/**
+	 * Gets the input stream to the mod meta file.
+	 *
+	 * @return An <code>InputStream</code> to the file "mod.xml" within this
+	 *         data file.
+	 * @exception IOException
+	 *                if thrown while opening the input stream.
+	 */
+	private InputStream getModDescriptorInputStream() throws IOException {
+		return getInputStream(MOD_DESCRIPTOR_FILE);
+	}
 
-    /**
-     * Gets the input stream to the mod meta file.
-     *
-     * @return An <code>InputStream</code> to the file "mod.xml"
-     *     within this data file.
-     * @exception IOException if thrown while opening the input stream.
-     */
-    private InputStream getModDescriptorInputStream() throws IOException {
-        return getInputStream(MOD_DESCRIPTOR_FILE);
-    }
+	/**
+	 * Reads a file object representing this mod.
+	 *
+	 * @exception IOException
+	 *                if thrown while reading the "mod.xml" file.
+	 */
+	protected void readModDescriptor() throws IOException {
+		try (FreeColXMLReader xr = new FreeColXMLReader(getModDescriptorInputStream());) {
+			xr.nextTag();
+			id = xr.readId();
+			parent = xr.getAttribute("parent", (String) null);
+		} catch (XMLStreamException xse) {
+			throw new IOException(xse);
+		}
+	}
 
-    /**
-     * Reads a file object representing this mod.
-     *
-     * @exception IOException if thrown while reading the "mod.xml" file.
-     */
-    protected void readModDescriptor() throws IOException {
-        try (
-            FreeColXMLReader xr
-                = new FreeColXMLReader(getModDescriptorInputStream());
-        ) {
-            xr.nextTag();
-            id = xr.readId();
-            parent = xr.getAttribute("parent", (String)null);
-        } catch (XMLStreamException xse) {
-            throw new IOException(xse);
-        }
-    }
+	/**
+	 * Gets the object identifier of this mod.
+	 *
+	 * @return The object identifier of the mod.
+	 */
+	@Override
+	public String getId() {
+		return id;
+	}
 
-    /**
-     * Gets the object identifier of this mod.
-     *
-     * @return The object identifier of the mod.
-     */
-    @Override
-    public String getId() {
-        return id;
-    }
+	/**
+	 * Gets the parent of the mod.
+	 *
+	 * @return The mod parent name.
+	 */
+	public String getParent() {
+		return parent;
+	}
 
-    /**
-     * Gets the parent of the mod.
-     *
-     * @return The mod parent name.
-     */
-    public String getParent() {
-        return parent;
-    }
-
-    /**
-     * Get the file filter to select mod files.
-     *
-     * @return The mod file filter.
-     */
-    public static FileFilter getFileFilter() {
-        return fileFilter;
-    }
+	/**
+	 * Get the file filter to select mod files.
+	 *
+	 * @return The mod file filter.
+	 */
+	public static FileFilter getFileFilter() {
+		return fileFilter;
+	}
 }

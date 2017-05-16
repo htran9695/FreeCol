@@ -49,276 +49,288 @@ import net.sf.freecol.server.FreeColServer;
 import net.sf.freecol.server.generator.MapGenerator;
 import net.sf.freecol.server.model.ServerPlayer;
 
-
 /**
  * The map editor controller.
  */
 public final class MapEditorController {
 
-    @SuppressWarnings(&quot;unused&quot;)
-<span class="nc" id="L59">    private static final Logger logger = Logger.getLogger(MapEditorController.class.getName());</span>
+	/** The Constant logger. */
+	@SuppressWarnings(&quot;unused&quot;)
+<span class="nc" id="L59">	private static final Logger logger = Logger.getLogger(MapEditorController.class.getName());</span>
 
+	/** The free col client. */
+	private final FreeColClient freeColClient;
 
-    private final FreeColClient freeColClient;
+	/** The gui. */
+	private final GUI gui;
 
-    private final GUI gui;
+	/**
+	 * The Interface IMapTransform.
+	 */
+	public interface IMapTransform {
 
-    public interface IMapTransform {
+		/**
+		 * Applies this transformation to the given tile.
+		 * 
+		 * @param t
+		 *            The &lt;code&gt;Tile&lt;/code&gt; to be transformed,
+		 */
+		public abstract void transform(Tile t);
 
-        /**
-         * Applies this transformation to the given tile.
-         * @param t The &lt;code&gt;Tile&lt;/code&gt; to be transformed,
-         */
-        public abstract void transform(Tile t);
+	}
 
-    }
+	/**
+	 * The transform that should be applied to a &lt;code&gt;Tile&lt;/code&gt; that is
+	 * clicked on the map.
+	 */
+<span class="nc" id="L86">	private IMapTransform currentMapTransform = null;</span>
 
-    /**
-     * The transform that should be applied to a &lt;code&gt;Tile&lt;/code&gt;
-     * that is clicked on the map.
-     */
-<span class="nc" id="L80">    private IMapTransform currentMapTransform = null;</span>
+	/**
+	 * Creates a new &lt;code&gt;MapEditorController&lt;/code&gt;.
+	 *
+	 * @param freeColClient
+	 *            The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
+	 */
+<span class="nc" id="L94">	public MapEditorController(FreeColClient freeColClient) {</span>
+<span class="nc" id="L95">		this.freeColClient = freeColClient;</span>
+<span class="nc" id="L96">		this.gui = freeColClient.getGUI();</span>
+<span class="nc" id="L97">	}</span>
 
+	/**
+	 * Enters map editor modus.
+	 *
+	 * FIXME: The TC and difficulty level can now be set at the command line,
+	 * but we should do better.
+	 */
+	public void startMapEditor() {
+		try {
+<span class="nc" id="L107">			Specification specification = getDefaultSpecification();</span>
+<span class="nc" id="L108">			freeColClient.setMapEditor(true);</span>
+<span class="nc" id="L109">			final FreeColServer freeColServer = new FreeColServer(false, false, specification, 0, null);</span>
+<span class="nc" id="L110">			freeColClient.setFreeColServer(freeColServer);</span>
+<span class="nc" id="L111">			Game game = freeColServer.getGame();</span>
+<span class="nc" id="L112">			requireNativeNations(game);</span>
+<span class="nc" id="L113">			freeColClient.setGame(game);</span>
+<span class="nc" id="L114">			freeColClient.setMyPlayer(null);</span>
+<span class="nc" id="L115">			freeColClient.getSoundController().playSound(null);</span>
 
-    /**
-     * Creates a new &lt;code&gt;MapEditorController&lt;/code&gt;.
-     *
-     * @param freeColClient The &lt;code&gt;FreeColClient&lt;/code&gt; for the game.
-     */
-<span class="nc" id="L88">    public MapEditorController(FreeColClient freeColClient) {</span>
-<span class="nc" id="L89">        this.freeColClient = freeColClient;</span>
-<span class="nc" id="L90">        this.gui = freeColClient.getGUI();</span>
-<span class="nc" id="L91">    }</span>
+<span class="nc" id="L117">			gui.closeMainPanel();</span>
+<span class="nc" id="L118">			gui.closeMenus();</span>
+<span class="nc" id="L119">			freeColClient.setInGame(true);</span>
+<span class="nc" id="L120">			gui.changeViewMode(GUI.VIEW_TERRAIN_MODE);</span>
+<span class="nc" id="L121">			gui.startMapEditorGUI();</span>
+<span class="nc" id="L122">		} catch (IOException e) {</span>
+<span class="nc" id="L123">			gui.showErrorMessage(&quot;server.initialize&quot;);</span>
+<span class="nc" id="L124">			return;</span>
+<span class="nc" id="L125">		}</span>
+<span class="nc" id="L126">	}</span>
 
+	/**
+	 * Get the default specification from the default TC.
+	 *
+	 * @return A &lt;code&gt;Specification&lt;/code&gt; to use in the map editor.
+	 * @throws IOException
+	 *             on failure to find the spec.
+	 */
+	public Specification getDefaultSpecification() throws IOException {
+<span class="nc" id="L136">		return FreeCol.loadSpecification(FreeCol.getTCFile(), FreeCol.getAdvantages(), FreeCol.getDifficulty());</span>
+	}
 
-    /**
-     * Enters map editor modus.
-     *
-     * FIXME: The TC and difficulty level can now be set at the
-     * command line, but we should do better.
-     */
-    public void startMapEditor() {
-        try {
-<span class="nc" id="L102">            Specification specification = getDefaultSpecification();</span>
-<span class="nc" id="L103">            freeColClient.setMapEditor(true);</span>
-<span class="nc" id="L104">            final FreeColServer freeColServer</span>
-                = new FreeColServer(false, false, specification, 0, null);
-<span class="nc" id="L106">            freeColClient.setFreeColServer(freeColServer);</span>
-<span class="nc" id="L107">            Game game = freeColServer.getGame();</span>
-<span class="nc" id="L108">            requireNativeNations(game);</span>
-<span class="nc" id="L109">            freeColClient.setGame(game);</span>
-<span class="nc" id="L110">            freeColClient.setMyPlayer(null);</span>
-<span class="nc" id="L111">            freeColClient.getSoundController().playSound(null);</span>
+	/**
+	 * Sets the currently chosen &lt;code&gt;MapTransform&lt;/code&gt;.
+	 * 
+	 * @param mt
+	 *            The transform that should be applied to a &lt;code&gt;Tile&lt;/code&gt;
+	 *            that is clicked on the map.
+	 */
+	public void setMapTransform(IMapTransform mt) {
+<span class="nc" id="L147">		currentMapTransform = mt;</span>
+<span class="nc" id="L148">		gui.updateMapControls();</span>
+<span class="nc" id="L149">	}</span>
 
-<span class="nc" id="L113">            gui.closeMainPanel();</span>
-<span class="nc" id="L114">            gui.closeMenus();</span>
-<span class="nc" id="L115">            freeColClient.setInGame(true);</span>
-<span class="nc" id="L116">            gui.changeViewMode(GUI.VIEW_TERRAIN_MODE);</span>
-<span class="nc" id="L117">            gui.startMapEditorGUI();</span>
-<span class="nc" id="L118">        } catch (IOException e) {</span>
-<span class="nc" id="L119">            gui.showErrorMessage(&quot;server.initialize&quot;);</span>
-<span class="nc" id="L120">            return;</span>
-<span class="nc" id="L121">        }</span>
-<span class="nc" id="L122">    }</span>
+	/**
+	 * Gets the current &lt;code&gt;MapTransform&lt;/code&gt;.
+	 * 
+	 * @return The transform that should be applied to a &lt;code&gt;Tile&lt;/code&gt; that
+	 *         is clicked on the map.
+	 */
+	public IMapTransform getMapTransform() {
+<span class="nc" id="L158">		return currentMapTransform;</span>
+	}
 
-    /**
-     * Get the default specification from the default TC.
-     *
-     * @return A &lt;code&gt;Specification&lt;/code&gt; to use in the map editor.
-     * @throws IOException on failure to find the spec.
-     */
-    public Specification getDefaultSpecification() throws IOException {
-<span class="nc" id="L131">        return FreeCol.loadSpecification(FreeCol.getTCFile(), </span>
-<span class="nc" id="L132">            FreeCol.getAdvantages(), FreeCol.getDifficulty());</span>
-    }
-        
-    /**
-     * Sets the currently chosen &lt;code&gt;MapTransform&lt;/code&gt;.
-     * @param mt The transform that should be applied to a
-     *      &lt;code&gt;Tile&lt;/code&gt; that is clicked on the map.
-     */
-    public void setMapTransform(IMapTransform mt) {
-<span class="nc" id="L141">        currentMapTransform = mt;</span>
-<span class="nc" id="L142">        gui.updateMapControls();</span>
-<span class="nc" id="L143">    }</span>
+	/**
+	 * Transforms the given &lt;code&gt;Tile&lt;/code&gt; using the
+	 * {@link #getMapTransform() current &lt;code&gt;MapTransform&lt;/code&gt;}.
+	 *
+	 * @param t
+	 *            The &lt;code&gt;Tile&lt;/code&gt; to be modified.
+	 */
+	public void transform(Tile t) {
+<span class="nc bnc" id="L169" title="All 2 branches missed.">		if (currentMapTransform != null) {</span>
+<span class="nc" id="L170">			currentMapTransform.transform(t);</span>
+		}
+<span class="nc" id="L172">	}</span>
 
-    /**
-     * Gets the current &lt;code&gt;MapTransform&lt;/code&gt;.
-     * @return The transform that should be applied to a
-     *      &lt;code&gt;Tile&lt;/code&gt; that is clicked on the map.
-     */
-    public IMapTransform getMapTransform() {
-<span class="nc" id="L151">        return currentMapTransform;</span>
-    }
+	/**
+	 * Creates a new map using a &lt;code&gt;MapGenerator&lt;/code&gt;. A panel with the
+	 * &lt;code&gt;MapGeneratorOptions&lt;/code&gt; is first displayed.
+	 *
+	 * @see MapGenerator
+	 * @see MapGeneratorOptions
+	 */
+	public void newMap() {
+<span class="nc" id="L182">		final Game game = freeColClient.getGame();</span>
+<span class="nc" id="L183">		final Specification spec = game.getSpecification();</span>
 
-    /**
-     * Transforms the given &lt;code&gt;Tile&lt;/code&gt; using the
-     * {@link #getMapTransform() current &lt;code&gt;MapTransform&lt;/code&gt;}.
-     *
-     * @param t The &lt;code&gt;Tile&lt;/code&gt; to be modified.
-     */
-    public void transform(Tile t) {
-<span class="nc bnc" id="L161" title="All 2 branches missed.">        if (currentMapTransform != null) {</span>
-<span class="nc" id="L162">            currentMapTransform.transform(t);</span>
-        }
-<span class="nc" id="L164">    }</span>
+<span class="nc" id="L185">		gui.removeInGameComponents();</span>
+<span class="nc" id="L186">		OptionGroup mgo = gui.showMapGeneratorOptionsDialog(true);</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">		if (mgo == null)</span>
+<span class="nc" id="L188">			return;</span>
+<span class="nc" id="L189">		game.setMapGeneratorOptions(mgo);</span>
+<span class="nc" id="L190">		Map map = freeColClient.getFreeColServer().getMapGenerator().createMap(new LogBuilder(-1));</span>
+<span class="nc" id="L191">		requireNativeNations(game);</span>
+<span class="nc" id="L192">		gui.setFocus(game.getMap().getTile(1, 1));</span>
+<span class="nc" id="L193">		gui.updateMenuBar();</span>
+<span class="nc" id="L194">		gui.refresh();</span>
+<span class="nc" id="L195">	}</span>
 
-    /**
-     * Creates a new map using a &lt;code&gt;MapGenerator&lt;/code&gt;. A panel
-     * with the &lt;code&gt;MapGeneratorOptions&lt;/code&gt; is first displayed.
-     *
-     * @see MapGenerator
-     * @see MapGeneratorOptions
-     */
-    public void newMap() {
-<span class="nc" id="L174">        final Game game = freeColClient.getGame();</span>
-<span class="nc" id="L175">        final Specification spec = game.getSpecification();</span>
+	/**
+	 * Opens a dialog where the user should specify the filename and saves the
+	 * game.
+	 */
+	public void saveGame() {
+<span class="nc" id="L202">		File file = gui.showSaveDialog(FreeColDirectories.getSaveDirectory(), FreeColDirectories.MAP_FILE_NAME);</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">		if (file != null)</span>
+<span class="nc" id="L204">			saveGame(file);</span>
+<span class="nc" id="L205">	}</span>
 
-<span class="nc" id="L177">        gui.removeInGameComponents();</span>
-<span class="nc" id="L178">        OptionGroup mgo = gui.showMapGeneratorOptionsDialog(true);</span>
-<span class="nc bnc" id="L179" title="All 2 branches missed.">        if (mgo == null) return;</span>
-<span class="nc" id="L180">        game.setMapGeneratorOptions(mgo);</span>
-<span class="nc" id="L181">        Map map = freeColClient.getFreeColServer().getMapGenerator()</span>
-<span class="nc" id="L182">            .createMap(new LogBuilder(-1));</span>
-<span class="nc" id="L183">        requireNativeNations(game);</span>
-<span class="nc" id="L184">        gui.setFocus(game.getMap().getTile(1,1));</span>
-<span class="nc" id="L185">        gui.updateMenuBar();</span>
-<span class="nc" id="L186">        gui.refresh();</span>
-<span class="nc" id="L187">    }</span>
+	/**
+	 * Saves the game to the given file.
+	 *
+	 * @param file
+	 *            The &lt;code&gt;File&lt;/code&gt;.
+	 */
+	public void saveGame(final File file) {
+<span class="nc" id="L214">		final Game game = freeColClient.getGame();</span>
+<span class="nc" id="L215">		Map map = game.getMap();</span>
+<span class="nc" id="L216">		map.resetContiguity();</span>
+<span class="nc" id="L217">		map.resetHighSeasCount();</span>
+<span class="nc" id="L218">		map.resetLayers();</span>
 
-    /**
-     * Opens a dialog where the user should specify the filename
-     * and saves the game.
-     */
-    public void saveGame() {
-<span class="nc" id="L194">        File file = gui.showSaveDialog(FreeColDirectories.getSaveDirectory(),</span>
-                                       FreeColDirectories.MAP_FILE_NAME);
-<span class="nc bnc" id="L196" title="All 2 branches missed.">        if (file != null) saveGame(file);</span>
-<span class="nc" id="L197">    }</span>
+<span class="nc" id="L220">		gui.showStatusPanel(Messages.message(&quot;status.savingGame&quot;));</span>
+<span class="nc" id="L221">		Thread t = new Thread(FreeCol.CLIENT_THREAD + &quot;Saving Map&quot;) {</span>
+			@Override
+			public void run() {
+				try {
+<span class="nc" id="L225">					BufferedImage thumb = gui.createMiniMapThumbNail();</span>
+<span class="nc" id="L226">					freeColClient.getFreeColServer().saveMapEditorGame(file, thumb);</span>
+<span class="nc" id="L227">					SwingUtilities.invokeLater(() -&gt; {</span>
+<span class="nc" id="L228">						gui.closeStatusPanel();</span>
+<span class="nc" id="L229">						gui.requestFocusInWindow();</span>
+<span class="nc" id="L230">					});</span>
+<span class="nc" id="L231">				} catch (IOException e) {</span>
+<span class="nc" id="L232">					SwingUtilities.invokeLater(() -&gt; {</span>
+<span class="nc" id="L233">						gui.showErrorMessage(FreeCol.badSave(file));</span>
+<span class="nc" id="L234">					});</span>
+<span class="nc" id="L235">				}</span>
+<span class="nc" id="L236">			}</span>
+		};
+<span class="nc" id="L238">		t.start();</span>
+<span class="nc" id="L239">	}</span>
 
-    /**
-     * Saves the game to the given file.
-     *
-     * @param file The &lt;code&gt;File&lt;/code&gt;.
-     */
-    public void saveGame(final File file) {
-<span class="nc" id="L205">        final Game game = freeColClient.getGame();</span>
-<span class="nc" id="L206">        Map map = game.getMap();</span>
-<span class="nc" id="L207">        map.resetContiguity();</span>
-<span class="nc" id="L208">        map.resetHighSeasCount();</span>
-<span class="nc" id="L209">        map.resetLayers();</span>
+	/**
+	 * Opens a dialog where the user should specify the filename and loads the
+	 * game.
+	 */
+	public void loadGame() {
+<span class="nc" id="L246">		File file = gui.showLoadSaveFileDialog();</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">		if (file != null)</span>
+<span class="nc" id="L248">			loadGame(file);</span>
+<span class="nc" id="L249">	}</span>
 
-<span class="nc" id="L211">        gui.showStatusPanel(Messages.message(&quot;status.savingGame&quot;));</span>
-<span class="nc" id="L212">        Thread t = new Thread(FreeCol.CLIENT_THREAD+&quot;Saving Map&quot;) {</span>
-                @Override
-                public void run() {
-                    try {
-<span class="nc" id="L216">                        BufferedImage thumb = gui.createMiniMapThumbNail();</span>
-<span class="nc" id="L217">                        freeColClient.getFreeColServer()</span>
-<span class="nc" id="L218">                            .saveMapEditorGame(file, thumb);</span>
-<span class="nc" id="L219">                        SwingUtilities.invokeLater(() -&gt; {</span>
-<span class="nc" id="L220">                                gui.closeStatusPanel();</span>
-<span class="nc" id="L221">                                gui.requestFocusInWindow();</span>
-<span class="nc" id="L222">                            });</span>
-<span class="nc" id="L223">                    } catch (IOException e) {</span>
-<span class="nc" id="L224">                        SwingUtilities.invokeLater(() -&gt; {</span>
-<span class="nc" id="L225">                                gui.showErrorMessage(FreeCol.badSave(file));</span>
-<span class="nc" id="L226">                            });</span>
-<span class="nc" id="L227">                    }</span>
-<span class="nc" id="L228">                }</span>
-            };
-<span class="nc" id="L230">        t.start();</span>
-<span class="nc" id="L231">    }</span>
+	/**
+	 * Require all native nation players to be present in a game.
+	 *
+	 * @param game
+	 *            The &lt;code&gt;Game&lt;/code&gt; to add native nations to.
+	 */
+	public void requireNativeNations(Game game) {
+<span class="nc" id="L258">		final Specification spec = game.getSpecification();</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">		for (Nation n : spec.getIndianNations()) {</span>
+<span class="nc" id="L260">			Player p = game.getPlayerByNation(n);</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">			if (p == null) {</span>
+<span class="nc" id="L262">				p = new ServerPlayer(game, false, n, null, null);</span>
+<span class="nc" id="L263">				game.addPlayer(p);</span>
+			}
+<span class="nc" id="L265">		}</span>
+<span class="nc" id="L266">	}</span>
 
-    /**
-     * Opens a dialog where the user should specify the filename and loads the
-     * game.
-     */
-    public void loadGame() {
-<span class="nc" id="L238">        File file = gui.showLoadSaveFileDialog();</span>
-<span class="nc bnc" id="L239" title="All 2 branches missed.">        if (file != null) loadGame(file);</span>
-<span class="nc" id="L240">    }</span>
+	/**
+	 * Loads a game from the given file.
+	 *
+	 * @param file
+	 *            The &lt;code&gt;File&lt;/code&gt;.
+	 */
+	public void loadGame(File file) {
+<span class="nc" id="L275">		final File theFile = file;</span>
 
-    /**
-     * Require all native nation players to be present in a game.
-     *
-     * @param game The &lt;code&gt;Game&lt;/code&gt; to add native nations to.
-     */
-    public void requireNativeNations(Game game) {
-<span class="nc" id="L248">        final Specification spec = game.getSpecification();</span>
-<span class="nc bnc" id="L249" title="All 2 branches missed.">        for (Nation n : spec.getIndianNations()) {</span>
-<span class="nc" id="L250">            Player p = game.getPlayerByNation(n);</span>
-<span class="nc bnc" id="L251" title="All 2 branches missed.">            if (p == null) {</span>
-<span class="nc" id="L252">                p = new ServerPlayer(game, false, n, null, null);</span>
-<span class="nc" id="L253">                game.addPlayer(p);</span>
-            }
-<span class="nc" id="L255">        }</span>
-<span class="nc" id="L256">    }</span>
+<span class="nc" id="L277">		freeColClient.setMapEditor(true);</span>
 
-    /**
-     * Loads a game from the given file.
-     *
-     * @param file The &lt;code&gt;File&lt;/code&gt;.
-     */
-    public void loadGame(File file) {
-<span class="nc" id="L264">        final File theFile = file;</span>
+		class ErrorJob implements Runnable {
+			private final StringTemplate template;
 
-<span class="nc" id="L266">        freeColClient.setMapEditor(true);</span>
+<span class="nc" id="L282">			ErrorJob(StringTemplate template) {</span>
+<span class="nc" id="L283">				this.template = template;</span>
+<span class="nc" id="L284">			}</span>
 
-        class ErrorJob implements Runnable {
-            private final StringTemplate template;
+			@Override
+			public void run() {
+<span class="nc" id="L288">				gui.closeMenus();</span>
+<span class="nc" id="L289">				gui.showErrorMessage(template);</span>
+<span class="nc" id="L290">			}</span>
+		}
 
-<span class="nc" id="L271">            ErrorJob(StringTemplate template) {</span>
-<span class="nc" id="L272">                this.template = template;</span>
-<span class="nc" id="L273">            }</span>
+<span class="nc" id="L293">		gui.showStatusPanel(Messages.message(&quot;status.loadingGame&quot;));</span>
 
-            @Override
-            public void run() {
-<span class="nc" id="L277">                gui.closeMenus();</span>
-<span class="nc" id="L278">                gui.showErrorMessage(template);</span>
-<span class="nc" id="L279">            }</span>
-        }
+<span class="nc" id="L295">		Runnable loadGameJob = () -&gt; {</span>
+<span class="nc" id="L296">			FreeColServer freeColServer = freeColClient.getFreeColServer();</span>
+			try {
+<span class="nc" id="L298">				Specification spec = getDefaultSpecification();</span>
+<span class="nc" id="L299">				Game game = FreeColServer.readGame(new FreeColSavegameFile(theFile), spec, freeColServer);</span>
+<span class="nc" id="L300">				freeColClient.setGame(game);</span>
+<span class="nc" id="L301">				requireNativeNations(game);</span>
+<span class="nc" id="L302">				SwingUtilities.invokeLater(() -&gt; {</span>
+<span class="nc" id="L303">					gui.closeStatusPanel();</span>
+<span class="nc" id="L304">					gui.setFocus(freeColClient.getGame().getMap().getTile(1, 1));</span>
+<span class="nc" id="L305">					gui.updateMenuBar();</span>
+<span class="nc" id="L306">					gui.refresh();</span>
+<span class="nc" id="L307">				});</span>
+<span class="nc" id="L308">			} catch (FreeColException e) {</span>
+<span class="nc" id="L309">				reloadMainPanel();</span>
+<span class="nc" id="L310">				SwingUtilities.invokeLater(new ErrorJob(StringTemplate.name(e.getMessage())));</span>
+<span class="nc" id="L311">			} catch (FileNotFoundException e) {</span>
+<span class="nc" id="L312">				reloadMainPanel();</span>
+<span class="nc" id="L313">				SwingUtilities.invokeLater(new ErrorJob(StringTemplate.key(&quot;server.fileNotFound&quot;)));</span>
+<span class="nc" id="L314">			} catch (IOException e) {</span>
+<span class="nc" id="L315">				reloadMainPanel();</span>
+<span class="nc" id="L316">				SwingUtilities.invokeLater(new ErrorJob(StringTemplate.key(&quot;server.initialize&quot;)));</span>
+<span class="nc" id="L317">			} catch (XMLStreamException e) {</span>
+<span class="nc" id="L318">				reloadMainPanel();</span>
+<span class="nc" id="L319">				SwingUtilities.invokeLater(new ErrorJob(FreeCol.badLoad(theFile)));</span>
+<span class="nc" id="L320">			}</span>
+<span class="nc" id="L321">		};</span>
+<span class="nc" id="L322">		freeColClient.setWork(loadGameJob);</span>
+<span class="nc" id="L323">	}</span>
 
-<span class="nc" id="L282">        gui.showStatusPanel(Messages.message(&quot;status.loadingGame&quot;));</span>
-
-<span class="nc" id="L284">        Runnable loadGameJob = () -&gt; {</span>
-<span class="nc" id="L285">            FreeColServer freeColServer = freeColClient.getFreeColServer();</span>
-            try {
-<span class="nc" id="L287">                Specification spec = getDefaultSpecification();</span>
-<span class="nc" id="L288">                Game game = FreeColServer.readGame(new FreeColSavegameFile(theFile),</span>
-                                                   spec, freeColServer);
-<span class="nc" id="L290">                freeColClient.setGame(game);</span>
-<span class="nc" id="L291">                requireNativeNations(game);</span>
-<span class="nc" id="L292">                SwingUtilities.invokeLater(() -&gt; {</span>
-<span class="nc" id="L293">                        gui.closeStatusPanel();</span>
-<span class="nc" id="L294">                        gui.setFocus(freeColClient.getGame().getMap().getTile(1,1));</span>
-<span class="nc" id="L295">                        gui.updateMenuBar();</span>
-<span class="nc" id="L296">                        gui.refresh();</span>
-<span class="nc" id="L297">                    });</span>
-<span class="nc" id="L298">            } catch (FreeColException e) {</span>
-<span class="nc" id="L299">                reloadMainPanel();</span>
-<span class="nc" id="L300">                SwingUtilities.invokeLater(new ErrorJob(StringTemplate.name(e.getMessage())));</span>
-<span class="nc" id="L301">            } catch (FileNotFoundException e) {</span>
-<span class="nc" id="L302">                reloadMainPanel();</span>
-<span class="nc" id="L303">                SwingUtilities.invokeLater(new ErrorJob(StringTemplate.key(&quot;server.fileNotFound&quot;)));</span>
-<span class="nc" id="L304">            } catch (IOException e) {</span>
-<span class="nc" id="L305">                reloadMainPanel();</span>
-<span class="nc" id="L306">                SwingUtilities.invokeLater(new ErrorJob(StringTemplate.key(&quot;server.initialize&quot;)));</span>
-<span class="nc" id="L307">            } catch (XMLStreamException e) {</span>
-<span class="nc" id="L308">                reloadMainPanel();</span>
-<span class="nc" id="L309">                SwingUtilities.invokeLater(new ErrorJob(FreeCol.badLoad(theFile)));</span>
-<span class="nc" id="L310">            }</span>
-<span class="nc" id="L311">        };</span>
-<span class="nc" id="L312">        freeColClient.setWork(loadGameJob);</span>
-<span class="nc" id="L313">    }</span>
-
-    private void reloadMainPanel () {
-<span class="nc" id="L316">        SwingUtilities.invokeLater(() -&gt; {</span>
-<span class="nc" id="L317">                gui.closeMainPanel();</span>
-<span class="nc" id="L318">                gui.showMainPanel(null);</span>
-<span class="nc" id="L319">                freeColClient.getSoundController()</span>
-<span class="nc" id="L320">                    .playSound(&quot;sound.intro.general&quot;);</span>
-<span class="nc" id="L321">            });</span>
-<span class="nc" id="L322">    }</span>
+	/**
+	 * Reload main panel.
+	 */
+	private void reloadMainPanel() {
+<span class="nc" id="L329">		SwingUtilities.invokeLater(() -&gt; {</span>
+<span class="nc" id="L330">			gui.closeMainPanel();</span>
+<span class="nc" id="L331">			gui.showMainPanel(null);</span>
+<span class="nc" id="L332">			freeColClient.getSoundController().playSound(&quot;sound.intro.general&quot;);</span>
+<span class="nc" id="L333">		});</span>
+<span class="nc" id="L334">	}</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

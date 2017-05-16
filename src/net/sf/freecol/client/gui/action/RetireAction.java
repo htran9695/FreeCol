@@ -24,46 +24,42 @@ import java.awt.event.ActionEvent;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.model.Player;
 
-
 /**
  * An action for retiring from the game.
  */
 public class RetireAction extends FreeColAction {
 
-    public static final String id = "retireAction";
+	/** The Constant id. */
+	public static final String id = "retireAction";
 
+	/**
+	 * Creates a new <code>RetireAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 */
+	public RetireAction(FreeColClient freeColClient) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>RetireAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    public RetireAction(FreeColClient freeColClient) {
-        super(freeColClient, id);
-    }
+	// Override FreeColAction
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		Player player = freeColClient.getMyPlayer();
+		return super.shouldBeEnabled() && player != null && player.getPlayerType() != Player.PlayerType.RETIRED;
+	}
 
-    // Override FreeColAction
+	// Interface ActionListener
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() {
-        Player player = freeColClient.getMyPlayer();
-        return super.shouldBeEnabled()
-            && player != null
-            && player.getPlayerType() != Player.PlayerType.RETIRED;
-    }
-
-
-    // Interface ActionListener
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void actionPerformed(ActionEvent ae) {
-        freeColClient.retire();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void actionPerformed(ActionEvent ae) {
+		freeColClient.retire();
+	}
 }

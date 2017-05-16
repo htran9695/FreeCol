@@ -41,72 +41,67 @@ import net.sf.freecol.common.model.Scope;
 import net.sf.freecol.common.model.Specification;
 import static net.sf.freecol.common.util.StringUtils.*;
 
-
 /**
  * This panel displays details of resources in the Colopedia.
  */
-public class ResourcesDetailPanel
-    extends ColopediaGameObjectTypePanel<ResourceType> {
+public class ResourcesDetailPanel extends ColopediaGameObjectTypePanel<ResourceType> {
 
+	/**
+	 * Creates a new instance of this ColopediaDetailPanel.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param colopediaPanel
+	 *            The parent ColopediaPanel.
+	 */
+	public ResourcesDetailPanel(FreeColClient freeColClient, ColopediaPanel colopediaPanel) {
+		super(freeColClient, colopediaPanel, PanelType.RESOURCES.getKey());
+	}
 
-    /**
-     * Creates a new instance of this ColopediaDetailPanel.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     * @param colopediaPanel The parent ColopediaPanel.
-     */
-    public ResourcesDetailPanel(FreeColClient freeColClient,
-                                ColopediaPanel colopediaPanel) {
-        super(freeColClient, colopediaPanel, PanelType.RESOURCES.getKey());
-    }
+	// Implement ColopediaDetailPanel
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void addSubTrees(DefaultMutableTreeNode root) {
+		super.addSubTrees(root, getSpecification().getResourceTypeList());
+	}
 
-    // Implement ColopediaDetailPanel
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void buildDetail(String id, JPanel panel) {
+		if (getId().equals(id))
+			return;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void addSubTrees(DefaultMutableTreeNode root) {
-        super.addSubTrees(root, getSpecification().getResourceTypeList());
-    }
+		ResourceType type = getSpecification().getResourceType(id);
+		panel.setLayout(new MigLayout("wrap 2", "[]20[]"));
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void buildDetail(String id, JPanel panel) {
-        if (getId().equals(id)) return;
+		JLabel name = Utility.localizedHeaderLabel(type, FontLibrary.FontSize.SMALL);
+		panel.add(name, "span, align center, wrap 40");
 
-        ResourceType type = getSpecification().getResourceType(id);
-        panel.setLayout(new MigLayout("wrap 2", "[]20[]"));
+		panel.add(Utility.localizedLabel("colopedia.resource.bonusProduction"));
+		JPanel goodsPanel = new JPanel();
+		goodsPanel.setOpaque(false);
+		for (Modifier modifier : type.getModifiers()) {
+			String text = ModifierFormat.getModifierAsString(modifier);
+			if (modifier.hasScope()) {
+				final Specification spec = getSpecification();
+				String scopeStrings = modifier.getScopes().stream().filter(s -> s.getType() != null)
+						.map(s -> Messages.getName(spec.findType(s.getType()))).collect(Collectors.joining(", "));
+				if (!scopeStrings.isEmpty())
+					text += " (" + scopeStrings + ")";
+			}
 
-        JLabel name = Utility.localizedHeaderLabel(type, FontLibrary.FontSize.SMALL);
-        panel.add(name, "span, align center, wrap 40");
+			GoodsType goodsType = getSpecification().getGoodsType(modifier.getId());
+			JButton goodsButton = getGoodsButton(goodsType, text);
+			goodsPanel.add(goodsButton);
+		}
+		panel.add(goodsPanel);
 
-        panel.add(Utility.localizedLabel("colopedia.resource.bonusProduction"));
-        JPanel goodsPanel = new JPanel();
-        goodsPanel.setOpaque(false);
-        for (Modifier modifier : type.getModifiers()) {
-            String text = ModifierFormat.getModifierAsString(modifier);
-            if (modifier.hasScope()) {
-                final Specification spec = getSpecification();
-                String scopeStrings = modifier.getScopes().stream()
-                    .filter(s -> s.getType() != null)
-                    .map(s -> Messages.getName(spec.findType(s.getType())))
-                    .collect(Collectors.joining(", "));
-                if (!scopeStrings.isEmpty()) text += " (" + scopeStrings + ")";
-            }
-
-            GoodsType goodsType = getSpecification().getGoodsType(modifier.getId());
-            JButton goodsButton = getGoodsButton(goodsType, text);
-            goodsPanel.add(goodsButton);
-        }
-        panel.add(goodsPanel);
-
-        panel.add(Utility.localizedLabel("colopedia.resource.description"),
-                  "newline 20");
-        panel.add(Utility.localizedTextArea(Messages.descriptionKey(type), 30),
-                  "growx");
-    }
+		panel.add(Utility.localizedLabel("colopedia.resource.description"), "newline 20");
+		panel.add(Utility.localizedTextArea(Messages.descriptionKey(type), 30), "growx");
+	}
 }

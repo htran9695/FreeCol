@@ -33,275 +33,289 @@ import net.sf.freecol.common.io.Mods;
 import net.sf.freecol.common.model.Specification;
 import static net.sf.freecol.common.util.CollectionUtils.*;
 
-
 /**
  * Represents a list of Options.
+ *
+ * @param <T>
+ *            the generic type
  */
 public abstract class ListOption<T> extends AbstractOption<List<AbstractOption<T>>> {
 
-    private static final Logger logger = Logger.getLogger(ListOption.class.getName());
+	/** The Constant logger. */
+	private static final Logger logger = Logger.getLogger(ListOption.class.getName());
 
-    /** The AbstractOption used to generate new values. */
-    private AbstractOption<T> template;
+	/** The AbstractOption used to generate new values. */
+	private AbstractOption<T> template;
 
-    /** The maximum number of list entries. Defaults to Integer.MAX_VALUE. */
-    private int maximumNumber = Integer.MAX_VALUE;
+	/** The maximum number of list entries. Defaults to Integer.MAX_VALUE. */
+	private int maximumNumber = Integer.MAX_VALUE;
 
-    /** The list of options. */
-    private final List<AbstractOption<T>> value = new ArrayList<>();
+	/** The list of options. */
+	private final List<AbstractOption<T>> value = new ArrayList<>();
 
-    /**
-     * Whether the list can include duplicates.  This was always true before
-     * adding this variable so the default should remain == true.
-     */
-    protected boolean allowDuplicates = true;
+	/**
+	 * Whether the list can include duplicates. This was always true before
+	 * adding this variable so the default should remain == true.
+	 */
+	protected boolean allowDuplicates = true;
 
+	/**
+	 * Creates a new <code>ListOption</code>.
+	 *
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public ListOption(Specification specification) {
+		super(specification);
+	}
 
-    /**
-     * Creates a new <code>ListOption</code>.
-     *
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public ListOption(Specification specification) {
-        super(specification);
-    }
+	/**
+	 * Creates a new <code>ListOption</code>.
+	 *
+	 * @param id
+	 *            The object identifier.
+	 * @param specification
+	 *            The <code>Specification</code> to refer to.
+	 */
+	public ListOption(String id, Specification specification) {
+		super(id, specification);
+	}
 
-    /**
-     * Creates a new <code>ListOption</code>.
-     *
-     * @param id The object identifier.
-     * @param specification The <code>Specification</code> to refer to.
-     */
-    public ListOption(String id, Specification specification) {
-        super(id, specification);
-    }
+	/**
+	 * Gets the maximum number of allowed values.
+	 *
+	 * @return The maximum number of allowed values for this option.
+	 */
+	public int getMaximumValue() {
+		return maximumNumber;
+	}
 
+	/**
+	 * Gets the generating template.
+	 *
+	 * @return The template.
+	 */
+	public AbstractOption<T> getTemplate() {
+		return template;
+	}
 
-    /**
-     * Gets the maximum number of allowed values.
-     *
-     * @return The maximum number of allowed values for this option.
-     */
-    public int getMaximumValue() {
-        return maximumNumber;
-    }
+	/**
+	 * Get the values of the current non-null options in the list.
+	 *
+	 * @return A list of option values.
+	 */
+	public List<T> getOptionValues() {
+		List<T> result = new ArrayList<>();
+		for (AbstractOption<T> option : value) {
+			if (option != null)
+				result.add(option.getValue());
+		}
+		return result;
+	}
 
-    /**
-     * Gets the generating template.
-     *
-     * @return The template.
-     */
-    public AbstractOption<T> getTemplate() {
-        return template;
-    }
+	/**
+	 * Add a member to the values list.
+	 *
+	 * @param ao
+	 *            The new <code>AbstractOption</code> member to add.
+	 */
+	private void addMember(AbstractOption<T> ao) {
+		if (canAdd(ao))
+			this.value.add(ao);
+	}
 
-    /**
-     * Get the values of the current non-null options in the list.
-     *
-     * @return A list of option values.
-     */
-    public List<T> getOptionValues() {
-        List<T> result = new ArrayList<>();
-        for (AbstractOption<T> option : value) {
-            if (option != null) result.add(option.getValue());
-        }
-        return result;
-    }
+	/**
+	 * Does this list allow duplicates?.
+	 *
+	 * @return True if duplicates are allowed.
+	 */
+	public boolean allowsDuplicates() {
+		return allowDuplicates;
+	}
 
-    /**
-     * Add a member to the values list.
-     *
-     * @param ao The new <code>AbstractOption</code> member to add.
-     */
-    private void addMember(AbstractOption<T> ao) {
-        if (canAdd(ao)) this.value.add(ao);
-    }
+	/**
+	 * Set the deduplicatation flag.
+	 *
+	 * @param allowDuplicates
+	 *            The new deduplication flag;
+	 */
+	public void setAllowDuplicates(boolean allowDuplicates) {
+		this.allowDuplicates = allowDuplicates;
+	}
 
-    /**
-     * Does this list allow duplicates?
-     *
-     * @return True if duplicates are allowed.
-     */
-    public boolean allowsDuplicates() {
-        return allowDuplicates;
-    }
+	/**
+	 * Can an option be added to this list?.
+	 *
+	 * @param ao
+	 *            The option to check.
+	 * @return True if the option can be added.
+	 */
+	public boolean canAdd(AbstractOption<T> ao) {
+		return (allowDuplicates) ? true : none(value, o -> o.equals(ao));
+	}
 
-    /**
-     * Set the deduplicatation flag.
-     *
-     * @param allowDuplicates The new deduplication flag;
-     */
-    public void setAllowDuplicates(boolean allowDuplicates) {
-        this.allowDuplicates = allowDuplicates;
-    }
+	// Interface Option
 
-    /**
-     * Can an option be added to this list?
-     *
-     * @param ao The option to check.
-     * @return True if the option can be added.
-     */
-    public boolean canAdd(AbstractOption<T> ao) {
-        return (allowDuplicates) ? true
-            : none(value, o -> o.equals(ao));
-    }
+	/**
+	 * Gets the current value of this <code>ListOption</code>.
+	 *
+	 * @return The value.
+	 */
+	@Override
+	public List<AbstractOption<T>> getValue() {
+		return value;
+	}
 
+	/**
+	 * Sets the value of this <code>ListOption</code>.
+	 *
+	 * @param value
+	 *            The value to be set.
+	 */
+	@Override
+	public void setValue(List<AbstractOption<T>> value) {
+		// Fail fast: the list value may be empty, but it must not be null.
+		if (value == null)
+			throw new IllegalArgumentException("Null ListOption");
 
-    // Interface Option
+		List<AbstractOption<T>> oldValue = new ArrayList<>(this.value);
+		this.value.clear();
+		for (AbstractOption<T> op : value)
+			addMember(op);
 
-    /**
-     * Gets the current value of this <code>ListOption</code>.
-     *
-     * @return The value.
-     */
-    @Override
-    public List<AbstractOption<T>> getValue() {
-        return value;
-    }
+		if (isDefined && !value.equals(oldValue)) {
+			firePropertyChange(VALUE_TAG, oldValue, value);
+		}
+		isDefined = true;
+	}
 
-    /**
-     * Sets the value of this <code>ListOption</code>.
-     *
-     * @param value The value to be set.
-     */
-    @Override
-    public void setValue(List<AbstractOption<T>> value) {
-        // Fail fast: the list value may be empty, but it must not be null.
-        if (value==null) throw new IllegalArgumentException("Null ListOption");
+	// Override AbstractOption
 
-        List<AbstractOption<T>> oldValue = new ArrayList<>(this.value);
-        this.value.clear();
-        for (AbstractOption<T> op : value) addMember(op);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean isNullValueOK() {
+		return true;
+	}
 
-        if (isDefined && !value.equals(oldValue)) {
-            firePropertyChange(VALUE_TAG, oldValue, value);
-        }
-        isDefined = true;
-    }
+	// Serialization
 
+	/** The Constant MAXIMUM_NUMBER_TAG. */
+	private static final String MAXIMUM_NUMBER_TAG = "maximumNumber";
 
-    // Override AbstractOption
+	/** The Constant OPTION_VALUE_TAG. */
+	private static final String OPTION_VALUE_TAG = "optionValue";
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isNullValueOK() {
-        return true;
-    }
+	/** The Constant TEMPLATE_TAG. */
+	private static final String TEMPLATE_TAG = "template";
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+		super.writeAttributes(xw);
 
-    // Serialization
+		xw.writeAttribute(MAXIMUM_NUMBER_TAG, maximumNumber);
+	}
 
-    private static final String MAXIMUM_NUMBER_TAG = "maximumNumber";
-    private static final String OPTION_VALUE_TAG = "optionValue";
-    private static final String TEMPLATE_TAG = "template";
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
+		if (template != null) {
+			xw.writeStartElement(TEMPLATE_TAG);
 
+			template.toXML(xw);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-        super.writeAttributes(xw);
+			xw.writeEndElement();
+		}
 
-        xw.writeAttribute(MAXIMUM_NUMBER_TAG, maximumNumber);
-    }
+		for (AbstractOption option : value) {
+			option.toXML(xw);
+		}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeChildren(FreeColXMLWriter xw) throws XMLStreamException {
-        if (template != null) {
-            xw.writeStartElement(TEMPLATE_TAG);
-        
-            template.toXML(xw);
-            
-            xw.writeEndElement();
-        }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+		super.readAttributes(xr);
 
-        for (AbstractOption option : value) {
-            option.toXML(xw);
-        }
-    }
+		maximumNumber = xr.getAttribute(MAXIMUM_NUMBER_TAG, 1);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-        super.readAttributes(xr);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void readChildren(FreeColXMLReader xr) throws XMLStreamException {
+		// Clear containers.
+		value.clear();
 
-        maximumNumber = xr.getAttribute(MAXIMUM_NUMBER_TAG, 1);
-    }
+		super.readChildren(xr);
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void readChildren(FreeColXMLReader xr) throws XMLStreamException {
-        // Clear containers.
-        value.clear();
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	@SuppressWarnings("unchecked")
+	public void readChild(FreeColXMLReader xr) throws XMLStreamException {
+		final String tag = xr.getLocalName();
 
-        super.readChildren(xr);
-    }
+		if (null != tag) // @compat 0.10.4
+			switch (tag) {
+			case OPTION_VALUE_TAG:
+				String modId = xr.readId();
+				logger.log(Level.FINEST, "Found old-style mod value: {0}", modId);
+				if (modId != null) {
+					FreeColModFile fcmf = Mods.getModFile(modId);
+					if (fcmf != null) {
+						ModOption modOption = new ModOption(getSpecification());
+						modOption.setValue(fcmf);
+						addMember((AbstractOption<T>) modOption);
+					}
+				}
+				// end @compat
+				break;
+			case TEMPLATE_TAG:
+				xr.nextTag();
+				template = (AbstractOption<T>) readOption(xr);
+				xr.closeTag(TEMPLATE_TAG);
+				break;
+			default:
+				AbstractOption<T> op = null;
+				try {
+					op = (AbstractOption<T>) readOption(xr);
+				} catch (XMLStreamException xse) {
+					logger.log(Level.WARNING, "Invalid option at: " + tag, xse);
+					xr.closeTag(tag);
+				}
+				if (op != null)
+					addMember(op);
+				break;
+			}
+	}
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override @SuppressWarnings("unchecked")
-    public void readChild(FreeColXMLReader xr) throws XMLStreamException {
-        final String tag = xr.getLocalName();
-
-        if (null != tag) // @compat 0.10.4
-        switch (tag) {
-            case OPTION_VALUE_TAG:
-                String modId = xr.readId();
-                logger.log(Level.FINEST, "Found old-style mod value: {0}",
-                        modId);
-                if (modId != null) {
-                    FreeColModFile fcmf = Mods.getModFile(modId);
-                    if (fcmf != null) {
-                        ModOption modOption = new ModOption(getSpecification());
-                        modOption.setValue(fcmf);
-                        addMember((AbstractOption<T>)modOption);
-                    }
-                }
-                // end @compat
-                break;
-            case TEMPLATE_TAG:
-                xr.nextTag();
-                template = (AbstractOption<T>)readOption(xr);
-                xr.closeTag(TEMPLATE_TAG);
-                break;
-            default:
-                AbstractOption<T> op = null;
-                try {
-                    op = (AbstractOption<T>)readOption(xr);
-                } catch (XMLStreamException xse) {
-                    logger.log(Level.WARNING, "Invalid option at: " + tag, xse);
-                    xr.closeTag(tag);
-            }   if (op != null) addMember(op);
-                break;
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(64);
-        sb.append("[").append(getId());
-        if (value != null) {
-            sb.append(" [");
-            for (AbstractOption<T> ao : value) {
-                sb.append(" ").append(ao);
-            }
-            sb.append(" ]");
-        }
-        sb.append("]");
-        return sb.toString();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder(64);
+		sb.append("[").append(getId());
+		if (value != null) {
+			sb.append(" [");
+			for (AbstractOption<T> ao : value) {
+				sb.append(" ").append(ao);
+			}
+			sb.append(" ]");
+		}
+		sb.append("]");
+		return sb.toString();
+	}
 }

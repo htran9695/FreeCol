@@ -31,643 +31,628 @@ import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 import static net.sf.freecol.common.util.StringUtils.*;
 
-
 /**
  * Represents a building in a colony.
  */
-public class Building extends WorkLocation
-    implements Named, Consumer {
-
-    @SuppressWarnings(&quot;unused&quot;)
-<span class="fc" id="L42">    private static final Logger logger = Logger.getLogger(Building.class.getName());</span>
-
-    public static final String UNIT_CHANGE = &quot;UNIT_CHANGE&quot;;
-
-    /** The type of building. */
-    protected BuildingType buildingType;
-
-
-    /**
-     * Constructor for ServerBuilding.
-     *
-     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
-     * @param colony The &lt;code&gt;Colony&lt;/code&gt; in which this building is located.
-     * @param type The &lt;code&gt;BuildingType&lt;/code&gt; of building.
-     */
-    protected Building(Game game, Colony colony, BuildingType type) {
-<span class="fc" id="L58">        super(game);</span>
-
-<span class="fc" id="L60">        this.colony = colony;</span>
-<span class="fc" id="L61">        this.buildingType = type;</span>
-        // set production type to default value
-<span class="fc" id="L63">        updateProductionType();</span>
-<span class="fc" id="L64">    }</span>
-
-    /**
-     * Create a new &lt;code&gt;Building&lt;/code&gt; with the given identifier.
-     * The object should later be initialized by calling
-     * {@link #readFromXML(FreeColXMLReader)}.
-     *
-     * @param game The enclosing &lt;code&gt;Game&lt;/code&gt;.
-     * @param id The object identifier.
-     */
-    public Building(Game game, String id) {
-<span class="fc" id="L75">        super(game, id);</span>
-<span class="fc" id="L76">    }</span>
-
-
-    /**
-     * Gets the type of this building.
-     *
-     * @return The building type.
-     */
-    public BuildingType getType() {
-<span class="fc" id="L85">        return buildingType;</span>
-    }
-
-    /**
-     * Changes the type of the Building.  The type of a building may
-     * change when it is upgraded or damaged.
-     *
-     * -til: If this is a defensive building.
-     *
-     * @see #upgrade
-     * @see #downgrade
-     * @param newBuildingType The new &lt;code&gt;BuildingType&lt;/code&gt;.
-     * @return A list of units present that need to be removed.
-     */
-    private List&lt;Unit&gt; setType(final BuildingType newBuildingType) {
-        // remove features from current type
-<span class="fc" id="L101">        final Colony colony = getColony();</span>
-<span class="fc" id="L102">        colony.removeFeatures(buildingType);</span>
-<span class="fc" id="L103">        List&lt;Unit&gt; eject = new ArrayList&lt;&gt;();</span>
-
-<span class="pc bpc" id="L105" title="1 of 2 branches missed.">        if (newBuildingType != null) {</span>
-<span class="fc" id="L106">            buildingType = newBuildingType;</span>
-
-            // change default production type
-<span class="fc" id="L109">            updateProductionType();</span>
-
-            // add new features and abilities from new type
-<span class="fc" id="L112">            colony.addFeatures(buildingType);</span>
-
-            // Colonists which can't work here must be put outside
-<span class="fc bfc" id="L115" title="All 2 branches covered.">            for (Unit unit : getUnitList()) {</span>
-<span class="pc bpc" id="L116" title="1 of 2 branches missed.">                if (!canAddType(unit.getType())) eject.add(unit);</span>
-<span class="fc" id="L117">            }</span>
-        }
-
-        // Colonists exceding units limit must be put outside
-<span class="fc" id="L121">        int extra = getUnitCount() - getUnitCapacity() - eject.size();</span>
-<span class="fc bfc" id="L122" title="All 2 branches covered.">        for (Unit unit : getUnitList()) {</span>
-<span class="pc bpc" id="L123" title="1 of 2 branches missed.">            if (extra &lt;= 0) break;</span>
-<span class="nc bnc" id="L124" title="All 2 branches missed.">            if (!eject.contains(unit)) {</span>
-<span class="nc" id="L125">                eject.add(unit);</span>
-<span class="nc" id="L126">                extra -= 1;</span>
-            }
-<span class="nc" id="L128">        }</span>
-
-<span class="fc" id="L130">        return eject;</span>
-    }
-
-    /**
-     * Gets the level of this building.
-     * Delegates to type.
-     *
-     * @return The building level.
-     */
-    public int getLevel() {
-<span class="nc" id="L140">        return getType().getLevel();</span>
-    }
-
-    /**
-     * Does this building have a higher level?
-     *
-     * @return True if this &lt;code&gt;Building&lt;/code&gt; can have a higher level.
-     */
-    public boolean canBuildNext() {
-<span class="fc" id="L149">        return getColony().canBuild(getType().getUpgradesTo());</span>
-    }
-
-    /**
-     * Can this building can be damaged?
-     *
-     * @return True if this building can be damaged.
-     */
-    public boolean canBeDamaged() {
-<span class="fc bfc" id="L158" title="All 2 branches covered.">        return !getType().isAutomaticBuild()</span>
-<span class="pc bpc" id="L159" title="1 of 2 branches missed.">            &amp;&amp; !getColony().isAutomaticBuild(getType());</span>
-    }
-
-    /**
-     * Downgrade this building.
-     *
-     * -til: If this is a defensive building.
-     *
-     * @return A list of units to eject (usually empty) if the
-     *     building was downgraded, or null on failure.
-     */
-    public List&lt;Unit&gt; downgrade() {
-<span class="nc bnc" id="L171" title="All 2 branches missed.">        if (!canBeDamaged()) return null;</span>
-<span class="nc" id="L172">        List&lt;Unit&gt; ret = setType(getType().getUpgradesFrom());</span>
-<span class="nc" id="L173">        getColony().invalidateCache();</span>
-<span class="nc" id="L174">        return ret;</span>
-    }
-
-    /**
-     * Upgrade this building to next level.
-     *
-     * -til: If this is a defensive building.
-     *
-     * @return A list of units to eject (usually empty) if the
-     *     building was upgraded, or null on failure.
-     */
-    public List&lt;Unit&gt; upgrade() {
-<span class="fc bfc" id="L186" title="All 2 branches covered.">        if (!canBuildNext()) return null;</span>
-<span class="fc" id="L187">        List&lt;Unit&gt; ret = setType(getType().getUpgradesTo());</span>
-<span class="fc" id="L188">        getColony().invalidateCache();</span>
-<span class="fc" id="L189">        return ret;</span>
-    }
-
-    /**
-     * Can a particular type of unit be added to this building?
-     *
-     * @param unitType The &lt;code&gt;UnitType&lt;/code&gt; to check.
-     * @return True if unit type can be added to this building.
-     */
-    public boolean canAddType(UnitType unitType) {
-<span class="pc bpc" id="L199" title="2 of 4 branches missed.">        return canBeWorked() &amp;&amp; getType().canAdd(unitType);</span>
-    }
-
-    /**
-     * Convenience function to extract a goods amount from a list of
-     * available goods.
-     *
-     * @param type The &lt;code&gt;GoodsType&lt;/code&gt; to extract the amount for.
-     * @param available The list of available goods to query.
-     * @return The goods amount, or zero if none found.
-     */
-    private int getAvailable(GoodsType type, List&lt;AbstractGoods&gt; available) {
-<span class="fc" id="L211">        return AbstractGoods.getCount(type, available);</span>
-    }
-
-    /**
-     * Gets the production information for this building taking account
-     * of the available input and output goods.
-     *
-     * @param inputs The input goods available.
-     * @param outputs The output goods already available in the colony,
-     *     necessary in order to avoid excess production.
-     * @return The production information.
-     * @see ProductionCache#update
-     */
-    public ProductionInfo getAdjustedProductionInfo(List&lt;AbstractGoods&gt; inputs,
-                                                    List&lt;AbstractGoods&gt; outputs) {
-<span class="fc" id="L226">        ProductionInfo result = new ProductionInfo();</span>
-<span class="fc bfc" id="L227" title="All 2 branches covered.">        if (!hasOutputs()) return result;</span>
-<span class="fc" id="L228">        final Specification spec = getSpecification();</span>
-<span class="fc" id="L229">        final Turn turn = getGame().getTurn();</span>
-<span class="fc" id="L230">        final boolean avoidOverflow</span>
-<span class="fc" id="L231">            = hasAbility(Ability.AVOID_EXCESS_PRODUCTION);</span>
-<span class="fc" id="L232">        final int capacity = getColony().getWarehouseCapacity();</span>
-        // Calculate two production ratios, the minimum (and actual)
-        // possible multiplier between the nominal input and output
-        // goods and the amount actually consumed and produced, and
-        // the maximum possible ratio that would apply but for
-        // circumstances such as limited input availability.
-<span class="fc" id="L238">        double maximumRatio = 0.0, minimumRatio = Double.MAX_VALUE;</span>
-
-        // First, calculate the nominal production ratios.
-<span class="fc bfc" id="L241" title="All 2 branches covered.">        if (canAutoProduce()) {</span>
-            // Autoproducers are special
-<span class="fc bfc" id="L243" title="All 2 branches covered.">            for (AbstractGoods output : getOutputs()) {</span>
-<span class="pc bpc" id="L244" title="1 of 2 branches missed.">                if (output.getAmount() &lt;= 0) continue;</span>
-<span class="fc" id="L245">                final GoodsType goodsType = output.getType();</span>
-<span class="fc" id="L246">                int available = getColony().getGoodsCount(goodsType);</span>
-<span class="fc bfc" id="L247" title="All 2 branches covered.">                if (available &gt;= capacity) {</span>
-<span class="fc" id="L248">                    minimumRatio = maximumRatio = 0.0;</span>
-                } else {
-<span class="fc" id="L250">                    int divisor = (int)getType().applyModifiers(0f, turn,</span>
-                        Modifier.BREEDING_DIVISOR);
-<span class="fc" id="L252">                    int factor = (int)getType().applyModifiers(0f, turn,</span>
-                        Modifier.BREEDING_FACTOR);
-<span class="pc bpc" id="L254" title="1 of 4 branches missed.">                    int production = (available &lt; goodsType.getBreedingNumber()</span>
-                        || divisor &lt;= 0) ? 0
-                        // Deliberate use of integer division
-                        : ((available - 1) / divisor + 1) * factor;
-<span class="fc" id="L258">                    double newRatio = (double)production / output.getAmount();</span>
-<span class="fc" id="L259">                    minimumRatio = Math.min(minimumRatio, newRatio);</span>
-<span class="fc" id="L260">                    maximumRatio = Math.max(maximumRatio, newRatio);</span>
-                }
-<span class="fc" id="L262">            }</span>
-        } else {
-<span class="fc bfc" id="L264" title="All 2 branches covered.">            for (AbstractGoods output : getOutputs()) {</span>
-<span class="fc" id="L265">                final GoodsType goodsType = output.getType();</span>
-<span class="fc" id="L266">                float production = getUnitList().stream()</span>
-<span class="fc" id="L267">                    .mapToInt(u -&gt; getUnitProduction(u, goodsType)).sum();</span>
-                // Unattended production always applies for buildings!
-<span class="fc" id="L269">                production += getBaseProduction(null, goodsType, null);</span>
-<span class="fc" id="L270">                production = applyModifiers(production, turn,</span>
-<span class="fc" id="L271">                    getProductionModifiers(goodsType, null));</span>
-<span class="fc" id="L272">                production = (int)Math.floor(production);</span>
-                // Beware!  If we ever unify this code with ColonyTile,
-                // ColonyTiles have outputs with zero amount.
-<span class="fc" id="L275">                double newRatio = production / output.getAmount();</span>
-<span class="fc" id="L276">                minimumRatio = Math.min(minimumRatio, newRatio);</span>
-<span class="fc" id="L277">                maximumRatio = Math.max(maximumRatio, newRatio);</span>
-<span class="fc" id="L278">            }</span>
-        }
-
-        // Then reduce the minimum ratio if some input is in short supply.
-<span class="fc bfc" id="L282" title="All 2 branches covered.">        for (AbstractGoods input : getInputs()) {</span>
-<span class="fc" id="L283">            long required = (long)Math.floor(input.getAmount() * minimumRatio);</span>
-<span class="fc" id="L284">            long available = getAvailable(input.getType(), inputs);</span>
-            // Do not allow auto-production to go negative.
-<span class="fc bfc" id="L286" title="All 2 branches covered.">            if (canAutoProduce()) available = Math.max(0, available);</span>
-            // Experts in factory level buildings may produce a
-            // certain amount of goods even when no input is available.
-            // Factories have the EXPERTS_USE_CONNECTIONS ability.
-<span class="fc bfc" id="L290" title="All 2 branches covered.">            if (available &lt; required</span>
-<span class="pc bpc" id="L291" title="1 of 2 branches missed.">                &amp;&amp; hasAbility(Ability.EXPERTS_USE_CONNECTIONS)</span>
-<span class="nc bnc" id="L292" title="All 2 branches missed.">                &amp;&amp; spec.getBoolean(GameOptions.EXPERTS_HAVE_CONNECTIONS)) {</span>
-<span class="nc" id="L293">                long minimumGoodsInput = 4 // FIXME: magic number</span>
-<span class="nc" id="L294">                    * (int)getUnitList().stream()</span>
-<span class="nc bnc" id="L295" title="All 2 branches missed.">                        .filter(u -&gt; u.getType() == getExpertUnitType())</span>
-<span class="nc" id="L296">                        .count();</span>
-<span class="nc bnc" id="L297" title="All 2 branches missed.">                if (minimumGoodsInput &gt; available) {</span>
-<span class="nc" id="L298">                    available = minimumGoodsInput;</span>
-                }
-            }
-            // Scale production by limitations on availability.
-<span class="fc bfc" id="L302" title="All 2 branches covered.">            if (available &lt; required) {</span>
-<span class="fc" id="L303">                minimumRatio *= (double)available / required;</span>
-                //maximumRatio = Math.max(maximumRatio, minimumRatio);
-            }
-<span class="fc" id="L306">        }</span>
-
-        // Check whether there is space enough to store the goods
-        // produced in order to avoid excess production.
-<span class="fc bfc" id="L310" title="All 2 branches covered.">        if (avoidOverflow) {</span>
-<span class="fc bfc" id="L311" title="All 2 branches covered.">            for (AbstractGoods output : getOutputs()) {</span>
-<span class="fc" id="L312">                double production = output.getAmount() * minimumRatio;</span>
-<span class="fc bfc" id="L313" title="All 2 branches covered.">                if (production &lt;= 0) continue;</span>
-<span class="fc" id="L314">                double headroom = (double)capacity</span>
-<span class="fc" id="L315">                    - getAvailable(output.getType(), outputs);</span>
-                // Clamp production at warehouse capacity
-<span class="pc bpc" id="L317" title="1 of 2 branches missed.">                if (production &gt; headroom) {</span>
-<span class="nc" id="L318">                    minimumRatio = Math.min(minimumRatio,</span>
-<span class="nc" id="L319">                        headroom / output.getAmount());</span>
-                }
-<span class="fc" id="L321">                production = output.getAmount() * maximumRatio;</span>
-<span class="fc bfc" id="L322" title="All 2 branches covered.">                if (production &gt; headroom) {</span>
-<span class="fc" id="L323">                    maximumRatio = Math.min(maximumRatio, </span>
-<span class="fc" id="L324">                        headroom / output.getAmount());</span>
-                }
-<span class="fc" id="L326">            }</span>
-        }
-
-<span class="fc" id="L329">        final double epsilon = 0.0001;</span>
-<span class="fc bfc" id="L330" title="All 2 branches covered.">        for (AbstractGoods input : getInputs()) {</span>
-<span class="fc" id="L331">            GoodsType type = input.getType();</span>
-            // maximize consumption
-<span class="fc" id="L333">            int consumption = (int)Math.floor(input.getAmount()</span>
-                * minimumRatio + epsilon);
-<span class="fc" id="L335">            int maximumConsumption = (int)Math.floor(input.getAmount()</span>
-                * maximumRatio);
-<span class="fc" id="L337">            result.addConsumption(new AbstractGoods(type, consumption));</span>
-<span class="fc bfc" id="L338" title="All 2 branches covered.">            if (consumption &lt; maximumConsumption) {</span>
-<span class="fc" id="L339">                result.addMaximumConsumption(new AbstractGoods(type, maximumConsumption));</span>
-            }
-<span class="fc" id="L341">        }</span>
-<span class="fc bfc" id="L342" title="All 2 branches covered.">        for (AbstractGoods output : getOutputs()) {</span>
-<span class="fc" id="L343">            GoodsType type = output.getType();</span>
-            // minimize production, but add a magic little something
-            // to counter rounding errors
-<span class="fc" id="L346">            int production = (int)Math.floor(output.getAmount() * minimumRatio</span>
-                + epsilon);
-<span class="fc" id="L348">            int maximumProduction = (int)Math.floor(output.getAmount()</span>
-                * maximumRatio);
-<span class="fc" id="L350">            result.addProduction(new AbstractGoods(type, production));</span>
-<span class="fc bfc" id="L351" title="All 2 branches covered.">            if (production &lt; maximumProduction) {</span>
-<span class="fc" id="L352">                result.addMaximumProduction(new AbstractGoods(type, maximumProduction));</span>
-            }
-<span class="fc" id="L354">        }</span>
-<span class="fc" id="L355">        return result;</span>
-    }
-
-    /**
-     * Evaluate this work location for a given player.
-     *
-     * @param player The &lt;code&gt;Player&lt;/code&gt; to evaluate for.
-     * @return A value for the player.
-     */
-    @Override
-    public int evaluateFor(Player player) {
-<span class="nc" id="L366">        return super.evaluateFor(player)</span>
-<span class="nc" id="L367">            + getType().getRequiredGoods().stream()</span>
-<span class="nc" id="L368">                .mapToInt(ag -&gt; ag.evaluateFor(player)).sum();</span>
-    }
-        
-
-    // Interface Location
-    // Inherits:
-    //   FreeColObject.getId
-    //   WorkLocation.getTile
-    //   UnitLocation.getLocationLabelFor
-    //   UnitLocation.contains
-    //   UnitLocation.canAdd
-    //   WorkLocation.remove
-    //   UnitLocation.getUnitCount
-    //   final UnitLocation.getUnitIterator
-    //   UnitLocation.getUnitList
-    //   UnitLocation.getGoodsContainer
-    //   final WorkLocation.getSettlement
-    //   final WorkLocation.getColony
-    //   final WorkLocation.getRank
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public StringTemplate getLocationLabel() {
-<span class="nc" id="L393">        return StringTemplate.template(&quot;model.building.locationLabel&quot;)</span>
-<span class="nc" id="L394">            .addNamed(&quot;%location%&quot;, this);</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Location up() {
-<span class="nc" id="L402">        return getColony();</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toShortString() {
-<span class="fc" id="L410">        return getColony().getName() + &quot;-&quot; + getType().getSuffix();</span>
-    }
-
-
-    // Interface UnitLocation
-    // Inherits:
-    //   UnitLocation.getSpaceTaken
-    //   UnitLocation.moveToFront
-    //   UnitLocation.clearUnitList
-    //   UnitLocation.equipForRole
-    
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public NoAddReason getNoAddReason(Locatable locatable) {
-<span class="fc" id="L426">        NoAddReason reason = super.getNoAddReason(locatable);</span>
-<span class="fc bfc" id="L427" title="All 2 branches covered.">        if (reason == NoAddReason.NONE) {</span>
-<span class="fc" id="L428">            reason = getType().getNoAddReason(((Unit) locatable).getType());</span>
-<span class="fc bfc" id="L429" title="All 2 branches covered.">            if (reason == NoAddReason.NONE) reason = getNoWorkReason();</span>
-        }
-<span class="fc" id="L431">        return reason;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getUnitCapacity() {
-<span class="fc" id="L439">        return getType().getWorkPlaces();</span>
-    }
-
-
-    // Interface WorkLocation
-    // Inherits:
-    //   WorkLocation.getClaimTemplate: buildings do not need to be claimed.
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public StringTemplate getLabel() {
-<span class="nc bnc" id="L452" title="All 2 branches missed.">        return (buildingType == null) ? null</span>
-<span class="nc" id="L453">            : StringTemplate.key(buildingType);</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isAvailable() {
-<span class="fc" id="L461">        return true;</span>
-    }
-    
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isCurrent() {
-<span class="fc" id="L469">        return true;</span>
-    }
-    
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public NoAddReason getNoWorkReason() {
-<span class="fc" id="L477">        return NoAddReason.NONE;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean canAutoProduce() {
-<span class="fc" id="L485">        return hasAbility(Ability.AUTO_PRODUCTION);</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean canProduce(GoodsType goodsType, UnitType unitType) {
-<span class="fc" id="L493">        final BuildingType type = getType();</span>
-<span class="pc bpc" id="L494" title="1 of 4 branches missed.">        return type != null &amp;&amp; type.canProduce(goodsType, unitType);</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getBaseProduction(ProductionType productionType,
-                                 GoodsType goodsType, UnitType unitType) {
-<span class="fc" id="L503">        final BuildingType type = getType();</span>
-<span class="pc bpc" id="L504" title="1 of 2 branches missed.">        return (type == null) ? 0</span>
-<span class="fc" id="L505">            : getType().getBaseProduction(productionType, goodsType, unitType);</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List&lt;Modifier&gt; getProductionModifiers(GoodsType goodsType,
-                                                 UnitType unitType) {
-<span class="fc" id="L514">        final BuildingType type = getType();</span>
-<span class="pc bpc" id="L515" title="1 of 2 branches missed.">        final String id = (goodsType == null) ? null : goodsType.getId();</span>
-<span class="fc" id="L516">        final Colony colony = getColony();</span>
-<span class="fc" id="L517">        final Player owner = getOwner();</span>
-<span class="fc" id="L518">        final Turn turn = getGame().getTurn();</span>
-
-<span class="fc" id="L520">        List&lt;Modifier&gt; mods = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L521" title="All 2 branches covered.">        if (unitType == null) { // Add only the building-specific bonuses</span>
-<span class="fc" id="L522">            mods.addAll(colony.getModifiers(id, type, turn));</span>
-<span class="pc bpc" id="L523" title="1 of 2 branches missed.">            if (owner != null) {</span>
-<span class="fc" id="L524">                mods.addAll(owner.getModifiers(id, type, turn));</span>
-            }
-
-        } else { // If a unit is present add unit specific bonuses.
-<span class="fc" id="L528">            mods.addAll(this.getModifiers(id, unitType, turn));</span>
-<span class="fc" id="L529">            mods.addAll(colony.getProductionModifiers(goodsType));</span>
-<span class="fc" id="L530">            mods.addAll(unitType.getModifiers(id, goodsType, turn));</span>
-<span class="pc bpc" id="L531" title="1 of 2 branches missed.">            if (owner != null) {</span>
-<span class="fc" id="L532">                mods.addAll(owner.getModifiers(id, unitType, turn));</span>
-            }
-        }
-<span class="fc" id="L535">        Collections.sort(mods);</span>
-<span class="fc" id="L536">        return mods;</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List&lt;ProductionType&gt; getAvailableProductionTypes(boolean unattended) {
-<span class="pc bpc" id="L544" title="1 of 2 branches missed.">        return (buildingType == null) ? Collections.&lt;ProductionType&gt;emptyList()</span>
-<span class="fc" id="L545">            : getType().getAvailableProductionTypes(unattended);</span>
-    }
-
-
-    // Interface Consumer
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List&lt;AbstractGoods&gt; getConsumedGoods() {
-<span class="fc" id="L556">        return getInputs();</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getPriority() {
-<span class="fc" id="L564">        return getType().getPriority();</span>
-    }
-
-
-    // Interface Named
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getNameKey() {
-<span class="fc" id="L575">        return getType().getNameKey();</span>
-    }
-
-
-    // Override FreeColObject
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Set&lt;Ability&gt; getAbilities(String id, FreeColGameObjectType type,
-                                     Turn turn) {
-        // Buildings have no abilities independent of their type (for now).
-<span class="fc" id="L588">        return getType().getAbilities(id, type, turn);</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Set&lt;Modifier&gt; getModifiers(String id, FreeColGameObjectType fcgot,
-                                      Turn turn) {
-        // Buildings have no modifiers independent of type
-<span class="fc" id="L598">        return getType().getModifiers(id, fcgot, turn);</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int compareTo(FreeColObject other) {
-<span class="fc" id="L606">        int cmp = 0;</span>
-<span class="fc bfc" id="L607" title="All 2 branches covered.">        if (other instanceof Building) {</span>
-<span class="fc" id="L608">            Building building = (Building)other;</span>
-<span class="fc" id="L609">            cmp = getType().compareTo(building.getType());</span>
-        }
-<span class="fc bfc" id="L611" title="All 2 branches covered.">        if (cmp == 0) cmp = super.compareTo(other);</span>
-<span class="fc" id="L612">        return cmp;</span>
-    }
-
-
-    // Serialization
-
-    private static final String BUILDING_TYPE_TAG = &quot;buildingType&quot;;
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
-<span class="fc" id="L626">        super.writeAttributes(xw);</span>
-
-<span class="fc" id="L628">        xw.writeAttribute(BUILDING_TYPE_TAG, buildingType);</span>
-<span class="fc" id="L629">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
-<span class="fc" id="L636">        super.readAttributes(xr);</span>
-
-<span class="fc" id="L638">        final Specification spec = getSpecification();</span>
-
-<span class="fc" id="L640">        buildingType = xr.getType(spec, BUILDING_TYPE_TAG,</span>
-                                  BuildingType.class, (BuildingType)null);
-<span class="fc" id="L642">    }</span>
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-<span class="fc" id="L649">        StringBuilder sb = new StringBuilder(32);</span>
-<span class="fc" id="L650">        sb.append(&quot;[&quot;).append(getId())</span>
-<span class="pc bpc" id="L651" title="1 of 2 branches missed.">            .append(&quot; &quot;).append((buildingType == null) ? &quot;&quot;</span>
-<span class="fc" id="L652">                : lastPart(buildingType.getId(), &quot;.&quot;))</span>
-<span class="fc" id="L653">            .append(&quot;/&quot;).append(getColony().getName())</span>
-<span class="fc" id="L654">            .append(&quot;]&quot;);</span>
-<span class="fc" id="L655">        return sb.toString();</span>
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-<span class="fc" id="L662">    public String getXMLTagName() { return getXMLElementTagName(); }</span>
-
-    /**
-     * Gets the tag name of the root element representing this object.
-     *
-     * @return &quot;building&quot;.
-     */
-    public static String getXMLElementTagName() {
-<span class="fc" id="L670">        return &quot;building&quot;;</span>
-    }
+public class Building extends WorkLocation implements Named, Consumer {
+
+	/** The Constant logger. */
+	@SuppressWarnings(&quot;unused&quot;)
+<span class="fc" id="L41">	private static final Logger logger = Logger.getLogger(Building.class.getName());</span>
+
+	/** The Constant UNIT_CHANGE. */
+	public static final String UNIT_CHANGE = &quot;UNIT_CHANGE&quot;;
+
+	/** The type of building. */
+	protected BuildingType buildingType;
+
+	/**
+	 * Constructor for ServerBuilding.
+	 *
+	 * @param game
+	 *            The enclosing &lt;code&gt;Game&lt;/code&gt;.
+	 * @param colony
+	 *            The &lt;code&gt;Colony&lt;/code&gt; in which this building is located.
+	 * @param type
+	 *            The &lt;code&gt;BuildingType&lt;/code&gt; of building.
+	 */
+	protected Building(Game game, Colony colony, BuildingType type) {
+<span class="fc" id="L60">		super(game);</span>
+
+<span class="fc" id="L62">		this.colony = colony;</span>
+<span class="fc" id="L63">		this.buildingType = type;</span>
+		// set production type to default value
+<span class="fc" id="L65">		updateProductionType();</span>
+<span class="fc" id="L66">	}</span>
+
+	/**
+	 * Create a new &lt;code&gt;Building&lt;/code&gt; with the given identifier. The object
+	 * should later be initialized by calling
+	 * {@link #readFromXML(FreeColXMLReader)}.
+	 *
+	 * @param game
+	 *            The enclosing &lt;code&gt;Game&lt;/code&gt;.
+	 * @param id
+	 *            The object identifier.
+	 */
+	public Building(Game game, String id) {
+<span class="fc" id="L79">		super(game, id);</span>
+<span class="fc" id="L80">	}</span>
+
+	/**
+	 * Gets the type of this building.
+	 *
+	 * @return The building type.
+	 */
+	public BuildingType getType() {
+<span class="fc" id="L88">		return buildingType;</span>
+	}
+
+	/**
+	 * Changes the type of the Building. The type of a building may change when
+	 * it is upgraded or damaged.
+	 * 
+	 * -til: If this is a defensive building.
+	 *
+	 * @param newBuildingType
+	 *            The new &lt;code&gt;BuildingType&lt;/code&gt;.
+	 * @return A list of units present that need to be removed.
+	 * @see #upgrade
+	 * @see #downgrade
+	 */
+	private List&lt;Unit&gt; setType(final BuildingType newBuildingType) {
+		// remove features from current type
+<span class="fc" id="L105">		final Colony colony = getColony();</span>
+<span class="fc" id="L106">		colony.removeFeatures(buildingType);</span>
+<span class="fc" id="L107">		List&lt;Unit&gt; eject = new ArrayList&lt;&gt;();</span>
+
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">		if (newBuildingType != null) {</span>
+<span class="fc" id="L110">			buildingType = newBuildingType;</span>
+
+			// change default production type
+<span class="fc" id="L113">			updateProductionType();</span>
+
+			// add new features and abilities from new type
+<span class="fc" id="L116">			colony.addFeatures(buildingType);</span>
+
+			// Colonists which can't work here must be put outside
+<span class="fc bfc" id="L119" title="All 2 branches covered.">			for (Unit unit : getUnitList()) {</span>
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">				if (!canAddType(unit.getType()))</span>
+<span class="nc" id="L121">					eject.add(unit);</span>
+<span class="fc" id="L122">			}</span>
+		}
+
+		// Colonists exceding units limit must be put outside
+<span class="fc" id="L126">		int extra = getUnitCount() - getUnitCapacity() - eject.size();</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">		for (Unit unit : getUnitList()) {</span>
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">			if (extra &lt;= 0)</span>
+<span class="fc" id="L129">				break;</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">			if (!eject.contains(unit)) {</span>
+<span class="nc" id="L131">				eject.add(unit);</span>
+<span class="nc" id="L132">				extra -= 1;</span>
+			}
+<span class="nc" id="L134">		}</span>
+
+<span class="fc" id="L136">		return eject;</span>
+	}
+
+	/**
+	 * Gets the level of this building. Delegates to type.
+	 *
+	 * @return The building level.
+	 */
+	public int getLevel() {
+<span class="nc" id="L145">		return getType().getLevel();</span>
+	}
+
+	/**
+	 * Does this building have a higher level?.
+	 *
+	 * @return True if this &lt;code&gt;Building&lt;/code&gt; can have a higher level.
+	 */
+	public boolean canBuildNext() {
+<span class="fc" id="L154">		return getColony().canBuild(getType().getUpgradesTo());</span>
+	}
+
+	/**
+	 * Can this building can be damaged?.
+	 *
+	 * @return True if this building can be damaged.
+	 */
+	public boolean canBeDamaged() {
+<span class="pc bpc" id="L163" title="1 of 4 branches missed.">		return !getType().isAutomaticBuild() &amp;&amp; !getColony().isAutomaticBuild(getType());</span>
+	}
+
+	/**
+	 * Downgrade this building.
+	 *
+	 * -til: If this is a defensive building.
+	 *
+	 * @return A list of units to eject (usually empty) if the building was
+	 *         downgraded, or null on failure.
+	 */
+	public List&lt;Unit&gt; downgrade() {
+<span class="nc bnc" id="L175" title="All 2 branches missed.">		if (!canBeDamaged())</span>
+<span class="nc" id="L176">			return null;</span>
+<span class="nc" id="L177">		List&lt;Unit&gt; ret = setType(getType().getUpgradesFrom());</span>
+<span class="nc" id="L178">		getColony().invalidateCache();</span>
+<span class="nc" id="L179">		return ret;</span>
+	}
+
+	/**
+	 * Upgrade this building to next level.
+	 *
+	 * -til: If this is a defensive building.
+	 *
+	 * @return A list of units to eject (usually empty) if the building was
+	 *         upgraded, or null on failure.
+	 */
+	public List&lt;Unit&gt; upgrade() {
+<span class="fc bfc" id="L191" title="All 2 branches covered.">		if (!canBuildNext())</span>
+<span class="fc" id="L192">			return null;</span>
+<span class="fc" id="L193">		List&lt;Unit&gt; ret = setType(getType().getUpgradesTo());</span>
+<span class="fc" id="L194">		getColony().invalidateCache();</span>
+<span class="fc" id="L195">		return ret;</span>
+	}
+
+	/**
+	 * Can a particular type of unit be added to this building?.
+	 *
+	 * @param unitType
+	 *            The &lt;code&gt;UnitType&lt;/code&gt; to check.
+	 * @return True if unit type can be added to this building.
+	 */
+	public boolean canAddType(UnitType unitType) {
+<span class="pc bpc" id="L206" title="2 of 4 branches missed.">		return canBeWorked() &amp;&amp; getType().canAdd(unitType);</span>
+	}
+
+	/**
+	 * Convenience function to extract a goods amount from a list of available
+	 * goods.
+	 *
+	 * @param type
+	 *            The &lt;code&gt;GoodsType&lt;/code&gt; to extract the amount for.
+	 * @param available
+	 *            The list of available goods to query.
+	 * @return The goods amount, or zero if none found.
+	 */
+	private int getAvailable(GoodsType type, List&lt;AbstractGoods&gt; available) {
+<span class="fc" id="L220">		return AbstractGoods.getCount(type, available);</span>
+	}
+
+	/**
+	 * Gets the production information for this building taking account of the
+	 * available input and output goods.
+	 *
+	 * @param inputs
+	 *            The input goods available.
+	 * @param outputs
+	 *            The output goods already available in the colony, necessary in
+	 *            order to avoid excess production.
+	 * @return The production information.
+	 * @see ProductionCache#update
+	 */
+	public ProductionInfo getAdjustedProductionInfo(List&lt;AbstractGoods&gt; inputs, List&lt;AbstractGoods&gt; outputs) {
+<span class="fc" id="L236">		ProductionInfo result = new ProductionInfo();</span>
+<span class="fc bfc" id="L237" title="All 2 branches covered.">		if (!hasOutputs())</span>
+<span class="fc" id="L238">			return result;</span>
+<span class="fc" id="L239">		final Specification spec = getSpecification();</span>
+<span class="fc" id="L240">		final Turn turn = getGame().getTurn();</span>
+<span class="fc" id="L241">		final boolean avoidOverflow = hasAbility(Ability.AVOID_EXCESS_PRODUCTION);</span>
+<span class="fc" id="L242">		final int capacity = getColony().getWarehouseCapacity();</span>
+		// Calculate two production ratios, the minimum (and actual)
+		// possible multiplier between the nominal input and output
+		// goods and the amount actually consumed and produced, and
+		// the maximum possible ratio that would apply but for
+		// circumstances such as limited input availability.
+<span class="fc" id="L248">		double maximumRatio = 0.0, minimumRatio = Double.MAX_VALUE;</span>
+
+		// First, calculate the nominal production ratios.
+<span class="fc bfc" id="L251" title="All 2 branches covered.">		if (canAutoProduce()) {</span>
+			// Autoproducers are special
+<span class="fc bfc" id="L253" title="All 2 branches covered.">			for (AbstractGoods output : getOutputs()) {</span>
+<span class="pc bpc" id="L254" title="1 of 2 branches missed.">				if (output.getAmount() &lt;= 0)</span>
+<span class="nc" id="L255">					continue;</span>
+<span class="fc" id="L256">				final GoodsType goodsType = output.getType();</span>
+<span class="fc" id="L257">				int available = getColony().getGoodsCount(goodsType);</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">				if (available &gt;= capacity) {</span>
+<span class="fc" id="L259">					minimumRatio = maximumRatio = 0.0;</span>
+				} else {
+<span class="fc" id="L261">					int divisor = (int) getType().applyModifiers(0f, turn, Modifier.BREEDING_DIVISOR);</span>
+<span class="fc" id="L262">					int factor = (int) getType().applyModifiers(0f, turn, Modifier.BREEDING_FACTOR);</span>
+<span class="pc bpc" id="L263" title="1 of 4 branches missed.">					int production = (available &lt; goodsType.getBreedingNumber() || divisor &lt;= 0) ? 0</span>
+							// Deliberate use of integer division
+							: ((available - 1) / divisor + 1) * factor;
+<span class="fc" id="L266">					double newRatio = (double) production / output.getAmount();</span>
+<span class="fc" id="L267">					minimumRatio = Math.min(minimumRatio, newRatio);</span>
+<span class="fc" id="L268">					maximumRatio = Math.max(maximumRatio, newRatio);</span>
+				}
+<span class="fc" id="L270">			}</span>
+		} else {
+<span class="fc bfc" id="L272" title="All 2 branches covered.">			for (AbstractGoods output : getOutputs()) {</span>
+<span class="fc" id="L273">				final GoodsType goodsType = output.getType();</span>
+<span class="fc" id="L274">				float production = getUnitList().stream().mapToInt(u -&gt; getUnitProduction(u, goodsType)).sum();</span>
+				// Unattended production always applies for buildings!
+<span class="fc" id="L276">				production += getBaseProduction(null, goodsType, null);</span>
+<span class="fc" id="L277">				production = applyModifiers(production, turn, getProductionModifiers(goodsType, null));</span>
+<span class="fc" id="L278">				production = (int) Math.floor(production);</span>
+				// Beware! If we ever unify this code with ColonyTile,
+				// ColonyTiles have outputs with zero amount.
+<span class="fc" id="L281">				double newRatio = production / output.getAmount();</span>
+<span class="fc" id="L282">				minimumRatio = Math.min(minimumRatio, newRatio);</span>
+<span class="fc" id="L283">				maximumRatio = Math.max(maximumRatio, newRatio);</span>
+<span class="fc" id="L284">			}</span>
+		}
+
+		// Then reduce the minimum ratio if some input is in short supply.
+<span class="fc bfc" id="L288" title="All 2 branches covered.">		for (AbstractGoods input : getInputs()) {</span>
+<span class="fc" id="L289">			long required = (long) Math.floor(input.getAmount() * minimumRatio);</span>
+<span class="fc" id="L290">			long available = getAvailable(input.getType(), inputs);</span>
+			// Do not allow auto-production to go negative.
+<span class="fc bfc" id="L292" title="All 2 branches covered.">			if (canAutoProduce())</span>
+<span class="fc" id="L293">				available = Math.max(0, available);</span>
+			// Experts in factory level buildings may produce a
+			// certain amount of goods even when no input is available.
+			// Factories have the EXPERTS_USE_CONNECTIONS ability.
+<span class="pc bpc" id="L297" title="1 of 4 branches missed.">			if (available &lt; required &amp;&amp; hasAbility(Ability.EXPERTS_USE_CONNECTIONS)</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">					&amp;&amp; spec.getBoolean(GameOptions.EXPERTS_HAVE_CONNECTIONS)) {</span>
+<span class="nc" id="L299">				long minimumGoodsInput = 4 // FIXME: magic number</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">						* (int) getUnitList().stream().filter(u -&gt; u.getType() == getExpertUnitType()).count();</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">				if (minimumGoodsInput &gt; available) {</span>
+<span class="nc" id="L302">					available = minimumGoodsInput;</span>
+				}
+			}
+			// Scale production by limitations on availability.
+<span class="fc bfc" id="L306" title="All 2 branches covered.">			if (available &lt; required) {</span>
+<span class="fc" id="L307">				minimumRatio *= (double) available / required;</span>
+				// maximumRatio = Math.max(maximumRatio, minimumRatio);
+			}
+<span class="fc" id="L310">		}</span>
+
+		// Check whether there is space enough to store the goods
+		// produced in order to avoid excess production.
+<span class="fc bfc" id="L314" title="All 2 branches covered.">		if (avoidOverflow) {</span>
+<span class="fc bfc" id="L315" title="All 2 branches covered.">			for (AbstractGoods output : getOutputs()) {</span>
+<span class="fc" id="L316">				double production = output.getAmount() * minimumRatio;</span>
+<span class="fc bfc" id="L317" title="All 2 branches covered.">				if (production &lt;= 0)</span>
+<span class="fc" id="L318">					continue;</span>
+<span class="fc" id="L319">				double headroom = (double) capacity - getAvailable(output.getType(), outputs);</span>
+				// Clamp production at warehouse capacity
+<span class="pc bpc" id="L321" title="1 of 2 branches missed.">				if (production &gt; headroom) {</span>
+<span class="nc" id="L322">					minimumRatio = Math.min(minimumRatio, headroom / output.getAmount());</span>
+				}
+<span class="fc" id="L324">				production = output.getAmount() * maximumRatio;</span>
+<span class="fc bfc" id="L325" title="All 2 branches covered.">				if (production &gt; headroom) {</span>
+<span class="fc" id="L326">					maximumRatio = Math.min(maximumRatio, headroom / output.getAmount());</span>
+				}
+<span class="fc" id="L328">			}</span>
+		}
+
+<span class="fc" id="L331">		final double epsilon = 0.0001;</span>
+<span class="fc bfc" id="L332" title="All 2 branches covered.">		for (AbstractGoods input : getInputs()) {</span>
+<span class="fc" id="L333">			GoodsType type = input.getType();</span>
+			// maximize consumption
+<span class="fc" id="L335">			int consumption = (int) Math.floor(input.getAmount() * minimumRatio + epsilon);</span>
+<span class="fc" id="L336">			int maximumConsumption = (int) Math.floor(input.getAmount() * maximumRatio);</span>
+<span class="fc" id="L337">			result.addConsumption(new AbstractGoods(type, consumption));</span>
+<span class="fc bfc" id="L338" title="All 2 branches covered.">			if (consumption &lt; maximumConsumption) {</span>
+<span class="fc" id="L339">				result.addMaximumConsumption(new AbstractGoods(type, maximumConsumption));</span>
+			}
+<span class="fc" id="L341">		}</span>
+<span class="fc bfc" id="L342" title="All 2 branches covered.">		for (AbstractGoods output : getOutputs()) {</span>
+<span class="fc" id="L343">			GoodsType type = output.getType();</span>
+			// minimize production, but add a magic little something
+			// to counter rounding errors
+<span class="fc" id="L346">			int production = (int) Math.floor(output.getAmount() * minimumRatio + epsilon);</span>
+<span class="fc" id="L347">			int maximumProduction = (int) Math.floor(output.getAmount() * maximumRatio);</span>
+<span class="fc" id="L348">			result.addProduction(new AbstractGoods(type, production));</span>
+<span class="fc bfc" id="L349" title="All 2 branches covered.">			if (production &lt; maximumProduction) {</span>
+<span class="fc" id="L350">				result.addMaximumProduction(new AbstractGoods(type, maximumProduction));</span>
+			}
+<span class="fc" id="L352">		}</span>
+<span class="fc" id="L353">		return result;</span>
+	}
+
+	/**
+	 * Evaluate this work location for a given player.
+	 *
+	 * @param player
+	 *            The &lt;code&gt;Player&lt;/code&gt; to evaluate for.
+	 * @return A value for the player.
+	 */
+	@Override
+	public int evaluateFor(Player player) {
+<span class="nc" id="L365">		return super.evaluateFor(player)</span>
+<span class="nc" id="L366">				+ getType().getRequiredGoods().stream().mapToInt(ag -&gt; ag.evaluateFor(player)).sum();</span>
+	}
+
+	// Interface Location
+	// Inherits:
+	// FreeColObject.getId
+	// WorkLocation.getTile
+	// UnitLocation.getLocationLabelFor
+	// UnitLocation.contains
+	// UnitLocation.canAdd
+	// WorkLocation.remove
+	// UnitLocation.getUnitCount
+	// final UnitLocation.getUnitIterator
+	// UnitLocation.getUnitList
+	// UnitLocation.getGoodsContainer
+	// final WorkLocation.getSettlement
+	// final WorkLocation.getColony
+	// final WorkLocation.getRank
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public StringTemplate getLocationLabel() {
+<span class="nc" id="L390">		return StringTemplate.template(&quot;model.building.locationLabel&quot;).addNamed(&quot;%location%&quot;, this);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Location up() {
+<span class="nc" id="L398">		return getColony();</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toShortString() {
+<span class="fc" id="L406">		return getColony().getName() + &quot;-&quot; + getType().getSuffix();</span>
+	}
+
+	// Interface UnitLocation
+	// Inherits:
+	// UnitLocation.getSpaceTaken
+	// UnitLocation.moveToFront
+	// UnitLocation.clearUnitList
+	// UnitLocation.equipForRole
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public NoAddReason getNoAddReason(Locatable locatable) {
+<span class="fc" id="L421">		NoAddReason reason = super.getNoAddReason(locatable);</span>
+<span class="fc bfc" id="L422" title="All 2 branches covered.">		if (reason == NoAddReason.NONE) {</span>
+<span class="fc" id="L423">			reason = getType().getNoAddReason(((Unit) locatable).getType());</span>
+<span class="fc bfc" id="L424" title="All 2 branches covered.">			if (reason == NoAddReason.NONE)</span>
+<span class="fc" id="L425">				reason = getNoWorkReason();</span>
+		}
+<span class="fc" id="L427">		return reason;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getUnitCapacity() {
+<span class="fc" id="L435">		return getType().getWorkPlaces();</span>
+	}
+
+	// Interface WorkLocation
+	// Inherits:
+	// WorkLocation.getClaimTemplate: buildings do not need to be claimed.
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public StringTemplate getLabel() {
+<span class="nc bnc" id="L447" title="All 2 branches missed.">		return (buildingType == null) ? null : StringTemplate.key(buildingType);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean isAvailable() {
+<span class="fc" id="L455">		return true;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean isCurrent() {
+<span class="fc" id="L463">		return true;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public NoAddReason getNoWorkReason() {
+<span class="fc" id="L471">		return NoAddReason.NONE;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean canAutoProduce() {
+<span class="fc" id="L479">		return hasAbility(Ability.AUTO_PRODUCTION);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean canProduce(GoodsType goodsType, UnitType unitType) {
+<span class="fc" id="L487">		final BuildingType type = getType();</span>
+<span class="pc bpc" id="L488" title="1 of 4 branches missed.">		return type != null &amp;&amp; type.canProduce(goodsType, unitType);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getBaseProduction(ProductionType productionType, GoodsType goodsType, UnitType unitType) {
+<span class="fc" id="L496">		final BuildingType type = getType();</span>
+<span class="pc bpc" id="L497" title="1 of 2 branches missed.">		return (type == null) ? 0 : getType().getBaseProduction(productionType, goodsType, unitType);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public List&lt;Modifier&gt; getProductionModifiers(GoodsType goodsType, UnitType unitType) {
+<span class="fc" id="L505">		final BuildingType type = getType();</span>
+<span class="pc bpc" id="L506" title="1 of 2 branches missed.">		final String id = (goodsType == null) ? null : goodsType.getId();</span>
+<span class="fc" id="L507">		final Colony colony = getColony();</span>
+<span class="fc" id="L508">		final Player owner = getOwner();</span>
+<span class="fc" id="L509">		final Turn turn = getGame().getTurn();</span>
+
+<span class="fc" id="L511">		List&lt;Modifier&gt; mods = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L512" title="All 2 branches covered.">		if (unitType == null) { // Add only the building-specific bonuses</span>
+<span class="fc" id="L513">			mods.addAll(colony.getModifiers(id, type, turn));</span>
+<span class="pc bpc" id="L514" title="1 of 2 branches missed.">			if (owner != null) {</span>
+<span class="fc" id="L515">				mods.addAll(owner.getModifiers(id, type, turn));</span>
+			}
+
+		} else { // If a unit is present add unit specific bonuses.
+<span class="fc" id="L519">			mods.addAll(this.getModifiers(id, unitType, turn));</span>
+<span class="fc" id="L520">			mods.addAll(colony.getProductionModifiers(goodsType));</span>
+<span class="fc" id="L521">			mods.addAll(unitType.getModifiers(id, goodsType, turn));</span>
+<span class="pc bpc" id="L522" title="1 of 2 branches missed.">			if (owner != null) {</span>
+<span class="fc" id="L523">				mods.addAll(owner.getModifiers(id, unitType, turn));</span>
+			}
+		}
+<span class="fc" id="L526">		Collections.sort(mods);</span>
+<span class="fc" id="L527">		return mods;</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public List&lt;ProductionType&gt; getAvailableProductionTypes(boolean unattended) {
+<span class="pc bpc" id="L535" title="1 of 2 branches missed.">		return (buildingType == null) ? Collections.&lt;ProductionType&gt;emptyList()</span>
+<span class="fc" id="L536">				: getType().getAvailableProductionTypes(unattended);</span>
+	}
+
+	// Interface Consumer
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public List&lt;AbstractGoods&gt; getConsumedGoods() {
+<span class="fc" id="L546">		return getInputs();</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int getPriority() {
+<span class="fc" id="L554">		return getType().getPriority();</span>
+	}
+
+	// Interface Named
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getNameKey() {
+<span class="fc" id="L564">		return getType().getNameKey();</span>
+	}
+
+	// Override FreeColObject
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Set&lt;Ability&gt; getAbilities(String id, FreeColGameObjectType type, Turn turn) {
+		// Buildings have no abilities independent of their type (for now).
+<span class="fc" id="L575">		return getType().getAbilities(id, type, turn);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Set&lt;Modifier&gt; getModifiers(String id, FreeColGameObjectType fcgot, Turn turn) {
+		// Buildings have no modifiers independent of type
+<span class="fc" id="L584">		return getType().getModifiers(id, fcgot, turn);</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int compareTo(FreeColObject other) {
+<span class="fc" id="L592">		int cmp = 0;</span>
+<span class="fc bfc" id="L593" title="All 2 branches covered.">		if (other instanceof Building) {</span>
+<span class="fc" id="L594">			Building building = (Building) other;</span>
+<span class="fc" id="L595">			cmp = getType().compareTo(building.getType());</span>
+		}
+<span class="fc bfc" id="L597" title="All 2 branches covered.">		if (cmp == 0)</span>
+<span class="fc" id="L598">			cmp = super.compareTo(other);</span>
+<span class="fc" id="L599">		return cmp;</span>
+	}
+
+	// Serialization
+
+	/** The Constant BUILDING_TYPE_TAG. */
+	private static final String BUILDING_TYPE_TAG = &quot;buildingType&quot;;
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void writeAttributes(FreeColXMLWriter xw) throws XMLStreamException {
+<span class="fc" id="L612">		super.writeAttributes(xw);</span>
+
+<span class="fc" id="L614">		xw.writeAttribute(BUILDING_TYPE_TAG, buildingType);</span>
+<span class="fc" id="L615">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected void readAttributes(FreeColXMLReader xr) throws XMLStreamException {
+<span class="fc" id="L622">		super.readAttributes(xr);</span>
+
+<span class="fc" id="L624">		final Specification spec = getSpecification();</span>
+
+<span class="fc" id="L626">		buildingType = xr.getType(spec, BUILDING_TYPE_TAG, BuildingType.class, (BuildingType) null);</span>
+<span class="fc" id="L627">	}</span>
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+<span class="fc" id="L634">		StringBuilder sb = new StringBuilder(32);</span>
+<span class="pc bpc" id="L635" title="1 of 2 branches missed.">		sb.append(&quot;[&quot;).append(getId()).append(&quot; &quot;)</span>
+<span class="fc" id="L636">				.append((buildingType == null) ? &quot;&quot; : lastPart(buildingType.getId(), &quot;.&quot;)).append(&quot;/&quot;)</span>
+<span class="fc" id="L637">				.append(getColony().getName()).append(&quot;]&quot;);</span>
+<span class="fc" id="L638">		return sb.toString();</span>
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String getXMLTagName() {
+<span class="fc" id="L646">		return getXMLElementTagName();</span>
+	}
+
+	/**
+	 * Gets the tag name of the root element representing this object.
+	 *
+	 * @return &quot;building&quot;.
+	 */
+	public static String getXMLElementTagName() {
+<span class="fc" id="L655">		return &quot;building&quot;;</span>
+	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

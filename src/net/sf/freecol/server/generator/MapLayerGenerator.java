@@ -27,20 +27,21 @@ import net.sf.freecol.common.model.Map.Layer;
  */
 public interface MapLayerGenerator {
 
-    /**
-     * Generates the layer in the map of the given game. Returns true
-     * if the layer was generated, and false otherwise.
-     *
-     * @param game a <code>Game</code> value
-     * @return a <code>boolean</code> value
-     */
-    public boolean generateLayer(Game game);
+	/**
+	 * Generates the layer in the map of the given game. Returns true if the
+	 * layer was generated, and false otherwise.
+	 *
+	 * @param game
+	 *            a <code>Game</code> value
+	 * @return a <code>boolean</code> value
+	 */
+	public boolean generateLayer(Game game);
 
-    /**
-     * Returns the Layer this MapLayerGenerator is able to generate.
-     *
-     * @return a <code>Layer</code> value
-     */
-    public Layer getLayer();
+	/**
+	 * Returns the Layer this MapLayerGenerator is able to generate.
+	 *
+	 * @return a <code>Layer</code> value
+	 */
+	public Layer getLayer();
 
 }

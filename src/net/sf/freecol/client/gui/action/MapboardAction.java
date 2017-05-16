@@ -21,35 +21,32 @@ package net.sf.freecol.client.gui.action;
 
 import net.sf.freecol.client.FreeColClient;
 
-
 /**
- * Super class for all actions that should be disabled when the
- * mapboard is not selected.
+ * Super class for all actions that should be disabled when the mapboard is not
+ * selected.
  */
 public abstract class MapboardAction extends FreeColAction {
 
+	/**
+	 * Creates a new <code>MapboardAction</code>.
+	 *
+	 * @param freeColClient
+	 *            The <code>FreeColClient</code> for the game.
+	 * @param id
+	 *            the id
+	 */
+	protected MapboardAction(FreeColClient freeColClient, String id) {
+		super(freeColClient, id);
+	}
 
-    /**
-     * Creates a new <code>MapboardAction</code>.
-     *
-     * @param freeColClient The <code>FreeColClient</code> for the game.
-     */
-    protected MapboardAction(FreeColClient freeColClient, String id) {
-        super(freeColClient, id);
-    }
+	// Override FreeColAction
 
-
-    // Override FreeColAction
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected boolean shouldBeEnabled() { 
-        return super.shouldBeEnabled()  
-            && getGUI().isMapboardActionsEnabled()
-            && (getGame() == null
-                || freeColClient.isMapEditor()
-                || freeColClient.currentPlayerIsMyPlayer());
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	protected boolean shouldBeEnabled() {
+		return super.shouldBeEnabled() && getGUI().isMapboardActionsEnabled()
+				&& (getGame() == null || freeColClient.isMapEditor() || freeColClient.currentPlayerIsMyPlayer());
+	}
 }

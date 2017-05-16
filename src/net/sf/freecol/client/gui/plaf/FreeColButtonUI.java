@@ -36,60 +36,84 @@ import javax.swing.plaf.metal.MetalButtonUI;
 
 import net.sf.freecol.client.gui.ImageLibrary;
 
-
 /**
- * Sets the default opaque attribute to <i>false</i> and
- * uses a 10% black shading on the {@link #paintButtonPressed}.
+ * Sets the default opaque attribute to <i>false</i> and uses a 10% black
+ * shading on the {@link #paintButtonPressed}.
  */
 public class FreeColButtonUI extends MetalButtonUI {
 
-    private static final FreeColButtonUI sharedInstance = new FreeColButtonUI();
+	/** The Constant sharedInstance. */
+	private static final FreeColButtonUI sharedInstance = new FreeColButtonUI();
 
+	/**
+	 * Creates the UI.
+	 *
+	 * @param c
+	 *            the c
+	 * @return the component UI
+	 */
+	public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
+		return sharedInstance;
+	}
 
-    public static ComponentUI createUI(@SuppressWarnings("unused") JComponent c) {
-        return sharedInstance;
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * javax.swing.plaf.basic.BasicButtonUI#installUI(javax.swing.JComponent)
+	 */
+	@Override
+	public void installUI(JComponent c) {
+		super.installUI(c);
 
-    @Override
-    public void installUI(JComponent c) {
-        super.installUI(c);
+		c.setOpaque(false);
+	}
 
-        c.setOpaque(false);
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.plaf.basic.BasicButtonUI#paint(java.awt.Graphics,
+	 * javax.swing.JComponent)
+	 */
+	@Override
+	public void paint(Graphics g, JComponent c) {
+		LAFUtilities.setProperties(g, c);
 
-    @Override
-    public void paint(Graphics g, JComponent c) {
-        LAFUtilities.setProperties(g, c);
+		if (c.isOpaque()) {
+			ImageLibrary.drawTiledImage("image.background.FreeColButton", g, c, null);
+		}
+		super.paint(g, c);
 
-        if (c.isOpaque()) {
-            ImageLibrary.drawTiledImage("image.background.FreeColButton", g, c, null);
-        }
-        super.paint(g, c);
+		AbstractButton a = (AbstractButton) c;
+		if (a.isRolloverEnabled()) {
+			Point p = MouseInfo.getPointerInfo().getLocation();
+			SwingUtilities.convertPointFromScreen(p, c);
+			boolean rollover = c.contains(p);
+			if (rollover) {
+				paintButtonPressed(g, (AbstractButton) c);
+			}
+		}
+	}
 
-        AbstractButton a = (AbstractButton) c;
-        if (a.isRolloverEnabled()) {
-            Point p = MouseInfo.getPointerInfo().getLocation();
-            SwingUtilities.convertPointFromScreen(p, c);
-            boolean rollover = c.contains(p);
-            if (rollover) {
-                paintButtonPressed(g, (AbstractButton) c);
-            }
-        }
-    }
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see javax.swing.plaf.metal.MetalButtonUI#paintButtonPressed(java.awt.
+	 * Graphics, javax.swing.AbstractButton)
+	 */
+	@Override
+	protected void paintButtonPressed(Graphics g, AbstractButton c) {
+		if (c.isContentAreaFilled()) {
+			Graphics2D g2d = (Graphics2D) g;
+			Dimension size = c.getSize();
+			Composite oldComposite = g2d.getComposite();
+			Color oldColor = g2d.getColor();
+			g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.1f));
+			g2d.setColor(Color.BLACK);
+			g2d.fillRect(0, 0, size.width, size.height);
+			g2d.setComposite(oldComposite);
+			g2d.setColor(oldColor);
 
-    @Override
-    protected void paintButtonPressed(Graphics g, AbstractButton c) {
-        if (c.isContentAreaFilled()) {
-            Graphics2D g2d = (Graphics2D) g;
-            Dimension size = c.getSize();
-            Composite oldComposite = g2d.getComposite();
-            Color oldColor = g2d.getColor();
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.1f));
-            g2d.setColor(Color.BLACK);
-            g2d.fillRect(0, 0, size.width, size.height);
-            g2d.setComposite(oldComposite);
-            g2d.setColor(oldColor);
-
-        }
-    }
+		}
+	}
 }
