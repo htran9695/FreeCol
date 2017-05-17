@@ -2272,7 +2272,7 @@ public class Colony extends Settlement implements Nameable, TradeLocation {
 				result.add(StringTemplate.template("model.building.warehouseSoonFull").addNamed("%goods%", goodsType)
 						.addName("%colony%", getName()).addAmount("%amount%", waste));
 			}
-		}
+		
 
 		BuildableType currentlyBuilding = getCurrentlyBuilding();
 		if (currentlyBuilding != null) {
