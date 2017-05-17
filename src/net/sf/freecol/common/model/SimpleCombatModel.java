@@ -800,11 +800,9 @@ public class SimpleCombatModel extends CombatModel {
 							crs.add(CombatResult.CAPTURE_CONVERT);
 							lose++;
 						}
-					} else if (r >= 1.0 - winner.getBurnProbability()) {
-						if (any(loserPlayer.getIndianSettlements(), s -> s.hasMissionary(winnerPlayer))) {
+					} else if (r >= 1.0 - winner.getBurnProbability() && any(loserPlayer.getIndianSettlements(), s -> s.hasMissionary(winnerPlayer))) {
 							crs.add(CombatResult.BURN_MISSIONS);
 						}
-					}
 				}
 				if (settlement.getUnitCount() + tile.getUnitCount() <= lose) {
 					crs.add(CombatResult.DESTROY_SETTLEMENT);

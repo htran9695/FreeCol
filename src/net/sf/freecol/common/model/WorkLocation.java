@@ -409,20 +409,19 @@ public abstract class WorkLocation extends UnitLocation implements Ownable {
 		for (Unit u : getUnitList()) {
 			if (u.getTeacher() != null)
 				continue; // Students assumed temporary
-			if ((work = u.getWorkType()) == null) {
-				if (occ != null)
+			if ((work = u.getWorkType()) == null && occ != null){
 					work = occ.workType;
 			}
 			if ((sug = getSuggestion(u, getProductionType(), work)) != null) {
 				result.put(u, sug);
 			}
-		}
 		// Check for a suggestion for an extra worker if there is space.
 		if (!isFull() && occ != null && (work = occ.workType) != null
 				&& (sug = getSuggestion(null, occ.productionType, work)) != null) {
 			result.put(null, sug);
 		}
 		return result;
+	}
 	}
 
 	/**

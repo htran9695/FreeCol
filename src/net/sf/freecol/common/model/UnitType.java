@@ -952,12 +952,10 @@ public final class UnitType extends BuildableType implements Consumer {
 
 		expertProduction = xr.getType(spec, EXPERT_PRODUCTION_TAG, GoodsType.class, parent.expertProduction);
 
-		if (parent != this) { // Handle "extends" for super-type fields
-			if (!xr.hasAttribute(REQUIRED_POPULATION_TAG)) {
+		if (parent != this && !xr.hasAttribute(REQUIRED_POPULATION_TAG)) {
 				setRequiredPopulation(parent.getRequiredPopulation());
 			}
 		}
-	}
 
 	/**
 	 * {@inheritDoc}

@@ -1066,12 +1066,10 @@ public class Colony extends Settlement implements Nameable, TradeLocation {
 					return NoBuildReason.WRONG_UPGRADE;
 				}
 			}
-		} else if (buildableType instanceof UnitType) {
+		} else if (buildableType instanceof UnitType &&(!buildableType.hasAbility(Ability.PERSON)) && (!hasAbility(Ability.BUILD, buildableType)
+				&& none(assumeBuilt, bt -> bt.hasAbility(Ability.BUILD, buildableType)))) {
 			// Non-person units need a BUILD ability, present or assumed.
-			if (!buildableType.hasAbility(Ability.PERSON) && !hasAbility(Ability.BUILD, buildableType)
-					&& none(assumeBuilt, bt -> bt.hasAbility(Ability.BUILD, buildableType))) {
 				return NoBuildReason.MISSING_BUILD_ABILITY;
-			}
 		}
 		return NoBuildReason.NONE;
 	}
@@ -1748,13 +1746,11 @@ public class Colony extends Settlement implements Nameable, TradeLocation {
 					if (unit.isDefensiveUnit()) {
 						friendlyUnits++;
 					}
-				} else if (getOwner().atWarWith(unit.getOwner())) {
-					if (unit.isOffensiveUnit()) {
+				} else if (getOwner().atWarWith(unit.getOwner()) && unit.isOffensiveUnit()) {
 						enemyUnits++;
 					}
 				}
 			}
-		}
 		return enemyUnits > friendlyUnits;
 	}
 
@@ -2262,8 +2258,7 @@ public class Colony extends Settlement implements Nameable, TradeLocation {
 		int waste;
 
 		if (goodsType.isStorable()) {
-			if (goodsType.limitIgnored()) {
-				if (goodsType.isFoodType()) {
+			if (goodsType.limitIgnored() && goodsType.isFoodType()) {
 					int starve = getStarvationTurns();
 					if (starve == 0) {
 						result.add(StringTemplate.template("model.colony.starving").addName("%colony%", getName()));

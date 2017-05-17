@@ -502,13 +502,11 @@ public class TileItemContainer extends FreeColGameObject {
 					LostCityRumour r = new LostCityRumour(getGame(), tile, ticR.getType(), ticR.getName());
 					addTileItem(r);
 				}
-			} else if (item instanceof TileImprovement) {
-				if (!copyOnlyNatural || ((TileImprovement) item).getType().isNatural()) {
+			} else if (item instanceof TileImprovement && (!copyOnlyNatural || ((TileImprovement) item).getType().isNatural())) {
 					addTileItem(new TileImprovement(getGame(), tile, (TileImprovement) item));
 				}
 			}
 		}
-	}
 
 	/**
 	 * Checks if the specified <code>TileItem</code> is in this container.

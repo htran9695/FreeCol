@@ -2126,12 +2126,10 @@ public class Unit extends GoodsLocation implements Consumer, Locatable, Movable,
 		if (isBeached(from)) {
 			// Ship on land due to it was in a colony which was abandoned
 			cost = ml;
-		} else if (cost > ml) {
+		} else if (cost > ml && (ml + 2 >= getInitialMovesLeft() || cost <= ml + 2 || target.hasSettlement()) && ml != 0) {
 			// Using +2 in order to make 1/3 and 2/3 move count as
 			// 3/3, only when getMovesLeft > 0
-			if ((ml + 2 >= getInitialMovesLeft() || cost <= ml + 2 || target.hasSettlement()) && ml != 0) {
 				cost = ml;
-			}
 		}
 		return cost;
 	}
@@ -4153,8 +4151,7 @@ public class Unit extends GoodsLocation implements Consumer, Locatable, Movable,
 			}
 		}
 		if (this.destination != null) {
-			if (((FreeColGameObject) this.destination).isUninitialized()) {
-				if (fix) {
+			if (((FreeColGameObject) this.destination).isUninitialized()&&fix) {
 					this.destination = null;
 					logger.warning("Cleared uninitialized destination for: " + getId());
 					result = Math.min(result, 0);
@@ -4162,7 +4159,6 @@ public class Unit extends GoodsLocation implements Consumer, Locatable, Movable,
 					logger.warning("Uninitialized destination for: " + getId());
 					result = -1;
 				}
-			}
 		}
 		return result;
 	}
